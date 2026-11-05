@@ -3,6 +3,7 @@ import { useStore } from '../../lib/store.jsx';
 import { Avatar, AvatarStack, Empty, Field, Modal } from '../ui.jsx';
 import { Glyph } from '../icons.jsx';
 import { LABEL_TONES, LabelChip } from '../UserLabels.jsx';
+import { isActiveUser } from '../people/shared.jsx';
 
 const LABEL_ICONS = ['sprout', 'pinned', 'shield', 'sparkle', 'cap', 'groups', 'star', 'medal', 'mic', 'ideas', 'trophy', 'label'];
 const TONE_NAMES = { saffron: 'Saffron', leaf: 'Leaf green', gold: 'Gold' };
@@ -63,8 +64,8 @@ function LabelForm({ label, onClose }) {
     const [d, setD] = useState(() => ({ name: '', description: '', tone: 'saffron', icon: 'label', showOnPosts: true, members: [], ...label }));
     const [q, setQ] = useState('');
     const [error, setError] = useState('');
-    const people = useMemo(() => state.users.filter((u) => (u.status ?? 'active') === 'active'), []);
-    const matches = people.filter((u) => !q || `${u.name} ${u.role} ${u.city} ${u.batch}`.toLowerCase().includes(q.toLowerCase()));
+    const people = useMemo(() => state.users.filter(isActiveUser), []);
+    const matches = people.filter((u) => !q || `${u.name} ${u.role ?? ''} ${u.city ?? ''} ${u.batch ?? ''}`.toLowerCase().includes(q.toLowerCase()));
     const toggle = (id) => setD({ ...d, members: d.members.includes(id) ? d.members.filter((m) => m !== id) : [...d.members, id] });
 
     const save = (e) => {
@@ -133,7 +134,7 @@ function LabelForm({ label, onClose }) {
                   <label className="flex min-h-12 cursor-pointer items-center gap-3 px-3 hover:bg-white/5">
                     <input type="checkbox" className="h-4 w-4 accent-brand-400" checked={d.members.includes(u.id)} onChange={() => toggle(u.id)} />
                     <Avatar user={u} size={30} />
-                    <span className="min-w-0 flex-1 truncate text-sm">{u.name}<span className="text-slate-500"> · Class of {u.batch}</span></span>
+                    <span className="min-w-0 flex-1 truncate text-sm">{u.name}{u.batch && <span className="text-slate-500"> · Class of {u.batch}</span>}</span>
                   </label>
                 </li>
               ))}

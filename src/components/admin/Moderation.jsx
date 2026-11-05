@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { timeAgo, useStore } from '../../lib/store.jsx';
 import { Field, Tabs, UserLink } from '../ui.jsx';
+import { publishPost } from '../feed/utils.js';
 
 /** Finds the reported content so moderators can see it and remove it. */
 function resolve(state, flag) {
@@ -88,7 +89,7 @@ export default function Moderation() {
                 <p className="mt-2 whitespace-pre-wrap text-sm text-slate-200">{p.text}</p>
                 <div className="mt-3 flex gap-2">
                   <button className="btn btn-primary h-10" onClick={() => {
-                    dispatch({ type: 'update', col: 'posts', id: p.id, patch: { status: 'published', createdAt: Date.now() } });
+                    publishPost(state, dispatch, p);
                     dispatch({ type: 'notify', silent: true, notification: { userId: p.authorId, kind: 'info', link: `/post/${p.id}`, text: 'Your post was approved and is now live.' } });
                   }}>Approve</button>
                   <button className="btn btn-ghost h-10" onClick={() => {

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { uid, useStore, fmtDate } from '../../lib/store.jsx';
 import { Avatar, Field, Modal } from '../ui.jsx';
+import { canSee, occurrences } from '../events/eventUtils.js';
 
 const KINDS = {
   about: 'About', rules: 'Guidelines', events: 'Upcoming events', members: 'Recent members',
@@ -54,21 +55,24 @@ export default function SpaceDashboard({ group, isAdmin }) {
 }
 
 function Widget({ w, group }) {
-  const { state, user } = useStore();
+  const { state, user, me } = useStore();
   switch (w.kind) {
     case 'about':
       return <p className="text-sm leading-relaxed text-slate-200">{group.description || 'No description yet.'}</p>;
     case 'rules':
       return <p className="whitespace-pre-wrap text-sm text-slate-300">{group.guidelines || 'No guidelines set.'}</p>;
     case 'events': {
-      const list = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && e.end > Date.now()).sort((a, b) => a.start - b.start).slice(0, 3);
+      const now = Date.now();
+      // Next occurrence of each visible group event (recurring series included).
+      const list = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && canSee(e, me, state.groups))
+        .flatMap((e) => occurrences(e, now, now + 120 * 864e5).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
       if (!list.length) return <p className="text-sm text-slate-400">No upcoming events.</p>;
       return (
         <ul className="space-y-2">
           {list.map((e) => (
-            <li key={e.id}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-white/5">
+            <li key={`${e.id}-${e.occStart}`}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-white/5">
               <div className="text-sm font-semibold">{e.title}</div>
-              <div className="text-xs text-slate-400">{fmtDate(e.start)} · {e.location}</div>
+              <div className="text-xs text-slate-400">{fmtDate(e.occStart)}{e.location ? ` · ${e.location}` : ''}</div>
             </Link></li>
           ))}
         </ul>

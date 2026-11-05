@@ -152,7 +152,7 @@ function Conversation({ kind, convo, title, onBack }) {
             onAttach={() => fileRef.current?.click()} error={error} placeholder={`Message ${title}`} members={convo.members} />
           <input ref={fileRef} type="file" className="hidden" onChange={pickFile} />
         </div>
-        {thread && <Thread parent={thread} replies={replies(thread.id)} onClose={() => setThreadId(null)} onSend={(t, f) => send(t, thread.id, f)} onReact={react} members={convo.members} />}
+        {thread && <Thread key={thread.id} parent={thread} replies={replies(thread.id)} onClose={() => setThreadId(null)} onSend={(t, f) => send(t, thread.id, f)} onReact={react} members={convo.members} />}
       </div>
 
       {settings && kind === 'channel' && <ChannelSettings channel={convo} isAdmin={isAdmin} onClose={() => setSettings(false)} onGone={onBack} />}

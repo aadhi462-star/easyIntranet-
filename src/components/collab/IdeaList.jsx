@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore, timeAgo } from '../../lib/store.jsx';
 import { Avatar, Empty, Field, Modal, Tabs } from '../ui.jsx';
-import { Select } from './common.jsx';
+import { Select, canSeeGroupItem, myGroups } from './common.jsx';
 
 export const IDEA_STATUSES = [
   { id: 'new', label: 'New', cls: '!bg-leaf-500/15 !text-leaf-200' },
@@ -39,7 +39,7 @@ export function VoteBox({ idea }) {
 }
 
 export function IdeaForm({ groupId, idea, onClose }) {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, me } = useStore();
   const cats = state.ideaCategories ?? [];
   const [f, setF] = useState({ title: idea?.title ?? '', description: idea?.description ?? '', category: idea?.category ?? cats[0] ?? '', groupId: idea?.groupId ?? groupId ?? '' });
   const set = (k) => (v) => setF({ ...f, [k]: v?.target ? v.target.value : v });
@@ -59,7 +59,7 @@ export function IdeaForm({ groupId, idea, onClose }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Category"><Select label="Category" value={f.category} onChange={set('category')} options={cats.map((c) => [c, c])} /></Field>
           <Field label="Group (optional)">
-            <Select label="Group" value={f.groupId} onChange={set('groupId')} options={[['', 'Whole network'], ...state.groups.map((g) => [g.id, g.name])]} />
+            <Select label="Group" value={f.groupId} onChange={set('groupId')} options={[['', 'Whole network'], ...myGroups(state, me, idea?.groupId ?? groupId).map((g) => [g.id, g.name])]} />
           </Field>
         </div>
         <button className="btn btn-primary w-full">{idea ? 'Save' : 'Submit idea'}</button>
@@ -112,13 +112,13 @@ export function IdeaCard({ idea }) {
 
 /** Ideas list with filters and sort. Embeddable in groups via `groupId`. */
 export default function IdeaList({ groupId, showContributors = !groupId }) {
-  const { state } = useStore();
+  const { state, me } = useStore();
   const [sort, setSort] = useState('trending');
   const [status, setStatus] = useState('all');
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
   const [creating, setCreating] = useState(false);
-  const all = (state.ideas ?? []).filter((i) => !groupId || i.groupId === groupId);
+  const all = (state.ideas ?? []).filter((i) => (!groupId || i.groupId === groupId) && canSeeGroupItem(state, me, i));
   const age = (i) => (Date.now() - i.createdAt) / 3600e3;
   const ideas = all
     .filter((i) => (status === 'all' || i.status === status) && (cat === 'all' || i.category === cat)

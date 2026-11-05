@@ -63,9 +63,14 @@ function core(s, a) {
       // Callers may pre-approve (e.g. an invitation), so decide from the final status.
       const pending = user.status === 'pending';
       const welcome = { id: uid('n'), userId: id, createdAt: Date.now(), read: false, kind: 'welcome', text: `Welcome to ${s.settings?.networkName ?? 'AlumniZone'}! Complete your profile so classmates can find you.`, link: `/people/${id}` };
-      const adminNote = pending ? [{ id: uid('n'), createdAt: Date.now(), read: false, kind: 'member', adminOnly: true, text: `${user.name} is waiting for membership approval`, link: '/admin/members' }] : [];
+      const adminNote = pending ? [{ id: uid('n'), createdAt: Date.now(), read: false, kind: 'member', adminOnly: true, ref: id, text: `${user.name} is waiting for membership approval`, link: '/admin/members' }] : [];
       return { ...s, users: [...s.users, user], session: pending ? null : { userId: id }, notifications: [welcome, ...adminNote, ...s.notifications] };
     }
+
+    // An admin approves a pending signup. Logged against the new member (see reducer) so
+    // "new member" workflows fire at approval, the moment they actually join.
+    case 'member/approve':
+      return { ...s, users: mapById(s.users, a.id, (u) => ({ ...u, status: 'active', deactivated: false })) };
 
     // Generic collection CRUD. `patch` may be an object or (item) => item.
     case 'add': {
@@ -84,8 +89,12 @@ function core(s, a) {
       return { ...s, posts: [{ id: uid('p'), authorId: me, createdAt: Date.now(), likes: [], comments: [], status: 'published', ...a.post }, ...s.posts] };
     case 'post/delete': return { ...s, posts: s.posts.filter((p) => p.id !== a.id) };
     // Draft, scheduled or pending → live. Points go to the author (see `creditTo`).
-    case 'post/publish':
+    case 'post/publish': {
+      // Idempotent: two tabs (or two runners) publishing the same post must not double-credit.
+      const p0 = s.posts.find((p) => p.id === a.id);
+      if (!p0 || p0.status === 'published') return s;
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, status: 'published', createdAt: a.keepDate ? p.createdAt : Date.now(), publishAt: undefined })) };
+    }
     case 'post/like': return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, likes: toggle(p.likes, me) })) };
     case 'post/comment':
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, comments: [...p.comments, { id: uid('c'), authorId: me, text: a.text, createdAt: Date.now() }] })) };
@@ -118,7 +127,16 @@ function core(s, a) {
         groups: mapById(s.groups, a.id, (g) => (leaving
           ? { ...g, members: without(g.members), admins: without(g.admins), moderators: without(g.moderators), optedOut: [...new Set([...(g.optedOut || []), me])] }
           : { ...g, members: [...g.members, me], joinRequests: without(g.joinRequests), optedOut: without(g.optedOut) })),
-        channels: s.channels.map((c) => (c.groupId === a.id ? { ...c, members: leaving ? without(c.members) : [...new Set([...c.members, me])] } : c)),
+        channels: s.channels.flatMap((c) => {
+          if (c.groupId !== a.id) return [c];
+          if (!leaving) return [{ ...c, members: [...new Set([...c.members, me])] }];
+          // Same rules as channel/leave: drop admin rights, delete when empty, and hand
+          // admin to the longest-standing member if nobody else has it.
+          const members = without(c.members);
+          if (!members.length) return [];
+          const admins = without(c.admins);
+          return [{ ...c, members, admins: admins.length || !c.admins ? admins : [members[0]] }];
+        }),
       };
     }
     case 'group/addMembers':
@@ -180,7 +198,9 @@ function core(s, a) {
         return { ...n, readBy: [...new Set([...(n.readBy || []), me])] };
       }) };
     // Another tab saved newer data: adopt it wholesale (see the storage listener below).
-    case 'hydrate': return a.state;
+    // Keep this tab's signed-in member unless the other tab signed out; `hydratedAt` lets
+    // runners skip activity that another tab already handled.
+    case 'hydrate': return { ...a.state, session: a.state.session && s.session ? s.session : a.state.session, hydratedAt: Date.now() };
     default: return s;
   }
 }
@@ -197,8 +217,10 @@ function reducer(s, a) {
   const next = core(s, a);
   if (next === s || a.type === 'hydrate' || a.type === 'set' && a.key === 'activity' || a.silent) return next;
   const key = a.col ? `${a.type}:${a.col}` : a.type;
-  const userId = a.creditTo ?? s.session?.userId ?? next.session?.userId;
-  const ref = a.id ?? a.item?.id ?? a.post?.id ?? null;
+  // A signup (even one waiting for approval) is attributed to the new member.
+  const joined = a.type === 'signup' ? next.users.at(-1)?.id : a.type === 'member/approve' ? a.id : null;
+  const userId = a.creditTo ?? joined ?? s.session?.userId ?? next.session?.userId;
+  const ref = joined ?? a.id ?? a.item?.id ?? a.post?.id ?? null;
   let points = POINTS[key] ?? 0;
   // Only live posts count: drafts, scheduled and pending posts earn on publish instead.
   if (key === 'post/create' && (a.post?.status ?? 'published') !== 'published') points = 0;
@@ -236,12 +258,15 @@ export function StoreProvider({ children }) {
   const latest = useRef(state);
   latest.current = state;
   const lastSaved = useRef(null);
+  // Actions since the last successful save, replayed if another tab's save arrives first.
+  const unsaved = useRef([]);
   const save = useCallback(() => {
     try {
       const raw = JSON.stringify(latest.current);
       if (raw === lastSaved.current) return;
       localStorage.setItem(KEY, raw);
       lastSaved.current = raw;
+      unsaved.current = [];
     } catch (err) {
       // Quota: say so instead of silently dropping every later change.
       if (err?.name === 'QuotaExceededError' || err?.code === 22) toast('Storage is full, so recent changes can’t be saved. Remove large files or attachments.', 'error');
@@ -261,7 +286,12 @@ export function StoreProvider({ children }) {
     // Two tabs: adopt the other tab's save rather than overwriting it later with stale data.
     const onStorage = (e) => {
       if (e.key !== KEY || !e.newValue || e.newValue === lastSaved.current) return;
-      try { lastSaved.current = e.newValue; rawDispatch({ type: 'hydrate', state: migrate(JSON.parse(e.newValue)) }); } catch { /* ignore corrupt */ }
+      try {
+        lastSaved.current = e.newValue;
+        const replay = unsaved.current;
+        rawDispatch({ type: 'hydrate', state: migrate(JSON.parse(e.newValue)) });
+        replay.forEach((x) => rawDispatch(x)); // keep this tab's not-yet-saved work
+      } catch { /* ignore corrupt */ }
     };
     window.addEventListener('pagehide', save);
     document.addEventListener('visibilitychange', onHide);
@@ -271,6 +301,7 @@ export function StoreProvider({ children }) {
 
   // Same reducer, plus a short confirmation toast for actions a member triggers directly.
   const dispatch = useCallback((a) => {
+    unsaved.current.push(a);
     rawDispatch(a);
     if (!a.silent && ACTION_TOASTS[a.type]) toast(ACTION_TOASTS[a.type]);
   }, []);

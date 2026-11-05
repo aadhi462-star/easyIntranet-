@@ -4,6 +4,10 @@ import { Field, Modal } from '../ui.jsx';
 import PeoplePicker from './PeoplePicker.jsx';
 import { EVENT_TYPES, MAX_ATTACHMENT, MAX_STORED_ATTACHMENT, REMINDER_OPTIONS, fmtSize, fromInput, toInput } from './eventUtils.js';
 
+// Total attachment storage per event, and the ceiling for the whole persisted state.
+const MAX_EVENT_ATTACHMENTS = 1.5 * 1024 * 1024;
+const MAX_STATE_SIZE = 4.5e6;
+
 /**
  * Create or edit an event. `initial` is either an existing event (edit) or a partial
  * draft such as { start, groupId } (create).
@@ -47,14 +51,32 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
   const addFiles = async (files) => {
     const limit = Math.min(MAX_ATTACHMENT, MAX_STORED_ATTACHMENT);
     const big = [...files].filter((file) => file.size > limit);
-    const ok = await Promise.all([...files].filter((file) => file.size <= limit).map((file) => new Promise((resolve) => {
+    const read = await Promise.all([...files].filter((file) => file.size <= limit).map((file) => new Promise((resolve) => {
       const r = new FileReader();
       r.onload = () => resolve({ name: file.name, size: file.size, type: file.type, dataUrl: r.result });
       r.onerror = () => resolve(null);
       r.readAsDataURL(file);
     })));
-    setError(big.length ? `${big.map((b) => b.name).join(', ')} ${big.length > 1 ? 'are' : 'is'} over the ${fmtSize(limit)} limit.` : '');
-    setF((x) => ({ ...x, attachments: [...x.attachments, ...ok.filter(Boolean)] }));
+    // Overall budgets: per event, and for the whole saved state (localStorage is ~5 MB).
+    const stored = (list) => list.reduce((n, a) => n + (a.dataUrl?.length || 0), 0);
+    const initialUrls = new Set((initial.attachments || []).map((a) => a.dataUrl));
+    let total = stored(f.attachments);
+    let pending = stored(f.attachments.filter((a) => !initialUrls.has(a.dataUrl)));
+    const stateSize = JSON.stringify(state).length;
+    const ok = [];
+    const over = [];
+    for (const att of read.filter(Boolean)) {
+      const len = att.dataUrl.length;
+      if (total + len > MAX_EVENT_ATTACHMENTS || stateSize + pending + len > MAX_STATE_SIZE) { over.push(att.name); continue; }
+      ok.push(att);
+      total += len;
+      pending += len;
+    }
+    const msgs = [];
+    if (big.length) msgs.push(`${big.map((b) => b.name).join(', ')} ${big.length > 1 ? 'are' : 'is'} over the ${fmtSize(limit)} limit.`);
+    if (over.length) msgs.push(`${over.join(', ')} ${over.length > 1 ? 'don’t' : 'doesn’t'} fit — attachments are limited to ${fmtSize(MAX_EVENT_ATTACHMENTS)} per event and there’s not enough storage left.`);
+    setError(msgs.join(' '));
+    setF((x) => ({ ...x, attachments: [...x.attachments, ...ok] }));
   };
 
   const submit = (e) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field, Logo, Modal, ThemeToggle } from '../components/ui.jsx';
@@ -29,6 +29,9 @@ const perks = [
 const stats = [['8,400+', 'Alumni'], ['120', 'Groups'], ['340', 'Events a year']];
 
 export const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+/** Shown when Web Crypto is unavailable (e.g. the app opened over plain http). */
+export const CRYPTO_ERROR = 'Your browser blocked secure password hashing. Open the app over https or localhost.';
 
 /** Salted SHA-256 of a password, as hex. Only the hash and salt are stored on the account. */
 export async function hashPassword(password, salt) {
@@ -133,13 +136,19 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [forgot, setForgot] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false); // state updates are async, so a fast double submit needs a ref
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busyRef.current) return;
     const u = state.users.find((x) => x.email?.toLowerCase() === email.trim().toLowerCase());
     // Accounts created here store a salted hash; demo accounts may carry a plain password;
     // the original demo people accept any password.
-    if (!u || !(await passwordMatches(u, password))) { setError('That email and password don’t match an AlumniZone account.'); return; }
+    let ok = false;
+    busyRef.current = true; setBusy(true);
+    try { ok = !!u && await passwordMatches(u, password); } catch { setError(CRYPTO_ERROR); return; } finally { busyRef.current = false; setBusy(false); }
+    if (!ok) { setError('That email and password don’t match an AlumniZone account.'); return; }
     if (u.status === 'pending') { setError('Your membership is waiting for approval from a community admin. We’ll notify you once you’re in.'); return; }
     if (u.status === 'deactivated') { setError('This account has been deactivated. Contact the community admins if you think this is a mistake.'); return; }
     dispatch({ type: 'login', userId: u.id });
@@ -160,7 +169,7 @@ export default function Login() {
           </Field>
         </div>
         {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
-        <button className="btn btn-primary mt-5 h-11 w-full">Sign in</button>
+        <button className="btn btn-primary mt-5 h-11 w-full" disabled={busy}>Sign in</button>
         <button type="button" onClick={() => setForgot(true)} className="mx-auto mt-4 block min-h-11 text-sm text-brand-300 hover:underline">Forgot your password?</button>
         <p className="mt-5 rounded-xl bg-white/5 px-4 py-3 text-center text-sm text-slate-300">
           New here? <Link to="/signup" className="font-semibold text-brand-300 hover:underline">Join the community</Link> · <Link to="/explore" className="text-brand-300 hover:underline">Look around first</Link>

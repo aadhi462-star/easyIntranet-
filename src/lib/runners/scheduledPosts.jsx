@@ -38,7 +38,7 @@ export default function ScheduledPosts() {
         const key = `rem:${p.id}:${m.remindedAt ?? 0}`;
         if (!due || handled.has(key)) continue;
         handled.add(key);
-        audienceOf(s, p).filter((id) => !m.acks.includes(id)).forEach((id) => dispatch({ type: 'notify',
+        audienceOf(s, p).filter((id) => !m.acks.includes(id)).forEach((id) => dispatch({ type: 'notify', silent: true,
           notification: { userId: id, kind: 'mandatory', link: `/post/${p.id}`, text: 'Reminder: a Mandatory Read post is waiting for your acknowledgement' } }));
         dispatch({ type: 'post/mandatory', id: p.id, silent: true, mandatory: { remindedAt: now } });
       }

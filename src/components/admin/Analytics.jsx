@@ -32,7 +32,7 @@ function contentEvents(s) {
 // (posts, comments, forum posts, messages, ideas, files, events, town halls) comes from the
 // content itself, and admin/system actions (settings, members, workflows…) aren't engagement.
 const INTERACTIONS = {
-  'post/publish': 'Wall', 'post/like': 'Wall', 'post/vote': 'Wall', 'post/ack': 'Wall',
+  'post/like': 'Wall', 'post/vote': 'Wall', 'post/ack': 'Wall',
   'forum/upvote': 'Forums', 'event/rsvp': 'Events', 'group/create': 'Groups', 'group/join': 'Groups',
   'manual/article': 'Manuals', 'update:ideas': 'Ideas', 'add:praise': 'Praise', 'add:answers': 'Town halls',
   'add:townhallQuestions': 'Town halls', 'add:surveyResponses': 'Surveys', 'add:tasks': 'Tasks',

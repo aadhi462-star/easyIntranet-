@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
-import { AuthShell, EMAIL_RE, passwordFields } from './Login.jsx';
+import { AuthShell, CRYPTO_ERROR, EMAIL_RE, passwordFields } from './Login.jsx';
 
 const DEPTS = ['Computer Science', 'Electronics', 'Electrical', 'Mechanical', 'Civil', 'Chemical', 'Business', 'Design', 'Other'];
 
@@ -14,10 +14,13 @@ export default function Signup() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false); // state updates are async, so a fast double submit needs a ref
   const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setError(''); };
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busyRef.current) return;
     const email = form.email.trim().toLowerCase();
     if (!form.name.trim() || !EMAIL_RE.test(email)) return setError('Enter your name and a valid email address.');
     if (form.password.length < 8) return setError('Use a password of at least 8 characters.');
@@ -26,7 +29,9 @@ export default function Signup() {
     if (state.users.some((u) => u.email?.toLowerCase() === email)) return setError('That email already has an account. Sign in instead.');
     if (!agreed) return setError('Please accept the community guidelines to join.');
     const { password: _ignored, ...profile } = form;
-    const secret = await passwordFields(form.password);
+    let secret;
+    busyRef.current = true; setBusy(true);
+    try { secret = await passwordFields(form.password); } catch { setError(CRYPTO_ERROR); return; } finally { busyRef.current = false; setBusy(false); }
     dispatch({ type: 'signup', user: { ...profile, ...secret, name: profile.name.trim(), email, batch: Number(form.batch) } });
     if (reg.requireApproval) setPending(true);
     else nav('/feed');
@@ -82,7 +87,7 @@ export default function Signup() {
           I agree to follow the community guidelines.
         </label>
         {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
-        <button className="btn btn-primary mt-4 h-11 w-full">Create my account</button>
+        <button className="btn btn-primary mt-4 h-11 w-full" disabled={busy}>Create my account</button>
         <p className="mt-4 text-center text-sm text-slate-400">Already a member? <Link to="/login" className="text-brand-300 hover:underline">Sign in</Link></p>
       </form>
     </AuthShell>

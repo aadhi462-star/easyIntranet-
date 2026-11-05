@@ -10,14 +10,40 @@ const TOOLS = [
   ['insertUnorderedList', '•', 'Bulleted list'], ['insertOrderedList', '1.', 'Numbered list'], ['formatBlock:blockquote', '❝', 'Quote'],
 ];
 
-/** Strip scripts, event handlers and javascript: URLs from editor HTML. */
+const ALLOWED_TAGS = new Set(['P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'H1', 'H2', 'H3', 'H4', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE',
+  'A', 'IMG', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'SPAN', 'DIV', 'HR']);
+const ALLOWED_ATTRS = new Set(['href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'class']);
+// Elements whose content is never shown as text — dropped along with what's inside.
+const DROP_WITH_CONTENT = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'TEMPLATE', 'NOSCRIPT', 'SVG', 'MATH', 'TEXTAREA', 'SELECT', 'NOFRAMES', 'NOEMBED', 'XMP', 'TITLE', 'HEAD', 'LINK', 'META', 'BASE', 'FRAME', 'FRAMESET']);
+
+function safeUrl(v, tag, name) {
+  try {
+    const u = new URL(v, location.href);
+    if (['http:', 'https:', 'mailto:'].includes(u.protocol)) return name !== 'src' || u.protocol !== 'mailto:';
+    return tag === 'IMG' && name === 'src' && /^data:image\//i.test(v.trim());
+  } catch { return false; }
+}
+
+/** Allowlist sanitizer for editor HTML: unknown tags are unwrapped (their text kept), unknown attributes and unsafe URLs removed. */
 export function sanitize(html) {
-  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
-  doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach((n) => n.remove());
-  doc.querySelectorAll('*').forEach((n) => [...n.attributes].forEach((a) => {
-    if (a.name.startsWith('on') || (/^(href|src)$/.test(a.name) && /^\s*javascript:/i.test(a.value))) n.removeAttribute(a.name);
-  }));
-  return doc.body.firstChild.innerHTML;
+  // Parse straight into <body> (no wrapper a stray `</div>` could close early). DOMParser documents never run scripts.
+  const root = new DOMParser().parseFromString(String(html ?? ''), 'text/html').body;
+  const clean = (parent) => {
+    for (const n of [...parent.childNodes]) {
+      if (n.nodeType === 3) continue; // text
+      if (n.nodeType !== 1) { n.remove(); continue; } // comments, processing instructions…
+      const tag = n.tagName.toUpperCase();
+      if (DROP_WITH_CONTENT.has(tag)) { n.remove(); continue; }
+      clean(n);
+      if (!ALLOWED_TAGS.has(tag)) { n.replaceWith(...n.childNodes); continue; }
+      for (const a of [...n.attributes]) {
+        const name = a.name.toLowerCase();
+        if (!ALLOWED_ATTRS.has(name) || ((name === 'href' || name === 'src') && !safeUrl(a.value, tag, name))) n.removeAttribute(a.name);
+      }
+    }
+  };
+  clean(root);
+  return root.innerHTML;
 }
 
 export function DocEditor({ value, onChange, readOnly }) {

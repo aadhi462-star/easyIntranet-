@@ -5,7 +5,7 @@ import { useStore } from '../lib/store.jsx';
 import { Avatar, Empty, UserLink } from '../components/ui.jsx';
 import Composer from '../components/feed/Composer.jsx';
 import PostCard from '../components/feed/PostCard.jsx';
-import { CommunityMood, MandatoryPending, TrendingTags } from '../components/feed/Widgets.jsx';
+import { CelebrateClassmates, CommunityMood, CompletenessCard, MandatoryPending, TrendingTags } from '../components/feed/Widgets.jsx';
 import { canSee, postsForView, tagsOf, VIEWS } from '../components/feed/utils.js';
 
 const PAGE = 15;
@@ -71,6 +71,8 @@ function FeedView({ view }) {
           </div>
         )}
         {COMPOSER_VIEWS.includes(v.id) && <Composer compact />}
+        {/* Below xl the sidebar is hidden, so the personal cards sit above the posts instead. */}
+        {v.id === 'my' && <div className="space-y-4 xl:hidden"><CompletenessCard /><CelebrateClassmates /></div>}
         {posts.length === 0 ? <Empty icon={v.icon} title="Nothing here yet">{EMPTY[v.id] ?? 'Posts will show up here.'}</Empty>
           : posts.slice(0, limit).map((p) => <PostCard key={p.id} post={p} />)}
         {posts.length > limit && <button className="btn btn-ghost w-full" onClick={() => setLimit(limit + PAGE)}>Load more</button>}
@@ -78,6 +80,8 @@ function FeedView({ view }) {
 
       <aside className="hidden space-y-4 xl:block">
         <MandatoryPending />
+        <CompletenessCard />
+        <CelebrateClassmates />
         <TrendingTags />
         <CommunityMood />
       </aside>

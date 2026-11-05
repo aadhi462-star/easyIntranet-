@@ -17,6 +17,9 @@ export default function Surveys() {
 }
 
 const isOpen = (s) => s.status === 'active' && (!s.deadline || s.deadline > Date.now());
+// Drafts are only for their author; group-audience surveys only for that group's members.
+const visibleToMe = (state, me, s) => s.authorId === me.id || (s.status !== 'draft'
+  && (s.audience?.type !== 'group' || !!state.groups.find((g) => g.id === s.audience.id)?.members.includes(me.id)));
 
 function SurveyList() {
   const { state, me, can } = useStore();
@@ -24,8 +27,7 @@ function SurveyList() {
   const [creating, setCreating] = useState(null); // null | 'blank' | template
   const [pickTemplate, setPickTemplate] = useState(false);
   const responded = (s) => (state.surveyResponses || []).some((r) => r.surveyId === s.id && r.authorId === me.id);
-  const visibleToMe = (s) => s.authorId === me.id || s.audience?.type !== 'group' || state.groups.find((g) => g.id === s.audience.id)?.members.includes(me.id);
-  const all = (state.surveys || []).filter((s) => s.status !== 'draft' || s.authorId === me.id).filter(visibleToMe);
+  const all = (state.surveys || []).filter((s) => visibleToMe(state, me, s));
   const lists = { active: all.filter(isOpen), closed: all.filter((s) => s.status !== 'draft' && !isOpen(s)), mine: all.filter((s) => s.authorId === me.id) };
 
   return (
@@ -154,7 +156,7 @@ function SurveyBuilder({ template, onClose }) {
 function SurveyDetail({ id }) {
   const { state, me, user, dispatch } = useStore();
   const nav = useNavigate();
-  const s = (state.surveys || []).find((x) => x.id === id);
+  const s = (state.surveys || []).find((x) => x.id === id && visibleToMe(state, me, x));
   const responses = (state.surveyResponses || []).filter((r) => r.surveyId === id);
   const mine = responses.find((r) => r.authorId === me.id);
   const isOwner = s && (s.authorId === me.id || me.admin);

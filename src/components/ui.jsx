@@ -71,7 +71,10 @@ export function Modal({ title, onClose, children, wide = false }) {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const focusables = () => [...(ref.current?.querySelectorAll(FOCUSABLE) ?? [])].filter((el) => el.offsetParent !== null || el === document.activeElement);
-    (bodyRef.current?.querySelector('input,textarea,select') ?? bodyRef.current?.querySelector(FOCUSABLE) ?? focusables()[0])?.focus();
+    // First visible, enabled field (hidden file inputs and collapsed sections are skipped).
+    const usable = (el) => el.offsetParent !== null && !el.disabled && el.type !== 'hidden' && !(el.type === 'file' && el.hidden);
+    const inBody = (sel) => [...(bodyRef.current?.querySelectorAll(sel) ?? [])].find(usable);
+    (inBody('input,textarea,select') ?? inBody(FOCUSABLE) ?? focusables().find(usable) ?? focusables()[0])?.focus();
     const onKey = (e) => {
       if (modalStack[modalStack.length - 1] !== token) return;
       if (e.key === 'Escape') { e.stopPropagation(); closeRef.current?.(); return; }

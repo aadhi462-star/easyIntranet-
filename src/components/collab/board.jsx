@@ -2,7 +2,7 @@ import { Glyph } from '../icons.jsx';
 import { useMemo, useState } from 'react';
 import { useStore, fmtDate, timeAgo, uid } from '../../lib/store.jsx';
 import { Avatar, Field, Modal, Tabs, UserLink } from '../ui.jsx';
-import { Menu, Select, UserPicker, fromDateInput, toDateInput } from './common.jsx';
+import { Menu, OptionsInput, Select, UserPicker, fromDateInput, myGroups, toDateInput } from './common.jsx';
 
 const PRIORITIES = [['none', 'No priority'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['urgent', 'Urgent']];
 const PRIO_CLS = { low: 'text-leaf-300', medium: 'text-amber-300', high: 'text-orange-300', urgent: 'text-rose-300' };
@@ -20,8 +20,10 @@ export function useBoardHelpers(board) {
 
 export function canSeeBoard(state, me, b) {
   if (b.scope === 'network') return true;
-  if (b.scope === 'group') return state.groups.find((g) => g.id === b.groupId)?.members.includes(me.id) || me.admin;
-  return b.members.includes(me.id) || b.ownerId === me.id;
+  // The owner and explicit board members always see it (e.g. a group board made by someone who later left the group).
+  if (b.ownerId === me.id || b.members?.includes(me.id)) return true;
+  if (b.scope === 'group') return myGroups(state, me).some((g) => g.id === b.groupId);
+  return false;
 }
 
 export function BoardForm({ board, groupId, onClose, onCreated }) {
@@ -61,7 +63,7 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
             <Select label="Visibility" value={f.scope} onChange={(v) => { set('scope', v); setError(''); }} options={[['network', '🌐 Network'], ['group', '👥 Group'], ['private', '🔒 Private (members only)']]} />
           </Field>
           {f.scope === 'group' && (
-            <Field label="Group"><Select label="Group" value={f.groupId} onChange={(v) => { set('groupId', v); setError(''); }} options={[['', 'Choose a group'], ...state.groups.map((g) => [g.id, g.name])]} /></Field>
+            <Field label="Group"><Select label="Group" value={f.groupId} onChange={(v) => { set('groupId', v); setError(''); }} options={[['', 'Choose a group'], ...myGroups(state, me, board?.groupId ?? groupId).map((g) => [g.id, g.name])]} /></Field>
           )}
         </div>
         <Field label="Members"><UserPicker value={f.members} onChange={(v) => set('members', v)} /></Field>
@@ -105,8 +107,8 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
                 <input className="input" value={c.name} onChange={(e) => setFieldDef(i, { name: e.target.value })} aria-label="Field name" />
                 <Select label="Field type" value={c.type} onChange={(v) => setFieldDef(i, { type: v })} options={[['text', 'Text'], ['number', 'Number'], ['select', 'Dropdown'], ['date', 'Date']]} />
                 {c.type === 'select' ? (
-                  <input className="input col-span-3 sm:col-span-1" placeholder="Options, comma separated" value={(c.options ?? []).join(', ')}
-                    onChange={(e) => setFieldDef(i, { options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} aria-label="Dropdown options" />
+                  <OptionsInput className="input col-span-3 sm:col-span-1" placeholder="Options, comma separated" value={c.options}
+                    onChange={(options) => setFieldDef(i, { options })} aria-label="Dropdown options" />
                 ) : <span className="hidden sm:block" />}
                 <button type="button" className="btn btn-ghost h-10 w-10 !p-0 text-rose-300" aria-label="Remove field" onClick={() => set('customFields', f.customFields.filter((_, j) => j !== i))}>✕</button>
               </div>

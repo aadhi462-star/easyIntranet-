@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore, uid } from '../../lib/store.jsx';
 import { Empty, Field, Modal } from '../ui.jsx';
-import { ScopeBadge } from './common.jsx';
+import { ScopeBadge, canSeeGroupItem } from './common.jsx';
 import { canReadArticle, manualRoles } from './manual.js';
 
 export function ManualForm({ manual, groupId, onClose }) {
@@ -38,7 +38,7 @@ export function ManualForm({ manual, groupId, onClose }) {
 export default function ManualList({ groupId }) {
   const { state, me, can } = useStore();
   const [creating, setCreating] = useState(false);
-  const manuals = state.manuals.filter((m) => (groupId ? m.groupId === groupId : true) && (m.published || manualRoles(m, me).canEdit));
+  const manuals = state.manuals.filter((m) => (groupId ? m.groupId === groupId : true) && (m.published || manualRoles(m, me).canEdit) && (canSeeGroupItem(state, me, m) || manualRoles(m, me).canEdit));
   return (
     <div>
       {can('manual.create') && <div className="mb-4 flex justify-end"><button className="btn btn-primary" onClick={() => setCreating(true)}>＋ New manual</button></div>}

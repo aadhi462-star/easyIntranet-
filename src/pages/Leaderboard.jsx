@@ -8,7 +8,7 @@ import { PraiseModal, PRAISE_BADGES, praiseBadge, isActiveUser } from '../compon
 const day = 86400e3;
 const PERIODS = [{ id: 'week', label: 'This week', ms: 7 * day }, { id: 'month', label: 'This month', ms: 30 * day }, { id: 'all', label: 'All time', ms: null }];
 
-// Arcade: challenges computed from the activity counts that statsFor returns.
+// Arcade: challenges computed from scoring activity (see challengeCounts).
 const CHALLENGES = [
   { id: 'post3', icon: '✍️', title: 'Post 3 times on the wall', goal: 3, count: (c) => c['post/create'] || 0, reward: 'Storyteller' },
   { id: 'rsvp2', icon: '🎟️', title: 'RSVP to 2 events', goal: 2, count: (c) => c['event/rsvp'] || 0, reward: 'Show Up' },
@@ -20,12 +20,31 @@ const CHALLENGES = [
   { id: 'survey1', icon: '📋', title: 'Answer a survey', goal: 1, count: (c) => c['add:surveyResponses'] || 0, reward: 'Voice' },
 ];
 
+// Toggle-style actions are counted once per item, so join/leave/join or RSVP flips
+// can't complete a challenge; other actions count each scoring entry.
+const DISTINCT = new Set(['event/rsvp', 'group/join']);
+function challengeCounts(activity, userId) {
+  const counts = {};
+  const seen = new Set();
+  for (const a of activity || []) {
+    if (a.userId !== userId || !(a.points > 0)) continue;
+    if (DISTINCT.has(a.type) && a.ref != null) {
+      const k = `${a.type}|${a.ref}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+    }
+    counts[a.type] = (counts[a.type] || 0) + 1;
+  }
+  return counts;
+}
+
 export default function Leaderboard() {
   const { state, me, user, dispatch } = useStore();
   const [tab, setTab] = useState('board');
   const [period, setPeriod] = useState('week');
   const [praise, setPraise] = useState(false);
   const mine = statsFor(state, me.id);
+  const arcadeCounts = useMemo(() => challengeCounts(state.activity, me.id), [state.activity, me.id]);
 
   const { contributors, awardees } = useMemo(() => {
     const p = PERIODS.find((x) => x.id === period);
@@ -132,7 +151,7 @@ export default function Leaderboard() {
       {tab === 'arcade' && (
         <div className="grid gap-3 sm:grid-cols-2">
           {CHALLENGES.map((c) => {
-            const n = Math.min(c.goal, c.count(mine.counts));
+            const n = Math.min(c.goal, c.count(arcadeCounts));
             const done = n >= c.goal;
             const has = claimed.includes(`arcade-${c.id}`);
             return (

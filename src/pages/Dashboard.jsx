@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { fmtDate, timeAgo, uid, useStore } from '../lib/store.jsx';
 import { leaderboard } from '../lib/gamify.js';
 import { useTheme } from '../lib/theme.js';
-import { canSee as canSeePost } from '../components/feed/utils.js';
+import { audienceOf, canSee as canSeePost, isLive } from '../components/feed/utils.js';
 import { canSee as canSeeEvent, isUrl, nextOccurrence } from '../components/events/eventUtils.js';
 import { Avatar, Field, Modal, PageHeader } from '../components/ui.jsx';
 
@@ -98,7 +98,7 @@ function WidgetBody({ w }) {
   const scrollBox = 'space-y-2 text-sm';
   switch (w.kind) {
     case 'welcome': {
-      const anns = state.posts.filter((p) => p.type === 'announcement' && p.status !== 'pending' && canSeePost(state, me, p))
+      const anns = state.posts.filter((p) => p.type === 'announcement' && isLive(p) && canSeePost(state, me, p))
         .sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
       return (
         <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
@@ -120,8 +120,8 @@ function WidgetBody({ w }) {
       );
     }
     case 'mandatory': {
-      const pending = state.posts.filter((p) => p.mandatory && p.status !== 'pending' && p.authorId !== me.id
-        && !p.mandatory.acks.includes(me.id) && canSeePost(state, me, p));
+      const pending = state.posts.filter((p) => p.mandatory && isLive(p) && p.authorId !== me.id
+        && !(p.mandatory.acks || []).includes(me.id) && audienceOf(state, p).includes(me.id) && canSeePost(state, me, p));
       return pending.length === 0 ? <p className="text-sm text-slate-400">Nothing to acknowledge. ✅</p> : (
         <ul className={scrollBox}>{pending.map((p) => (
           <li key={p.id}><Link to={`/post/${p.id}`} className="block rounded-lg bg-amber-400/10 p-3 hover:bg-amber-400/15">

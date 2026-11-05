@@ -6,10 +6,11 @@ import FileList, { MAX_SIZE, ShareModal, downloadFile, fileIcon, storeUpload } f
 import { DocEditor, SheetEditor, SlidesEditor, useObjectUrl } from '../components/collab/editors.jsx';
 import { fmtSize, getBlob } from '../components/collab/fileStore.js';
 import { toast } from '../lib/toast.js';
+import { canSeeGroupItem } from '../components/collab/common.jsx';
 
 export default function Files() {
   const { id } = useParams();
-  const { state } = useStore();
+  const { state, me } = useStore();
   if (!id) {
     return (
       <>
@@ -18,7 +19,8 @@ export default function Files() {
       </>
     );
   }
-  const file = (state.files ?? []).find((f) => f.id === id);
+  // Same rule as the file lists: network files, the group's files, your own, or ones shared with you.
+  const file = (state.files ?? []).find((f) => f.id === id && (canSeeGroupItem(state, me, f) || f.sharedWith?.includes(me.id)));
   if (!file) return <div className="glass p-8">File not found. <Link to="/files" className="text-brand-400 underline">Back to files</Link></div>;
   return <FileView key={file.id} file={file} />;
 }
@@ -62,18 +64,28 @@ function FileView({ file }) {
   };
   // Leaving the page saves any edit still waiting on the debounce.
   useEffect(() => () => flushRef.current(), []);
-  // A restored snapshot replaces the draft.
+  // Adopt content that changed outside this editor — a restored snapshot, or a save from another
+  // tab — unless we have an unsaved local edit (that edit wins and is flushed as usual). Our own
+  // flushes write draftRef.current, so they compare equal and are ignored. `rev` re-keys the
+  // editors; it is bumped in the same batch as setDraft, so the remounted DocEditor's mount
+  // effect sees the adopted content (keying on file.restoredAt remounted it one render early,
+  // with the old draft, and its next keystroke wrote that old HTML back).
+  const [rev, setRev] = useState(0);
   const restoredAt = file.restoredAt ?? 0;
-  const firstRestore = useRef(restoredAt);
+  const seenRestore = useRef(restoredAt);
   useEffect(() => {
-    if (restoredAt === firstRestore.current) return;
-    firstRestore.current = restoredAt;
+    const restored = restoredAt !== seenRestore.current;
+    seenRestore.current = restoredAt;
+    // Sheets/slides are objects; another tab's state arrives as freshly parsed copies, so compare by value.
+    const same = file.content === draftRef.current || JSON.stringify(file.content) === JSON.stringify(draftRef.current);
+    if (!restored && (pending.current || same)) return;
     clearTimeout(timer.current);
     pending.current = false;
     draftRef.current = file.content;
     setDraft(file.content);
     setSaved(true);
-  }, [restoredAt]); // eslint-disable-line react-hooks/exhaustive-deps
+    setRev((r) => r + 1);
+  }, [file.content, restoredAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -90,9 +102,9 @@ function FileView({ file }) {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
         <div>
-          {file.kind === 'doc' && <DocEditor key={restoredAt} value={draft} onChange={change} readOnly={!canEdit} />}
-          {file.kind === 'sheet' && <SheetEditor key={restoredAt} value={draft} onChange={change} readOnly={!canEdit} />}
-          {file.kind === 'slides' && <SlidesEditor key={restoredAt} value={draft} onChange={change} readOnly={!canEdit} />}
+          {file.kind === 'doc' && <DocEditor key={rev} value={draft} onChange={change} readOnly={!canEdit} />}
+          {file.kind === 'sheet' && <SheetEditor key={rev} value={draft} onChange={change} readOnly={!canEdit} />}
+          {file.kind === 'slides' && <SlidesEditor key={rev} value={draft} onChange={change} readOnly={!canEdit} />}
           {file.kind === 'upload' && <Preview file={file} />}
         </div>
         <Versions file={file} canEdit={canEdit} flush={flush} />

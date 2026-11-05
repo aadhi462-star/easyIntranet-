@@ -61,6 +61,38 @@ export function Select({ value, onChange, options, label, className = '' }) {
   );
 }
 
+const inGroupRole = (g, uid) => !!g && [g.members, g.admins, g.moderators].some((l) => l?.includes(uid));
+
+/**
+ * Can `me` read a group-scoped item (forum post, idea, manual, file…)? Network items are
+ * open; group items follow the group page: public/restricted groups are browsable by all,
+ * private ones only by their members (and network admins). Authors always see their own.
+ */
+export function canSeeGroupItem(state, me, x) {
+  if (!x?.groupId || me?.admin || (x.authorId && x.authorId === me?.id)) return true;
+  const g = (state.groups ?? []).find((y) => y.id === x.groupId);
+  return !!g && (g.accessType !== 'private' || inGroupRole(g, me?.id));
+}
+
+/** Groups `me` may create group-scoped items in: ones they belong to (network admins: all). `keep` is an already-chosen id to keep listed. */
+export const myGroups = (state, me, keep) => (state.groups ?? []).filter((g) => me?.admin || g.id === keep || inGroupRole(g, me?.id));
+
+const parseOptions = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
+
+/**
+ * Comma-separated options input. The raw text lives here so typing ", " isn't swallowed by a
+ * join/split round trip; the parsed list is reported on every change (so Enter-to-submit saves
+ * it) and the text is tidied on blur.
+ */
+export function OptionsInput({ value, onChange, className = 'input', ...rest }) {
+  const [raw, setRaw] = useState(() => (value ?? []).join(', '));
+  return (
+    <input {...rest} className={className} value={raw}
+      onChange={(e) => { setRaw(e.target.value); onChange(parseOptions(e.target.value)); }}
+      onBlur={(e) => { const list = parseOptions(e.target.value); setRaw(list.join(', ')); onChange(list); }} />
+  );
+}
+
 export const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 export const toDateInput = (t) => (t ? new Date(t - new Date(t).getTimezoneOffset() * 60000).toISOString().slice(0, 10) : '');

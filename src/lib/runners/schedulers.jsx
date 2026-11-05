@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../store.jsx';
+import { isLive, isPublicPost } from '../../components/feed/utils.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 export const INTERVALS = { daily: DAY, weekly: 7 * DAY, monthly: 30 * DAY };
@@ -10,8 +11,11 @@ export function runJob(job, state, dispatch) {
   const scope = job.target && job.target !== 'network' ? { type: 'group', id: job.target } : { type: 'network' };
   const since = job.lastRun || Date.now() - (INTERVALS[job.interval] || DAY);
   if (job.kind === 'digest') {
-    const posts = state.posts.filter((p) => p.createdAt >= since && p.status !== 'pending');
-    const events = state.events.filter((e) => e.start > Date.now() && e.start < Date.now() + 14 * DAY);
+    // Only live posts the digest's audience can see: public ones, or the target group's own.
+    const inTarget = (s) => scope.type === 'group' && s?.type === 'group' && s.id === scope.id;
+    const posts = state.posts.filter((p) => p.createdAt >= since && isLive(p) && (isPublicPost(state, p) || inTarget(p.scope)));
+    const events = state.events.filter((e) => e.start > Date.now() && e.start < Date.now() + 14 * DAY
+      && (e.scope?.type === 'network' || inTarget(e.scope)));
     const top = [...posts].sort((a, b) => (b.likes.length + b.comments.length) - (a.likes.length + a.comments.length)).slice(0, 3);
     const lines = [
       `📬 ${job.name}: ${posts.length} new post${posts.length === 1 ? '' : 's'} since last time.`,

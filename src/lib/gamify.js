@@ -20,7 +20,7 @@ export const LEVELS = [
 ];
 
 export const BADGES = [
-  { id: 'first-post', icon: '✍️', name: 'First Words', desc: 'Published your first post', test: (c) => c['post/create'] >= 1 },
+  { id: 'first-post', icon: '✍️', name: 'First Words', desc: 'Published your first post', test: (c) => (c['post/create'] || 0) + (c['post/publish'] || 0) >= 1 },
   { id: 'commenter', icon: '💬', name: 'Conversation Starter', desc: '10 comments or replies', test: (c) => (c['post/comment'] || 0) + (c['forum/reply'] || 0) >= 10 },
   { id: 'ideator', icon: '💡', name: 'Ideator', desc: 'Shared 3 ideas', test: (c) => c['add:ideas'] >= 3 },
   { id: 'event-goer', icon: '🎟️', name: 'Event Goer', desc: 'RSVPed to 3 events', test: (c) => c['event/rsvp'] >= 3 },
@@ -39,7 +39,9 @@ export function statsFor(state, userId, since = 0) {
   let points = since ? 0 : (BASE[userId] ?? 0);
   for (const a of state.activity || []) {
     if (a.userId !== userId || a.at < since) continue;
-    counts[a.type] = (counts[a.type] || 0) + 1;
+    // Toggles and unpublished drafts log with 0 points; only scoring entries count towards
+    // badges, so RSVP-flipping or saving drafts can't earn them.
+    if (a.points > 0) counts[a.type] = (counts[a.type] || 0) + 1;
     points += a.points || 0;
   }
   points += (state.praise || []).filter((p) => p.toId === userId && (p.createdAt ?? 0) >= since).length * 5;

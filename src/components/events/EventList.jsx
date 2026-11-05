@@ -4,7 +4,7 @@ import { useStore } from '../../lib/store.jsx';
 import { Empty } from '../ui.jsx';
 import EventCard from './EventCard.jsx';
 import EventForm from './EventForm.jsx';
-import { canSee, occurrences } from './eventUtils.js';
+import { canSee, lastOccurrence, occurrences } from './eventUtils.js';
 
 const DAY = 864e5;
 
@@ -21,7 +21,13 @@ export default function EventList({ groupId, limit, showPast = true }) {
 
   const events = state.events.filter((e) => canSee(e, me, state.groups) && (!groupId || (e.scope?.type === 'group' && e.scope.id === groupId)));
   const upcoming = events.flatMap((e) => occurrences(e, now, now + 120 * DAY).slice(0, 3)).sort((a, b) => a.occStart - b.occStart);
-  const past = events.filter((e) => e.end < now && (!e.recurrence || e.recurrence.freq === 'none')).sort((a, b) => b.start - a.start);
+  // One-off events that are over, plus recurring series that have ended (shown at their last date).
+  const past = events.flatMap((e) => {
+    if (!e.recurrence || e.recurrence.freq === 'none') return e.end < now ? [e] : [];
+    if (!e.recurrence.until || e.recurrence.until >= now) return [];
+    const last = lastOccurrence(e, now);
+    return last == null ? [] : [{ ...e, occStart: last, occEnd: last + (e.end - e.start) }];
+  }).sort((a, b) => (b.occStart ?? b.start) - (a.occStart ?? a.start));
   const shown = limit ? upcoming.slice(0, limit) : upcoming;
 
   return (

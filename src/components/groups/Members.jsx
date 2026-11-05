@@ -23,18 +23,23 @@ export default function Members({ group, isAdmin }) {
     // Record the opt-out so a dynamic-membership rule doesn't re-add them.
     patch((g) => ({ ...g, members: g.members.filter((x) => x !== id), admins: g.admins.filter((x) => x !== id), moderators: (g.moderators || []).filter((x) => x !== id),
       optedOut: [...new Set([...(g.optedOut || []), id])] }));
-    for (const c of state.channels.filter((c) => c.groupId === group.id && c.members.includes(id))) {
-      dispatch({ type: 'update', col: 'channels', id: c.id, patch: (x) => ({ ...x, members: x.members.filter((m) => m !== id) }), silent: true });
+    // Drop them from linked channels too (members and admins). A channel left empty is
+    // deleted; one whose admin list empties promotes the first remaining member.
+    for (const c of state.channels.filter((c) => c.groupId === group.id && (c.members.includes(id) || (c.admins || []).includes(id)))) {
+      const rest = c.members.filter((m) => m !== id);
+      if (!rest.length) { dispatch({ type: 'channel/delete', id: c.id, silent: true }); continue; }
+      dispatch({ type: 'update', col: 'channels', id: c.id, silent: true, patch: (x) => {
+        const members = x.members.filter((m) => m !== id);
+        if (!x.admins) return { ...x, members };
+        const admins = x.admins.filter((m) => m !== id);
+        return { ...x, members, admins: admins.length ? admins : members.slice(0, 1) };
+      } });
     }
   };
   const decide = (id, approve) => {
-    patch((g) => ({ ...g, joinRequests: (g.joinRequests || []).filter((x) => x !== id), members: approve ? [...new Set([...g.members, id])] : g.members }));
-    if (approve) {
-      // Keep any associated channels in step with membership.
-      for (const c of state.channels.filter((c) => c.groupId === group.id && !c.members.includes(id))) {
-        dispatch({ type: 'update', col: 'channels', id: c.id, patch: { members: [...c.members, id] }, silent: true });
-      }
-    }
+    // group/addMembers also clears the request and opt-out and syncs linked channels.
+    if (approve) dispatch({ type: 'group/addMembers', id: group.id, userIds: [id] });
+    else patch((g) => ({ ...g, joinRequests: (g.joinRequests || []).filter((x) => x !== id) }));
     dispatch({ type: 'notify', silent: true, notification: { userId: id, kind: 'group', link: `/groups/${group.id}`,
       text: approve ? `Your request to join ${group.name} was approved` : `Your request to join ${group.name} was declined` } });
   };

@@ -81,6 +81,9 @@ const COLLECTIONS = [
   ['surveys', 'Surveys'], ['surveyResponses', 'Survey responses'], ['townhalls', 'Town halls'], ['customApps', 'Custom apps'], ['appRecords', 'App records'], ['activity', 'Audit log'],
 ];
 
+// Never export credentials, even hashed ones.
+const withoutSecrets = (u) => { if (!u) return u; const { password: _p, passwordHash: _h, passwordSalt: _s, ...rest } = u; return rest; };
+
 export function DataExport() {
   const { state } = useStore();
   const [picked, setPicked] = useState(['users', 'posts', 'groups', 'events', 'forumPosts', 'manuals']);
@@ -90,7 +93,8 @@ export function DataExport() {
   const [decPass, setDecPass] = useState('');
   const [decMsg, setDecMsg] = useState('');
   const avail = COLLECTIONS.filter(([k]) => Array.isArray(state[k]));
-  const payload = () => ({ exportedAt: new Date().toISOString(), network: state.settings.networkName, ...Object.fromEntries(picked.map((k) => [k, state[k] ?? []])) });
+  const clean = (k, list) => (k === 'users' ? list.map(withoutSecrets) : list);
+  const payload = () => ({ exportedAt: new Date().toISOString(), network: state.settings.networkName, ...Object.fromEntries(picked.map((k) => [k, clean(k, state[k] ?? [])])) });
   const stamp = new Date().toISOString().slice(0, 10);
 
   const encrypted = async () => {
@@ -162,7 +166,7 @@ export function Security() {
   const member = state.users.find((u) => u.id === target);
 
   const memberData = (id) => ({
-    profile: state.users.find((u) => u.id === id),
+    profile: withoutSecrets(state.users.find((u) => u.id === id)),
     posts: state.posts.filter((p) => p.authorId === id),
     comments: state.posts.flatMap((p) => p.comments.filter((c) => c.authorId === id).map((c) => ({ ...c, postId: p.id }))),
     forumPosts: state.forumPosts.filter((f) => f.authorId === id),

@@ -5,6 +5,7 @@ import { useStore } from '../lib/store.jsx';
 import { PageHeader } from '../components/ui.jsx';
 import ForumList from '../components/collab/ForumList.jsx';
 import { CategoryModal, ForumPostView } from '../components/collab/forum.jsx';
+import { canSeeGroupItem } from '../components/collab/common.jsx';
 
 export default function Forums() {
   const { id } = useParams();
@@ -15,7 +16,9 @@ export default function Forums() {
   const [more, setMore] = useState(false);
 
   const category = id && state.forumCategories.find((c) => c.id === id || c.slug === id);
-  const post = id && !category && state.forumPosts.find((f) => f.id === id);
+  // Drafts are only for their author; private-group posts only for that group's members.
+  const post = id && !category && state.forumPosts.find((f) => f.id === id
+    && (f.status === 'draft' ? f.authorId === me.id : canSeeGroupItem(state, me, f)));
   const view = params.get('view') || 'all';
   const follows = state.forumFollows?.[me.id] ?? [];
   const toggleFollow = (cid) => dispatch({ type: 'set', key: 'forumFollows', value: (prev = {}, uid) => {
@@ -24,7 +27,7 @@ export default function Forums() {
   } });
 
   const link = (v) => `px-3 min-h-10 flex items-center gap-2 rounded-xl text-sm ${v ? 'bg-brand-500/20 text-white ring-1 ring-brand-500/40' : 'text-slate-300 hover:bg-white/5'}`;
-  const count = (cid) => state.forumPosts.filter((f) => f.status !== 'draft' && f.categories.includes(cid)).length;
+  const count = (cid) => state.forumPosts.filter((f) => f.status !== 'draft' && f.categories.includes(cid) && canSeeGroupItem(state, me, f)).length;
 
   return (
     <div className="ext-grid grid gap-6 lg:grid-cols-[220px_1fr]">

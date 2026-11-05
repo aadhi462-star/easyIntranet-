@@ -7,6 +7,18 @@ import { users as baseUsers } from '../seed.js';
 const day = 24 * 60 * 60 * 1000;
 const now = Date.now();
 
+// Birthdays are "MM-DD" only (no year, for privacy). Two fall in the next few days relative
+// to when the demo data is created, so the "Celebrate classmates" widget has something to show.
+const pad = (n) => String(n).padStart(2, '0');
+const monthDayIn = (days) => { const d = new Date(now + days * day); return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+// A join date `years` ago, `days` from today's month/day: a work anniversary coming up.
+const yearsAgoIn = (years, days) => { const d = new Date(now + days * day); d.setFullYear(d.getFullYear() - years); return d.getTime(); };
+const birthdays = {
+  u2: monthDayIn(1), u3: monthDayIn(2), u4: '03-14', u5: '07-22', u7: '12-09', u8: '02-29', u9: '01-19', u13: '09-05', u17: '06-30',
+};
+// Founding members whose community anniversary falls within the coming week.
+const joinedOverride = { u7: yearsAgoIn(3, 4), u8: yearsAgoIn(2, 6) };
+
 const extra = {
   u1: { managerId: 'u3', title: 'Mentor · Design', customFields: { linkedin: 'aisha-raman', mentor: 'Yes', hostel: 'Hostel C' } },
   u2: { managerId: 'u8', title: 'Founders Circle Lead', customFields: { linkedin: 'karthik-menon', mentor: 'Yes', hostel: 'Hostel B' } },
@@ -42,9 +54,9 @@ const more = [
 export const seed = {
   get users() {
     return [
-      ...baseUsers.map((u, i) => ({ ...u, ...extra[u.id], joinedAt: now - (200 - i * 15) * day, lastActiveAt: now - (i % 3) * 3600e3 })),
+      ...baseUsers.map((u, i) => ({ ...u, ...extra[u.id], joinedAt: joinedOverride[u.id] ?? now - (200 - i * 15) * day, lastActiveAt: now - (i % 3) * 3600e3 })),
       ...more,
-    ];
+    ].map((u) => (birthdays[u.id] && !u.birthday ? { ...u, birthday: birthdays[u.id] } : u));
   },
 
   customFields: [
@@ -75,6 +87,10 @@ export const seed = {
     { id: 'pr2', authorId: 'u2', fromId: 'u2', toId: 'u8', badge: 'helper', message: 'Thanks for the investor intros.', createdAt: now - 4 * day },
     { id: 'pr3', authorId: 'u3', fromId: 'u3', toId: 'u1', badge: 'rockstar', message: 'Your portfolio review session was brilliant.', createdAt: now - 6 * day },
   ],
+  // Birthday / anniversary wishes sent: {id, fromId, toId, kind: 'birthday'|'anniversary', year}.
+  wishes: [],
+  // Saved searches with alerts: {id, userId, q, type, name, createdAt, lastSeenIds: []}.
+  savedSearches: [],
   badgeAwards: [{ id: 'ba1', toId: 'u7', badgeId: 'first-post' }],
   blocks: [],
 

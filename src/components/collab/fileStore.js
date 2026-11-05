@@ -8,7 +8,12 @@ function db() {
   dbp ??= new Promise((resolve, reject) => {
     const req = indexedDB.open(DB, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const d = req.result;
+      // If the connection goes away (another tab upgrades, or the browser closes it), reopen on next use.
+      d.onclose = d.onversionchange = () => { d.close(); dbp = undefined; };
+      resolve(d);
+    };
     req.onerror = () => { dbp = undefined; reject(req.error); };
   });
   return dbp;

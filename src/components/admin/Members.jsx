@@ -20,8 +20,10 @@ export default function Members() {
   const pending = state.users.filter((u) => u.status === 'pending');
   const isOff = (u) => u.deactivated || u.status === 'deactivated';
   // The admin "waiting for approval" note is done once the request is handled either way.
-  const clearApprovalNotes = (u) => dispatch({ type: 'set', key: 'notifications', silent: true, value: (list = []) => list.map((n) => (
-    n.adminOnly && !n.read && (n.ref === u.id || (u.name && n.text?.includes(u.name) && /approval/i.test(n.text))) ? { ...n, read: true } : n)) });
+  // Removed rather than marked read: it's a broadcast (per-admin readBy), so `read` alone left
+  // other admins with a stale unread badge.
+  const clearApprovalNotes = (u) => dispatch({ type: 'set', key: 'notifications', silent: true, value: (list = []) => list.filter((n) => !(
+    n.adminOnly && (n.ref ? n.ref === u.id : !!u.name && n.text?.includes(u.name) && /approval/i.test(n.text)))) });
   // Keep the External flag and the External user role in step.
   const setExternal = (u, on) => upd(u.id, { external: on, roleId: on ? 'external' : (u.roleId === 'external' || !u.roleId ? 'member' : u.roleId) });
   const setRole = (u, roleId) => upd(u.id, { roleId, external: roleId === 'external' ? true : u.roleId === 'external' ? false : !!u.external });
@@ -47,7 +49,7 @@ export default function Members() {
                 <span className="min-w-48 flex-1"><span className="block font-semibold text-white">{u.name}</span>
                   <span className="text-xs text-slate-400">{u.email}{u.batch ? ` · Class of ${u.batch}` : ''}{u.joinedAt ? ` · signed up ${timeAgo(u.joinedAt)}` : ''}</span></span>
                 <button className="btn btn-primary h-10 text-xs" onClick={() => {
-                  upd(u.id, { status: 'active', deactivated: false });
+                  dispatch({ type: 'member/approve', id: u.id });
                   clearApprovalNotes(u);
                   dispatch({ type: 'notify', silent: true, notification: { userId: u.id, kind: 'info', link: '/feed', text: `Welcome! Your ${state.settings.networkName} membership was approved.` } });
                 }}>Approve</button>

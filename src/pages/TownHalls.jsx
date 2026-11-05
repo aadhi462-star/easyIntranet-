@@ -166,7 +166,7 @@ function Session({ id }) {
         <section className="glass p-5" aria-label="Highlights">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Highlights</h2>
-            {byTab.answered.length > 0 && <button className="btn btn-ghost" disabled={busy} onClick={highlights}>{busy ? 'Summarising…' : th.highlights ? 'Regenerate' : 'Generate highlights'}</button>}
+            {th.status === 'ended' && byTab.answered.length > 0 && <button className="btn btn-ghost" disabled={busy} onClick={highlights}>{busy ? 'Summarising…' : th.highlights ? 'Regenerate' : 'Generate highlights'}</button>}
           </div>
           {th.highlights ? (
             <>

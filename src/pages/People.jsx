@@ -1,10 +1,12 @@
 import UserLabels from '../components/UserLabels.jsx';
 import { Glyph } from '../components/icons.jsx';
-import { lazy, Suspense, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore, timeAgo } from '../lib/store.jsx';
 import { statsFor, BADGES } from '../lib/gamify.js';
 import { Avatar, Empty, Field, Modal, PageHeader, Tabs } from '../components/ui.jsx';
+import { CompletenessMeter, completeness } from '../components/people/Completeness.jsx';
+import { MONTHS, daysInMonth, formatMonthDay, isValidBirthday } from '../lib/celebrations.js';
 import { FollowButton, PraiseModal, useOpenDm, praiseBadge, isActiveUser, canSeeContact, useBlocks, CONTACT_PRIVACY } from '../components/people/shared.jsx';
 
 // Optional embed from the Feed module (built separately).
@@ -132,10 +134,21 @@ function Profile({ id }) {
   const openDm = useOpenDm();
   const u = user(id);
   const [tab, setTab] = useState('about');
+  // false, or the Edit profile field to focus ('1' = none in particular).
   const [editing, setEditing] = useState(false);
   const [praise, setPraise] = useState(false);
   const [report, setReport] = useState(false);
   const { blocked, toggle: toggleBlock } = useBlocks();
+  // ?edit=<field> (from the profile-completeness card) opens Edit profile on your own profile.
+  const [params, setParams] = useSearchParams();
+  const editParam = params.get('edit');
+  useEffect(() => {
+    if (!editParam) return;
+    if (u && me && u.id === me.id) setEditing(editParam);
+    const next = new URLSearchParams(params);
+    next.delete('edit');
+    setParams(next, { replace: true });
+  }, [editParam]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!u) return <Empty icon="🙈" title="Person not found"><Link className="text-brand-400 underline" to="/people">Back to People</Link></Empty>;
 
   const isMe = u.id === me.id;
@@ -151,6 +164,7 @@ function Profile({ id }) {
   const reports = state.users.filter((x) => x.managerId === u.id && isActiveUser(x));
   const activity = (state.activity || []).filter((a) => a.userId === u.id && ACTIVITY_LABEL[a.type]).slice(0, 12);
   const fields = (state.customFields || []).filter((cf) => u.customFields?.[cf.id] && (showContact || !CONTACT_FIELDS.includes(cf.id)));
+  const profileScore = isMe ? completeness(u, state.customFields || []) : null;
   const pct = stats.nextLevel ? Math.round(((stats.points - stats.level.min) / (stats.nextLevel.min - stats.level.min)) * 100) : 100;
 
   return (
@@ -166,7 +180,7 @@ function Profile({ id }) {
             <p className="text-xs text-slate-400">Class of {u.batch} · {u.dept} · 📍 {u.city}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {isMe ? <button className="btn btn-primary min-h-11" onClick={() => setEditing(true)}><Glyph value="✏️" tile={false} size={16} /> Edit profile</button> : <>
+            {isMe ? <button className="btn btn-primary min-h-11" onClick={() => setEditing('1')}><Glyph value="✏️" tile={false} size={16} /> Edit profile</button> : <>
               {!isBlocked && <>
                 <FollowButton userId={u.id} />
                 <button className="btn btn-ghost min-h-11" onClick={() => nav(openDm(u.id))}><Glyph value="💬" tile={false} size={16} /> Message</button>
@@ -189,6 +203,8 @@ function Profile({ id }) {
           ))}
         </div>
       </section>
+
+      {isMe && profileScore.pct < 100 && <div className="mt-5"><CompletenessMeter user={u} onEdit={setEditing} /></div>}
 
       <div className="mt-5">
         <Tabs value={tab} onChange={setTab} tabs={[{ id: 'about', label: 'About' }, { id: 'posts', label: 'Posts' }, { id: 'badges', label: 'Badges', count: stats.badges.length + received.length }, { id: 'activity', label: 'Activity' }]} />
@@ -222,6 +238,7 @@ function Profile({ id }) {
                 <h2 className="font-bold">Details</h2>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between gap-3"><dt className="text-slate-400">Email</dt><dd className="truncate">{showContact ? u.email : <span className="text-slate-500"><Glyph value="🔒" tile={false} size={16} /> Hidden</span>}</dd></div>
+                  {u.birthday && showContact && isValidBirthday(u.birthday) && <div className="flex justify-between gap-3"><dt className="text-slate-400">Birthday</dt><dd>🎂 {formatMonthDay(u.birthday)}</dd></div>}
                   {u.joinedAt && <div className="flex justify-between gap-3"><dt className="text-slate-400">Joined</dt><dd>{new Date(u.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</dd></div>}
                   {fields.map((cf) => <div key={cf.id} className="flex justify-between gap-3"><dt className="text-slate-400">{cf.label}</dt><dd className="truncate">{u.customFields[cf.id]}</dd></div>)}
                 </dl>
@@ -271,7 +288,7 @@ function Profile({ id }) {
         <ul className="glass divide-y divide-white/5">{activity.map((a) => <li key={a.id} className="flex justify-between gap-3 p-4 text-sm"><span>{ACTIVITY_LABEL[a.type]}</span><span className="text-slate-500">{timeAgo(a.at)}{a.points ? ` · +${a.points}` : ''}</span></li>)}</ul>
       ) : <Empty icon="🌱" title="No recent activity" />)}
 
-      {editing && <EditProfile onClose={() => setEditing(false)} />}
+      {editing && <EditProfile focus={editing} onClose={() => setEditing(false)} />}
       {praise && <PraiseModal toId={u.id} onClose={() => setPraise(false)} />}
       {report && <ReportMember user={u} onClose={() => setReport(false)} />}
     </div>
@@ -319,10 +336,19 @@ function UserPosts({ userId }) {
   return <div className="space-y-3">{posts.map((p) => <Link key={p.id} to={`/post/${p.id}`} className="glass block p-4 text-sm hover:bg-white/5"><p className="text-slate-200">{p.text}</p><p className="mt-2 text-xs text-slate-500">{timeAgo(p.createdAt)} · ❤️ {p.likes.length} · 💬 {p.comments.length}</p></Link>)}</div>;
 }
 
-function EditProfile({ onClose }) {
+function EditProfile({ onClose, focus }) {
   const { state, me, dispatch } = useStore();
-  const [d, setD] = useState({ name: me.name, title: me.title || '', role: me.role || '', company: me.company || '', city: me.city || '', batch: me.batch, dept: me.dept || '', bio: me.bio || '',
-    privacy: { contact: me.privacy?.contact ?? 'everyone' }, skills: [...(me.skills || [])], career: (me.career || []).map((c) => ({ ...c })), customFields: { ...(me.customFields || {}) } });
+  const hasCareer = (me.career || []).some((c) => c.title?.trim() && c.org?.trim());
+  const [d, setD] = useState(() => ({ name: me.name, title: me.title || '', role: me.role || '', company: me.company || '', city: me.city || '', batch: me.batch, dept: me.dept || '', bio: me.bio || '',
+    privacy: { contact: me.privacy?.contact ?? 'everyone' }, skills: [...(me.skills || [])], career: [...(focus === 'career' && !hasCareer ? [{ title: '', org: '', from: new Date().getFullYear(), to: null }] : []), ...(me.career || []).map((c) => ({ ...c }))],
+    customFields: { ...(me.customFields || {}) } }));
+  const [bday, setBday] = useState(() => { const [m = '', dd = ''] = isValidBirthday(me.birthday) ? me.birthday.split('-') : []; return { m, d: dd }; });
+  // Runs after the Modal's own autofocus, so the field the member asked to fill wins.
+  useEffect(() => {
+    const id = focus === 'career' ? 'ep-career-0-title' : `ep-${focus}`;
+    const el = focus && focus !== '1' ? document.getElementById(id) : null;
+    if (el) { el.focus(); el.scrollIntoView?.({ block: 'center' }); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [skill, setSkill] = useState('');
   const set = (k) => (e) => setD({ ...d, [k]: e.target.value });
   const setCareer = (i, k, v) => setD({ ...d, career: d.career.map((c, j) => (j === i ? { ...c, [k]: v } : c)) });
@@ -346,9 +372,20 @@ function EditProfile({ onClose }) {
       else if (!blank(c.to) && !isYear(c.to)) err[`career${i}`] = `“To” must be a year between 1950 and ${maxYear}.`;
       else if (!blank(c.from) && !blank(c.to) && Number(c.to) < Number(c.from)) err[`career${i}`] = '“To” can’t be earlier than “From”.';
     });
+    let birthday = null;
+    if (bday.m || bday.d) {
+      if (!bday.m || !bday.d) err.birthday = 'Choose both a month and a day, or clear your birthday.';
+      else if (Number(bday.d) > daysInMonth(Number(bday.m))) err.birthday = `${MONTHS[Number(bday.m) - 1]} has only ${daysInMonth(Number(bday.m))} days.`;
+      else birthday = `${bday.m}-${bday.d}`;
+      if (birthday && !isValidBirthday(birthday)) err.birthday = 'Enter a valid date.';
+    }
     setErrors(err);
-    if (Object.keys(err).length) return;
-    dispatch({ type: 'profile/update', patch: { ...d, name, batch: blank(d.batch) ? null : Number(d.batch),
+    if (Object.keys(err).length) {
+      // Move focus to the first problem so keyboard and screen-reader users land on it.
+      setTimeout(() => document.querySelector('[aria-invalid="true"]')?.focus(), 0);
+      return;
+    }
+    dispatch({ type: 'profile/update', patch: { ...d, name, birthday, batch: blank(d.batch) ? null : Number(d.batch),
       career: career.map((c) => ({ ...c, title: c.title.trim(), org: c.org.trim(), from: blank(c.from) ? null : Number(c.from), to: blank(c.to) ? null : Number(c.to) })) } });
     onClose();
   };
@@ -357,25 +394,43 @@ function EditProfile({ onClose }) {
     <Modal title="Edit profile" onClose={onClose} wide>
       <form onSubmit={save} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Full name"><input className="input" value={d.name} onChange={set('name')} aria-invalid={!!errors.name} />{errText('name')}</Field>
+          <Field label="Full name"><input id="ep-name" className="input" value={d.name} onChange={set('name')} aria-invalid={!!errors.name} />{errText('name')}</Field>
           <Field label="Headline"><input className="input" value={d.title} onChange={set('title')} /></Field>
-          <Field label="Current role"><input className="input" value={d.role} onChange={set('role')} /></Field>
-          <Field label="Company"><input className="input" value={d.company} onChange={set('company')} /></Field>
-          <Field label="City"><input className="input" value={d.city} onChange={set('city')} /></Field>
-          <Field label="Batch"><input className="input" type="number" min="1950" max={maxYear} value={d.batch ?? ''} onChange={set('batch')} aria-invalid={!!errors.batch} />{errText('batch')}</Field>
-          <div className="sm:col-span-2"><Field label="Department"><input className="input" value={d.dept} onChange={set('dept')} /></Field></div>
+          <Field label="Current role"><input id="ep-role" className="input" value={d.role} onChange={set('role')} /></Field>
+          <Field label="Company"><input id="ep-company" className="input" value={d.company} onChange={set('company')} /></Field>
+          <Field label="City"><input id="ep-city" className="input" value={d.city} onChange={set('city')} /></Field>
+          <Field label="Batch"><input id="ep-batch" className="input" type="number" min="1950" max={maxYear} value={d.batch ?? ''} onChange={set('batch')} aria-invalid={!!errors.batch} />{errText('batch')}</Field>
+          <div className="sm:col-span-2"><Field label="Department"><input id="ep-dept" className="input" value={d.dept} onChange={set('dept')} /></Field></div>
         </div>
-        <Field label="About"><textarea className="input min-h-24" value={d.bio} onChange={set('bio')} /></Field>
+        <Field label="About" hint={`${d.bio.trim().length} characters${d.bio.trim().length < 40 ? ' · 40+ makes your profile complete' : ''}`}><textarea id="ep-bio" className="input min-h-24" value={d.bio} onChange={set('bio')} /></Field>
+        <fieldset>
+          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Birthday (optional)</legend>
+          <div className="flex flex-wrap gap-2">
+            <select id="ep-birthday" className="input min-w-0 flex-1 sm:max-w-48" aria-label="Birthday month" value={bday.m} aria-invalid={!!errors.birthday} aria-describedby="ep-birthday-hint"
+              onChange={(e) => { const m = e.target.value; setBday({ m, d: m && Number(bday.d) > daysInMonth(Number(m)) ? '' : bday.d }); setErrors({ ...errors, birthday: undefined }); }}>
+              <option value="">Month</option>
+              {MONTHS.map((name, i) => <option key={name} value={String(i + 1).padStart(2, '0')}>{name}</option>)}
+            </select>
+            <select className="input w-28" aria-label="Birthday day" value={bday.d} aria-invalid={!!errors.birthday} aria-describedby="ep-birthday-hint"
+              onChange={(e) => { setBday({ ...bday, d: e.target.value }); setErrors({ ...errors, birthday: undefined }); }}>
+              <option value="">Day</option>
+              {Array.from({ length: bday.m ? daysInMonth(Number(bday.m)) : 31 }, (_, i) => String(i + 1).padStart(2, '0')).map((v) => <option key={v} value={v}>{Number(v)}</option>)}
+            </select>
+            {(bday.m || bday.d) && <button type="button" className="btn btn-ghost min-h-11" onClick={() => { setBday({ m: '', d: '' }); setErrors({ ...errors, birthday: undefined }); }}>Clear</button>}
+          </div>
+          <span id="ep-birthday-hint" className="mt-1 block text-xs text-slate-500">Month and day only, never the year. Classmates who can see your contact details can send you wishes.</span>
+          {errText('birthday')}
+        </fieldset>
         <Field label="Skills">
           <div className="mb-2 flex flex-wrap gap-1.5">{d.skills.map((s) => <span key={s} className="chip !py-1">{s}<button type="button" className="ml-1" aria-label={`Remove ${s}`} onClick={() => setD({ ...d, skills: d.skills.filter((x) => x !== s) })}>✕</button></span>)}</div>
-          <div className="flex gap-2"><input className="input" value={skill} onChange={(e) => setSkill(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }} placeholder="Add a skill and press Enter" /><button type="button" className="btn btn-ghost min-h-11" onClick={addSkill}>Add</button></div>
+          <div className="flex gap-2"><input id="ep-skills" className="input" aria-label="Add a skill" value={skill} onChange={(e) => setSkill(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }} placeholder="Add a skill and press Enter" /><button type="button" className="btn btn-ghost min-h-11" onClick={addSkill}>Add</button></div>
         </Field>
         <fieldset>
           <legend className="mb-1.5 text-xs font-semibold text-slate-300">Career history</legend>
           <div className="space-y-2">
             {d.career.map((c, i) => (
               <div key={i} className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 p-2 sm:grid-cols-[1fr_1fr_80px_80px_auto]">
-                <input className="input" aria-label="Title" placeholder="Title" value={c.title} onChange={(e) => setCareer(i, 'title', e.target.value)} />
+                <input id={`ep-career-${i}-title`} className="input" aria-label="Title" placeholder="Title" value={c.title} onChange={(e) => setCareer(i, 'title', e.target.value)} />
                 <input className="input" aria-label="Organisation" placeholder="Organisation" value={c.org} onChange={(e) => setCareer(i, 'org', e.target.value)} />
                 <input className="input" aria-label="From year" placeholder="From" value={c.from ?? ''} onChange={(e) => setCareer(i, 'from', e.target.value)} />
                 <input className="input" aria-label="To year" placeholder="To" value={c.to ?? ''} onChange={(e) => setCareer(i, 'to', e.target.value)} />
@@ -396,13 +451,13 @@ function EditProfile({ onClose }) {
             {state.customFields.map((cf) => (
               <Field key={cf.id} label={cf.label}>
                 {cf.type === 'select'
-                  ? <select className="input" value={d.customFields[cf.id] || ''} onChange={(e) => setD({ ...d, customFields: { ...d.customFields, [cf.id]: e.target.value } })}><option value="">—</option>{(cf.options || []).map((o) => <option key={o}>{o}</option>)}</select>
-                  : <input className="input" type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'} value={d.customFields[cf.id] || ''} onChange={(e) => setD({ ...d, customFields: { ...d.customFields, [cf.id]: e.target.value } })} />}
+                  ? <select id={`ep-cf-${cf.id}`} className="input" value={d.customFields[cf.id] || ''} onChange={(e) => setD({ ...d, customFields: { ...d.customFields, [cf.id]: e.target.value } })}><option value="">—</option>{(cf.options || []).map((o) => <option key={o}>{o}</option>)}</select>
+                  : <input id={`ep-cf-${cf.id}`} className="input" type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'} value={d.customFields[cf.id] || ''} onChange={(e) => setD({ ...d, customFields: { ...d.customFields, [cf.id]: e.target.value } })} />}
               </Field>
             ))}
           </div>
         )}
-        <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost min-h-11" onClick={onClose}>Cancel</button><button className="btn btn-primary min-h-11">Save profile</button></div>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className="btn btn-ghost min-h-11" onClick={onClose}>Cancel</button><button className="btn btn-primary min-h-11">Save profile</button></div>
       </form>
     </Modal>
   );

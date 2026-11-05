@@ -61,7 +61,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
   });
   const like = () => {
     dispatch({ type: 'post/like', id: post.id });
-    if (!post.likes.includes(me.id) && !mine) dispatch({ type: 'notify', notification: { userId: post.authorId, kind: 'like', link: `/post/${post.id}`, text: `${me.name} liked your post` } });
+    if (!post.likes.includes(me.id) && !mine) dispatch({ type: 'notify', silent: true, notification: { userId: post.authorId, kind: 'like', link: `/post/${post.id}`, text: `${me.name} liked your post` } });
   };
   const toggleFollow = () => {
     const f = (state.follows || []).find((x) => x.authorId === me.id && x.targetId === post.authorId);
@@ -70,7 +70,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
   };
   const approve = () => {
     publishPost(state, dispatch, post);
-    dispatch({ type: 'notify', notification: { userId: post.authorId, kind: 'info', link: `/post/${post.id}`, text: 'Your post was approved and published' } });
+    dispatch({ type: 'notify', silent: true, notification: { userId: post.authorId, kind: 'info', link: `/post/${post.id}`, text: 'Your post was approved and published' } });
   };
   const reject = () => {
     if (!confirm('Reject and delete this post?')) return;
@@ -285,7 +285,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         <MandatoryConfig initial={post.mandatory} onClose={close}
           onSave={(cfg) => {
             if (!post.mandatory) {
-              audienceOf(state, post).filter((id) => id !== me.id).forEach((u) => dispatch({ type: 'notify', notification: { userId: u, kind: 'mandatory', link: `/post/${post.id}`, text: `${me.name} marked a post as Mandatory Read` } }));
+              audienceOf(state, post).filter((id) => id !== me.id).forEach((u) => dispatch({ type: 'notify', silent: true, notification: { userId: u, kind: 'mandatory', link: `/post/${post.id}`, text: `${me.name} marked a post as Mandatory Read` } }));
             }
             dispatch({ type: 'post/mandatory', id: post.id, mandatory: cfg }); close();
           }}

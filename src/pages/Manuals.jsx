@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore, fmtDate, timeAgo, uid } from '../lib/store.jsx';
 import { Avatar, Field, Modal, PageHeader, UserLink } from '../components/ui.jsx';
 import ManualList, { ManualForm } from '../components/collab/ManualList.jsx';
-import { Menu, Prose, Select, UserPicker, toDateTimeInput } from '../components/collab/common.jsx';
+import { Menu, Prose, Select, UserPicker, canSeeGroupItem, toDateTimeInput } from '../components/collab/common.jsx';
 import { canReadArticle, canWriteArticle, findArticle, isLive, manualRoles, patchArticle, sharedAccess } from '../components/collab/manual.js';
 
 export default function Manuals() {
@@ -20,7 +20,9 @@ export default function Manuals() {
   }
   const manual = state.manuals.find((m) => m.id === id);
   const shared = manual?.chapters.some((c) => c.articles.some((a) => sharedAccess(a, me)));
-  if (!manual || (!manual.published && !manualRoles(manual, me).canEdit && !shared)) {
+  const canEdit = manual && manualRoles(manual, me).canEdit;
+  // Private-group manuals are for that group's members (plus the manual's own editors and people it's shared with).
+  if (!manual || (!manual.published && !canEdit && !shared) || (!canEdit && !shared && !canSeeGroupItem(state, me, manual))) {
     return <div className="glass p-8">Manual not found. <Link to="/manuals" className="text-brand-400 underline">Back to manuals</Link></div>;
   }
   return <ManualView manual={manual} articleId={articleId} />;

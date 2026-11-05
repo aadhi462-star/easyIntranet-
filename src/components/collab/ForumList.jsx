@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore, timeAgo } from '../../lib/store.jsx';
 import { Empty, Tabs } from '../ui.jsx';
 import { ForumCard, ForumEditor } from './forum.jsx';
+import { canSeeGroupItem } from './common.jsx';
 
 /**
  * Forum posts list. Embeddable in a group (`groupId`) or used by the Forums page with a
@@ -33,7 +34,7 @@ export default function ForumList({ groupId, categoryId, view = 'all', showCompo
     );
   }
 
-  let posts = state.forumPosts.filter((f) => f.status !== 'draft');
+  let posts = state.forumPosts.filter((f) => f.status !== 'draft' && canSeeGroupItem(state, me, f));
   if (groupId) posts = posts.filter((f) => f.groupId === groupId);
   if (categoryId) posts = posts.filter((f) => f.categories.includes(categoryId));
   if (view === 'following') posts = posts.filter((f) => f.categories.some((c) => follows.includes(c) || autoFollowed.includes(c)));

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
-import { AuthShell, EMAIL_RE, passwordFields } from './Login.jsx';
+import { AuthShell, CRYPTO_ERROR, EMAIL_RE, passwordFields } from './Login.jsx';
 
 // Built-in demo code. It follows the registration settings like normal sign-up (no
 // pre-approval, domain limits apply, unusable while sign-ups are paused). Admins create
@@ -24,10 +24,13 @@ export default function Invite() {
   const [form, setForm] = useState({ name: '', email: inviteEmail, password: '', batch: invite?.batch ?? 2020, dept: 'Computer Science', city: '' });
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false); // state updates are async, so a fast double submit needs a ref
   const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setError(''); };
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busyRef.current) return;
     const email = form.email.trim().toLowerCase();
     if (!form.name.trim() || !EMAIL_RE.test(email) || form.password.length < 8) { setError('Enter your name, a valid email and a password of at least 8 characters.'); return; }
     if (inviteEmail && email !== inviteEmail) { setError(`This invitation is for ${inviteEmail}. Use that email address to accept it.`); return; }
@@ -37,7 +40,9 @@ export default function Invite() {
     }
     if (state.users.some((u) => u.email?.trim().toLowerCase() === email)) { setError('That email already has an account. Sign in instead.'); return; }
     const { password: _ignored, ...profile } = form;
-    const secret = await passwordFields(form.password);
+    let secret;
+    busyRef.current = true; setBusy(true);
+    try { secret = await passwordFields(form.password); } catch { setError(CRYPTO_ERROR); return; } finally { busyRef.current = false; setBusy(false); }
     const external = !!stored?.external;
     // A stored invitation counts as pre-approval; the demo code goes through the normal queue.
     dispatch({ type: 'signup', user: { ...profile, ...secret, name: profile.name.trim(), email, batch: Number(form.batch), status: approval ? 'pending' : 'active', invitedBy: invite.invitedBy, external, ...(external ? { roleId: 'external' } : {}) } });
@@ -81,7 +86,7 @@ export default function Invite() {
             <Field label="City"><input className="input" value={form.city} onChange={set('city')} /></Field>
           </div>
           {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
-          <button className="btn btn-primary mt-5 h-11 w-full">Create my account</button>
+          <button className="btn btn-primary mt-5 h-11 w-full" disabled={busy}>Create my account</button>
           <p className="mt-4 text-center text-sm text-slate-400">Already a member? <Link to="/login" className="text-brand-400 hover:underline">Sign in</Link></p>
         </form>
       )}

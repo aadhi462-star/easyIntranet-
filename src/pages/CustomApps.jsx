@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fmtDate, timeAgo, uid, useStore } from '../lib/store.jsx';
 import { Empty, Field, Modal, PageHeader, Tabs, UserLink } from '../components/ui.jsx';
 import { BarList, PieChart, download, toCsv } from '../components/admin/charts.jsx';
+import { OptionsInput } from '../components/collab/common.jsx';
 
 const FIELD_TYPES = [['text', 'Single line'], ['longtext', 'Long text'], ['number', 'Number'], ['date', 'Date'], ['select', 'Dropdown'], ['checkbox', 'Checkbox'], ['user', 'Member']];
 
@@ -88,8 +89,8 @@ function AppEditor({ app, onClose }) {
                   <button className="btn btn-ghost h-10 w-10 !p-0" onClick={() => setFields(fields.filter((_, j) => j !== i))} aria-label="Remove field">✕</button>
                 </div>
                 {f.type === 'select' && (
-                  <input className="input mt-2" placeholder="Options, comma separated" value={f.options.join(', ')} aria-label="Dropdown options"
-                    onChange={(e) => setField(i, { options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
+                  <OptionsInput className="input mt-2" placeholder="Options, comma separated" value={f.options} aria-label="Dropdown options"
+                    onChange={(options) => setField(i, { options })} />
                 )}
               </li>
             ))}

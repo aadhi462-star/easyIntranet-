@@ -3,13 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore, timeAgo, uid } from '../lib/store.jsx';
 import { Avatar, PageHeader, UserLink } from '../components/ui.jsx';
 import IdeaList, { IDEA_STATUSES, IdeaForm, IdeaStatus, VoteBox, statusOf } from '../components/collab/IdeaList.jsx';
-import { Menu, ScopeBadge } from '../components/collab/common.jsx';
+import { Menu, ScopeBadge, canSeeGroupItem } from '../components/collab/common.jsx';
 
 export default function Ideas() {
   const { id } = useParams();
-  const { state } = useStore();
+  const { state, me } = useStore();
   if (!id) {
-    const ideas = state.ideas ?? [];
+    const ideas = (state.ideas ?? []).filter((i) => canSeeGroupItem(state, me, i));
     return (
       <>
         <PageHeader title="Ideas" subtitle="Share, vote on and track ideas from suggestion to implementation." />
@@ -25,7 +25,7 @@ export default function Ideas() {
       </>
     );
   }
-  const idea = (state.ideas ?? []).find((i) => i.id === id);
+  const idea = (state.ideas ?? []).find((i) => i.id === id && canSeeGroupItem(state, me, i));
   if (!idea) return <div className="glass p-8">Idea not found. <Link to="/ideas" className="text-brand-400 underline">Back to ideas</Link></div>;
   return <IdeaDetail idea={idea} />;
 }

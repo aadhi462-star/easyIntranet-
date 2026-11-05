@@ -43,6 +43,7 @@ export default function Layout() {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
       if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (document.querySelector('[aria-modal="true"]')) return; // the search box is behind the dialog
       e.preventDefault();
       searchRef.current?.focus();
     };
