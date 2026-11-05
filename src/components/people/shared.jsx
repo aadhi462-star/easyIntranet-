@@ -13,7 +13,7 @@ export const PRAISE_BADGES = [
 export const praiseBadge = (id) => PRAISE_BADGES.find((b) => b.id === id) ?? PRAISE_BADGES[0];
 
 /** Pending and deactivated accounts are hidden from the directory, leaderboard and pickers. */
-export const isActiveUser = (u) => !!u && !['pending', 'deactivated'].includes(u.status);
+export const isActiveUser = (u) => !!u && !u.deactivated && (u.status ?? 'active') === 'active';
 
 export const CONTACT_PRIVACY = [['everyone', 'Everyone in the community'], ['following', 'Only members I follow'], ['me', 'Only me']];
 

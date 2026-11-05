@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useStore } from '../lib/store.jsx';
+import { isRead, useStore } from '../lib/store.jsx';
 import { navFor } from '../lib/modules.js';
 import { statsFor } from '../lib/gamify.js';
 import { useMenus } from '../lib/menus.js';
@@ -10,9 +10,6 @@ import MenuVisibility from './MenuVisibility.jsx';
 import Toaster from './Toaster.jsx';
 import { useEffectsPref } from '../lib/effects.js';
 
-// Background behaviour (scheduled posts, workflows, schedulers, reminders). Any module can
-// add one by creating src/lib/runners/<name>.jsx with a default-exported component.
-const runners = Object.values(import.meta.glob('../lib/runners/*.jsx', { eager: true })).map((m) => m.default).filter(Boolean);
 
 export default function Layout() {
   const { state, me, dispatch } = useStore();
@@ -23,7 +20,7 @@ export default function Layout() {
   const loc = useLocation();
   const items = navFor(state.settings, me);
   const sections = [...new Set(items.map((m) => m.section))];
-  const unread = state.notifications.filter((n) => !n.read && (!n.userId || n.userId === me.id) && (!n.adminOnly || me.admin)).length;
+  const unread = state.notifications.filter((n) => !isRead(n, me.id) && (!n.userId || n.userId === me.id) && (!n.adminOnly || me.admin)).length;
   const { points, level } = statsFor(state, me.id);
   const { mainHidden } = useMenus();
   const mainRef = useRef(null);
@@ -97,7 +94,6 @@ export default function Layout() {
       <div className="aurora" />
       <Toaster />
       {state.settings.customCss && <style>{state.settings.customCss}</style>}
-      {runners.map((R, i) => <R key={i} />)}
 
       {mainHidden && <MenuVisibility hasExt={hasExt} />}
       {!mainHidden && (

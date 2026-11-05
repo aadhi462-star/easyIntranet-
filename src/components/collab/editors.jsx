@@ -100,7 +100,8 @@ export function SheetEditor({ value, onChange, readOnly }) {
   const cells = value?.cells ?? {};
   const [sel, setSel] = useState('A1');
   const [editing, setEditing] = useState(null);
-  const put = (k, v) => onChange({ ...value, cells: { ...cells, [k]: v } });
+  // Build from the latest content (onChange accepts an updater) so rapid edits never overwrite each other.
+  const put = (k, v) => onChange((cur) => ({ ...cur, cells: { ...(cur?.cells ?? {}), [k]: v } }));
   const moveSel = (dc, dr) => {
     const [, c, r] = sel.match(/([A-J])(\d+)/);
     const nc = COLS[Math.min(COLS.length - 1, Math.max(0, COLS.indexOf(c) + dc))];
@@ -162,8 +163,13 @@ export function SlidesEditor({ value, onChange, readOnly }) {
   const [cur, setCur] = useState(0);
   const [present, setPresent] = useState(false);
   const s = slides[Math.min(cur, slides.length - 1)];
-  const setSlides = (next) => onChange({ ...value, slides: next });
-  const patch = (p) => setSlides(slides.map((x, i) => (i === cur ? { ...x, ...p } : x)));
+  const idx = Math.min(cur, slides.length - 1);
+  // `next` may be an array or a function of the latest slides; always build from the latest content.
+  const setSlides = (next) => onChange((c) => {
+    const latest = c?.slides?.length ? c.slides : slides;
+    return { ...c, slides: typeof next === 'function' ? next(latest) : next };
+  });
+  const patch = (p) => setSlides((list) => list.map((x, i) => (i === idx ? { ...x, ...p } : x)));
 
   return (
     <div className="grid gap-4 md:grid-cols-[180px_1fr]">

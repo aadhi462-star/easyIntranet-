@@ -12,22 +12,27 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
   const nav = useNavigate();
   const [title, setTitle] = useState(post?.title ?? '');
   const [body, setBody] = useState(post?.body ?? '');
-  const [cats, setCats] = useState(post?.categories ?? (defaultCategory ? [defaultCategory] : []));
+  // Categories already on an edited post stay; new picks are limited to ones I may post in.
+  const okCat = (id) => post?.categories?.includes(id) || canPostIn(state.forumCategories.find((c) => c.id === id), me);
+  const [cats, setCats] = useState(() => (post?.categories ?? (defaultCategory ? [defaultCategory] : [])).filter(okCat));
   const [commentsDisabled, setCD] = useState(post?.commentsDisabled ?? false);
   const [showCats, setShowCats] = useState(false);
   const [gear, setGear] = useState(false);
-  const allowed = state.forumCategories.filter((c) => canPostIn(c, me));
+  const [error, setError] = useState(() => (defaultCategory && !post && !okCat(defaultCategory) ? 'Only admins can post in that category.' : ''));
+  const allowed = state.forumCategories.filter((c) => canPostIn(c, me) || post?.categories?.includes(c.id));
 
-  const save = (status) => {
+  const save = (status, quiet) => {
     if (!title.trim()) return;
-    const data = { title: title.trim(), body, categories: cats, commentsDisabled, status, groupId: post?.groupId ?? groupId ?? null };
+    const categories = cats.filter(okCat);
+    if (!quiet && cats.length && !categories.length) { setError('You can’t post in the selected categories. Choose another one.'); return; }
+    const data = { title: title.trim(), body, categories, commentsDisabled, status, groupId: post?.groupId ?? groupId ?? null };
     dispatch({ type: 'forum/save', post: post ? { ...data, id: post.id } : data });
     onClose();
     if (status === 'published' && post) nav(`/forums/${post.id}`);
   };
 
   // Closing the editor with content keeps it as a draft, as in Connect.
-  const close = () => { if (!post && title.trim()) save('draft'); else onClose(); };
+  const close = () => { if (!post && title.trim()) save('draft', true); else onClose(); };
 
   return (
     <Modal title={post ? 'Edit forum post' : 'New forum post'} onClose={close} wide>
@@ -40,7 +45,7 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
             <div className="glass glass-strong absolute left-0 z-30 mt-1 w-60 p-2">
               {allowed.map((c) => (
                 <label key={c.id} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm hover:bg-white/5">
-                  <input type="checkbox" checked={cats.includes(c.id)} onChange={() => setCats(cats.includes(c.id) ? cats.filter((x) => x !== c.id) : [...cats, c.id])} />{c.name}
+                  <input type="checkbox" checked={cats.includes(c.id)} onChange={() => { setError(''); setCats(cats.includes(c.id) ? cats.filter((x) => x !== c.id) : [...cats, c.id]); }} />{c.name}
                 </label>
               ))}
             </div>
@@ -62,6 +67,7 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
         <input className="input text-lg font-semibold" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
         <textarea className="input min-h-48" placeholder="Write your post. Use ## for headings and - for bullets." value={body} onChange={(e) => setBody(e.target.value)} aria-label="Body" />
       </div>
+      {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
       <div className="mt-4 flex flex-wrap justify-between gap-2">
         <p className="self-center text-xs text-slate-500">{post ? '' : 'Closing this editor saves your post to My Drafts.'}</p>
         <div className="flex gap-2">

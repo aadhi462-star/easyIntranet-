@@ -7,7 +7,7 @@ import CalendarGrid, { RangeNav, viewRange } from '../components/events/Calendar
 import EventCard, { RsvpButtons } from '../components/events/EventCard.jsx';
 import EventForm from '../components/events/EventForm.jsx';
 import {
-  EVENT_TYPES, TYPE_COLORS, canSee, downloadIcs, fmtSize, isUrl, nextOccurrence, occurrences,
+  EVENT_TYPES, TYPE_COLORS, canSee, downloadIcs, fmtSize, isUrl, lastOccurrence, nextOccurrence, occurrences,
   recurrenceText, scopeLabel, sectionOf, whenText,
 } from '../components/events/eventUtils.js';
 
@@ -44,7 +44,13 @@ function EventsHome() {
 
   const now = Date.now();
   const upcoming = events.flatMap((e) => occurrences(e, now, now + 180 * 864e5).slice(0, 4)).sort((a, b) => a.occStart - b.occStart);
-  const past = events.filter((e) => e.end < now && (!e.recurrence || e.recurrence.freq === 'none')).sort((a, b) => b.start - a.start);
+  // One-off events that are over, plus recurring series that have ended (shown at their last date).
+  const past = events.flatMap((e) => {
+    if (!e.recurrence || e.recurrence.freq === 'none') return e.end < now ? [e] : [];
+    if (!e.recurrence.until || e.recurrence.until >= now) return [];
+    const last = lastOccurrence(e, now);
+    return last == null ? [] : [{ ...e, occStart: last, occEnd: last + (e.end - e.start) }];
+  }).sort((a, b) => (b.occStart ?? b.start) - (a.occStart ?? a.start));
 
   const draftStart = params.get('date') ? (() => { const d = new Date(Number(params.get('date'))); d.setHours(18, 0, 0, 0); return d.getTime(); })() : undefined;
 
@@ -189,7 +195,19 @@ function EventDetail({ id }) {
           {e.attachments?.length > 0 && (
             <div className="mt-5">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Attachments</h2>
-              <ul className="flex flex-wrap gap-2">{e.attachments.map((a, i) => <li key={i} className="chip !bg-white/5 !text-slate-200"><Glyph value="📎" tile={false} size={16} /> {a.name} · {fmtSize(a.size)}</li>)}</ul>
+              <ul className="flex flex-wrap gap-2">{e.attachments.map((a, i) => (
+                <li key={i}>
+                  {a.dataUrl ? (
+                    <a href={a.dataUrl} download={a.name} className="chip !bg-white/5 !text-slate-200 hover:!bg-white/10" title={`Download ${a.name}`}>
+                      <Glyph value="📎" tile={false} size={16} /> {a.name} · {fmtSize(a.size)}
+                    </a>
+                  ) : (
+                    <span className="chip !bg-white/5 !text-slate-400" title="Sample attachment; there is no file to download">
+                      <Glyph value="📎" tile={false} size={16} /> {a.name} · {fmtSize(a.size)} (preview only)
+                    </span>
+                  )}
+                </li>
+              ))}</ul>
             </div>
           )}
 

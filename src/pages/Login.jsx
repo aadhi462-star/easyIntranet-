@@ -28,6 +28,29 @@ const perks = [
 ];
 const stats = [['8,400+', 'Alumni'], ['120', 'Groups'], ['340', 'Events a year']];
 
+export const EMAIL_RE = /^\S+@\S+\.\S+$/;
+
+/** Salted SHA-256 of a password, as hex. Only the hash and salt are stored on the account. */
+export async function hashPassword(password, salt) {
+  const data = new TextEncoder().encode(`${salt}:${password}`);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Random hex salt plus the hash, ready to spread onto a new user. */
+export async function passwordFields(password) {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const passwordSalt = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return { passwordSalt, passwordHash: await hashPassword(password, passwordSalt) };
+}
+
+async function passwordMatches(u, password) {
+  if (!password) return false;
+  if (u.passwordHash) return (await hashPassword(password, u.passwordSalt ?? '')) === u.passwordHash;
+  if (u.password) return u.password === password;
+  return true; // original seed demo people accept any non-empty password
+}
+
 const GLASS = { cornerRadius: 24, refraction: 0.8, chromAberration: 0.08, edgeHighlight: 0.45, specular: 0.6, fresnel: 1, blurAmount: 0.7, tintStrength: 0.25, brightness: -0.12, shadowOpacity: 0.55, zRadius: 34 };
 
 /** Sign in / Join switch shown at the top of the auth card. */
@@ -111,11 +134,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [forgot, setForgot] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    const u = state.users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-    // Demo accounts with a password set must use it; the original demo people accept any password.
-    if (!u || !password || (u.password && u.password !== password)) { setError('That email and password don’t match an AlumniZone account.'); return; }
+    const u = state.users.find((x) => x.email?.toLowerCase() === email.trim().toLowerCase());
+    // Accounts created here store a salted hash; demo accounts may carry a plain password;
+    // the original demo people accept any password.
+    if (!u || !(await passwordMatches(u, password))) { setError('That email and password don’t match an AlumniZone account.'); return; }
     if (u.status === 'pending') { setError('Your membership is waiting for approval from a community admin. We’ll notify you once you’re in.'); return; }
     if (u.status === 'deactivated') { setError('This account has been deactivated. Contact the community admins if you think this is a mistake.'); return; }
     dispatch({ type: 'login', userId: u.id });

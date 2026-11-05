@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../../lib/store.jsx';
 import { Avatar, Modal } from '../ui.jsx';
+import { isActiveUser } from '../people/shared.jsx';
 
 export default function AddMembers({ group, onClose }) {
   const { state, dispatch, me } = useStore();
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState([]);
-  const candidates = state.users.filter((u) => !group.members.includes(u.id) && `${u.name} ${u.city} ${u.batch}`.toLowerCase().includes(q.toLowerCase()));
+  const candidates = state.users.filter((u) => isActiveUser(u) && !group.members.includes(u.id) && `${u.name} ${u.city} ${u.batch}`.toLowerCase().includes(q.toLowerCase()));
 
   const add = () => {
     dispatch({ type: 'group/addMembers', id: group.id, userIds: picked });

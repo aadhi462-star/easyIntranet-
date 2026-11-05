@@ -31,15 +31,23 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
     sections: [{ id: uid('s'), name: 'To do' }, { id: uid('s'), name: 'In progress' }, { id: uid('s'), name: 'Done', done: true }],
   });
   const [label, setLabel] = useState('');
+  const [error, setError] = useState('');
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const boardTasks = board ? (state.tasks ?? []).filter((t) => t.boardId === board.id) : [];
   const setSection = (i, patch) => set('sections', f.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const setFieldDef = (i, patch) => set('customFields', f.customFields.map((c, j) => (j === i ? { ...c, ...patch } : c)));
 
   const save = (e) => {
     e.preventDefault();
     if (!f.name.trim() || !f.sections.length) return;
+    if (f.scope === 'group' && !f.groupId) { setError('Choose a group for a group board.'); return; }
     const data = { ...f, name: f.name.trim(), groupId: f.scope === 'group' ? f.groupId || null : null };
-    if (board) dispatch({ type: 'update', col: 'boards', id: board.id, patch: data });
+    if (board) {
+      dispatch({ type: 'update', col: 'boards', id: board.id, patch: data });
+      // Tasks in removed sections move to the first remaining section.
+      const ids = new Set(data.sections.map((s) => s.id));
+      boardTasks.filter((t) => !ids.has(t.status)).forEach((t) => dispatch({ type: 'update', col: 'tasks', id: t.id, silent: true, patch: { status: data.sections[0].id } }));
+    }
     else { const id = uid('b'); dispatch({ type: 'add', col: 'boards', item: { ...data, id, ownerId: me.id } }); onCreated?.(id); }
     onClose();
   };
@@ -50,10 +58,10 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Board name"><input className="input" value={f.name} onChange={(e) => set('name', e.target.value)} /></Field>
           <Field label="Visibility">
-            <Select label="Visibility" value={f.scope} onChange={(v) => set('scope', v)} options={[['network', '🌐 Network'], ['group', '👥 Group'], ['private', '🔒 Private (members only)']]} />
+            <Select label="Visibility" value={f.scope} onChange={(v) => { set('scope', v); setError(''); }} options={[['network', '🌐 Network'], ['group', '👥 Group'], ['private', '🔒 Private (members only)']]} />
           </Field>
           {f.scope === 'group' && (
-            <Field label="Group"><Select label="Group" value={f.groupId} onChange={(v) => set('groupId', v)} options={[['', 'Choose a group'], ...state.groups.map((g) => [g.id, g.name])]} /></Field>
+            <Field label="Group"><Select label="Group" value={f.groupId} onChange={(v) => { set('groupId', v); setError(''); }} options={[['', 'Choose a group'], ...state.groups.map((g) => [g.id, g.name])]} /></Field>
           )}
         </div>
         <Field label="Members"><UserPicker value={f.members} onChange={(v) => set('members', v)} /></Field>
@@ -67,7 +75,11 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
                 <label className="flex shrink-0 items-center gap-1 text-xs"><input type="checkbox" checked={!!s.done} onChange={(e) => setSection(i, { done: e.target.checked })} /> Done</label>
                 <button type="button" className="btn btn-ghost h-10 w-10 !p-0" aria-label="Move up" disabled={!i} onClick={() => { const a = [...f.sections]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set('sections', a); }}>↑</button>
                 <button type="button" className="btn btn-ghost h-10 w-10 !p-0 text-rose-300" aria-label="Remove section" disabled={f.sections.length < 2}
-                  onClick={() => set('sections', f.sections.filter((_, j) => j !== i))}>✕</button>
+                  onClick={() => {
+                    const n = boardTasks.filter((t) => t.status === s.id).length;
+                    if (n && !confirm(`Remove “${s.name}”? Its ${n} task${n === 1 ? '' : 's'} will move to the first section when you save.`)) return;
+                    set('sections', f.sections.filter((_, j) => j !== i));
+                  }}>✕</button>
               </div>
             ))}
             <button type="button" className="btn btn-ghost" onClick={() => set('sections', [...f.sections, { id: uid('s'), name: 'New section' }])}>＋ Add section</button>
@@ -102,15 +114,16 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
             <button type="button" className="btn btn-ghost" onClick={() => set('customFields', [...f.customFields, { id: uid('cf'), name: 'New field', type: 'text' }])}>＋ Add custom field</button>
           </div>
         </fieldset>
+        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
         <button className="btn btn-primary w-full">{board ? 'Save board' : 'Create board'}</button>
       </form>
     </Modal>
   );
 }
 
-export function TaskModal({ board, task, defaultSection, onClose }) {
+export function TaskModal({ board, task, defaultSection, onClose, canEdit = true }) {
   const { state, dispatch, me, user } = useStore();
-  const { tasks, blockers, isDone } = useBoardHelpers(board);
+  const { tasks, blockers, isDone, byId } = useBoardHelpers(board);
   const [f, setF] = useState(() => task ? structuredClone(task) : {
     title: '', description: '', assigneeId: me.id, dueAt: null, priority: 'none', labels: [], custom: {}, blockedBy: [], checklist: [], comments: [],
     status: defaultSection ?? board.sections[0].id,
@@ -123,10 +136,11 @@ export function TaskModal({ board, task, defaultSection, onClose }) {
 
   const save = (e) => {
     e?.preventDefault();
-    if (!f.title.trim()) return;
+    if (!canEdit || !f.title.trim()) return;
     const target = board.sections.find((s) => s.id === f.status);
     if (target?.done && blockers(f).length) { setError(`Blocked by: ${blockers(f).map((b) => b.title).join(', ')}. Finish those first.`); return; }
-    if (task) dispatch({ type: 'update', col: 'tasks', id: task.id, patch: f });
+    // Comments are saved as they're posted; keep the stored list so none are lost.
+    if (task) dispatch({ type: 'update', col: 'tasks', id: task.id, patch: (x) => ({ ...x, ...f, comments: x.comments ?? [] }) });
     else {
       dispatch({ type: 'add', col: 'tasks', item: { ...f, boardId: board.id, order: tasks.filter((t) => t.status === f.status).length } });
     }
@@ -134,6 +148,34 @@ export function TaskModal({ board, task, defaultSection, onClose }) {
       dispatch({ type: 'notify', notification: { userId: f.assigneeId, kind: 'task', text: `${me.name} assigned you “${f.title}” on ${board.name}`, link: `/tasks/${board.id}` } });
     }
     onClose();
+  };
+
+  // Would making `depId` block this task create a cycle (depId already depends on this task)?
+  const createsCycle = (depId) => {
+    if (!task) return false;
+    const seen = new Set();
+    const stack = [depId];
+    while (stack.length) {
+      const id = stack.pop();
+      if (id === task.id) return true;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      stack.push(...(byId[id]?.blockedBy ?? []));
+    }
+    return false;
+  };
+  const toggleDep = (t) => {
+    const on = f.blockedBy.includes(t.id);
+    if (!on && createsCycle(t.id)) { setError(`“${t.title}” already depends on this task, so it can’t also block it.`); return; }
+    setError('');
+    set('blockedBy', on ? f.blockedBy.filter((x) => x !== t.id) : [...f.blockedBy, t.id]);
+  };
+  const addComment = () => {
+    if (!comment.trim()) return;
+    const c = { id: uid('tc'), authorId: me.id, text: comment.trim(), createdAt: Date.now() };
+    dispatch({ type: 'update', col: 'tasks', id: task.id, silent: true, patch: (x) => ({ ...x, comments: [...(x.comments ?? []), c] }) });
+    set('comments', [...f.comments, c]);
+    setComment('');
   };
 
   const customInput = (c) => {
@@ -147,6 +189,8 @@ export function TaskModal({ board, task, defaultSection, onClose }) {
   return (
     <Modal title={task ? 'Task' : 'New task'} onClose={onClose} wide>
       <form onSubmit={save} className="space-y-4">
+        {!canEdit && <p className="text-xs text-slate-400">View only — you’re not a member of this board.</p>}
+        <fieldset disabled={!canEdit} className="space-y-4">
         <input className="input text-lg font-semibold" value={f.title} onChange={(e) => set('title', e.target.value)} placeholder="Task title" aria-label="Task title" />
         <textarea className="input min-h-20" value={f.description} onChange={(e) => set('description', e.target.value)} placeholder="Description" aria-label="Description" />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -171,7 +215,7 @@ export function TaskModal({ board, task, defaultSection, onClose }) {
             {tasks.filter((t) => t.id !== task?.id).map((t) => {
               const on = f.blockedBy.includes(t.id);
               return (
-                <button type="button" key={t.id} aria-pressed={on} onClick={() => set('blockedBy', on ? f.blockedBy.filter((x) => x !== t.id) : [...f.blockedBy, t.id])}
+                <button type="button" key={t.id} aria-pressed={on} onClick={() => toggleDep(t)}
                   className={`chip min-h-8 ${on ? '!bg-rose-500/30 !text-rose-100' : '!bg-white/5 !text-slate-300'}`}>{isDone(t) ? '✓ ' : ''}{t.title}</button>
               );
             })}
@@ -202,28 +246,29 @@ export function TaskModal({ board, task, defaultSection, onClose }) {
               ))}
               <div className="flex gap-2">
                 <input className="input" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Write a comment" aria-label="Write a comment" />
-                <button type="button" className="btn btn-ghost" onClick={() => { if (comment.trim()) { set('comments', [...f.comments, { id: uid('tc'), authorId: me.id, text: comment.trim(), createdAt: Date.now() }]); setComment(''); } }}>Comment</button>
+                <button type="button" className="btn btn-ghost" onClick={addComment}>Comment</button>
               </div>
             </div>
           </Field>
         )}
+        </fieldset>
         {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-        <div className="flex justify-between gap-2">
+        {canEdit && <div className="flex justify-between gap-2">
           {task ? <button type="button" className="btn btn-ghost text-rose-300" onClick={() => { if (confirm('Delete this task?')) { dispatch({ type: 'remove', col: 'tasks', id: task.id }); onClose(); } }}>Delete</button> : <span />}
           <button className="btn btn-primary">{task ? 'Save task' : 'Create task'}</button>
-        </div>
+        </div>}
       </form>
     </Modal>
   );
 }
 
-function TaskCard({ task, board, onOpen, onDragStart, blocked, done }) {
+function TaskCard({ task, board, onOpen, onDragStart, blocked, done, canEdit }) {
   const { user } = useStore();
   const overdue = task.dueAt && !done && task.dueAt < Date.now() - day / 2;
   const checks = task.checklist ?? [];
   return (
-    <div draggable onDragStart={onDragStart} onClick={onOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpen()}
-      className="cursor-grab rounded-xl border border-white/8 bg-ink-850/90 p-3 text-sm shadow transition hover:border-brand-500/50 focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing">
+    <div draggable={canEdit} onDragStart={canEdit ? onDragStart : undefined} onClick={onOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpen()}
+      className={`${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} rounded-xl border border-white/8 bg-ink-850/90 p-3 text-sm shadow transition hover:border-brand-500/50 focus-visible:outline-2 focus-visible:outline-brand-500`}>
       <div className="flex flex-wrap gap-1">{task.labels?.map((l) => <span key={l} className="chip !text-[10px]">{l}</span>)}</div>
       <div className={`mt-1 font-semibold ${done ? 'text-slate-400 line-through' : ''}`}>{task.title}</div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
@@ -257,6 +302,7 @@ export function BoardView({ board }) {
   const inSection = (sid) => visible.filter((t) => t.status === sid).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const moveTo = (taskId, sectionId, beforeId) => {
+    if (!canEdit) return;
     const t = tasks.find((x) => x.id === taskId);
     if (!t) return;
     const target = board.sections.find((s) => s.id === sectionId);
@@ -312,7 +358,7 @@ export function BoardView({ board }) {
               <div className="flex min-h-16 flex-col gap-2">
                 {inSection(s.id).map((t) => (
                   <div key={t.id} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setOverCol(null); if (drag && drag !== t.id) moveTo(drag, s.id, t.id); setDrag(null); }}>
-                    <TaskCard task={t} board={board} done={s.done} blocked={!s.done && blockers(t).length > 0}
+                    <TaskCard task={t} board={board} canEdit={canEdit} done={s.done} blocked={!s.done && blockers(t).length > 0}
                       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.id); setDrag(t.id); }} onOpen={() => setOpen(t)} />
                   </div>
                 ))}
@@ -348,7 +394,7 @@ export function BoardView({ board }) {
       {view === 'workload' && <Workload board={board} tasks={visible} members={members} isDone={isDone} onOpen={setOpen} />}
       {view === 'schedule' && <Schedule tasks={visible} members={members} isDone={isDone} onOpen={setOpen} />}
 
-      {open && <TaskModal board={board} task={open.new ? null : open} defaultSection={open.new} onClose={() => setOpen(null)} />}
+      {open && <TaskModal board={board} task={open.new ? null : open} defaultSection={open.new} canEdit={canEdit} onClose={() => setOpen(null)} />}
       {settings && <BoardForm board={board} onClose={() => setSettings(false)} />}
     </div>
   );

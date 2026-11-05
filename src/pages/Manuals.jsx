@@ -228,7 +228,7 @@ function ArticleView({ manual, chapter, article }) {
             </>
           ) : (
             <>
-              {canWrite && <button className="btn btn-ghost" onClick={() => setEditing(true)}><Glyph value="✎" tile={false} size={16} /> Edit</button>}
+              {canWrite && <button className="btn btn-ghost" onClick={() => { setDraft({ title: article.title, body: article.body, tags: (article.tags ?? []).join(', ') }); setEditing(true); }}><Glyph value="✎" tile={false} size={16} /> Edit</button>}
               {roles.canPublish && (
                 <button className="btn btn-primary" onClick={() => patch((a) => ({ ...a, published: !a.published, publishAt: null }))}>
                   {article.published ? 'Unpublish' : 'Publish'}

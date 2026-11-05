@@ -25,7 +25,8 @@ export default function Channels() {
   const dms = (state.dms || []).filter((d) => d.members.includes(me.id) && !d.members.some((m) => blocked.has(m) || blockedBy.has(m)))
     .sort((a, b) => (b.messages.at(-1)?.createdAt || 0) - (a.messages.at(-1)?.createdAt || 0));
   const dmName = (d) => d.name || d.members.filter((m) => m !== me.id).map((m) => user(m)?.name).join(', ') || 'Just you';
-  const current = id ? (isDm ? dms.find((d) => d.id === id) : state.channels.find((c) => c.id === id)) : null;
+  // Only conversations I'm a member of can be opened (the URL alone isn't enough).
+  const current = id ? (isDm ? dms.find((d) => d.id === id) : channels.find((c) => c.id === id)) : null;
   const f = filter.toLowerCase();
 
   const list = (
@@ -63,7 +64,7 @@ export default function Channels() {
       <div className={id ? 'hidden lg:block' : ''}>{list}</div>
       {id ? (current
         ? <Conversation key={current.id} kind={isDm ? 'dm' : 'channel'} convo={current} title={isDm ? dmName(current) : `# ${current.name}`} onBack={() => nav('/channels')} />
-        : <Empty icon="🔒" title="Conversation not found">You may have left it, or it was deleted.</Empty>)
+        : <Empty icon="🔒" title="Conversation not found">You may have left it, it was deleted, or you’re not a member.</Empty>)
         : <div className="hidden lg:block"><Empty icon="💬" title="Pick a channel or chat">Channels are real-time rooms for groups. Direct messages are private.</Empty></div>}
       {creating && <CreateChannel onClose={(newId) => { setCreating(false); if (newId) nav(`/channels/${newId}`); }} />}
       {newChat && <NewChat onClose={(newId) => { setNewChat(false); if (newId) nav(`/messages/${newId}`); }} />}
@@ -99,28 +100,21 @@ function Conversation({ kind, convo, title, onBack }) {
     return { ...m, reactions: r };
   });
 
-  const send = (body, parentId) => {
+  // `attachment` is passed by each composer so the main and thread composers never share a file.
+  const send = (body, parentId, attachment) => {
     const t = body.trim();
-    if (!t && !file) return false;
-    const extra = { ...(parentId && { parentId }), ...(file && { attachment: file }) };
+    if (!t && !attachment) return false;
+    const extra = { ...(parentId && { parentId }), ...(attachment && { attachment }) };
     if (kind === 'channel') dispatch({ type: 'channel/send', id: convo.id, text: t, extra });
     else dispatch({ type: 'update', col: 'dms', id: convo.id, patch: (c) => ({ ...c, messages: [...c.messages, { id: uid('m'), authorId: me.id, text: t, createdAt: Date.now(), ...extra }] }) });
     // @mentions: match "@Full Name" or "@First" against members.
     const link = kind === 'channel' ? `/channels/${convo.id}` : `/messages/${convo.id}`;
     state.users.filter((u) => u.id !== me.id && convo.members.includes(u.id) && (t.includes(`@${u.name}`) || new RegExp(`@${u.name.split(' ')[0]}\\b`).test(t)))
       .forEach((u) => dispatch({ type: 'notify', notification: { userId: u.id, kind: 'mention', text: `${me.name} mentioned you in ${title}`, link } }));
-    setFile(null);
     return true;
   };
 
-  const pickFile = (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';
-    if (!f) return;
-    if (f.size > MAX_BYTES) { setError(`${f.name} is larger than 30 MB.`); return; }
-    setError('');
-    setFile({ name: f.name, size: f.size, type: f.type });
-  };
+  const pickFile = pickInto(setFile, setError);
 
   const thread = threadId && convo.messages.find((m) => m.id === threadId);
   const isAdmin = kind === 'channel' && (convo.admins.includes(me.id) || me.admin);
@@ -154,11 +148,11 @@ function Conversation({ kind, convo, title, onBack }) {
             {visible.map((m) => <Message key={m.id} m={m} replies={replies(m.id).length} onReact={react} onPin={() => patchMsg(m.id, (x) => ({ ...x, pinned: !x.pinned }))} onThread={() => setThreadId(m.id)} />)}
             <li ref={endRef} />
           </ol>
-          <Composer value={text} onChange={setText} onSend={() => { if (send(text)) setText(''); }} file={file} clearFile={() => setFile(null)}
+          <Composer value={text} onChange={setText} onSend={() => { if (send(text, undefined, file)) { setText(''); setFile(null); } }} file={file} clearFile={() => setFile(null)}
             onAttach={() => fileRef.current?.click()} error={error} placeholder={`Message ${title}`} members={convo.members} />
           <input ref={fileRef} type="file" className="hidden" onChange={pickFile} />
         </div>
-        {thread && <Thread parent={thread} replies={replies(thread.id)} onClose={() => setThreadId(null)} onSend={(t) => send(t, thread.id)} onReact={react} members={convo.members} />}
+        {thread && <Thread parent={thread} replies={replies(thread.id)} onClose={() => setThreadId(null)} onSend={(t, f) => send(t, thread.id, f)} onReact={react} members={convo.members} />}
       </div>
 
       {settings && kind === 'channel' && <ChannelSettings channel={convo} isAdmin={isAdmin} onClose={() => setSettings(false)} onGone={onBack} />}
@@ -199,6 +193,16 @@ function Message({ m, replies, onReact, onPin, onThread, compact }) {
   );
 }
 
+// Change handler for a hidden file input: validates size and stores attachment metadata.
+const pickInto = (setFile, setError) => (e) => {
+  const f = e.target.files?.[0];
+  e.target.value = '';
+  if (!f) return;
+  if (f.size > MAX_BYTES) { setError(`${f.name} is larger than 30 MB.`); return; }
+  setError('');
+  setFile({ name: f.name, size: f.size, type: f.type });
+};
+
 const highlight = (text) => text.split(/(@[A-Z][\w]*(?: [A-Z][\w]*)?)/g).map((part, i) => (part.startsWith('@') ? <span key={i} className="rounded bg-brand-500/25 px-1 text-brand-400">{part}</span> : part));
 
 function Composer({ value, onChange, onSend, file, clearFile, onAttach, error, placeholder, members }) {
@@ -226,6 +230,9 @@ function Composer({ value, onChange, onSend, file, clearFile, onAttach, error, p
 
 function Thread({ parent, replies, onClose, onSend, onReact, members }) {
   const [text, setText] = useState('');
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState('');
+  const fileRef = useRef(null);
   return (
     <aside className="fixed inset-0 z-40 flex flex-col bg-ink-900 md:static md:z-auto md:w-80 md:border-l md:border-white/5 md:bg-transparent" aria-label="Thread">
       <div className="flex items-center justify-between border-b border-white/5 p-3"><h2 className="font-bold">Thread</h2><button className="btn btn-ghost h-10 w-10 !p-0" onClick={onClose} aria-label="Close thread">✕</button></div>
@@ -234,7 +241,9 @@ function Thread({ parent, replies, onClose, onSend, onReact, members }) {
         <li className="px-3 py-1 text-xs text-slate-500">{replies.length} repl{replies.length === 1 ? 'y' : 'ies'}</li>
         {replies.map((r) => <Message key={r.id} m={r} compact onReact={onReact} />)}
       </ol>
-      <Composer value={text} onChange={setText} onSend={() => { if (onSend(text)) setText(''); }} placeholder="Reply…" members={members} onAttach={() => {}} clearFile={() => {}} />
+      <Composer value={text} onChange={setText} onSend={() => { if (onSend(text, file)) { setText(''); setFile(null); } }} placeholder="Reply…" members={members}
+        file={file} clearFile={() => setFile(null)} onAttach={() => fileRef.current?.click()} error={error} />
+      <input ref={fileRef} type="file" className="hidden" onChange={pickInto(setFile, setError)} />
     </aside>
   );
 }
@@ -296,6 +305,20 @@ function ChannelSettings({ channel, isAdmin, onClose, onGone }) {
   const { me, user, dispatch } = useStore();
   const [add, setAdd] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [leaveError, setLeaveError] = useState('');
+  const leave = () => {
+    const others = channel.members.filter((m) => m !== me.id);
+    const otherAdmins = channel.admins.filter((a) => a !== me.id && others.includes(a));
+    if (!others.length) {
+      if (!confirm(`You’re the last member. Leaving will delete #${channel.name} and its messages. Continue?`)) return;
+    } else if (channel.admins.includes(me.id) && !otherAdmins.length) {
+      setLeaveError('You’re the only admin. Make someone else an admin first.');
+      return;
+    }
+    dispatch({ type: 'channel/leave', id: channel.id });
+    onClose();
+    onGone();
+  };
   const members = useMemo(() => channel.members.map(user).filter(Boolean), [channel.members, user]);
   const addMembers = () => {
     dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, members: [...new Set([...c.members, ...add])] }) });
@@ -311,6 +334,9 @@ function ChannelSettings({ channel, isAdmin, onClose, onGone }) {
             {members.map((u) => (
               <li key={u.id} className="flex items-center gap-2 text-sm"><Avatar user={u} size={28} /><span className="flex-1">{u.name}</span>
                 {channel.admins.includes(u.id) && <span className="chip">Admin</span>}
+                {isAdmin && u.id !== me.id && !channel.admins.includes(u.id) && (
+                  <button className="text-xs text-slate-400 hover:text-brand-400" onClick={() => { setLeaveError(''); dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, admins: [...new Set([...(c.admins || []), u.id])] }) }); }}>Make admin</button>
+                )}
                 {isAdmin && u.id !== me.id && !channel.admins.includes(u.id) && (
                   <button className="text-xs text-slate-400 hover:text-rose-300" onClick={() => dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, members: c.members.filter((m) => m !== u.id) }) })}>Remove</button>
                 )}
@@ -328,9 +354,10 @@ function ChannelSettings({ channel, isAdmin, onClose, onGone }) {
         <section className="border-t border-white/5 pt-4">
           <h3 className="mb-2 text-sm font-semibold">Advanced</h3>
           <div className="flex flex-wrap gap-2">
-            <button className="btn btn-ghost min-h-11" onClick={() => { dispatch({ type: 'channel/leave', id: channel.id }); onClose(); onGone(); }}>Leave channel</button>
+            <button className="btn btn-ghost min-h-11" onClick={leave}>Leave channel</button>
             {isAdmin && !confirmDelete && <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={() => setConfirmDelete(true)}>Delete channel</button>}
           </div>
+          {leaveError && <p role="alert" className="mt-3 text-sm text-rose-300">{leaveError}</p>}
           {confirmDelete && (
             <div role="alert" className="mt-3 rounded-xl bg-rose-500/10 p-3 text-sm">
               <p>Delete <b>#{channel.name}</b>? Conversations can’t be recovered.</p>

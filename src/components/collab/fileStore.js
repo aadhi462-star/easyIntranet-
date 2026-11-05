@@ -9,7 +9,7 @@ function db() {
     const req = indexedDB.open(DB, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => { dbp = undefined; reject(req.error); };
   });
   return dbp;
 }
@@ -20,6 +20,8 @@ function tx(mode, fn) {
     const req = fn(t.objectStore(STORE));
     t.oncomplete = () => resolve(req?.result);
     t.onerror = () => reject(t.error);
+    // Quota errors abort the transaction (sometimes without an error event) — always settle.
+    t.onabort = () => reject(t.error ?? new DOMException('The storage transaction was aborted.', 'AbortError'));
   }));
 }
 

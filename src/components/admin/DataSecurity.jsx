@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { fmtDate, useStore } from '../../lib/store.jsx';
 import { Field } from '../ui.jsx';
 import { download, toCsv } from './charts.jsx';
+import { toast } from '../../lib/toast.js';
 
 const DemoBadge = () => <span className="chip !bg-amber-400/15 !text-amber-200">Demo — not connected</span>;
 
@@ -47,7 +48,13 @@ export function AuditLog() {
 
 // --- Password-protected export: PBKDF2 (SHA-256, 250k iterations) → AES-GCM 256. ---
 const enc = new TextEncoder();
-const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+// Chunked: spreading a large Uint8Array into fromCharCode overflows the call stack.
+const b64 = (buf) => {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
 const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function deriveKey(password, salt) {
   const base = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
@@ -89,7 +96,12 @@ export function DataExport() {
   const encrypted = async () => {
     if (password.length < 8) return alert('Use a password of at least 8 characters.');
     setBusy(true);
-    try { download(`alumnizone-export-${stamp}.azenc`, await encryptJson(payload(), password), 'application/octet-stream'); } finally { setBusy(false); }
+    try {
+      download(`alumnizone-export-${stamp}.azenc`, await encryptJson(payload(), password), 'application/octet-stream');
+      toast('Encrypted export downloaded.');
+    } catch (e) {
+      toast(`Couldn’t create the encrypted export: ${e?.message || 'unknown error'}`, 'error');
+    } finally { setBusy(false); }
   };
   const decrypt = async () => {
     if (!file) return;

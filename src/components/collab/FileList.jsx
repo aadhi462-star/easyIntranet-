@@ -176,10 +176,11 @@ export default function FileList({ groupId }) {
                 <span className="text-xs text-slate-500">{(state.files ?? []).filter((f) => f.folderId === fo.id).length} items</span>
               </button>
               <Menu label={`Actions for folder ${fo.name}`} items={[
-                { label: 'Rename', onClick: () => setModal({ type: 'renameFolder', folder: fo }) },
-                { label: 'Delete folder', danger: true, onClick: () => {
-                  if (!confirm(`Delete folder “${fo.name}”? Its files move up one level.`)) return;
+                { label: 'Rename', hidden: fo.authorId !== me.id && !me.admin, onClick: () => setModal({ type: 'renameFolder', folder: fo }) },
+                { label: 'Delete folder', danger: true, hidden: fo.authorId !== me.id && !me.admin, onClick: () => {
+                  if (!confirm(`Delete folder “${fo.name}”? Its files and subfolders move up one level.`)) return;
                   (state.files ?? []).filter((f) => f.folderId === fo.id).forEach((f) => dispatch({ type: 'update', col: 'files', id: f.id, patch: { folderId: fo.parentId ?? null }, silent: true }));
+                  (state.folders ?? []).filter((x) => x.parentId === fo.id).forEach((x) => dispatch({ type: 'update', col: 'folders', id: x.id, patch: { parentId: fo.parentId ?? null }, silent: true }));
                   dispatch({ type: 'remove', col: 'folders', id: fo.id });
                 } },
               ]} />

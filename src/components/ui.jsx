@@ -25,7 +25,7 @@ export function Logo({ size = 40, withText = true }) {
 
 export function Avatar({ user, size = 40, ring = false }) {
   if (!user) return null;
-  const initials = user.name.split(' ').map((p) => p[0]).slice(0, 2).join('');
+  const initials = (user.name || '?').split(' ').map((p) => p[0]).slice(0, 2).join('');
   return (
     <span title={user.name}
       // Initials sit on a saturated gradient in both modes, so they stay literal white.
@@ -53,14 +53,46 @@ export function UserLink({ id, className = '' }) {
   return <Link to={`/people/${id}`} className={`font-semibold text-white hover:underline ${className}`}>{u?.name ?? 'Unknown'}</Link>;
 }
 
+// Open modals, innermost last, so Esc and the focus trap only act on the topmost one.
+const modalStack = [];
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
 export function Modal({ title, onClose, children, wide = false }) {
   const ref = useRef(null);
+  const bodyRef = useRef(null);
+  // Parents usually pass an inline onClose; keep the latest in a ref so the mount effect
+  // doesn't re-run (and steal focus) on every parent render.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    const token = {};
+    modalStack.push(token);
+    const previous = document.activeElement;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusables = () => [...(ref.current?.querySelectorAll(FOCUSABLE) ?? [])].filter((el) => el.offsetParent !== null || el === document.activeElement);
+    (bodyRef.current?.querySelector('input,textarea,select') ?? bodyRef.current?.querySelector(FOCUSABLE) ?? focusables()[0])?.focus();
+    const onKey = (e) => {
+      if (modalStack[modalStack.length - 1] !== token) return;
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current?.(); return; }
+      if (e.key !== 'Tab') return;
+      const list = focusables();
+      if (!list.length) { e.preventDefault(); return; }
+      const first = list[0];
+      const last = list[list.length - 1];
+      const inside = ref.current?.contains(document.activeElement);
+      if (e.shiftKey && (document.activeElement === first || !inside)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !inside)) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
-    ref.current?.querySelector('input,textarea,select,button')?.focus();
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const i = modalStack.indexOf(token);
+      if (i >= 0) modalStack.splice(i, 1);
+      if (!modalStack.length) document.body.style.overflow = prevOverflow;
+      if (previous && typeof previous.focus === 'function' && document.contains(previous)) previous.focus();
+    };
+  }, []);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} role="dialog" aria-modal="true" aria-label={title}
@@ -69,7 +101,7 @@ export function Modal({ title, onClose, children, wide = false }) {
           <h2 className="text-lg font-bold">{title}</h2>
           <button className="btn btn-ghost h-9 w-9 !p-0" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        {children}
+        <div ref={bodyRef}>{children}</div>
       </div>
     </div>
   );

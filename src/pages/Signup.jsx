@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
-import { AuthShell } from './Login.jsx';
+import { AuthShell, EMAIL_RE, passwordFields } from './Login.jsx';
 
 const DEPTS = ['Computer Science', 'Electronics', 'Electrical', 'Mechanical', 'Civil', 'Chemical', 'Business', 'Design', 'Other'];
 
@@ -16,17 +16,18 @@ export default function Signup() {
   const [pending, setPending] = useState(false);
   const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setError(''); };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const email = form.email.trim().toLowerCase();
-    if (!form.name.trim() || !/^\S+@\S+\.\S+$/.test(email)) return setError('Enter your name and a valid email address.');
+    if (!form.name.trim() || !EMAIL_RE.test(email)) return setError('Enter your name and a valid email address.');
     if (form.password.length < 8) return setError('Use a password of at least 8 characters.');
     const domains = reg.allowedDomains ?? [];
     if (domains.length && !domains.some((d) => email.endsWith(`@${d.replace(/^@/, '')}`))) return setError(`Sign-up is limited to these email domains: ${domains.join(', ')}.`);
-    if (state.users.some((u) => u.email.toLowerCase() === email)) return setError('That email already has an account. Sign in instead.');
+    if (state.users.some((u) => u.email?.toLowerCase() === email)) return setError('That email already has an account. Sign in instead.');
     if (!agreed) return setError('Please accept the community guidelines to join.');
     const { password: _ignored, ...profile } = form;
-    dispatch({ type: 'signup', user: { ...profile, name: profile.name.trim(), email, batch: Number(form.batch) } });
+    const secret = await passwordFields(form.password);
+    dispatch({ type: 'signup', user: { ...profile, ...secret, name: profile.name.trim(), email, batch: Number(form.batch) } });
     if (reg.requireApproval) setPending(true);
     else nav('/feed');
   };

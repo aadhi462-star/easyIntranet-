@@ -15,9 +15,9 @@ export default function Live() {
   const { state } = useStore();
   if (!id) return <LiveHome />;
   const bc = (state.broadcasts || []).find((b) => b.id === id);
-  if (bc) return <Broadcast bc={bc} />;
+  if (bc) return <Broadcast key={bc.id} bc={bc} />;
   const mt = (state.meetings || []).find((m) => m.id === id);
-  if (mt) return <MeetingRoom mt={mt} />;
+  if (mt) return <MeetingRoom key={mt.id} mt={mt} />;
   return <Empty icon="📡" title="Room not found">Check the link or code. <Link to="/live" className="text-brand-400 underline">Back to Live</Link></Empty>;
 }
 

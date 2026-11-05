@@ -5,9 +5,12 @@ import { uid, useStore } from '../../lib/store.jsx';
 import { write } from '../../lib/assist.js';
 import { Avatar } from '../ui.jsx';
 import { MandatoryConfig } from './Mandatory.jsx';
-import { audienceOf, needsApproval, SHARE_TARGETS } from './utils.js';
+import { needsApproval, publishNotifications, SHARE_TARGETS } from './utils.js';
 
 const MAX_FILE = 1024 * 1024;
+const MAX_TOTAL = 1.5 * 1024 * 1024; // all attachments on one post (they're stored in localStorage)
+const MAX_TEXT = 5000;
+const blankOption = () => ({ id: uid('o'), text: '' });
 const scopeKey = (s) => (s.type === 'network' ? 'network' : `${s.type}:${s.id}`);
 const parseKey = (k) => (k === 'network' ? { type: 'network' } : { type: k.split(':')[0], id: k.split(':')[1] });
 const toLocal = (t) => (t ? new Date(t - new Date(t).getTimezoneOffset() * 6e4).toISOString().slice(0, 16) : '');
@@ -22,7 +25,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
   const [type, setType] = useState(initial?.type ?? 'post');
   const [text, setText] = useState(initial?.text ?? '');
   const [mentions, setMentions] = useState(initial?.mentions ?? []);
-  const [options, setOptions] = useState(initial?.poll?.options.map((o) => o.text) ?? ['', '']);
+  const [options, setOptions] = useState(initial?.poll?.options.map((o) => ({ id: o.id, text: o.text })) ?? [blankOption(), blankOption()]);
   const [attachments, setAttachments] = useState(initial?.attachments ?? []);
   const [mandatory, setMandatory] = useState(initial?.mandatory ?? null);
   const [adv, setAdv] = useState(initial?.advocacy ?? { title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' });
@@ -70,51 +73,63 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
   const onFiles = (e) => {
     const files = [...e.target.files];
     e.target.value = '';
+    let total = attachments.reduce((n, a) => n + (a.size || 0), 0);
+    const problems = [];
     for (const f of files) {
-      if (f.size > MAX_FILE) { setError(`${f.name} is over 1 MB and wasn't attached.`); continue; }
+      if (f.size > MAX_FILE) { problems.push(`${f.name} is over 1 MB and wasn't attached.`); continue; }
+      if (total + f.size > MAX_TOTAL) { problems.push(`${f.name} wasn't attached: a post can carry at most 1.5 MB of files in total.`); continue; }
+      total += f.size;
       const r = new FileReader();
       r.onload = () => setAttachments((a) => [...a, { id: uid('at'), name: f.name, type: f.type, size: f.size, dataUrl: r.result }]);
       r.readAsDataURL(f);
     }
+    setError(problems.join(' '));
   };
 
   const reset = () => {
-    setText(''); setMentions([]); setOptions(['', '']); setAttachments([]); setMandatory(null); setType('post');
+    setText(''); setMentions([]); setOptions([blankOption(), blankOption()]); setAttachments([]); setMandatory(null); setType('post');
     setAdv({ title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' }); setScheduleAt(null); setShowSchedule(false); setAssist(null); setError('');
     if (compact) setOpen(false);
   };
 
   const submit = (mode) => {
     const body = text.trim();
-    if (type === 'advocacy' ? !adv.title.trim() || !/^https?:\/\//.test(adv.url) : !body && !attachments.length) {
+    // A repost can be edited down to no comment: the embedded original is its content.
+    if (type === 'advocacy' ? !adv.title.trim() || !/^https?:\/\//.test(adv.url) : !body && !attachments.length && !initial?.repostOf) {
       setError(type === 'advocacy' ? 'Add a title and a website URL starting with http(s)://.' : 'Write something or attach a file.'); return;
     }
-    const opts = options.map((o) => o.trim()).filter(Boolean);
+    if (body.length > MAX_TEXT) { setError(`Posts can be up to ${MAX_TEXT} characters. This one has ${body.length}.`); return; }
+    if (attachments.reduce((n, a) => n + (a.size || 0), 0) > MAX_TOTAL) { setError('Attachments are limited to 1.5 MB per post. Remove a file to continue.'); return; }
+    const opts = options.map((o) => ({ ...o, text: o.text.trim() })).filter((o) => o.text);
     if (type === 'poll' && opts.length < 2) { setError('A poll needs at least two options.'); return; }
+    if (type === 'poll' && new Set(opts.map((o) => o.text.toLowerCase())).size < opts.length) { setError('Each poll option must be different.'); return; }
     if (mode === 'schedule' && (!scheduleAt || scheduleAt <= Date.now())) { setError('Pick a time in the future to schedule.'); return; }
 
-        const status = mode === 'draft' ? 'draft' : mode === 'schedule' ? 'scheduled' : needsApproval(state, me, body) ? 'pending' : 'published';
+    const status = mode === 'draft' ? 'draft' : mode === 'schedule' ? 'scheduled' : needsApproval(state, me, body) ? 'pending' : 'published';
     const id = initial?.id ?? uid('p');
     const fields = {
       type, text: body, scope, attachments, status,
       mentions: mentions.filter((m) => body.includes(`@${user(m)?.name}`)),
       publishAt: mode === 'schedule' ? scheduleAt : undefined,
-      poll: type === 'poll' ? { options: opts.map((t, i) => ({ id: `o${i}`, text: t, votes: initial?.poll?.options.find((o) => o.text === t)?.votes ?? [] })) } : undefined,
+      // Votes follow the option id, so rewording an option while editing keeps its votes.
+      poll: type === 'poll' ? { options: opts.map((o) => ({ id: o.id, text: o.text, votes: initial?.poll?.options.find((x) => x.id === o.id)?.votes ?? [] })) } : undefined,
       advocacy: type === 'advocacy' ? { shares: {}, ...adv } : undefined,
       mandatory: mandatory && scope.type !== 'user' ? { acks: [], ...mandatory } : undefined,
     };
-    if (initial) {
-      dispatch({ type: 'update', col: 'posts', id, patch: { ...fields, editedAt: Date.now(), createdAt: initial.status === 'published' ? initial.createdAt : Date.now() } });
+    const wasLive = initial?.status === 'published';
+    if (initial && !wasLive && status === 'published') {
+      // Draft / scheduled / pending → live goes through post/publish so the points are credited.
+      dispatch({ type: 'update', col: 'posts', id, patch: { ...fields, status: initial.status, editedAt: Date.now() } });
+      dispatch({ type: 'post/publish', id, creditTo: me.id });
+    } else if (initial) {
+      dispatch({ type: 'update', col: 'posts', id, patch: { ...fields, editedAt: Date.now(), createdAt: wasLive ? initial.createdAt : Date.now() } });
     } else {
       dispatch({ type: 'post/create', post: { id, ...fields } });
     }
     if (status === 'published') {
-      fields.mentions.forEach((uid_) => uid_ !== me.id && dispatch({ type: 'notify',
-        notification: { userId: uid_, kind: 'mention', link: `/post/${id}`, text: `${me.name} mentioned you in a post` } }));
-      if (fields.mandatory && !initial?.mandatory) {
-        audienceOf(state, { ...fields, authorId: me.id }).forEach((u) => dispatch({ type: 'notify',
-          notification: { userId: u, kind: 'mandatory', link: `/post/${id}`, text: `${me.name} marked a post as Mandatory Read` } }));
-      }
+      // Edits of a live post only notify newly added mentions, and a newly added Mandatory Read.
+      publishNotifications(state, dispatch, { ...fields, id, authorId: me.id },
+        { skipMentions: wasLive ? initial.mentions ?? [] : [], mandatory: !(wasLive && initial.mandatory) });
     }
     reset();
     onDone?.(status);
@@ -167,9 +182,12 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
       <div className="relative flex gap-3">
         {!initial && <Avatar user={me} size={40} />}
         <div className="flex-1">
-          <textarea ref={ta} className="input min-h-24 resize-y" value={text} onChange={onText} aria-label="Post text"
+          <textarea ref={ta} className="input min-h-24 resize-y" value={text} onChange={onText} aria-label="Post text" maxLength={MAX_TEXT}
             onKeyDown={(e) => { if (e.key === 'Escape') setMq(null); }}
             placeholder={type === 'question' ? 'Ask the community a question…' : type === 'advocacy' ? 'Description for members (not shared outside the network)' : 'What’s on your mind right now? Use @ to mention and # to tag.'} />
+          {text.length > MAX_TEXT * 0.8 && (
+            <p className={`mt-1 text-right text-xs ${text.length > MAX_TEXT ? 'text-rose-300' : 'text-slate-400'}`} aria-live="polite">{text.length}/{MAX_TEXT}</p>
+          )}
           {suggestions.length > 0 && (
             <ul className="glass glass-strong absolute z-20 mt-1 w-64 p-1" role="listbox" aria-label="Mention suggestions">
               {suggestions.map((u) => (
@@ -184,12 +202,12 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
       {type === 'poll' && (
         <div className="mt-3 space-y-2">
           {options.map((o, i) => (
-            <div key={i} className="flex gap-2">
-              <input className="input" placeholder={`Option ${i + 1}`} value={o} onChange={(e) => setOptions(options.map((x, j) => (j === i ? e.target.value : x)))} />
+            <div key={o.id} className="flex gap-2">
+              <input className="input" placeholder={`Option ${i + 1}`} value={o.text} onChange={(e) => setOptions(options.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
               {options.length > 2 && <button className="btn btn-ghost w-11 !p-0" aria-label={`Remove option ${i + 1}`} onClick={() => setOptions(options.filter((_, j) => j !== i))}>✕</button>}
             </div>
           ))}
-          {options.length < 6 && <button className="btn btn-ghost text-xs" onClick={() => setOptions([...options, ''])}>+ Add option</button>}
+          {options.length < 6 && <button className="btn btn-ghost text-xs" onClick={() => setOptions([...options, blankOption()])}>+ Add option</button>}
         </div>
       )}
 
@@ -228,7 +246,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
         <input ref={fileRef} type="file" multiple hidden onChange={onFiles} />
-        <button className="btn btn-ghost h-11 w-11 !p-0" title="Attach files (max 1 MB each)" aria-label="Attach files" onClick={() => fileRef.current.click()}><Glyph value="📎" tile={false} size={16} /></button>
+        <button className="btn btn-ghost h-11 w-11 !p-0" title="Attach files (max 1 MB each, 1.5 MB per post)" aria-label="Attach files" onClick={() => fileRef.current.click()}><Glyph value="📎" tile={false} size={16} /></button>
         {canMandatory && scope.type !== 'user' && (
           <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="✅" tile={false} size={16} /></button>
         )}

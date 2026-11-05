@@ -8,24 +8,54 @@ import { BarList, LineChart, PieChart, Stat } from './charts.jsx';
 
 const DAY = 864e5;
 
+const live = (x) => (x.status ?? 'published') === 'published';
+
 // Base content timestamps let the graph show history even before any live activity is logged.
+// Only live content counts: drafts, scheduled and pending items aren't interactions yet.
 function contentEvents(s) {
+  const posts = (s.posts || []).filter(live);
+  const forum = (s.forumPosts || []).filter((f) => f.status !== 'draft');
   return [
-    ...s.posts.map((p) => ({ at: p.createdAt, userId: p.authorId, module: 'Wall' })),
-    ...s.posts.flatMap((p) => p.comments.map((c) => ({ at: c.createdAt, userId: c.authorId, module: 'Wall' }))),
-    ...s.forumPosts.map((f) => ({ at: f.createdAt, userId: f.authorId, module: 'Forums' })),
-    ...s.forumPosts.flatMap((f) => f.replies.map((r) => ({ at: r.createdAt, userId: r.authorId, module: 'Forums' }))),
-    ...s.channels.flatMap((c) => c.messages.map((m) => ({ at: m.createdAt, userId: m.authorId, module: 'Channels' }))),
+    ...posts.map((p) => ({ at: p.createdAt, userId: p.authorId, module: 'Wall' })),
+    ...posts.flatMap((p) => (p.comments || []).map((c) => ({ at: c.createdAt, userId: c.authorId, module: 'Wall' }))),
+    ...forum.map((f) => ({ at: f.createdAt, userId: f.authorId, module: 'Forums' })),
+    ...forum.flatMap((f) => (f.replies || []).map((r) => ({ at: r.createdAt, userId: r.authorId, module: 'Forums' }))),
+    ...(s.channels || []).flatMap((c) => (c.messages || []).map((m) => ({ at: m.createdAt, userId: m.authorId, module: 'Channels' }))),
     ...(s.ideas || []).map((i) => ({ at: i.createdAt, userId: i.authorId, module: 'Ideas' })),
     ...(s.files || []).map((f) => ({ at: f.createdAt, userId: f.authorId ?? f.ownerId, module: 'Files' })),
     ...(s.townhalls || []).map((t) => ({ at: t.createdAt ?? t.start, userId: t.hostId, module: 'Town halls' })),
-    ...s.events.map((e) => ({ at: e.createdAt ?? e.start - 7 * DAY, userId: e.hostId, module: 'Events' })),
+    ...(s.events || []).map((e) => ({ at: e.createdAt ?? e.start - 7 * DAY, userId: e.hostId, module: 'Events' })),
   ].filter((e) => e.at);
 }
 
-const MODULE_OF = (type) => (type.startsWith('post') ? 'Wall' : type.startsWith('forum') ? 'Forums' : type.startsWith('event') ? 'Events'
-  : type.startsWith('group') ? 'Groups' : type.startsWith('channel') ? 'Channels' : type.startsWith('manual') ? 'Manuals'
-  : type.includes(':') ? type.split(':')[1] : 'Other');
+// Member-facing activity that isn't already counted from content above. Content creation
+// (posts, comments, forum posts, messages, ideas, files, events, town halls) comes from the
+// content itself, and admin/system actions (settings, members, workflows…) aren't engagement.
+const INTERACTIONS = {
+  'post/publish': 'Wall', 'post/like': 'Wall', 'post/vote': 'Wall', 'post/ack': 'Wall',
+  'forum/upvote': 'Forums', 'event/rsvp': 'Events', 'group/create': 'Groups', 'group/join': 'Groups',
+  'manual/article': 'Manuals', 'update:ideas': 'Ideas', 'add:praise': 'Praise', 'add:answers': 'Town halls',
+  'add:townhallQuestions': 'Town halls', 'add:surveyResponses': 'Surveys', 'add:tasks': 'Tasks',
+};
+// Toggles (like/unlike, join/leave) count once per member per item.
+const ONCE = new Set(['post/like', 'post/vote', 'post/ack', 'forum/upvote', 'event/rsvp', 'group/join', 'update:ideas']);
+
+function activityEvents(s) {
+  const seen = new Set();
+  const out = [];
+  for (const a of s.activity || []) {
+    const module = INTERACTIONS[a.type];
+    if (!module || !a.userId) continue;
+    const key = ONCE.has(a.type) ? `${a.type}:${a.userId}:${a.ref}` : a.id;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ at: a.at, userId: a.userId, module });
+  }
+  return out;
+}
+
+/** Members who count: not pending approval and not deactivated. */
+const isMember = (u) => !u.deactivated && (u.status ?? 'active') === 'active';
 
 export default function Analytics() {
   const { state } = useStore();
@@ -33,10 +63,10 @@ export default function Analytics() {
 
   const data = useMemo(() => {
     const since = Date.now() - range * DAY;
-    const events = [
-      ...contentEvents(state),
-      ...(state.activity || []).filter((a) => !a.type.startsWith('set') && a.type !== 'login').map((a) => ({ at: a.at, userId: a.userId, module: MODULE_OF(a.type) })),
-    ].filter((e) => e.at >= since);
+    const active = state.users.filter(isMember);
+    const memberIds = new Set(active.map((u) => u.id));
+    const all = [...contentEvents(state), ...activityEvents(state)].filter((e) => memberIds.has(e.userId));
+    const events = all.filter((e) => e.at >= since);
 
     const buckets = Array.from({ length: range }, (_, i) => {
       const d = new Date(Date.now() - (range - 1 - i) * DAY);
@@ -45,13 +75,14 @@ export default function Analytics() {
     const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
     for (const e of events) { const b = byKey[new Date(e.at).toDateString()]; if (b) b.value++; }
 
-    const active = state.users.filter((u) => !u.deactivated);
     const activeIds = new Set(events.map((e) => e.userId));
-    const inactive30 = active.filter((u) => !contentEvents(state).concat(state.activity || []).some((e) => e.userId === u.id && e.at >= Date.now() - 30 * DAY));
+    const recent = new Set(all.filter((e) => e.at >= Date.now() - 30 * DAY).map((e) => e.userId));
+    const inactive30 = active.filter((u) => !recent.has(u.id));
     const score = Math.round(Math.min(100, (activeIds.size / Math.max(1, active.length)) * 70 + Math.min(30, events.length / Math.max(1, active.length) * 3)));
 
-    const texts = [...state.posts.map((p) => p.text), ...state.posts.flatMap((p) => p.comments.map((c) => c.text)),
-      ...state.forumPosts.flatMap((f) => [f.body, ...f.replies.map((r) => r.text)])].filter(Boolean);
+    const livePosts = state.posts.filter(live);
+    const texts = [...livePosts.map((p) => p.text), ...livePosts.flatMap((p) => (p.comments || []).map((c) => c.text)),
+      ...state.forumPosts.filter((f) => f.status !== 'draft').flatMap((f) => [f.body, ...(f.replies || []).map((r) => r.text)])].filter(Boolean);
     const senti = { happy: 0, neutral: 0, unhappy: 0 };
     texts.forEach((t) => senti[sentiment(t)]++);
 
@@ -72,7 +103,7 @@ export default function Analytics() {
       return Object.entries(m).map(([label, value]) => ({ label: String(label), value })).sort((a, b) => b.value - a.value).slice(0, 6);
     };
 
-    const newJoins = state.users.filter((u) => u.joinedAt && u.joinedAt >= since);
+    const newJoins = active.filter((u) => u.joinedAt && u.joinedAt >= since);
     return { buckets, events, score, senti, views, perModule, audience, newJoins, inactive30, activeIds, active };
   }, [state, range]);
 

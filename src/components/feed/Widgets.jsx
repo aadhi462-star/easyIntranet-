@@ -2,7 +2,7 @@ import { Glyph } from '../icons.jsx';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 import { SentimentMeter } from './PostModals.jsx';
-import { canSee, isLive, sentimentCounts, trendingTags } from './utils.js';
+import { audienceOf, canSee, isLive, sentimentCounts, trendingTags } from './utils.js';
 
 export function TrendingTags() {
   const { state, me } = useStore();
@@ -21,7 +21,8 @@ export function TrendingTags() {
 
 export function MandatoryPending() {
   const { state, me } = useStore();
-  const pending = state.posts.filter((p) => isLive(p) && p.mandatory && p.authorId !== me.id && !p.mandatory.acks.includes(me.id) && canSee(state, me, p));
+  const pending = state.posts.filter((p) => isLive(p) && p.mandatory && p.authorId !== me.id && !p.mandatory.acks.includes(me.id) && canSee(state, me, p)
+    && audienceOf(state, p).includes(me.id));
   if (!pending.length) return null;
   return (
     <Link to="/feed/mandatory" className="glass block p-4 ring-1 ring-amber-300/30 hover:ring-amber-300/60">

@@ -2,6 +2,7 @@ import { Glyph } from '../components/icons.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
+import { toast } from '../lib/toast.js';
 import { AvatarStack, Empty, PageHeader, Tabs } from '../components/ui.jsx';
 import { ACCESS, APPS, GROUP_TYPES, hueOf, roleOf } from '../components/groups/helpers.js';
 import GroupForm from '../components/groups/GroupForm.jsx';
@@ -87,14 +88,24 @@ function Directory() {
   );
 }
 
+/** Shared leave flow: confirm, and stop the last admin leaving while others remain. */
+function useLeaveGroup() {
+  const { dispatch, me } = useStore();
+  return (g) => {
+    const lastAdmin = g.admins.includes(me.id) && g.admins.length === 1;
+    if (lastAdmin && g.members.some((x) => x !== me.id)) { toast('Make someone else an admin first', 'error'); return; }
+    if (confirm(lastAdmin ? `Leave ${g.name}? You're the only member, so the group will have no admin.` : `Leave ${g.name}?`)) dispatch({ type: 'group/join', id: g.id });
+  };
+}
+
 function JoinButton({ g, className = '' }) {
   const { dispatch, me, user } = useStore();
+  const leave = useLeaveGroup();
   const role = roleOf(g, me.id);
   const requested = (g.joinRequests || []).includes(me.id);
   if (g.allHands && role) return null;
   if (role) {
-    if (role === 'admin' && g.admins.length === 1) return null;
-    return <button className={`btn btn-ghost ${className}`} onClick={() => confirm(`Leave ${g.name}?`) && dispatch({ type: 'group/join', id: g.id })}>Leave</button>;
+    return <button className={`btn btn-ghost ${className}`} onClick={() => leave(g)}>Leave</button>;
   }
   if (g.accessType === 'public') return <button className={`btn btn-primary ${className}`} onClick={() => dispatch({ type: 'group/join', id: g.id })}>Join</button>;
   if (g.accessType === 'restricted') {
@@ -104,7 +115,7 @@ function JoinButton({ g, className = '' }) {
     };
     return <button className={`btn ${requested ? 'btn-ghost' : 'btn-primary'} ${className}`} onClick={toggle}>{requested ? 'Cancel request' : 'Request to join'}</button>;
   }
-  return <span className={`chip ${className}`} title={`Ask ${user(g.admins[0])?.name} to add you`}><Glyph value="🔒" tile={false} size={16} /> Invite only</span>;
+  return <span className={`chip ${className}`} title={user(g.admins[0])?.name ? `Ask ${user(g.admins[0]).name} to add you` : 'Ask a community admin to add you'}><Glyph value="🔒" tile={false} size={16} /> Invite only</span>;
 }
 
 function GroupCard({ g }) {
@@ -132,6 +143,7 @@ function GroupCard({ g }) {
 
 function GroupView({ id }) {
   const { state, me, dispatch } = useStore();
+  const leave = useLeaveGroup();
   const { app } = useParams();
   const nav = useNavigate();
   const [menu, setMenu] = useState(false);
@@ -147,7 +159,12 @@ function GroupView({ id }) {
   const tabs = [...apps, ...(isAdmin ? [{ id: 'settings', label: 'Settings', icon: '⚙️' }] : [])];
   const current = tabs.find((t) => t.id === app)?.id ?? tabs[0]?.id;
   const go = (t) => nav(`/groups/${g.id}/${t}`);
-  const del = () => { if (confirm(`Delete ${g.name}?`)) { dispatch({ type: 'remove', col: 'groups', id: g.id }); nav('/groups'); } };
+  const del = () => {
+    if (!confirm(`Delete ${g.name}?`)) return;
+    for (const c of state.channels.filter((c) => c.groupId === g.id)) dispatch({ type: 'remove', col: 'channels', id: c.id });
+    dispatch({ type: 'remove', col: 'groups', id: g.id });
+    nav('/groups');
+  };
 
   return (
     <div>
@@ -175,7 +192,7 @@ function GroupView({ id }) {
                     {isAdmin && <MenuItem onClick={() => setModal('edit')}>Edit group</MenuItem>}
                     {isAdmin && <MenuItem onClick={() => go('settings')}>Settings</MenuItem>}
                     <MenuItem onClick={() => go('members')}>View members</MenuItem>
-                    {role && !g.allHands && !(role === 'admin' && g.admins.length === 1) && <MenuItem onClick={() => dispatch({ type: 'group/join', id: g.id })}>Leave group</MenuItem>}
+                    {role && !g.allHands && <MenuItem onClick={() => leave(g)}>Leave group</MenuItem>}
                     {isAdmin && !g.allHands && <MenuItem danger onClick={del}>Delete group</MenuItem>}
                   </div>
                 )}
@@ -216,7 +233,10 @@ function GroupView({ id }) {
       {modal === 'edit' && (
         <GroupForm initial={{ name: g.name, description: g.description, type: g.type, accessType: g.accessType, emoji: g.emoji, apps: g.apps }}
           onClose={() => setModal(null)}
-          onSave={(v) => { dispatch({ type: 'update', col: 'groups', id: g.id, patch: v }); setModal(null); }} />
+          onSave={(v) => {
+            dispatch({ type: 'update', col: 'groups', id: g.id, patch: (x) => ({ ...x, ...v, joinRequests: (v.accessType ?? x.accessType) === 'restricted' ? (x.joinRequests || []) : [] }) });
+            setModal(null);
+          }} />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Avatar, PageHeader } from '../components/ui.jsx';
+import { isActiveUser } from '../components/people/shared.jsx';
 
 export default function OrgChart() {
   const { state } = useStore();
@@ -10,15 +11,32 @@ export default function OrgChart() {
   const [q, setQ] = useState('');
 
   const { roots, children, parent } = useMemo(() => {
-    const ids = new Set(state.users.filter((u) => !['pending', 'deactivated'].includes(u.status)).map((u) => u.id));
+    const ids = new Set(state.users.filter(isActiveUser).map((u) => u.id));
     const children = {};
     const parent = {};
-    const active = state.users.filter((u) => !['pending', 'deactivated'].includes(u.status));
+    const active = state.users.filter(isActiveUser);
     for (const u of active) {
       const m = u.managerId && ids.has(u.managerId) && u.managerId !== u.id ? u.managerId : null;
       parent[u.id] = m;
       if (m) (children[m] ??= []).push(u);
     }
+    // Break managerId cycles: anyone whose chain loops back on itself becomes a root,
+    // so nobody disappears from the tree.
+    const status = {}; // 1 = visiting, 2 = done
+    const visit = (id) => {
+      const path = [];
+      let cur = id;
+      while (cur && !status[cur]) { status[cur] = 1; path.push(cur); cur = parent[cur]; }
+      if (cur && status[cur] === 1) {
+        // cur is on the current path: every node from cur onward is in the cycle.
+        for (const x of path.slice(path.indexOf(cur))) {
+          if (parent[x]) children[parent[x]] = (children[parent[x]] || []).filter((c) => c.id !== x);
+          parent[x] = null;
+        }
+      }
+      path.forEach((x) => { status[x] = 2; });
+    };
+    for (const u of active) visit(u.id);
     return { roots: active.filter((u) => !parent[u.id]), children, parent };
   }, [state.users]);
 
@@ -26,12 +44,12 @@ export default function OrgChart() {
   const [open, setOpen] = useState(() => new Set(roots.map((r) => r.id)));
   useEffect(() => {
     if (!focus) return;
-    setOpen((o) => { const n = new Set(o); for (let p = parent[focus]; p; p = parent[p]) n.add(p); return n; });
+    setOpen((o) => { const n = new Set(o); const seen = new Set([focus]); for (let p = parent[focus]; p && !seen.has(p); p = parent[p]) { seen.add(p); n.add(p); } return n; });
     setTimeout(() => document.getElementById(`org-${focus}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   }, [focus, parent]);
 
   const toggle = (id) => setOpen((o) => { const n = new Set(o); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const matches = q.trim() ? state.users.filter((u) => !['pending', 'deactivated'].includes(u.status) && u.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6) : [];
+  const matches = q.trim() ? state.users.filter((u) => isActiveUser(u) && u.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6) : [];
 
   // A plain render function (not a component) so toggling doesn't remount the tree and lose focus.
   const node = (u) => {

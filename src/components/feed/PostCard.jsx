@@ -2,7 +2,7 @@ import UserLabels from '../UserLabels.jsx';
 import { Glyph } from '../icons.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
+import { bookmarksOf, fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
 import { LANGUAGES, summarize, translate } from '../../lib/assist.js';
 import { Avatar, Modal, UserLink } from '../ui.jsx';
 import Comments from './Comments.jsx';
@@ -10,14 +10,14 @@ import Composer from './Composer.jsx';
 import { AckBox, MandatoryConfig, MandatoryReport } from './Mandatory.jsx';
 import { AdvocacyReport, InsightsModal, ReportModal, RepostModal } from './PostModals.jsx';
 import RichText from './RichText.jsx';
-import { followingIds, GUEST, MOODS, needsApproval, scopeLabel, SHARE_TARGETS, statusOf } from './utils.js';
+import { acksOf, audienceOf, canSee, followingIds, GUEST, isLive, isPublicPost, MOODS, needsApproval, publishPost, scopeLabel, SHARE_TARGETS, shareLockOf, statusOf } from './utils.js';
 
 // Views are counted once per post per page load.
 const seen = new Set();
 
 /** `readOnly` (or no signed-in user) renders a guest view without any interaction. */
 export default function PostCard({ post, expanded = false, embedded = false, readOnly = false }) {
-  const { state, dispatch, me: signedIn, user } = useStore();
+  const { state, dispatch, me: signedIn, user, can } = useStore();
   const guest = readOnly || !signedIn;
   const me = signedIn ?? GUEST;
   const [showComments, setShowComments] = useState(expanded);
@@ -30,9 +30,15 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
   const status = statusOf(post);
   const mine = post.authorId === me.id;
   const group = post.scope?.type === 'group' ? state.groups.find((g) => g.id === post.scope.id) : null;
-  const canManageMandatory = post.scope?.type !== 'user' && (me.admin || !!group?.admins.includes(me.id));
+  // Same rule as the composer: group admins in groups, `mandatory.mark` on the network wall.
+  const canManageMandatory = post.scope?.type !== 'user' && (me.admin
+    || (group ? group.admins.includes(me.id) : !guest && !!state.roles?.length && can('mandatory.mark')));
   const canInsights = mine || me.admin;
-  const original = post.repostOf ? state.posts.find((p) => p.id === post.repostOf) : null;
+  // A repost only shows its original to people who could see that original directly
+  // (guests: public posts only), and only while it's live.
+  const found = post.repostOf ? state.posts.find((p) => p.id === post.repostOf) : null;
+  const original = found && isLive(found) && (guest ? isPublicPost(state, found) : canSee(state, me, found)) ? found : null;
+  const inAudience = !!post.mandatory && audienceOf(state, post).includes(me.id);
   const follows = followingIds(state, me).includes(post.authorId);
 
   useEffect(() => {
@@ -63,8 +69,17 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
     else dispatch({ type: 'add', col: 'follows', item: { targetId: post.authorId } });
   };
   const approve = () => {
-    patch({ status: 'published', createdAt: Date.now() });
+    publishPost(state, dispatch, post);
     dispatch({ type: 'notify', notification: { userId: post.authorId, kind: 'info', link: `/post/${post.id}`, text: 'Your post was approved and published' } });
+  };
+  const reject = () => {
+    if (!confirm('Reject and delete this post?')) return;
+    dispatch({ type: 'post/delete', id: post.id });
+    dispatch({ type: 'notify', silent: true, notification: { userId: post.authorId, kind: 'moderation', link: '/feed', text: 'Your post was not approved by the moderators' } });
+  };
+  const publishNow = () => {
+    if (needsApproval(state, me, post.text)) patch({ status: 'pending', createdAt: Date.now(), publishAt: undefined });
+    else publishPost(state, dispatch, post);
   };
   const share = (k) => {
     const t = SHARE_TARGETS[k];
@@ -121,7 +136,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
             <button className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post actions" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
             {menu && (
               <div className="glass glass-strong absolute right-0 z-20 mt-1 w-60 p-1.5" onMouseLeave={() => setMenu(false)}>
-                {status === 'published' && item(state.bookmarks.includes(post.id) ? '🔖 Remove bookmark' : '🔖 Bookmark', () => dispatch({ type: 'bookmark', id: post.id }))}
+                {status === 'published' && item(bookmarksOf(state, me.id).includes(post.id) ? '🔖 Remove bookmark' : '🔖 Bookmark', () => dispatch({ type: 'bookmark', id: post.id }))}
                 {me.admin && status === 'published' && item(post.pinned ? '📌 Unpin' : '📌 Pin to top', () => patch({ pinned: !post.pinned }))}
                 {!mine && item(follows ? `👣 Unfollow ${user(post.authorId)?.name.split(' ')[0]}` : `👣 Follow ${user(post.authorId)?.name.split(' ')[0]}`, toggleFollow)}
                 {canManageMandatory && status === 'published' && item(post.mandatory ? '✅ Manage Mandatory Read' : '✅ Mark as Mandatory Read', () => setModal('mandatory'))}
@@ -190,7 +205,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
       )}
 
       {original && <div className="mt-3"><PostCard post={original} embedded readOnly={guest} /></div>}
-      {post.repostOf && !original && <p className="mt-3 rounded-xl bg-white/5 p-3 text-sm text-slate-400">The original post is no longer available.</p>}
+      {post.repostOf && !original && <p className="mt-3 rounded-xl bg-white/5 p-3 text-sm text-slate-400">Original post isn’t available.</p>}
 
       {post.advocacy && (
         <div className="mt-3 rounded-xl border border-white/10 p-3">
@@ -208,10 +223,10 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         </div>
       )}
 
-      {post.mandatory && !embedded && !guest && status === 'published' && (
+      {post.mandatory && !embedded && !guest && status === 'published' && (mine || inAudience) && (
         <div className="mt-3">
           {mine ? (
-            <p className="text-xs text-amber-200">You marked this as Mandatory Read · {post.mandatory.acks.length} acknowledged{post.mandatory.deadline ? ` · due ${fmtDate(post.mandatory.deadline)}` : ''}</p>
+            <p className="text-xs text-amber-200">You marked this as Mandatory Read · {acksOf(state, post).length} acknowledged{post.mandatory.deadline ? ` · due ${fmtDate(post.mandatory.deadline)}` : ''}</p>
           ) : post.mandatory.acks.includes(me.id) ? (
             <p className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200"><Glyph value="mandatory" tile={false} size={16} /> You acknowledged this post.</p>
           ) : (
@@ -222,15 +237,15 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
 
       {!guest && status === 'pending' && me.admin && !mine && (
         <div className="mt-3 flex gap-2"><button className="btn btn-primary" onClick={approve}>Approve</button>
-          <button className="btn btn-ghost text-rose-300" onClick={() => dispatch({ type: 'post/delete', id: post.id })}>Reject</button></div>
+          <button className="btn btn-ghost text-rose-300" onClick={reject}>Reject</button></div>
       )}
       {status === 'pending' && mine && <p className="mt-3 text-xs text-orange-200">Your post is awaiting moderator approval and isn’t visible to others yet.</p>}
       {!guest && (status === 'draft' || status === 'scheduled') && (
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn btn-primary" onClick={() => patch({ status: needsApproval(state, me, post.text) ? 'pending' : 'published', createdAt: Date.now(), publishAt: undefined })}>Publish now</button>
+          <button className="btn btn-primary" onClick={publishNow}>Publish now</button>
           <button className="btn btn-ghost" onClick={() => setModal('edit')}>Edit</button>
           {status === 'scheduled' && <button className="btn btn-ghost" onClick={() => patch({ status: 'draft', publishAt: undefined })}>Move to drafts</button>}
-          <button className="btn btn-ghost text-rose-300" onClick={() => dispatch({ type: 'post/delete', id: post.id })}>Delete</button>
+          <button className="btn btn-ghost text-rose-300" onClick={() => { if (confirm(`Delete this ${status === 'draft' ? 'draft' : 'scheduled post'}?`)) dispatch({ type: 'post/delete', id: post.id }); }}>Delete</button>
         </div>
       )}
 
@@ -257,7 +272,8 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
           <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-slate-300" onClick={() => setShowComments(!showComments)} aria-expanded={showComments}>
             <Glyph value="channels" tile={false} size={16} /> {post.comments.length || ''} {post.type === 'question' ? 'Answers' : 'Comments'}
           </button>
-          <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-slate-300" onClick={() => setModal('repost')}>↗ Share</button>
+          <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-slate-300" onClick={() => setModal('repost')}
+            title={shareLockOf(state, post) ? `Can only be shared within ${shareLockOf(state, post).name}` : undefined}>↗ Share</button>
           <span className="flex-1" />
           {canInsights && <button className="min-h-10 px-2 text-xs text-slate-400 hover:text-white" onClick={() => setModal('insights')}><Glyph value="👁" tile={false} size={16} /> {Object.keys(post.views || {}).length}</button>}
         </footer>
@@ -269,8 +285,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         <MandatoryConfig initial={post.mandatory} onClose={close}
           onSave={(cfg) => {
             if (!post.mandatory) {
-              const audience = (post.scope?.type === 'group' ? group?.members ?? [] : state.users.map((u) => u.id)).filter((id) => id !== me.id);
-              audience.forEach((u) => dispatch({ type: 'notify', notification: { userId: u, kind: 'mandatory', link: `/post/${post.id}`, text: `${me.name} marked a post as Mandatory Read` } }));
+              audienceOf(state, post).filter((id) => id !== me.id).forEach((u) => dispatch({ type: 'notify', notification: { userId: u, kind: 'mandatory', link: `/post/${post.id}`, text: `${me.name} marked a post as Mandatory Read` } }));
             }
             dispatch({ type: 'post/mandatory', id: post.id, mandatory: cfg }); close();
           }}

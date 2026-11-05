@@ -3,7 +3,7 @@ import { useStore } from '../store.jsx';
 
 // Which collection an activity type writes to, so conditions can inspect the content.
 const COLLECTION = {
-  'post/create': 'posts', 'post/comment': 'posts', 'post/like': 'posts',
+  'post/create': 'posts', 'post/publish': 'posts', 'post/comment': 'posts', 'post/like': 'posts',
   'forum/save': 'forumPosts', 'forum/reply': 'forumPosts',
   'event/create': 'events', 'event/rsvp': 'events',
   'group/create': 'groups', 'group/join': 'groups',
@@ -22,11 +22,21 @@ function findContent(state, entry) {
 const textOf = (item) => [item?.text, item?.title, item?.body, item?.name, item?.description,
   ...(item?.comments || []).slice(-1).map((c) => c.text), ...(item?.messages || []).slice(-1).map((m) => m.text)].filter(Boolean).join(' ');
 
+const isPublished = (p) => (p?.status ?? 'published') === 'published';
+
 export function matches(wf, entry, state) {
-  if (!wf.enabled || wf.trigger !== entry.type) return false;
+  if (!wf.enabled) return false;
+  // "A post is published" covers posts created live and drafts/scheduled/pending posts
+  // going live later (post/publish). Creating a draft, scheduled or pending post doesn't count.
+  const postTrigger = wf.trigger === 'post/create' && (entry.type === 'post/create' || entry.type === 'post/publish');
+  if (!postTrigger && wf.trigger !== entry.type) return false;
+  const item = findContent(state, entry);
+  if (postTrigger) {
+    if (entry.type === 'post/publish' && !item) return false;
+    if (item && !isPublished(item)) return false;
+  }
   const { groupId, keyword } = wf.condition || {};
   if (!groupId && !keyword) return true;
-  const item = findContent(state, entry);
   if (groupId) {
     const g = item?.scope?.type === 'group' ? item.scope.id : item?.groupId ?? (entry.type.startsWith('group/') ? item?.id : null);
     if (g !== groupId) return false;
@@ -70,11 +80,15 @@ export function runActions(wf, entry, state, dispatch) {
 /** Watches the activity log and fires matching workflows plus custom-app owner notifications. */
 export default function WorkflowRunner() {
   const { state, dispatch } = useStore();
-  const mountedAt = useRef(Date.now());
-  const seen = useRef(new Set());
+  // Ids of entries already handled. Seeded on the first run with everything already in the
+  // log, so only entries added while the runner is mounted are processed (no reliance on
+  // timestamps vs. mount time).
+  const seen = useRef(null);
 
   useEffect(() => {
-    const fresh = (state.activity || []).filter((e) => e.at >= mountedAt.current && !seen.current.has(e.id)).reverse();
+    const log = state.activity || [];
+    if (!seen.current) { seen.current = new Set(log.map((e) => e.id)); return; }
+    const fresh = log.filter((e) => !seen.current.has(e.id)).reverse();
     for (const entry of fresh) {
       seen.current.add(entry.id);
       for (const wf of state.workflows || []) if (matches(wf, entry, state)) runActions(wf, entry, state, dispatch);

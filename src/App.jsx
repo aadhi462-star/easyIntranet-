@@ -64,6 +64,12 @@ class Boundary extends Component {
   }
 }
 
+// Background behaviour (scheduled posts, workflows, schedulers, reminders, dynamic
+// membership). Mounted at app level, not inside the signed-in layout, so events that happen
+// while signed out (a new signup) still reach them. Add one by creating
+// src/lib/runners/<name>.jsx with a default-exported component.
+const runners = Object.values(import.meta.glob('./lib/runners/*.jsx', { eager: true })).map((m) => m.default).filter(Boolean);
+
 function Protected({ children }) {
   const { me } = useStore();
   return me ? children : <Navigate to="/login" replace />;
@@ -71,13 +77,16 @@ function Protected({ children }) {
 
 export default function App() {
   const { me, state } = useStore();
+  // Hidden modules lose their routes too (admins keep them so they can preview before showing).
+  const hidden = me?.admin ? [] : (state.settings.hiddenModules || []);
   const routes = [
-    ...MODULES.flatMap((m) => [m.path, ...(m.routes || [])].map((path) => ({ path, page: m.page }))),
+    ...MODULES.filter((m) => !hidden.includes(m.id)).flatMap((m) => [m.path, ...(m.routes || [])].map((path) => ({ path, page: m.page }))),
     ...EXTRA_ROUTES,
   ];
   return (
     <HashRouter>
       <GlassFilters />
+      {runners.map((R, i) => <R key={i} />)}
       <Routes>
         <Route path="/" element={me ? <Navigate to={state.settings.landing || '/feed'} replace /> : <Landing />} />
         <Route path="/login" element={me ? <Navigate to="/feed" replace /> : <Login />} />

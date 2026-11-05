@@ -1,3 +1,4 @@
+import { bookmarksOf } from '../../lib/store.jsx';
 import { sentiment } from '../../lib/assist.js';
 
 export const VIEWS = [
@@ -42,6 +43,18 @@ export function canSee(state, me, p) {
   return true;
 }
 
+/** Network-wall and public-group posts: the only ones signed-out visitors may see. */
+export function isPublicPost(state, p) {
+  return p.scope?.type === 'network'
+    || (p.scope?.type === 'group' && state.groups.find((g) => g.id === p.scope.id)?.accessType === 'public');
+}
+
+/** The group a post is locked to: posts in non-public groups may only be shared there. */
+export function shareLockOf(state, p) {
+  const g = p.scope?.type === 'group' ? state.groups.find((x) => x.id === p.scope.id) : null;
+  return g && g.accessType !== 'public' ? g : null;
+}
+
 export const followingIds = (state, me) => (state.follows || []).filter((f) => f.authorId === me.id).map((f) => f.targetId);
 
 /** Is this post part of my personalised feed? */
@@ -71,10 +84,10 @@ export function postsForView(state, me, view) {
   switch (view) {
     case 'wall': return sortPosts(live.filter((p) => p.scope?.type === 'network'));
     case 'announcements': return sortPosts(live.filter((p) => p.type === 'announcement'), false);
-    case 'mandatory': return sortPosts(live.filter((p) => p.mandatory), false);
+    case 'mandatory': return sortPosts(live.filter((p) => p.mandatory && (p.authorId === me.id || audienceOf(state, p).includes(me.id))), false);
     case 'questions': return sortPosts(live.filter((p) => p.type === 'question'), false);
     case 'following': { const ids = followingIds(state, me); return sortPosts(live.filter((p) => ids.includes(p.authorId)), false); }
-    case 'bookmarks': return sortPosts(live.filter((p) => state.bookmarks.includes(p.id)), false);
+    case 'bookmarks': return sortPosts(live.filter((p) => bookmarksOf(state, me.id).includes(p.id)), false);
     case 'pinned': return sortPosts(live.filter((p) => p.pinned), false);
     case 'drafts': return sortPosts(visible.filter((p) => statusOf(p) === 'draft'), false);
     case 'scheduled': return [...visible.filter((p) => statusOf(p) === 'scheduled')].sort((a, b) => a.publishAt - b.publishAt);
@@ -94,10 +107,39 @@ export function trendingTags(state, me, days = 30) {
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([tag, score]) => ({ tag, score }));
 }
 
-/** Members expected to read/acknowledge a post (author excluded). */
+/**
+ * Members expected to read/acknowledge a post (author, pending and deactivated accounts
+ * excluded). For group posts that's the members only, even when the group is public.
+ */
 export function audienceOf(state, p) {
   const ids = p.scope?.type === 'group' ? state.groups.find((g) => g.id === p.scope.id)?.members ?? [] : state.users.map((u) => u.id);
-  return ids.filter((id) => id !== p.authorId);
+  const off = new Set(state.users.filter((u) => u.deactivated || ['pending', 'deactivated'].includes(u.status)).map((u) => u.id));
+  return ids.filter((id) => id !== p.authorId && !off.has(id));
+}
+
+/** Acknowledgements that count towards the report: only those from the audience. */
+export const acksOf = (state, p) => (p.mandatory?.acks || []).filter((id) => audienceOf(state, p).includes(id));
+
+/**
+ * Mention and Mandatory Read notifications for a post that just went live. Every publish path
+ * (composer, approval, Publish now, the scheduler) goes through here. `skipMentions` are ids
+ * already notified (e.g. before an edit); `mandatory: false` skips the audience notice.
+ */
+export function publishNotifications(state, dispatch, post, { skipMentions = [], mandatory = true, silent = false } = {}) {
+  const name = state.users.find((u) => u.id === post.authorId)?.name ?? 'Someone';
+  (post.mentions || []).filter((id) => id !== post.authorId && !skipMentions.includes(id)).forEach((id) => dispatch({ type: 'notify', silent,
+    notification: { userId: id, kind: 'mention', link: `/post/${post.id}`, text: `${name} mentioned you in a post` } }));
+  if (post.mandatory && mandatory) {
+    audienceOf(state, post).forEach((id) => dispatch({ type: 'notify', silent,
+      notification: { userId: id, kind: 'mandatory', link: `/post/${post.id}`, text: `${name} marked a post as Mandatory Read` } }));
+  }
+}
+
+/** Takes a draft, scheduled or pending post live, crediting its author's publish points. */
+export function publishPost(state, dispatch, post, opts) {
+  dispatch({ type: 'update', col: 'posts', id: post.id, silent: true, patch: { publishAt: undefined } });
+  dispatch({ type: 'post/publish', id: post.id, creditTo: post.authorId });
+  publishNotifications(state, dispatch, post, opts);
 }
 
 export function scopeLabel(state, scope) {

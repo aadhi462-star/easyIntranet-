@@ -31,6 +31,11 @@ export function runJob(job, state, dispatch) {
   dispatch({ type: 'update', col: 'schedulers', id: job.id, silent: true, patch: { lastRun: now, nextRun: now + (INTERVALS[job.interval] || DAY) } });
 }
 
+// Due runs already started, keyed by job and the nextRun they were due at. Module-level so
+// StrictMode's double effect (and a stale state snapshot before the update lands) can't
+// fire the same run twice.
+const handled = new Set();
+
 /** Checks every 30 seconds for due jobs. */
 export default function SchedulerRunner() {
   const { state, dispatch } = useStore();
@@ -40,7 +45,13 @@ export default function SchedulerRunner() {
   useEffect(() => {
     const tick = () => {
       const s = latest.current;
-      for (const job of s.schedulers || []) if (job.enabled && job.nextRun && job.nextRun <= Date.now()) runJob(job, s, dispatch);
+      for (const job of s.schedulers || []) {
+        if (!job.enabled || !job.nextRun || job.nextRun > Date.now()) continue;
+        const key = `${job.id}:${job.nextRun}`;
+        if (handled.has(key)) continue;
+        handled.add(key);
+        runJob(job, s, dispatch);
+      }
     };
     tick();
     const t = setInterval(tick, 30000);

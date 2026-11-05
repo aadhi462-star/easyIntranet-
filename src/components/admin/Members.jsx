@@ -19,6 +19,12 @@ export default function Members() {
   const invites = state.invites || [];
   const pending = state.users.filter((u) => u.status === 'pending');
   const isOff = (u) => u.deactivated || u.status === 'deactivated';
+  // The admin "waiting for approval" note is done once the request is handled either way.
+  const clearApprovalNotes = (u) => dispatch({ type: 'set', key: 'notifications', silent: true, value: (list = []) => list.map((n) => (
+    n.adminOnly && !n.read && (n.ref === u.id || (u.name && n.text?.includes(u.name) && /approval/i.test(n.text))) ? { ...n, read: true } : n)) });
+  // Keep the External flag and the External user role in step.
+  const setExternal = (u, on) => upd(u.id, { external: on, roleId: on ? 'external' : (u.roleId === 'external' || !u.roleId ? 'member' : u.roleId) });
+  const setRole = (u, roleId) => upd(u.id, { roleId, external: roleId === 'external' ? true : u.roleId === 'external' ? false : !!u.external });
   const setActive = (u, on) => upd(u.id, { deactivated: !on, status: on ? 'active' : 'deactivated' });
 
   return (
@@ -42,9 +48,10 @@ export default function Members() {
                   <span className="text-xs text-slate-400">{u.email}{u.batch ? ` · Class of ${u.batch}` : ''}{u.joinedAt ? ` · signed up ${timeAgo(u.joinedAt)}` : ''}</span></span>
                 <button className="btn btn-primary h-10 text-xs" onClick={() => {
                   upd(u.id, { status: 'active', deactivated: false });
+                  clearApprovalNotes(u);
                   dispatch({ type: 'notify', silent: true, notification: { userId: u.id, kind: 'info', link: '/feed', text: `Welcome! Your ${state.settings.networkName} membership was approved.` } });
                 }}>Approve</button>
-                <button className="btn btn-ghost h-10 text-xs" onClick={() => confirm(`Decline ${u.name}’s request? Their account will be removed.`) && dispatch({ type: 'remove', col: 'users', id: u.id })}>Decline</button>
+                <button className="btn btn-ghost h-10 text-xs" onClick={() => { if (!confirm(`Decline ${u.name}’s request? Their account will be removed.`)) return; clearApprovalNotes(u); dispatch({ type: 'remove', col: 'users', id: u.id }); }}>Decline</button>
               </li>
             ))}
           </ul>
@@ -61,12 +68,12 @@ export default function Members() {
                 <td className="p-3"><Link to={`/people/${u.id}`} className="flex items-center gap-2"><Avatar user={u} size={32} /><span><span className="block font-semibold text-white">{u.name}{u.admin && <span className="chip ml-2">Admin</span>}</span><span className="text-xs text-slate-400">{u.email}</span></span></Link></td>
                 <td className="p-3 text-slate-300">{u.batch ?? '—'}</td>
                 <td className="p-3">
-                  <select className="input !w-40 !py-1.5" value={u.roleId || 'member'} onChange={(e) => upd(u.id, { roleId: e.target.value })} aria-label={`Role for ${u.name}`}>
+                  <select className="input !w-40 !py-1.5" value={u.roleId || 'member'} onChange={(e) => setRole(u, e.target.value)} aria-label={`Role for ${u.name}`}>
                     {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
                 </td>
                 <td className="p-3">
-                  <label className="flex min-h-11 items-center gap-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={!!u.external} onChange={(e) => upd(u.id, { external: e.target.checked })} />External</label>
+                  <label className="flex min-h-11 items-center gap-2 text-xs"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={!!u.external} onChange={(e) => setExternal(u, e.target.checked)} />External</label>
                 </td>
                 <td className="p-3 text-xs">{isOff(u) ? <span className="text-rose-300">Deactivated</span> : u.status === 'pending' ? <span className="text-amber-200">Pending</span> : <span className="text-emerald-300">Active</span>}</td>
                 <td className="whitespace-nowrap p-3 text-right">
@@ -115,13 +122,13 @@ function InviteModal({ onClose }) {
   const allowExternal = state.policies?.allowExternalUsers !== false;
 
   const make = (rows) => {
-    const existing = new Set([...state.users.map((u) => u.email.toLowerCase()), ...(state.invites || []).filter((i) => i.status === 'pending').map((i) => i.email.toLowerCase())]);
+    const existing = new Set([...state.users.map((u) => (u.email || '').toLowerCase()), ...(state.invites || []).filter((i) => i.status === 'pending').map((i) => (i.email || '').toLowerCase())]);
     const out = [];
     for (const r of rows) {
       const e = r.email?.trim().toLowerCase();
       if (!e || !/^\S+@\S+\.\S+$/.test(e) || existing.has(e)) continue;
       existing.add(e);
-      const item = { code: code(), email: e, batch: r.batch ? Number(r.batch) : null, external: !!r.external && allowExternal, invitedBy: me.id, status: 'pending' };
+      const item = { code: code(), email: e, batch: r.batch ? Number(r.batch) : null, external: !!r.external && allowExternal, invitedBy: me.id, status: 'pending', expiresAt: Date.now() + 30 * 864e5 };
       dispatch({ type: 'add', col: 'invites', item });
       out.push(item);
     }

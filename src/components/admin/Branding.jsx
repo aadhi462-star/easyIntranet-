@@ -23,7 +23,7 @@ export default function Branding() {
           <Field label="Logo text" hint="Up to 3 characters"><input className="input" maxLength={3} value={s.logoText ?? 'AZ'} onChange={(e) => set({ logoText: e.target.value })} /></Field>
           <Field label="Accent colour">
             <div className="flex gap-2"><input type="color" className="h-11 w-14 cursor-pointer rounded-lg bg-transparent" value={s.accent} onChange={(e) => set({ accent: e.target.value })} aria-label="Accent colour picker" />
-              <input className="input font-mono" value={s.accent} onChange={(e) => set({ accent: e.target.value })} /></div>
+              <input className="input font-mono" aria-label="Accent colour hex code" value={s.accent} onChange={(e) => set({ accent: e.target.value })} /></div>
           </Field>
         </div>
         <button className="btn btn-ghost" onClick={() => setCss(`${css}\n.btn-primary { background-image: linear-gradient(90deg, ${s.accent}, ${s.accent}cc); }\n.bg-brand-500, .bg-brand-500\\/20 { background-color: ${s.accent}33; }`.trim())}>

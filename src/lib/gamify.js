@@ -2,7 +2,7 @@
 
 /** Points per action. Keys are `type` or `type:collection` for generic actions. */
 export const POINTS = {
-  'post/create': 10, 'post/comment': 3, 'post/like': 1, 'post/vote': 1, 'post/ack': 2,
+  'post/create': 10, 'post/publish': 10, 'post/comment': 3, 'post/like': 1, 'post/vote': 1, 'post/ack': 2,
   'forum/save': 8, 'forum/reply': 4, 'forum/upvote': 1,
   'event/create': 6, 'event/rsvp': 2,
   'group/create': 8, 'group/join': 2,
@@ -32,15 +32,17 @@ export const BADGES = [
 /** Seeded starting points so the leaderboard isn't empty in the demo. */
 const BASE = { u1: 180, u2: 240, u3: 310, u4: 95, u5: 150, u6: 60, u7: 520, u8: 130 };
 
-export function statsFor(state, userId) {
+/** `since` limits the tally to a period (leaderboard ranges); 0 means all time. */
+export function statsFor(state, userId, since = 0) {
   const counts = {};
-  let points = BASE[userId] ?? 0;
+  // Seeded history only counts towards all-time totals.
+  let points = since ? 0 : (BASE[userId] ?? 0);
   for (const a of state.activity || []) {
-    if (a.userId !== userId) continue;
+    if (a.userId !== userId || a.at < since) continue;
     counts[a.type] = (counts[a.type] || 0) + 1;
     points += a.points || 0;
   }
-  points += (state.praise || []).filter((p) => p.toId === userId).length * 5;
+  points += (state.praise || []).filter((p) => p.toId === userId && (p.createdAt ?? 0) >= since).length * 5;
   const level = [...LEVELS].reverse().find((l) => points >= l.min);
   const nextLevel = LEVELS[LEVELS.indexOf(level) + 1];
   const earned = BADGES.filter((b) => b.test(counts)).map((b) => b.id);
@@ -49,7 +51,9 @@ export function statsFor(state, userId) {
 }
 
 export function leaderboard(state, since = 0) {
+  // Pending and deactivated accounts aren't ranked.
   return state.users
-    .map((u) => ({ user: u, ...statsFor({ ...state, activity: (state.activity || []).filter((a) => a.at >= since) }, u.id) }))
+    .filter((u) => !u.deactivated && (u.status ?? 'active') === 'active')
+    .map((u) => ({ user: u, ...statsFor(state, u.id, since) }))
     .sort((a, b) => b.points - a.points);
 }

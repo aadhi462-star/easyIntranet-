@@ -5,7 +5,7 @@ import { useStore } from '../lib/store.jsx';
 import { Avatar, PageHeader, Tabs } from '../components/ui.jsx';
 import CalendarGrid, { RangeNav, viewRange } from '../components/events/CalendarGrid.jsx';
 import EventForm from '../components/events/EventForm.jsx';
-import { TYPE_COLORS, addDays, canSee, isInvolved, occurrences, startOfDay, startOfWeek } from '../components/events/eventUtils.js';
+import { TYPE_COLORS, addDays, canSee, canSeeTownhall, isInvolved, occurrences, startOfDay, startOfWeek } from '../components/events/eventUtils.js';
 
 const TASK_COLOR = '#84cc16';
 const TOWNHALL_COLOR = '#e879f9';
@@ -48,7 +48,7 @@ function MyCalendar() {
   }
   if (show.townhalls) {
     for (const th of state.townhalls || []) {
-      if (th.start < from || th.start > to) continue;
+      if (th.start < from || th.start > to || !canSeeTownhall(th, me, state.groups)) continue;
       items.push({ key: `th-${th.id}`, title: th.title, start: th.start, end: th.end, icon: '🎤 ', color: TOWNHALL_COLOR, href: `/townhalls/${th.id}` });
     }
   }

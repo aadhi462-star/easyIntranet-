@@ -10,14 +10,22 @@ export default function Members({ group, isAdmin }) {
   const [q, setQ] = useState('');
   const patch = (fn) => dispatch({ type: 'update', col: 'groups', id: group.id, patch: fn });
 
-  const setRole = (id, role) => patch((g) => ({
+  // A group must keep at least one admin.
+  const isLastAdmin = (id) => group.admins.includes(id) && group.admins.length === 1;
+  const setRole = (id, role) => role !== 'admin' && isLastAdmin(id) ? null : patch((g) => ({
     ...g,
     admins: role === 'admin' ? [...new Set([...g.admins, id])] : g.admins.filter((x) => x !== id),
     moderators: role === 'moderator' ? [...new Set([...(g.moderators || []), id])] : (g.moderators || []).filter((x) => x !== id),
   }));
   const remove = (id) => {
+    if (isLastAdmin(id)) return;
     if (!confirm(`Remove ${user(id)?.name} from ${group.name}?`)) return;
-    patch((g) => ({ ...g, members: g.members.filter((x) => x !== id), admins: g.admins.filter((x) => x !== id), moderators: (g.moderators || []).filter((x) => x !== id) }));
+    // Record the opt-out so a dynamic-membership rule doesn't re-add them.
+    patch((g) => ({ ...g, members: g.members.filter((x) => x !== id), admins: g.admins.filter((x) => x !== id), moderators: (g.moderators || []).filter((x) => x !== id),
+      optedOut: [...new Set([...(g.optedOut || []), id])] }));
+    for (const c of state.channels.filter((c) => c.groupId === group.id && c.members.includes(id))) {
+      dispatch({ type: 'update', col: 'channels', id: c.id, patch: (x) => ({ ...x, members: x.members.filter((m) => m !== id) }), silent: true });
+    }
   };
   const decide = (id, approve) => {
     patch((g) => ({ ...g, joinRequests: (g.joinRequests || []).filter((x) => x !== id), members: approve ? [...new Set([...g.members, id])] : g.members }));
@@ -61,6 +69,8 @@ export default function Members({ group, isAdmin }) {
         <ul className="divide-y divide-white/5">
           {members.map((u) => {
             const role = roleOf(group, u.id);
+            const lastAdmin = isLastAdmin(u.id);
+            const why = 'This is the only admin. Make someone else an admin first.';
             return (
               <li key={u.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <Avatar user={u} size={36} />
@@ -68,10 +78,12 @@ export default function Members({ group, isAdmin }) {
                 <span className={`chip capitalize ${ROLE_CHIP[role]}`}>{role}</span>
                 {isAdmin && u.id !== me.id && (
                   <>
-                    <select className="input !w-36 !py-1.5 text-xs" value={role} onChange={(e) => setRole(u.id, e.target.value)} aria-label={`Role for ${u.name}`}>
+                    <select className="input !w-36 !py-1.5 text-xs" value={role} onChange={(e) => setRole(u.id, e.target.value)} aria-label={`Role for ${u.name}`}
+                      disabled={lastAdmin} title={lastAdmin ? why : undefined}>
                       <option value="admin">Admin</option><option value="moderator">Moderator</option><option value="member">Member</option>
                     </select>
-                    <button className="btn btn-ghost h-9 !px-3 text-xs text-rose-300" onClick={() => remove(u.id)}>Remove</button>
+                    <button className="btn btn-ghost h-9 !px-3 text-xs text-rose-300" onClick={() => remove(u.id)} disabled={lastAdmin} title={lastAdmin ? why : undefined}>Remove</button>
+                    {lastAdmin && <span className="w-full text-right text-xs text-slate-400">{why}</span>}
                   </>
                 )}
               </li>

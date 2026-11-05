@@ -327,22 +327,42 @@ function EditProfile({ onClose }) {
   const set = (k) => (e) => setD({ ...d, [k]: e.target.value });
   const setCareer = (i, k, v) => setD({ ...d, career: d.career.map((c, j) => (j === i ? { ...c, [k]: v } : c)) });
   const addSkill = () => { const s = skill.trim(); if (s && !d.skills.includes(s)) setD({ ...d, skills: [...d.skills, s] }); setSkill(''); };
+  const [errors, setErrors] = useState({});
+  const maxYear = new Date().getFullYear() + 6;
+  const isYear = (v) => /^\d{4}$/.test(String(v).trim()) && Number(v) >= 1950 && Number(v) <= maxYear;
+  const blank = (v) => v == null || String(v).trim() === '';
   const save = (e) => {
     e.preventDefault();
-    const career = d.career.filter((c) => c.title && c.org).map((c) => ({ ...c, from: Number(c.from) || null, to: c.to ? Number(c.to) : null }));
-    dispatch({ type: 'profile/update', patch: { ...d, batch: Number(d.batch), career } });
+    const err = {};
+    const name = d.name.trim();
+    if (!name) err.name = 'Enter your name.';
+    // Members without a batch (e.g. external guests) may leave it blank.
+    const batchOptional = me.batch == null || me.external;
+    if (blank(d.batch) ? !batchOptional : !isYear(d.batch)) err.batch = `Enter a 4-digit year between 1950 and ${maxYear}.`;
+    const career = d.career.filter((c) => c.title?.trim() && c.org?.trim());
+    career.forEach((c) => {
+      const i = d.career.indexOf(c);
+      if (!blank(c.from) && !isYear(c.from)) err[`career${i}`] = `“From” must be a year between 1950 and ${maxYear}.`;
+      else if (!blank(c.to) && !isYear(c.to)) err[`career${i}`] = `“To” must be a year between 1950 and ${maxYear}.`;
+      else if (!blank(c.from) && !blank(c.to) && Number(c.to) < Number(c.from)) err[`career${i}`] = '“To” can’t be earlier than “From”.';
+    });
+    setErrors(err);
+    if (Object.keys(err).length) return;
+    dispatch({ type: 'profile/update', patch: { ...d, name, batch: blank(d.batch) ? null : Number(d.batch),
+      career: career.map((c) => ({ ...c, title: c.title.trim(), org: c.org.trim(), from: blank(c.from) ? null : Number(c.from), to: blank(c.to) ? null : Number(c.to) })) } });
     onClose();
   };
+  const errText = (k) => errors[k] && <span role="alert" className="mt-1 block text-xs text-rose-300">{errors[k]}</span>;
   return (
     <Modal title="Edit profile" onClose={onClose} wide>
       <form onSubmit={save} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Full name"><input className="input" value={d.name} onChange={set('name')} /></Field>
+          <Field label="Full name"><input className="input" value={d.name} onChange={set('name')} aria-invalid={!!errors.name} />{errText('name')}</Field>
           <Field label="Headline"><input className="input" value={d.title} onChange={set('title')} /></Field>
           <Field label="Current role"><input className="input" value={d.role} onChange={set('role')} /></Field>
           <Field label="Company"><input className="input" value={d.company} onChange={set('company')} /></Field>
           <Field label="City"><input className="input" value={d.city} onChange={set('city')} /></Field>
-          <Field label="Batch"><input className="input" type="number" value={d.batch} onChange={set('batch')} /></Field>
+          <Field label="Batch"><input className="input" type="number" min="1950" max={maxYear} value={d.batch ?? ''} onChange={set('batch')} aria-invalid={!!errors.batch} />{errText('batch')}</Field>
           <div className="sm:col-span-2"><Field label="Department"><input className="input" value={d.dept} onChange={set('dept')} /></Field></div>
         </div>
         <Field label="About"><textarea className="input min-h-24" value={d.bio} onChange={set('bio')} /></Field>
@@ -359,10 +379,11 @@ function EditProfile({ onClose }) {
                 <input className="input" aria-label="Organisation" placeholder="Organisation" value={c.org} onChange={(e) => setCareer(i, 'org', e.target.value)} />
                 <input className="input" aria-label="From year" placeholder="From" value={c.from ?? ''} onChange={(e) => setCareer(i, 'from', e.target.value)} />
                 <input className="input" aria-label="To year" placeholder="To" value={c.to ?? ''} onChange={(e) => setCareer(i, 'to', e.target.value)} />
-                <button type="button" className="btn btn-ghost min-h-11" aria-label="Remove role" onClick={() => setD({ ...d, career: d.career.filter((_, j) => j !== i) })}>✕</button>
+                <button type="button" className="btn btn-ghost min-h-11" aria-label="Remove role" onClick={() => { setErrors({}); setD({ ...d, career: d.career.filter((_, j) => j !== i) }); }}>✕</button>
+                {errors[`career${i}`] && <span role="alert" className="col-span-full text-xs text-rose-300">{errors[`career${i}`]}</span>}
               </div>
             ))}
-            <button type="button" className="btn btn-ghost min-h-11" onClick={() => setD({ ...d, career: [{ title: '', org: '', from: new Date().getFullYear(), to: null }, ...d.career] })}>+ Add role</button>
+            <button type="button" className="btn btn-ghost min-h-11" onClick={() => { setErrors({}); setD({ ...d, career: [{ title: '', org: '', from: new Date().getFullYear(), to: null }, ...d.career] }); }}>+ Add role</button>
           </div>
         </fieldset>
         <Field label="Who can see my email and contact details" hint="Your name, batch and city stay visible to signed-in members.">

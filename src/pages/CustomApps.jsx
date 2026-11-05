@@ -106,7 +106,8 @@ function display(field, value, user) {
   if (value == null || value === '') return '—';
   if (field.type === 'checkbox') return value ? 'Yes' : 'No';
   if (field.type === 'user') return user(value)?.name ?? '—';
-  if (field.type === 'date') return fmtDate(new Date(value).getTime(), { day: 'numeric', month: 'short', year: 'numeric' });
+  // Date inputs store "YYYY-MM-DD"; parse at local noon so it doesn't shift a day west of UTC.
+  if (field.type === 'date') return fmtDate(new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00` : value).getTime(), { day: 'numeric', month: 'short', year: 'numeric' });
   return String(value);
 }
 
@@ -227,7 +228,7 @@ function RecordForm({ app, record, onClose }) {
   const set = (id, v) => setValues({ ...values, [id]: v });
   const submit = (e) => {
     e.preventDefault();
-    const missing = app.fields.filter((f) => f.required && (values[f.id] == null || values[f.id] === '' || values[f.id] === false));
+    const missing = app.fields.filter((f) => f.required && (values[f.id] == null || (typeof values[f.id] === 'string' && !values[f.id].trim()) || values[f.id] === false));
     if (missing.length) return setError(`Required: ${missing.map((f) => f.label).join(', ')}`);
     if (record) dispatch({ type: 'update', col: 'appRecords', id: record.id, patch: { values } });
     else dispatch({ type: 'add', col: 'appRecords', item: { appId: app.id, values } });

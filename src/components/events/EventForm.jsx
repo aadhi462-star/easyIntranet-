@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore, uid } from '../../lib/store.jsx';
 import { Field, Modal } from '../ui.jsx';
 import PeoplePicker from './PeoplePicker.jsx';
-import { EVENT_TYPES, MAX_ATTACHMENT, REMINDER_OPTIONS, fmtSize, fromInput, toInput } from './eventUtils.js';
+import { EVENT_TYPES, MAX_ATTACHMENT, MAX_STORED_ATTACHMENT, REMINDER_OPTIONS, fmtSize, fromInput, toInput } from './eventUtils.js';
 
 /**
  * Create or edit an event. `initial` is either an existing event (edit) or a partial
@@ -36,16 +36,25 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
   });
   const [error, setError] = useState('');
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const untilError = f.freq !== 'none' && !!f.until && f.until < f.start.slice(0, 10);
 
   const toggleAllDay = (allDay) => setF((x) => ({ ...x, allDay,
     start: allDay ? x.start.slice(0, 10) : `${x.start.slice(0, 10)}T18:00`,
     end: allDay ? x.end.slice(0, 10) : `${x.end.slice(0, 10)}T20:00` }));
 
-  const addFiles = (files) => {
-    const big = [...files].filter((file) => file.size > MAX_ATTACHMENT);
-    const ok = [...files].filter((file) => file.size <= MAX_ATTACHMENT).map((file) => ({ name: file.name, size: file.size }));
-    setError(big.length ? `${big.map((b) => b.name).join(', ')} ${big.length > 1 ? 'are' : 'is'} over the 30 MB limit.` : '');
-    set('attachments', [...f.attachments, ...ok]);
+  // Files are kept as data URLs so they can be downloaded later; everything lives in
+  // localStorage, so each file is capped well below the advertised upload limit.
+  const addFiles = async (files) => {
+    const limit = Math.min(MAX_ATTACHMENT, MAX_STORED_ATTACHMENT);
+    const big = [...files].filter((file) => file.size > limit);
+    const ok = await Promise.all([...files].filter((file) => file.size <= limit).map((file) => new Promise((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve({ name: file.name, size: file.size, type: file.type, dataUrl: r.result });
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(file);
+    })));
+    setError(big.length ? `${big.map((b) => b.name).join(', ')} ${big.length > 1 ? 'are' : 'is'} over the ${fmtSize(limit)} limit.` : '');
+    setF((x) => ({ ...x, attachments: [...x.attachments, ...ok.filter(Boolean)] }));
   };
 
   const submit = (e) => {
@@ -59,6 +68,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
     if (f.share === 'group' && !f.groupId) return setError('Choose a group to share this event in.');
     if (f.share === 'network' && !canNetwork) return setError('You don’t have permission to create company events.');
     const until = f.freq !== 'none' && f.until ? fromInput(f.until) + 864e5 - 1 : null;
+    if (until != null && until < start) return setError('“Repeat until” can’t be before the start date.');
 
     const event = {
       title: f.title.trim(), eventType: f.eventType, allDay: f.allDay, start, end,
@@ -73,7 +83,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
       const newly = [...f.invitees, ...f.assistants].filter((id) => !(initial.invitees || []).includes(id) && !(initial.assistants || []).includes(id));
       notifyAll(newly, initial.id, event.title);
       const notifyChanged = [...(initial.invitees || []), ...(initial.assistants || []), ...Object.keys(initial.rsvps || {})].filter((id) => id !== me.id);
-      if (initial.start !== start || initial.location !== event.location) {
+      if (initial.start !== start || initial.end !== end || !!initial.allDay !== event.allDay || initial.location !== event.location) {
         for (const userId of new Set(notifyChanged)) {
           dispatch({ type: 'notify', silent: true, notification: { userId, kind: 'event', text: `${me.name} changed the time or location of ${event.title}`, link: `/events/${initial.id}` } });
         }
@@ -121,7 +131,12 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
               <option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option>
             </select>
           </Field>
-          {f.freq !== 'none' && <Field label="Repeat until" hint="Leave empty to repeat indefinitely"><input className="input" type="date" value={f.until} onChange={(e) => set('until', e.target.value)} /></Field>}
+          {f.freq !== 'none' && (
+            <Field label="Repeat until" hint="Leave empty to repeat indefinitely">
+              <input className="input" type="date" min={f.start.slice(0, 10)} value={f.until} aria-invalid={untilError || undefined} onChange={(e) => set('until', e.target.value)} />
+              {untilError && <span role="alert" className="mt-1 block text-xs text-rose-300">Must be on or after the start date.</span>}
+            </Field>
+          )}
         </div>
 
         <Field label="Description"><textarea className="input min-h-24" value={f.description} onChange={(e) => set('description', e.target.value)} /></Field>
@@ -172,7 +187,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
           </div>
         </fieldset>
 
-        <Field label="Attachments" hint="Up to 30 MB per file">
+        <Field label="Attachments" hint="Up to 1 MB per file (stored on this device)">
           <input type="file" multiple className="block w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-slate-200"
             onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
         </Field>

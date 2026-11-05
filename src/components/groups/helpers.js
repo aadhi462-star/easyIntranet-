@@ -23,9 +23,9 @@ export const APPS = [
 export const RULE_FIELDS = [['batch', 'Batch'], ['city', 'City'], ['dept', 'Department'], ['company', 'Company']];
 
 export function matchesRule(user, rule) {
-  if (!rule?.field || rule.value === '' || rule.value == null) return false;
-  const v = String(user[rule.field] ?? '').toLowerCase();
-  const want = String(rule.value).toLowerCase().trim();
+  const want = String(rule?.value ?? '').toLowerCase().trim();
+  if (!rule?.field || !want) return false;
+  const v = String(user[rule.field] ?? '').toLowerCase().trim();
   return rule.op === 'contains' ? v.includes(want) : v === want;
 }
 

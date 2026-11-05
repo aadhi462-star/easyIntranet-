@@ -20,7 +20,8 @@ const EMPTY = {
 
 export default function Feed() {
   const { id, view = 'my' } = useParams();
-  return id ? <PostDetail id={id} /> : <FeedView view={view} />;
+  // Keyed by view so paging ("Load more") starts over on each view.
+  return id ? <PostDetail id={id} /> : <FeedView key={view} view={view} />;
 }
 
 function PostDetail({ id }) {

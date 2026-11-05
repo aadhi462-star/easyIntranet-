@@ -19,6 +19,7 @@ export function WebTabForm({ tab, groupId, onClose }) {
     try { url = new URL(f.url.trim()); } catch { setError('Enter a full web address starting with https://'); return; }
     if (!/^https?:$/.test(url.protocol)) { setError('Only http and https addresses are allowed.'); return; }
     if (!f.name.trim()) { setError('Give the tab a name.'); return; }
+    if (f.scope === 'group' && !f.groupId) { setError('Choose a group for a group tab.'); return; }
     const data = { name: f.name.trim(), url: url.href, scope: f.scope, groupId: f.scope === 'group' ? f.groupId || null : null };
     if (tab) dispatch({ type: 'update', col: 'webTabs', id: tab.id, patch: data });
     else dispatch({ type: 'add', col: 'webTabs', prepend: false, item: { ...data, ownerId: me.id } });

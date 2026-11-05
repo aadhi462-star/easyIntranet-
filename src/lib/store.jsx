@@ -10,13 +10,30 @@ export const uid = (p = 'x') => `${p}${Date.now().toString(36)}${Math.random().t
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s.version === VERSION) return { ...initialState(), ...s };
-    }
+    if (raw) return migrate(JSON.parse(raw));
   } catch { /* storage blocked or corrupt: fall back to seed */ }
   return initialState();
 }
+
+/**
+ * Bring a save from an older version forward instead of discarding it: keep everything the
+ * community created, fill collections added since, and add seed people who weren't there yet.
+ */
+export function migrate(saved) {
+  const fresh = initialState();
+  if (!saved || typeof saved !== 'object') return fresh;
+  if (saved.version === VERSION) return { ...fresh, ...saved };
+  const out = { ...fresh, ...saved, version: VERSION };
+  const ids = new Set((saved.users || []).map((u) => u.id));
+  const emails = new Set((saved.users || []).map((u) => u.email?.toLowerCase()));
+  out.users = [...(saved.users || []), ...fresh.users.filter((u) => !ids.has(u.id) && !emails.has(u.email.toLowerCase()))];
+  out.settings = { ...fresh.settings, ...(saved.settings || {}) };
+  if (Array.isArray(saved.bookmarks)) out.bookmarks = {};
+  return out;
+}
+
+/** Whether `userId` has read `n`. Broadcasts (no userId) track readers per member. */
+export const isRead = (n, userId) => (n.userId ? !!n.read : (n.readBy || []).includes(userId) || (n.read && !n.readBy));
 
 const toggle = (list, id) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 const mapById = (list, id, fn) => list.map((x) => (x.id === id ? fn(x) : x));
@@ -37,7 +54,7 @@ function core(s, a) {
       const fresh = initialState();
       const current = s.users.find((u) => u.id === s.session?.userId);
       if (current && !fresh.users.some((u) => u.id === current.id)) fresh.users.push({ ...current, status: 'active' });
-      return { ...fresh, session: current ? s.session : null };
+      return { ...fresh, session: current ? s.session : null, resetAt: Date.now() };
     }
     case 'signup': {
       const id = uid('u');
@@ -66,24 +83,47 @@ function core(s, a) {
     case 'post/create':
       return { ...s, posts: [{ id: uid('p'), authorId: me, createdAt: Date.now(), likes: [], comments: [], status: 'published', ...a.post }, ...s.posts] };
     case 'post/delete': return { ...s, posts: s.posts.filter((p) => p.id !== a.id) };
+    // Draft, scheduled or pending → live. Points go to the author (see `creditTo`).
+    case 'post/publish':
+      return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, status: 'published', createdAt: a.keepDate ? p.createdAt : Date.now(), publishAt: undefined })) };
     case 'post/like': return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, likes: toggle(p.likes, me) })) };
     case 'post/comment':
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, comments: [...p.comments, { id: uid('c'), authorId: me, text: a.text, createdAt: Date.now() }] })) };
-    case 'post/vote':
+    case 'post/vote': {
+      // Re-clicking your current option is a no-op (no new state, so no activity or points).
+      const target = s.posts.find((p) => p.id === a.id);
+      if (target?.poll?.options.find((o) => o.id === a.optionId)?.votes.includes(me)) return s;
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, poll: { ...p.poll,
         options: p.poll.options.map((o) => ({ ...o, votes: o.id === a.optionId ? [...new Set([...o.votes, me])] : o.votes.filter((v) => v !== me) })) } })) };
+    }
     case 'post/mandatory':
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, mandatory: a.mandatory ? { acks: [], ...p.mandatory, ...a.mandatory } : undefined })) };
     case 'post/ack':
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, mandatory: { ...p.mandatory, acks: [...new Set([...p.mandatory.acks, me])] } })) };
-    case 'bookmark': return { ...s, bookmarks: toggle(s.bookmarks, a.id) };
+    // Bookmarks are per member: { [userId]: postIds[] }.
+    case 'bookmark': return { ...s, bookmarks: { ...normBookmarks(s.bookmarks), [me]: toggle(bookmarksOf(s, me), a.id) } };
 
     // Groups / Spaces
     case 'group/create':
       return { ...s, groups: [...s.groups, { id: uid('g'), members: [me], admins: [me], apps: ['feed', 'forums', 'events', 'files', 'members'], createdAt: Date.now(), ...a.group }] };
-    case 'group/join': return { ...s, groups: mapById(s.groups, a.id, (g) => ({ ...g, members: toggle(g.members, me) })) };
+    case 'group/join': {
+      // Join or leave. Leaving also drops your admin/moderator roles and records the
+      // opt-out (so dynamic-membership rules don't re-add you); linked channels follow.
+      const g0 = s.groups.find((g) => g.id === a.id);
+      if (!g0) return s;
+      const leaving = g0.members.includes(me);
+      const without = (list = []) => list.filter((x) => x !== me);
+      return {
+        ...s,
+        groups: mapById(s.groups, a.id, (g) => (leaving
+          ? { ...g, members: without(g.members), admins: without(g.admins), moderators: without(g.moderators), optedOut: [...new Set([...(g.optedOut || []), me])] }
+          : { ...g, members: [...g.members, me], joinRequests: without(g.joinRequests), optedOut: without(g.optedOut) })),
+        channels: s.channels.map((c) => (c.groupId === a.id ? { ...c, members: leaving ? without(c.members) : [...new Set([...c.members, me])] } : c)),
+      };
+    }
     case 'group/addMembers':
-      return { ...s, groups: mapById(s.groups, a.id, (g) => ({ ...g, members: [...new Set([...g.members, ...a.userIds])] })),
+      return { ...s, groups: mapById(s.groups, a.id, (g) => ({ ...g, members: [...new Set([...g.members, ...a.userIds])],
+          joinRequests: (g.joinRequests || []).filter((x) => !a.userIds.includes(x)), optedOut: (g.optedOut || []).filter((x) => !a.userIds.includes(x)) })),
         channels: s.channels.map((c) => (c.groupId === a.id ? { ...c, members: [...new Set([...c.members, ...a.userIds])] } : c)) };
 
     // Events
@@ -110,7 +150,14 @@ function core(s, a) {
     }
     case 'channel/send':
       return { ...s, channels: mapById(s.channels, a.id, (c) => ({ ...c, messages: [...c.messages, { id: uid('m'), authorId: me, text: a.text, createdAt: Date.now(), ...a.extra }] })) };
-    case 'channel/leave': return { ...s, channels: mapById(s.channels, a.id, (c) => ({ ...c, members: c.members.filter((m) => m !== me) })) };
+    case 'channel/leave': {
+      // Leaving drops admin rights too; the last member out removes the channel.
+      const c0 = s.channels.find((c) => c.id === a.id);
+      if (!c0) return s;
+      const members = c0.members.filter((m) => m !== me);
+      if (!members.length) return { ...s, channels: s.channels.filter((c) => c.id !== a.id) };
+      return { ...s, channels: mapById(s.channels, a.id, (c) => ({ ...c, members, admins: (c.admins || []).filter((m) => m !== me) })) };
+    }
     case 'channel/delete': return { ...s, channels: s.channels.filter((c) => c.id !== a.id) };
 
     // Manuals
@@ -126,7 +173,14 @@ function core(s, a) {
     }
 
     case 'profile/update': return { ...s, users: mapById(s.users, me, (u) => ({ ...u, ...a.patch })) };
-    case 'notif/read': return { ...s, notifications: s.notifications.map((n) => (a.id == null || n.id === a.id ? { ...n, read: true } : n)) };
+    case 'notif/read':
+      return { ...s, notifications: s.notifications.map((n) => {
+        if (a.id != null && n.id !== a.id) return n;
+        if (n.userId) return n.userId === me ? { ...n, read: true } : n;
+        return { ...n, readBy: [...new Set([...(n.readBy || []), me])] };
+      }) };
+    // Another tab saved newer data: adopt it wholesale (see the storage listener below).
+    case 'hydrate': return a.state;
     default: return s;
   }
 }
@@ -135,14 +189,42 @@ function core(s, a) {
  * Every write is appended to `activity`. That one log drives points and levels, the
  * leaderboard, analytics, the audit log and workflow triggers.
  */
+// Toggle-style actions earn points once per item per member, so like/unlike or
+// join/leave loops can't farm points.
+const ONCE_PER_ITEM = new Set(['post/like', 'post/vote', 'post/ack', 'forum/upvote', 'event/rsvp', 'group/join', 'update:ideas']);
+
 function reducer(s, a) {
   const next = core(s, a);
-  if (next === s || a.type === 'set' && a.key === 'activity' || a.silent) return next;
+  if (next === s || a.type === 'hydrate' || a.type === 'set' && a.key === 'activity' || a.silent) return next;
   const key = a.col ? `${a.type}:${a.col}` : a.type;
-  const entry = { id: uid('ac'), at: Date.now(), userId: s.session?.userId ?? next.session?.userId, type: key,
-    ref: a.id ?? a.item?.id ?? a.post?.id ?? null, points: POINTS[key] ?? 0, meta: a.meta };
-  return { ...next, activity: [entry, ...(next.activity || [])].slice(0, 1500) };
+  const userId = a.creditTo ?? s.session?.userId ?? next.session?.userId;
+  const ref = a.id ?? a.item?.id ?? a.post?.id ?? null;
+  let points = POINTS[key] ?? 0;
+  // Only live posts count: drafts, scheduled and pending posts earn on publish instead.
+  if (key === 'post/create' && (a.post?.status ?? 'published') !== 'published') points = 0;
+  if (key === 'forum/save' && a.post?.id && s.forumPosts.some((f) => f.id === a.post.id)) points = 0; // edits don't score
+  if (points && ONCE_PER_ITEM.has(key) && (s.activity || []).some((x) => x.type === key && x.ref === ref && x.userId === userId && x.points > 0)) points = 0;
+  const entry = { id: uid('ac'), at: Date.now(), userId, type: key, ref, points, meta: a.meta };
+  return { ...next, activity: trimActivity([entry, ...(next.activity || [])]) };
 }
+
+// Cap the log, but never drop entries that carry points: levels and badges are summed
+// from it, so trimming them made members' points go down over time.
+function trimActivity(list, cap = 1500) {
+  if (list.length <= cap) return list;
+  let spare = list.length - cap;
+  const out = [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (spare > 0 && !list[i].points) { spare--; continue; }
+    out.push(list[i]);
+  }
+  return out.reverse();
+}
+
+// Older saves kept one shared bookmark list; it can't be attributed, so it's dropped.
+function normBookmarks(b) { return b && !Array.isArray(b) && typeof b === 'object' ? b : {}; }
+/** The post ids `userId` has bookmarked. */
+export function bookmarksOf(state, userId) { return normBookmarks(state.bookmarks)[userId] || []; }
 
 const Ctx = createContext(null);
 
@@ -153,17 +235,39 @@ export function StoreProvider({ children }) {
   // per keystroke (notes, drafts) was blocking input. Flush when the tab is hidden or closed.
   const latest = useRef(state);
   latest.current = state;
+  const lastSaved = useRef(null);
+  const save = useCallback(() => {
+    try {
+      const raw = JSON.stringify(latest.current);
+      if (raw === lastSaved.current) return;
+      localStorage.setItem(KEY, raw);
+      lastSaved.current = raw;
+    } catch (err) {
+      // Quota: say so instead of silently dropping every later change.
+      if (err?.name === 'QuotaExceededError' || err?.code === 22) toast('Storage is full, so recent changes can’t be saved. Remove large files or attachments.', 'error');
+    }
+  }, []);
   useEffect(() => {
-    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(latest.current)); } catch { /* quota / private mode */ } };
     const idle = window.requestIdleCallback ?? ((fn) => setTimeout(fn, 200));
     const cancel = window.cancelIdleCallback ?? clearTimeout;
     let handle;
     const t = setTimeout(() => { handle = idle(save, { timeout: 1000 }); }, 250);
-    window.addEventListener('pagehide', save);
-    return () => { clearTimeout(t); if (handle) cancel(handle); window.removeEventListener('pagehide', save); };
-  }, [state]);
+    return () => { clearTimeout(t); if (handle) cancel(handle); };
+  }, [state, save]);
   // Flush right away on sign-in, sign-out and reset so a quick reload never loses them.
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(latest.current)); } catch { /* ignore */ } }, [state.session, state.version]);
+  useEffect(() => { save(); }, [state.session, state.resetAt, save]);
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') save(); };
+    // Two tabs: adopt the other tab's save rather than overwriting it later with stale data.
+    const onStorage = (e) => {
+      if (e.key !== KEY || !e.newValue || e.newValue === lastSaved.current) return;
+      try { lastSaved.current = e.newValue; rawDispatch({ type: 'hydrate', state: migrate(JSON.parse(e.newValue)) }); } catch { /* ignore corrupt */ }
+    };
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('storage', onStorage);
+    return () => { window.removeEventListener('pagehide', save); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('storage', onStorage); };
+  }, [save]);
 
   // Same reducer, plus a short confirmation toast for actions a member triggers directly.
   const dispatch = useCallback((a) => {
@@ -185,7 +289,8 @@ export function can(state, me, perm) {
   if (!me) return false;
   if (me.admin) return true;
   const role = (state.roles || []).find((r) => r.id === (me.roleId || 'member'));
-  return role ? role.perms.includes(perm) : true;
+  // Fail closed: an unknown or deleted role grants nothing.
+  return role ? role.perms.includes(perm) : false;
 }
 
 export function timeAgo(t) {

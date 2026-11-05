@@ -15,6 +15,10 @@ export function useMedia() {
   const [starting, setStarting] = useState(false);
   const refs = useRef({ stream: null, screen: null });
   refs.current = { stream, screen };
+  // getUserMedia/getDisplayMedia can resolve after the component has gone (the user left
+  // while the permission prompt was open); those streams must be stopped, not stored.
+  const mounted = useRef(true);
+  const stopTracks = (s) => s?.getTracks().forEach((t) => t.stop());
 
   const start = useCallback(async () => {
     setError('');
@@ -23,12 +27,13 @@ export function useMedia() {
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .catch((e) => (e.name === 'NotFoundError' ? navigator.mediaDevices.getUserMedia({ audio: true }) : Promise.reject(e)));
+      if (!mounted.current) { stopTracks(s); return null; }
       setStream(s); setMic(true); setCam(s.getVideoTracks().length > 0);
       return s;
     } catch (e) {
-      setError(denied(e));
+      if (mounted.current) setError(denied(e));
       return null;
-    } finally { setStarting(false); }
+    } finally { if (mounted.current) setStarting(false); }
   }, []);
 
   const toggleMic = () => { stream?.getAudioTracks().forEach((t) => { t.enabled = !mic; }); setMic(!mic); };
@@ -40,6 +45,7 @@ export function useMedia() {
     if (!navigator.mediaDevices?.getDisplayMedia) { setError('Screen sharing isn’t supported in this browser.'); return; }
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      if (!mounted.current) { stopTracks(s); return; }
       s.getVideoTracks()[0].addEventListener('ended', () => setScreen(null));
       setScreen(s);
     } catch (e) {
@@ -53,9 +59,13 @@ export function useMedia() {
     setStream(null); setScreen(null);
   }, []);
 
-  useEffect(() => () => {
-    refs.current.stream?.getTracks().forEach((t) => t.stop());
-    refs.current.screen?.getTracks().forEach((t) => t.stop());
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      refs.current.stream?.getTracks().forEach((t) => t.stop());
+      refs.current.screen?.getTracks().forEach((t) => t.stop());
+    };
   }, []);
 
   return { stream, screen, mic, cam, error, starting, start, toggleMic, toggleCam, shareScreen, stopScreen, stopAll, setError };

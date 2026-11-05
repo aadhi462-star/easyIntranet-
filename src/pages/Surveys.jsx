@@ -153,6 +153,7 @@ function SurveyBuilder({ template, onClose }) {
 
 function SurveyDetail({ id }) {
   const { state, me, user, dispatch } = useStore();
+  const nav = useNavigate();
   const s = (state.surveys || []).find((x) => x.id === id);
   const responses = (state.surveyResponses || []).filter((r) => r.surveyId === id);
   const mine = responses.find((r) => r.authorId === me.id);
@@ -178,9 +179,9 @@ function SurveyDetail({ id }) {
         actions={isOwner && <>
           {s.status === 'draft' && <button className="btn btn-primary min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'active' } })}>Publish</button>}
           {open && <button className="btn btn-ghost min-h-11" onClick={() => { if (confirm('Close this survey to new responses?')) dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'closed' } }); }}>Close survey</button>}
-          {!open && s.status === 'closed' && <button className="btn btn-ghost min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'active', deadline: Date.now() + 7 * 86400e3 } })}>Reopen</button>}
+          {!open && s.status !== 'draft' && <button className="btn btn-ghost min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: (x) => ({ ...x, status: 'active', deadline: x.deadline && x.deadline > Date.now() ? x.deadline : Date.now() + 7 * 86400e3 }) })}>Reopen</button>}
           <button className="btn btn-ghost min-h-11" onClick={exportCsv} disabled={!responses.length}>⬇ Export CSV</button>
-          <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={() => { if (confirm('Delete this survey and its responses?')) { dispatch({ type: 'remove', col: 'surveys', id }); history.back(); } }}>Delete</button>
+          <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={() => { if (confirm('Delete this survey and its responses?')) { responses.forEach((r) => dispatch({ type: 'remove', col: 'surveyResponses', id: r.id, silent: true })); dispatch({ type: 'remove', col: 'surveys', id }); nav('/surveys'); } }}>Delete</button>
         </>} />
       <div className="mb-4 flex flex-wrap gap-1.5 text-xs">
         <span className="chip">{s.status === 'draft' ? 'Draft' : open ? 'Active' : 'Closed'}</span>

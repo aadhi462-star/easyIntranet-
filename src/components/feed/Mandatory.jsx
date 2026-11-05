@@ -2,7 +2,7 @@ import { Glyph } from '../icons.jsx';
 import { useState } from 'react';
 import { fmtDate, useStore } from '../../lib/store.jsx';
 import { Avatar, Field, Modal } from '../ui.jsx';
-import { audienceOf } from './utils.js';
+import { acksOf, audienceOf } from './utils.js';
 
 export const MANDATORY_DEFAULTS = {
   deadline: null, reminder: 'none', message: 'I have read and understood this post.', button: 'Acknowledge', color: '#84cc16',
@@ -72,7 +72,8 @@ export function AckBox({ cfg, preview = false, onSubmit }) {
 export function MandatoryReport({ post, onClose }) {
   const { state, dispatch, user, me } = useStore();
   const audience = audienceOf(state, post);
-  const acks = post.mandatory.acks;
+  // Only acknowledgements from the audience count (non-members of a public group may have acked).
+  const acks = acksOf(state, post);
   const pending = audience.filter((id) => !acks.includes(id));
   const [sent, setSent] = useState([]);
   const remind = (ids) => {

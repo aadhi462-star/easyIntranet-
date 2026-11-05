@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { uid, useStore } from '../../lib/store.jsx';
+import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
-import { insightsOf, MOODS, SHARE_TARGETS } from './utils.js';
+import { insightsOf, MOODS, needsApproval, SHARE_TARGETS, shareLockOf } from './utils.js';
 
 export function SentimentMeter({ counts, label = 'Sentiment' }) {
   const total = counts.happy + counts.neutral + counts.unhappy;
@@ -59,12 +60,17 @@ export function AdvocacyReport({ post, onClose }) {
 
 export function RepostModal({ post, onClose }) {
   const { state, dispatch, me } = useStore();
+  // Posts from private / hidden groups can only be shared back into the same group.
+  const locked = shareLockOf(state, post);
   const [text, setText] = useState('');
-  const [where, setWhere] = useState('network');
+  const [where, setWhere] = useState(locked ? locked.id : 'network');
   const groups = state.groups.filter((g) => g.members.includes(me.id));
   const share = () => {
-    const scope = where === 'network' ? { type: 'network' } : where === 'me' ? { type: 'user', id: me.id } : { type: 'group', id: where };
-    dispatch({ type: 'post/create', post: { id: uid('p'), type: 'post', text: text.trim(), scope, repostOf: post.id } });
+    const scope = locked ? { type: 'group', id: locked.id } : where === 'network' ? { type: 'network' } : where === 'me' ? { type: 'user', id: me.id } : { type: 'group', id: where };
+    // Shares go through moderation like any other post.
+    const status = needsApproval(state, me, text) ? 'pending' : 'published';
+    dispatch({ type: 'post/create', post: { id: uid('p'), type: 'post', text: text.trim(), scope, repostOf: post.id, status } });
+    if (status === 'pending') toast('Your share is awaiting moderator approval');
     dispatch({ type: 'update', col: 'posts', id: post.id, patch: (p) => ({ ...p, reposts: (p.reposts || 0) + 1 }), silent: true });
     if (post.authorId !== me.id) dispatch({ type: 'notify', notification: { userId: post.authorId, kind: 'share', link: `/post/${post.id}`, text: `${me.name} shared your post` } });
     onClose();
@@ -73,11 +79,14 @@ export function RepostModal({ post, onClose }) {
     <Modal title="Share post" onClose={onClose}>
       <div className="space-y-4">
         <Field label="Share to">
-          <select className="input" value={where} onChange={(e) => setWhere(e.target.value)}>
-            <option value="network">🏛️ Company wall</option>
-            <option value="me">🙋 My wall</option>
-            {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+          <select className="input" value={where} onChange={(e) => setWhere(e.target.value)} disabled={!!locked}>
+            {locked ? <option value={locked.id}>{locked.emoji} {locked.name}</option> : <>
+              <option value="network">🏛️ Company wall</option>
+              <option value="me">🙋 My wall</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+            </>}
           </select>
+          {locked && <p className="mt-1 text-xs text-slate-400">Posts from {locked.name} can only be shared within the group.</p>}
         </Field>
         <Field label="Add a comment (optional)"><textarea className="input" rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
         <div className="flex justify-end gap-2"><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={share}>Share</button></div>

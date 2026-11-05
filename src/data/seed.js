@@ -199,7 +199,7 @@ export function initialState() {
     version: 4,
     session: null,
     users, groups, posts, events, forumCategories, forumPosts, channels, manuals, notifications,
-    bookmarks: [], activity: [], settings,
+    bookmarks: {}, activity: [], settings,
   };
   return structuredClone(Object.assign(base, ...moduleSeeds));
 }

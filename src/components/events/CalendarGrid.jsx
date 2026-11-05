@@ -51,7 +51,7 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
   const on = (d) => items.filter((it) => startOfDay(it.start) <= d && startOfDay(it.end ?? it.start) >= d).sort((a, b) => a.start - b.start);
 
   const chip = (it) => (
-    <Link key={it.key} to={it.href} onClick={(e) => e.stopPropagation()} title={it.title}
+    <Link key={it.key} to={it.href} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} title={it.title}
       className="block truncate rounded-md px-1.5 py-0.5 text-[11px] font-medium text-white hover:brightness-125"
       style={{ background: `${it.color}33`, borderLeft: `3px solid ${it.color}` }}>
       {it.icon ?? ''}{!it.allDay && <span className="mr-1 opacity-70">{time(it.start)}</span>}{it.title}
@@ -65,7 +65,7 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
           const list = on(d);
           return (
             <div key={d} role="button" tabIndex={0} aria-label={`Create event on ${new Date(d).toDateString()}`}
-              onClick={() => onDayClick?.(d)} onKeyDown={(e) => e.key === 'Enter' && onDayClick?.(d)}
+              onClick={() => onDayClick?.(d)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onDayClick?.(d))}
               className="min-h-24 cursor-pointer border-b border-white/5 p-2 hover:bg-white/[.03] sm:min-h-72 sm:border-b-0 sm:border-r last:border-r-0">
               <div className={`mb-2 text-xs font-semibold ${d === today ? 'text-brand-400' : 'text-slate-400'}`}>
                 {WEEKDAYS[new Date(d).getDay()]} <span className={`ml-1 inline-grid h-6 min-w-6 place-items-center rounded-full ${d === today ? 'bg-brand-500 text-white' : ''}`}>{new Date(d).getDate()}</span>
@@ -90,7 +90,7 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
             const out = new Date(d).getMonth() !== month;
             return (
               <div key={d} role="button" tabIndex={0} aria-label={`${new Date(d).toDateString()}, ${list.length} items. Create event`}
-                onClick={() => onDayClick?.(d)} onKeyDown={(e) => e.key === 'Enter' && onDayClick?.(d)}
+                onClick={() => onDayClick?.(d)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onDayClick?.(d))}
                 className={`min-h-14 cursor-pointer border-b border-r border-white/5 p-1 hover:bg-white/[.03] sm:min-h-28 sm:p-1.5 ${out ? 'opacity-40' : ''}`}>
                 <div className={`mb-1 inline-grid h-6 min-w-6 place-items-center rounded-full text-xs font-semibold ${d === today ? 'bg-brand-500 text-white' : 'text-slate-300'}`}>{new Date(d).getDate()}</div>
                 <div className="hidden space-y-1 sm:block">

@@ -42,7 +42,10 @@ export default function Leaderboard() {
     const counts = {};
     for (const x of praiseIn) counts[x.toId] = (counts[x.toId] || 0) + 1;
     const awardees = Object.entries(counts).map(([id, n]) => ({ user: user(id), n })).filter((x) => isActiveUser(x.user)).sort((a, b) => b.n - a.n);
-    return { contributors: contributors.slice(0, 10), awardees };
+    // Only people who scored in the period; competition ranking so ties share a rank (1, 1, 3…).
+    const ranked = contributors.filter((r) => r.points > 0).sort((a, b) => b.points - a.points);
+    ranked.forEach((r, i) => { r.rank = i > 0 && ranked[i - 1].points === r.points ? ranked[i - 1].rank : i + 1; });
+    return { contributors: ranked.slice(0, 10), awardees };
   }, [state, period, user]);
 
   const claimed = (state.badgeAwards || []).filter((b) => b.toId === me.id).map((b) => b.badgeId);
@@ -76,10 +79,11 @@ export default function Leaderboard() {
           <div className="grid gap-4 lg:grid-cols-3">
             <section className="glass p-5 lg:col-span-2">
               <h2 className="font-bold">Top contributors</h2>
+              {contributors.length === 0 && <p className="mt-2 text-sm text-slate-500">No one has earned points in this period yet.</p>}
               <ol className="mt-3 space-y-1">
-                {contributors.map((r, i) => (
+                {contributors.map((r) => (
                   <li key={r.user.id} className={`flex items-center gap-3 rounded-xl p-2 ${r.user.id === me.id ? 'bg-brand-500/15' : ''}`}>
-                    <span className="w-8 text-center text-lg font-bold">{['🥇', '🥈', '🥉'][i] ?? i + 1}</span>
+                    <span className="w-8 text-center text-lg font-bold" aria-label={`Rank ${r.rank}`}>{['🥇', '🥈', '🥉'][r.rank - 1] ?? r.rank}</span>
                     <Avatar user={r.user} size={36} />
                     <Link to={`/people/${r.user.id}`} className="min-w-0 flex-1"><div className="truncate font-semibold">{r.user.name}</div><div className="text-xs text-slate-400">{r.level.name}</div></Link>
                     <span className="font-bold text-amber-200">{r.points}</span>

@@ -1,7 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { timeAgo, useStore } from '../lib/store.jsx';
 import { Empty, PageHeader } from '../components/ui.jsx';
+import { GUEST, canSee as canSeePost } from '../components/feed/utils.js';
+import { canSee as canSeeEvent, canSeeTownhall } from '../components/events/eventUtils.js';
+import { canReadArticle } from '../components/collab/manual.js';
+import { canSeeBoard } from '../components/collab/board.jsx';
 
 const TYPES = [
   ['people', 'People', '🧑'], ['posts', 'Posts', '📰'], ['groups', 'Groups', '👥'], ['events', 'Events', '📅'],
@@ -9,23 +13,37 @@ const TYPES = [
   ['messages', 'Messages', '💬'], ['tasks', 'Tasks', '✅'], ['surveys', 'Surveys', '📋'], ['townhalls', 'Town halls', '🎤'],
 ];
 
-/** Flattens every searchable collection into {type, id, title, body, link, at}. */
-function buildIndex(s, user) {
+const memberOf = (g, id) => !!g && [g.members, g.admins, g.moderators].some((l) => (l || []).includes(id));
+
+/** Flattens every collection `me` is allowed to see into {type, id, title, body, link, at}. */
+function buildIndex(s, user, me) {
   const out = [];
-  const push = (type, id, title, body, link, at) => out.push({ type, id: `${type}:${id}`, title: title || '', body: body || '', link, at });
-  for (const u of s.users) push('people', u.id, u.name, [u.role, u.company, u.city, u.dept, u.batch, ...(u.skills || [])].join(' · '), `/people/${u.id}`);
-  for (const p of s.posts) if (p.status !== 'pending') push('posts', p.id, `${user(p.authorId)?.name ?? 'Someone'}`, [p.text, ...p.comments.map((c) => c.text)].join(' — '), `/post/${p.id}`, p.createdAt);
-  for (const g of s.groups) push('groups', g.id, g.name, g.description, `/groups/${g.id}`);
-  for (const e of s.events) push('events', e.id, e.title, [e.location, e.description].join(' — '), `/events/${e.id}`, e.start);
-  for (const f of s.forumPosts) if (f.status !== 'draft') push('forums', f.id, f.title, [f.body, ...f.replies.map((r) => r.text)].join(' — '), `/forums/${f.id}`, f.createdAt);
-  for (const m of s.manuals) for (const c of m.chapters) for (const a of c.articles) push('articles', a.id, a.title, `${m.title} › ${c.title} — ${a.body}`, `/manuals/${m.id}/${a.id}`, a.updatedAt);
-  for (const f of s.files || []) push('files', f.id, f.name, [f.description, f.folder, f.type].filter(Boolean).join(' · '), `/files/${f.id}`, f.createdAt);
+  const push = (type, id, title, body, link, at) => out.push({ type, id: `${type}:${id}`, title: String(title ?? ''), body: String(body ?? ''), link, at });
+  const groups = s.groups || [];
+  const groupById = (id) => groups.find((g) => g.id === id);
+  const inGroup = (id) => me.admin || memberOf(groupById(id), me.id);
+  const nameOf = (id) => user(id)?.name ?? 'Former member';
+  for (const u of s.users) if (me.admin || !u.status || u.status === 'active') push('people', u.id, u.name, [u.role, u.company, u.city, u.dept, u.batch, ...(u.skills || [])].join(' · '), `/people/${u.id}`);
+  for (const p of s.posts) if (canSeePost(s, me, p)) push('posts', p.id, nameOf(p.authorId), [p.text, ...(p.comments || []).map((c) => c.text)].join(' — '), `/post/${p.id}`, p.createdAt);
+  for (const g of groups) if (g.accessType !== 'private' || inGroup(g.id)) push('groups', g.id, g.name, g.description, `/groups/${g.id}`);
+  for (const e of s.events) if (canSeeEvent(e, me, groups)) push('events', e.id, e.title, [e.location, e.description].join(' — '), `/events/${e.id}`, e.start);
+  for (const f of s.forumPosts) {
+    if (f.status === 'draft' ? f.authorId !== me.id : f.groupId && !inGroup(f.groupId)) continue;
+    push('forums', f.id, f.title, [f.body, ...(f.replies || []).map((r) => r.text)].join(' — '), `/forums/${f.id}`, f.createdAt);
+  }
+  for (const m of s.manuals || []) for (const c of m.chapters || []) for (const a of c.articles || []) if (canReadArticle(m, a, me)) push('articles', a.id, a.title, `${m.title} › ${c.title} — ${a.body ?? ''}`, `/manuals/${m.id}/${a.id}`, a.updatedAt);
+  for (const f of s.files || []) if (!f.groupId || inGroup(f.groupId) || f.authorId === me.id || f.sharedWith?.includes(me.id)) push('files', f.id, f.name, [f.description, f.folder, f.type].filter(Boolean).join(' · '), `/files/${f.id}`, f.createdAt);
   for (const i of s.ideas || []) push('ideas', i.id, i.title, i.description || i.body, `/ideas/${i.id}`, i.createdAt);
-  for (const c of s.channels) for (const m of c.messages) push('messages', `${c.id}-${m.id}`, `#${c.name} · ${user(m.authorId)?.name ?? ''}`, m.text, `/channels/${c.id}`, m.createdAt);
-  for (const d of s.dms || []) for (const m of d.messages || []) push('messages', `${d.id}-${m.id}`, `Chat · ${user(m.authorId)?.name ?? ''}`, m.text, `/messages/${d.id}`, m.createdAt);
-  for (const t of s.tasks || []) push('tasks', t.id, t.title, t.description, `/tasks/${t.id}`, t.createdAt);
-  for (const sv of s.surveys || []) push('surveys', sv.id, sv.title, sv.description, `/surveys/${sv.id}`, sv.createdAt);
-  for (const th of s.townhalls || []) push('townhalls', th.id, th.title, th.description, `/townhalls/${th.id}`, th.start ?? th.createdAt);
+  for (const c of s.channels || []) if ((c.members || []).includes(me.id)) for (const m of c.messages || []) push('messages', `${c.id}-${m.id}`, `#${c.name} · ${nameOf(m.authorId)}`, m.text, `/channels/${c.id}`, m.createdAt);
+  for (const d of s.dms || []) if ((d.members || []).includes(me.id)) for (const m of d.messages || []) push('messages', `${d.id}-${m.id}`, `Chat · ${nameOf(m.authorId)}`, m.text, `/messages/${d.id}`, m.createdAt);
+  const boards = s.boards || [];
+  for (const t of s.tasks || []) {
+    const board = boards.find((b) => b.id === t.boardId);
+    if (board && !canSeeBoard(s, me, board)) continue;
+    push('tasks', t.id, t.title, t.description, `/tasks/${t.id}`, t.createdAt);
+  }
+  for (const sv of s.surveys || []) if (sv.authorId === me.id || sv.audience?.type !== 'group' || inGroup(sv.audience.id)) push('surveys', sv.id, sv.title, sv.description, `/surveys/${sv.id}`, sv.createdAt);
+  for (const th of s.townhalls || []) if (canSeeTownhall(th, me, groups)) push('townhalls', th.id, th.title, th.description, `/townhalls/${th.id}`, th.start ?? th.createdAt);
   return out;
 }
 
@@ -40,12 +58,15 @@ function Highlight({ text, terms, max = 180 }) {
 }
 
 export default function Search() {
-  const { state, user } = useStore();
+  const { state, user, me: current } = useStore();
+  const me = current ?? GUEST;
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
   const [type, setType] = useState('all');
   const [draft, setDraft] = useState(q);
-  const index = useMemo(() => buildIndex(state, user), [state, user]);
+  // Follow a new ?q= (e.g. from the header search) instead of keeping the old text.
+  useEffect(() => { setDraft(q); }, [q]);
+  const index = useMemo(() => buildIndex(state, user, me), [state, user, me]);
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
 
   const results = useMemo(() => {

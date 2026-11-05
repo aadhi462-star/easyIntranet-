@@ -5,6 +5,7 @@ import { PageHeader } from '../components/ui.jsx';
 import FileList, { MAX_SIZE, ShareModal, downloadFile, fileIcon, storeUpload } from '../components/collab/FileList.jsx';
 import { DocEditor, SheetEditor, SlidesEditor, useObjectUrl } from '../components/collab/editors.jsx';
 import { fmtSize, getBlob } from '../components/collab/fileStore.js';
+import { toast } from '../lib/toast.js';
 
 export default function Files() {
   const { id } = useParams();
@@ -26,24 +27,53 @@ function FileView({ file }) {
   const { dispatch, me, user } = useStore();
   const [share, setShare] = useState(false);
   const [saved, setSaved] = useState(true);
+  // Editors are controlled by this local draft; only the store dispatch is debounced.
+  const [draft, setDraft] = useState(file.content);
+  const draftRef = useRef(file.content);
+  const pending = useRef(false);
   const timer = useRef(null);
   const canEdit = file.authorId === me.id || me.admin || file.sharedWith?.includes(me.id);
   const created = file.kind !== 'upload';
 
-  // Debounced autosave for created docs; snapshot a version at most every 10 minutes.
-  const change = (content) => {
+  // Write the latest draft to the store; snapshot a version at most every 10 minutes.
+  const flushRef = useRef(null);
+  flushRef.current = () => {
+    clearTimeout(timer.current);
+    if (!pending.current) return;
+    pending.current = false;
+    const content = draftRef.current;
+    dispatch({ type: 'update', col: 'files', id: file.id, silent: true, patch: (x, uid) => {
+      const last = x.versions?.at(-1);
+      const snap = !last || Date.now() - last.at > 10 * 60e3;
+      return { ...x, content, updatedAt: Date.now(), versions: snap ? [...(x.versions ?? []), { at: Date.now(), by: uid, content: x.content }] : x.versions };
+    } });
+    setSaved(true);
+  };
+  const flush = () => flushRef.current();
+  // `next` is new content or an updater of the latest draft.
+  const change = (next) => {
+    const content = typeof next === 'function' ? next(draftRef.current) : next;
+    draftRef.current = content;
+    setDraft(content);
+    pending.current = true;
     setSaved(false);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      dispatch({ type: 'update', col: 'files', id: file.id, silent: true, patch: (x, uid) => {
-        const last = x.versions?.at(-1);
-        const snap = !last || Date.now() - last.at > 10 * 60e3;
-        return { ...x, content, updatedAt: Date.now(), versions: snap ? [...(x.versions ?? []), { at: Date.now(), by: uid, content: x.content }] : x.versions };
-      } });
-      setSaved(true);
-    }, 600);
+    timer.current = setTimeout(flush, 600);
   };
-  useEffect(() => () => clearTimeout(timer.current), []);
+  // Leaving the page saves any edit still waiting on the debounce.
+  useEffect(() => () => flushRef.current(), []);
+  // A restored snapshot replaces the draft.
+  const restoredAt = file.restoredAt ?? 0;
+  const firstRestore = useRef(restoredAt);
+  useEffect(() => {
+    if (restoredAt === firstRestore.current) return;
+    firstRestore.current = restoredAt;
+    clearTimeout(timer.current);
+    pending.current = false;
+    draftRef.current = file.content;
+    setDraft(file.content);
+    setSaved(true);
+  }, [restoredAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -60,12 +90,12 @@ function FileView({ file }) {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
         <div>
-          {file.kind === 'doc' && <DocEditor key={file.restoredAt ?? 0} value={file.content} onChange={change} readOnly={!canEdit} />}
-          {file.kind === 'sheet' && <SheetEditor key={file.restoredAt ?? 0} value={file.content} onChange={change} readOnly={!canEdit} />}
-          {file.kind === 'slides' && <SlidesEditor key={file.restoredAt ?? 0} value={file.content} onChange={change} readOnly={!canEdit} />}
+          {file.kind === 'doc' && <DocEditor key={restoredAt} value={draft} onChange={change} readOnly={!canEdit} />}
+          {file.kind === 'sheet' && <SheetEditor key={restoredAt} value={draft} onChange={change} readOnly={!canEdit} />}
+          {file.kind === 'slides' && <SlidesEditor key={restoredAt} value={draft} onChange={change} readOnly={!canEdit} />}
           {file.kind === 'upload' && <Preview file={file} />}
         </div>
-        <Versions file={file} canEdit={canEdit} />
+        <Versions file={file} canEdit={canEdit} flush={flush} />
       </div>
       {share && <ShareModal file={file} onClose={() => setShare(false)} />}
     </div>
@@ -105,7 +135,7 @@ function Preview({ file }) {
   );
 }
 
-function Versions({ file, canEdit }) {
+function Versions({ file, canEdit, flush }) {
   const { dispatch, me, user } = useStore();
   const input = useRef(null);
   const versions = file.versions ?? [];
@@ -120,7 +150,8 @@ function Versions({ file, canEdit }) {
             const f = e.target.files[0]; e.target.value = '';
             if (!f) return;
             if (f.size > MAX_SIZE) { alert('That file is over the 30 MB limit.'); return; }
-            const v = await storeUpload(f, me.id);
+            let v;
+            try { v = await storeUpload(f, me.id); } catch { toast('Couldn’t store that file — browser storage may be full.', 'error'); return; }
             dispatch({ type: 'update', col: 'files', id: file.id, patch: (x) => ({ ...x, size: f.size, type: f.type || x.type, updatedAt: Date.now(), versions: [...x.versions, v] }) });
           }} />
         </>
@@ -134,6 +165,7 @@ function Versions({ file, canEdit }) {
             {created && canEdit && v.content != null && (
               <button className="mt-1 text-xs text-brand-400 hover:underline" onClick={() => {
                 if (!confirm('Restore this snapshot? Current content is kept as a new snapshot.')) return;
+                flush();
                 dispatch({ type: 'update', col: 'files', id: file.id, patch: (x, uid) => ({ ...x, content: v.content, restoredAt: Date.now(), updatedAt: Date.now(), versions: [...x.versions, { at: Date.now(), by: uid, content: x.content }] }) });
               }}>Restore</button>
             )}

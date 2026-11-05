@@ -1,5 +1,5 @@
 import { Glyph } from '../icons.jsx';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 import { Field } from '../ui.jsx';
@@ -8,19 +8,33 @@ import { ACCESS, APPS, RULE_FIELDS, matchesRule } from './helpers.js';
 export default function Settings({ group }) {
   const { state, dispatch } = useStore();
   const nav = useNavigate();
-  const [v, setV] = useState({ name: group.name, description: group.description, guidelines: group.guidelines || '', accessType: group.accessType, apps: group.apps, announceOnly: !!group.announceOnly });
+  const fromGroup = () => ({ name: group.name, description: group.description, guidelines: group.guidelines || '', accessType: group.accessType, apps: group.apps, announceOnly: !!group.announceOnly });
+  const [v, setV] = useState(fromGroup);
   const [rule, setRule] = useState(group.dynamicRule ?? { field: 'batch', op: 'eq', value: '' });
   const [saved, setSaved] = useState(false);
+  // Re-sync when the group changes elsewhere (e.g. the Edit group modal) so a later save doesn't revert it.
+  const sig = JSON.stringify([group.name, group.description, group.guidelines, group.accessType, group.apps, group.announceOnly, group.dynamicRule]);
+  useEffect(() => {
+    setV(fromGroup());
+    setRule(group.dynamicRule ?? { field: 'batch', op: 'eq', value: '' });
+  }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k) => (e) => { setSaved(false); setV({ ...v, [k]: e.target.value }); };
-  const preview = rule.value ? state.users.filter((u) => matchesRule(u, rule)) : [];
+  const ruleValue = String(rule.value ?? '').trim();
+  const preview = ruleValue ? state.users.filter((u) => matchesRule(u, rule)) : [];
 
   const save = (e) => {
     e.preventDefault();
-    dispatch({ type: 'update', col: 'groups', id: group.id, patch: { ...v, name: v.name.trim() || group.name, dynamicRule: rule.value ? rule : undefined } });
+    dispatch({ type: 'update', col: 'groups', id: group.id, patch: (g) => ({
+      ...g, ...v, name: v.name.trim() || group.name,
+      dynamicRule: ruleValue ? { ...rule, value: ruleValue } : undefined,
+      // Pending requests only make sense for restricted groups.
+      joinRequests: v.accessType === 'restricted' ? (g.joinRequests || []) : [],
+    }) });
     setSaved(true);
   };
   const del = () => {
     if (!confirm(`Delete ${group.name}? Its content will no longer be reachable.`)) return;
+    for (const c of state.channels.filter((c) => c.groupId === group.id)) dispatch({ type: 'remove', col: 'channels', id: c.id });
     dispatch({ type: 'remove', col: 'groups', id: group.id });
     nav('/groups');
   };
@@ -75,7 +89,7 @@ export default function Settings({ group }) {
           </select>
           <input className="input" value={rule.value} onChange={(e) => setRule({ ...rule, value: e.target.value })} placeholder="Value (blank = off)" aria-label="Value" />
         </div>
-        {rule.value && <p className="text-xs text-slate-400">Matches {preview.length} {preview.length === 1 ? 'person' : 'people'}: {preview.map((u) => u.name).join(', ') || 'none'}</p>}
+        {ruleValue && <p className="text-xs text-slate-400">Matches {preview.length} {preview.length === 1 ? 'person' : 'people'}: {preview.map((u) => u.name).join(', ') || 'none'}</p>}
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
