@@ -213,23 +213,23 @@ export function Security() {
   );
 }
 
-export function ZiaSettings() {
+export function AssistSettings() {
   const { state, dispatch } = useStore();
-  const zia = { enabled: true, writer: true, summaries: true, translation: true, sentiment: true, ...state.settings.zia };
-  const set = (patch) => dispatch({ type: 'set', key: 'settings', value: (s) => ({ ...s, zia: { ...zia, ...s.zia, ...patch } }) });
+  const assist = { enabled: true, writer: true, summaries: true, translation: true, sentiment: true, ...state.settings.assist };
+  const set = (patch) => dispatch({ type: 'set', key: 'settings', value: (s) => ({ ...s, assist: { ...assist, ...s.assist, ...patch } }) });
   const onDevice = typeof self !== 'undefined' && ('Summarizer' in self || 'Writer' in self);
   const opts = [['writer', 'Writing assistant in post and article editors'], ['summaries', 'Post, thread and town hall summaries'], ['translation', 'Translate posts and comments'], ['sentiment', 'Sentiment analysis in analytics']];
   return (
     <section className="glass max-w-2xl space-y-3 p-5">
-      <h3 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Zia AI assistant</h3>
+      <h3 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Smart Assist</h3>
       <p className="text-sm text-slate-400">
-        Zia uses your browser’s built-in on-device AI when available ({onDevice ? 'detected ✓' : 'not detected — simple local fallbacks are used'}). No content is sent to an external service.
+        Smart Assist uses your browser’s built-in on-device AI when available ({onDevice ? 'detected ✓' : 'not detected — simple local fallbacks are used'}). No content is sent to an external service.
       </p>
-      <label className="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={zia.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Enable Zia for this network</label>
-      <div className={`space-y-1 pl-7 ${zia.enabled ? '' : 'pointer-events-none opacity-50'}`}>
-        {opts.map(([k, l]) => <label key={k} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={zia[k]} onChange={(e) => set({ [k]: e.target.checked })} />{l}</label>)}
+      <label className="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={assist.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Enable Smart Assist for this network</label>
+      <div className={`space-y-1 pl-7 ${assist.enabled ? '' : 'pointer-events-none opacity-50'}`}>
+        {opts.map(([k, l]) => <label key={k} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={assist[k]} onChange={(e) => set({ [k]: e.target.checked })} />{l}</label>)}
       </div>
-      <p className="text-xs text-slate-500">Modules read <code>settings.zia</code> to show or hide AI buttons.</p>
+      <p className="text-xs text-slate-500">Modules read <code>settings.assist</code> to show or hide AI buttons.</p>
     </section>
   );
 }

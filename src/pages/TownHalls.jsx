@@ -2,7 +2,7 @@ import { Glyph } from '../components/icons.jsx';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore, uid, timeAgo } from '../lib/store.jsx';
-import { summarize } from '../lib/zia.js';
+import { summarize } from '../lib/assist.js';
 import { Avatar, Empty, Field, Modal, PageHeader, Tabs, UserLink } from '../components/ui.jsx';
 import TownHallList, { STATUS_STYLES } from '../components/events/TownHallList.jsx';
 import PeoplePicker from '../components/events/PeoplePicker.jsx';
@@ -160,7 +160,7 @@ function Session({ id }) {
       {th.status === 'ended' && (
         <section className="glass p-5" aria-label="Highlights">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Zia highlights</h2>
+            <h2 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Highlights</h2>
             {byTab.answered.length > 0 && <button className="btn btn-ghost" disabled={busy} onClick={highlights}>{busy ? 'Summarising…' : th.highlights ? 'Regenerate' : 'Generate highlights'}</button>}
           </div>
           {th.highlights ? (

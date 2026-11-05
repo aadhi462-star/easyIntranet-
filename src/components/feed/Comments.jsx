@@ -1,7 +1,7 @@
 import { Glyph } from '../icons.jsx';
 import { useState } from 'react';
 import { timeAgo, uid, useStore } from '../../lib/store.jsx';
-import { summarize } from '../../lib/zia.js';
+import { summarize } from '../../lib/assist.js';
 import { Avatar, UserLink } from '../ui.jsx';
 import RichText from './RichText.jsx';
 
@@ -94,7 +94,7 @@ export default function Comments({ post }) {
       {post.comments.length >= 3 && (
         <div className="mb-1">
           <button className="text-xs text-brand-400 hover:underline" onClick={summarizeThread}><Glyph value="✨" tile={false} size={16} /> Summarize this thread</button>
-          {summary && <p className="mt-2 rounded-xl bg-brand-500/10 p-3 text-sm text-slate-200">{summary.loading ? 'Zia is reading the thread…' : <>{summary.text} <span className="text-xs text-slate-400">({summary.source})</span></>}</p>}
+          {summary && <p className="mt-2 rounded-xl bg-brand-500/10 p-3 text-sm text-slate-200">{summary.loading ? 'Smart Assist is reading the thread…' : <>{summary.text} <span className="text-xs text-slate-400">({summary.source})</span></>}</p>}
         </div>
       )}
       <ul>{sorted.map((c) => item(c))}</ul>

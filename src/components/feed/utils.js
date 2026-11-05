@@ -1,4 +1,4 @@
-import { sentiment } from '../../lib/zia.js';
+import { sentiment } from '../../lib/assist.js';
 
 export const VIEWS = [
   { id: 'my', label: 'My Feed', icon: 'myfeed' },

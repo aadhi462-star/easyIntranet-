@@ -3,7 +3,7 @@ import { Glyph } from '../icons.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
-import { LANGUAGES, summarize, translate } from '../../lib/zia.js';
+import { LANGUAGES, summarize, translate } from '../../lib/assist.js';
 import { Avatar, Modal, UserLink } from '../ui.jsx';
 import Comments from './Comments.jsx';
 import Composer from './Composer.jsx';
@@ -24,7 +24,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
   const [menu, setMenu] = useState(false);
   const [modal, setModal] = useState(null);
   const [more, setMore] = useState(false);
-  const [zia, setZia] = useState(null);
+  const [assist, setAssist] = useState(null);
   const [lang, setLang] = useState('');
   const ref = useRef(null);
   const status = statusOf(post);
@@ -71,13 +71,13 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
     window.open(t.url(post.advocacy.url, post.advocacy.tweet), '_blank', 'noopener,noreferrer');
     patch((p, meId) => ({ ...p, advocacy: { ...p.advocacy, shares: { ...p.advocacy.shares, [k]: [...new Set([...(p.advocacy.shares?.[k] || []), meId])] } } }));
   };
-  const doSummary = async () => { setZia({ loading: true }); setZia({ kind: 'summary', ...(await summarize(post.text)) }); };
+  const doSummary = async () => { setAssist({ loading: true }); setAssist({ kind: 'summary', ...(await summarize(post.text)) }); };
   const doTranslate = async (l) => {
     setLang(l);
-    if (!l) { setZia(null); return; }
-    setZia({ loading: true });
+    if (!l) { setAssist(null); return; }
+    setAssist({ loading: true });
     const r = await translate(post.text, l);
-    setZia({ kind: 'translation', text: r.text ?? 'Translation isn’t available in this browser. Chrome’s on-device Translator is needed.', source: r.source });
+    setAssist({ kind: 'translation', text: r.text ?? 'Translation isn’t available in this browser. Chrome’s on-device Translator is needed.', source: r.source });
   };
   const close = () => setModal(null);
   const item = (label, fn, cls = '') => (
@@ -152,9 +152,9 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
             </label>
           </div>
         )}
-        {zia && (
+        {assist && (
           <div className="mt-2 rounded-xl bg-brand-500/10 p-3 text-sm text-slate-200">
-            {zia.loading ? 'Zia is working…' : <><b className="text-xs uppercase tracking-wide text-brand-400">{zia.kind === 'summary' ? 'Summary' : 'Translation'}</b><p className="mt-1">{zia.text}</p><span className="text-xs text-slate-400">Zia · {zia.source}</span></>}
+            {assist.loading ? 'Smart Assist is working…' : <><b className="text-xs uppercase tracking-wide text-brand-400">{assist.kind === 'summary' ? 'Summary' : 'Translation'}</b><p className="mt-1">{assist.text}</p><span className="text-xs text-slate-400">Smart Assist · {assist.source}</span></>}
           </div>
         )}
       </div>

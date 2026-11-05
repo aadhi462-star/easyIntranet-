@@ -9,7 +9,7 @@ import Moderation from '../components/admin/Moderation.jsx';
 import Branding from '../components/admin/Branding.jsx';
 import { Policies, ProfileFields, Roles } from '../components/admin/Access.jsx';
 import { Schedulers, Workflows } from '../components/admin/Automation.jsx';
-import { AuditLog, DataExport, Security, ZiaSettings } from '../components/admin/DataSecurity.jsx';
+import { AuditLog, DataExport, Security, AssistSettings } from '../components/admin/DataSecurity.jsx';
 
 const TABS = [
   { id: 'analytics', label: 'Analytics', icon: '📊', el: Analytics, perm: 'admin.analytics' },
@@ -25,7 +25,7 @@ const TABS = [
   { id: 'audit', label: 'Audit log', icon: '🧾', el: AuditLog },
   { id: 'export', label: 'Data export', icon: '💾', el: DataExport },
   { id: 'security', label: 'Security & SSO', icon: '🔐', el: Security },
-  { id: 'zia', label: 'Zia AI', icon: '✨', el: ZiaSettings },
+  { id: 'assist', label: 'Smart Assist', icon: '✨', el: AssistSettings },
 ];
 
 export default function Admin() {

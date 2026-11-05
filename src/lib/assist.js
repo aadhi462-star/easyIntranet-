@@ -1,4 +1,4 @@
-// Zia, the AI assistant. Uses the browser's built-in on-device AI (Chrome's Summarizer,
+// Smart Assist, the AI writing helper. Uses the browser's built-in on-device AI (Chrome's Summarizer,
 // Writer and Translator APIs) when present, so no text leaves the device. Otherwise it
 // falls back to simple local heuristics and says so via `source`.
 

@@ -109,6 +109,6 @@ export const seed = {
     },
     moderation: { requireApproval: false, newMemberHoldDays: 0, bannedWords: [], whitelist: [] },
     security: { sso: { enabled: false, provider: '', entityId: '', ssoUrl: '' }, externalUsers: true, directorySync: false, customDomain: '', mobileAppName: '' },
-    zia: { enabled: true, writer: true, summaries: true, translation: true, sentiment: true },
+    assist: { enabled: true, writer: true, summaries: true, translation: true, sentiment: true },
   },
 };

@@ -2,7 +2,7 @@ import { Glyph } from '../icons.jsx';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { uid, useStore } from '../../lib/store.jsx';
-import { write } from '../../lib/zia.js';
+import { write } from '../../lib/assist.js';
 import { Avatar } from '../ui.jsx';
 import { MandatoryConfig } from './Mandatory.jsx';
 import { audienceOf, needsApproval, SHARE_TARGETS } from './utils.js';
@@ -32,7 +32,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
   const [mandatoryOpen, setMandatoryOpen] = useState(false);
   const [mq, setMq] = useState(null); // active @mention query
   const [tone, setTone] = useState('neutral');
-  const [zia, setZia] = useState(null);
+  const [assist, setAssist] = useState(null);
   const [error, setError] = useState('');
   const ta = useRef(null);
   const fileRef = useRef(null);
@@ -80,7 +80,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
 
   const reset = () => {
     setText(''); setMentions([]); setOptions(['', '']); setAttachments([]); setMandatory(null); setType('post');
-    setAdv({ title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' }); setScheduleAt(null); setShowSchedule(false); setZia(null); setError('');
+    setAdv({ title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' }); setScheduleAt(null); setShowSchedule(false); setAssist(null); setError('');
     if (compact) setOpen(false);
   };
 
@@ -121,11 +121,11 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
   };
 
   const helpWrite = async () => {
-    if (!text.trim()) { setError('Type a few words about what you want to say, then ask Zia.'); return; }
-    setZia({ loading: true });
+    if (!text.trim()) { setError('Type a few words about what you want to say, then ask Smart Assist.'); return; }
+    setAssist({ loading: true });
     const r = await write(text, tone);
     setText(r.text);
-    setZia({ source: r.source });
+    setAssist({ source: r.source });
   };
 
   if (!open) {
@@ -223,7 +223,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
         </div>
       )}
 
-      {zia && <p className="mt-2 text-xs text-slate-400">{zia.loading ? 'Zia is writing…' : `✨ Written by Zia (${zia.source}). Review before posting.`}</p>}
+      {assist && <p className="mt-2 text-xs text-slate-400">{assist.loading ? 'Smart Assist is writing…' : `✨ Written by Smart Assist (${assist.source}). Review before posting.`}</p>}
       {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
@@ -233,7 +233,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
           <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="✅" tile={false} size={16} /></button>
         )}
         <span className="flex items-center gap-1">
-          <button className="btn btn-ghost h-11" onClick={helpWrite} title="Zia: help me write"><Glyph value="✨" tile={false} size={16} /> Help me write</button>
+          <button className="btn btn-ghost h-11" onClick={helpWrite} title="Smart Assist: help me write"><Glyph value="✨" tile={false} size={16} /> Help me write</button>
           <select className="input !w-auto !py-2 text-xs" value={tone} onChange={(e) => setTone(e.target.value)} aria-label="Tone">
             <option value="neutral">Neutral</option><option value="casual">Casual</option><option value="formal">Formal</option>
           </select>

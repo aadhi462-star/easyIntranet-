@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
-import { sentiment } from '../../lib/zia.js';
+import { sentiment } from '../../lib/assist.js';
 import { leaderboard } from '../../lib/gamify.js';
 import { Avatar } from '../ui.jsx';
 import { BarList, LineChart, PieChart, Stat } from './charts.jsx';
@@ -108,7 +108,7 @@ export default function Analytics() {
             <span>😐 Neutral {Math.round((data.senti.neutral / totalSenti) * 100)}%</span>
             <span>🙁 Unhappy {Math.round((data.senti.unhappy / totalSenti) * 100)}%</span>
           </div>
-          <p className="mt-2 text-xs text-slate-500">Zia sentiment across posts, comments and forum replies.</p>
+          <p className="mt-2 text-xs text-slate-500">Sentiment across posts, comments and forum replies.</p>
         </section>
         <section className="glass p-5">
           <h3 className="mb-3 font-bold">Content per module</h3>
