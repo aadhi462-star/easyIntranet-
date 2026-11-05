@@ -128,10 +128,10 @@ export const acksOf = (state, p) => (p.mandatory?.acks || []).filter((id) => aud
 export function publishNotifications(state, dispatch, post, { skipMentions = [], mandatory = true, silent = false } = {}) {
   const name = state.users.find((u) => u.id === post.authorId)?.name ?? 'Someone';
   (post.mentions || []).filter((id) => id !== post.authorId && !skipMentions.includes(id)).forEach((id) => dispatch({ type: 'notify', silent,
-    notification: { userId: id, kind: 'mention', link: `/post/${post.id}`, text: `${name} mentioned you in a post` } }));
+    notification: { id: `pn-${post.id}-m-${id}`, userId: id, kind: 'mention', link: `/post/${post.id}`, text: `${name} mentioned you in a post` } }));
   if (post.mandatory && mandatory) {
     audienceOf(state, post).forEach((id) => dispatch({ type: 'notify', silent,
-      notification: { userId: id, kind: 'mandatory', link: `/post/${post.id}`, text: `${name} marked a post as Mandatory Read` } }));
+      notification: { id: `pn-${post.id}-r-${post.mandatory.markedAt ?? 0}-${id}`, userId: id, kind: 'mandatory', link: `/post/${post.id}`, text: `${name} marked a post as Mandatory Read` } }));
   }
 }
 

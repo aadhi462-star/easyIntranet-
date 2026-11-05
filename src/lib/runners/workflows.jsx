@@ -55,30 +55,35 @@ export function matches(wf, entry, state) {
 /** Runs a workflow's actions. Every dispatch is silent so it can't re-trigger workflows. */
 export function runActions(wf, entry, state, dispatch) {
   const admins = state.users.filter((u) => u.admin);
-  const actor = state.users.find((u) => u.id === entry.userId);
+  // Who the entry is about: for an approval that's the new member (ref), not the admin.
+  const subjectId = entry.type === 'member/approve' ? entry.ref : entry.userId;
+  const actor = state.users.find((u) => u.id === subjectId);
+  // Stable ids so the same run can't create duplicates (e.g. replayed from another tab).
+  let n = 0;
+  const rid = () => `wf-${wf.id}-${entry.id}-${n++}`;
   const fill = (t = '') => t.replaceAll('{user}', actor?.name ?? 'Someone');
   for (const act of wf.actions || []) {
     switch (act.kind) {
       case 'notifyUser': {
         // A notification without a userId is a broadcast, so never send one without a target.
-        const to = act.userId || entry.userId;
-        if (to) dispatch({ type: 'notify', silent: true, notification: { userId: to, text: fill(act.text) || wf.name, link: act.link || '/feed', kind: 'workflow' } });
+        const to = act.userId || subjectId;
+        if (to) dispatch({ type: 'notify', silent: true, notification: { id: rid(), userId: to, text: fill(act.text) || wf.name, link: act.link || '/feed', kind: 'workflow' } });
         break;
       }
       case 'notifyAdmins':
-        admins.forEach((u) => dispatch({ type: 'notify', silent: true, notification: { userId: u.id, text: `${fill(act.text) || wf.name}${actor ? ` (${actor.name})` : ''}`, link: '/admin/members', kind: 'workflow' } }));
+        admins.forEach((u) => dispatch({ type: 'notify', silent: true, notification: { id: rid(), userId: u.id, text: `${fill(act.text) || wf.name}${actor ? ` (${actor.name})` : ''}`, link: '/admin/members', kind: 'workflow' } }));
         break;
       case 'announce':
-        dispatch({ type: 'post/create', silent: true, post: { type: 'announcement', text: fill(act.text) || wf.name,
-          scope: act.groupId ? { type: 'group', id: act.groupId } : { type: 'network' }, authorId: admins[0]?.id ?? entry.userId } });
+        dispatch({ type: 'post/create', silent: true, post: { id: rid(), type: 'announcement', text: fill(act.text) || wf.name,
+          scope: act.groupId ? { type: 'group', id: act.groupId } : { type: 'network' }, authorId: admins[0]?.id ?? subjectId } });
         break;
       case 'createTask':
-        dispatch({ type: 'add', col: 'tasks', silent: true, item: { title: fill(act.text) || wf.name, status: 'todo', priority: 'medium',
+        dispatch({ type: 'add', col: 'tasks', silent: true, item: { id: rid(), title: fill(act.text) || wf.name, status: 'todo', priority: 'medium',
           assigneeId: act.userId || admins[0]?.id, authorId: admins[0]?.id, description: `Created by workflow “${wf.name}”.`, boardId: act.boardId || null } });
         break;
       case 'awardBadge':
-        dispatch({ type: 'add', col: 'badgeAwards', silent: true, item: { badgeId: act.badgeId, toId: entry.userId, reason: wf.name } });
-        dispatch({ type: 'notify', silent: true, notification: { userId: entry.userId, text: `You earned a badge from “${wf.name}”`, link: '/leaderboard', kind: 'badge' } });
+        dispatch({ type: 'add', col: 'badgeAwards', silent: true, item: { id: rid(), badgeId: act.badgeId, toId: subjectId, reason: wf.name } });
+        dispatch({ type: 'notify', silent: true, notification: { id: rid(), userId: subjectId, text: `You earned a badge from “${wf.name}”`, link: '/leaderboard', kind: 'badge' } });
         break;
       default:
     }

@@ -28,6 +28,9 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
   const [options, setOptions] = useState(initial?.poll?.options.map((o) => ({ id: o.id, text: o.text })) ?? [blankOption(), blankOption()]);
   const [attachments, setAttachments] = useState(initial?.attachments ?? []);
   const [mandatory, setMandatory] = useState(initial?.mandatory ?? null);
+  // Set when the author removes the mark in this editor: re-adding it is then a new marking.
+  const remarked = useRef(false);
+  const removeMandatory = () => { remarked.current = true; setMandatory(null); };
   const [adv, setAdv] = useState(initial?.advocacy ?? { title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' });
   const [scopeSel, setScopeSel] = useState(scopeKey(initial?.scope ?? fixedScope ?? { type: 'network' }));
   const [scheduleAt, setScheduleAt] = useState(initial?.publishAt ?? null);
@@ -87,7 +90,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
   };
 
   const reset = () => {
-    setText(''); setMentions([]); setOptions([blankOption(), blankOption()]); setAttachments([]); setMandatory(null); setType('post');
+    setText(''); setMentions([]); setOptions([blankOption(), blankOption()]); setAttachments([]); setMandatory(null); remarked.current = false; setType('post');
     setAdv({ title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' }); setScheduleAt(null); setShowSchedule(false); setAssist(null); setError('');
     if (compact) setOpen(false);
   };
@@ -107,6 +110,12 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
 
     const status = mode === 'draft' ? 'draft' : mode === 'schedule' ? 'scheduled' : needsApproval(state, me, body) ? 'pending' : 'published';
     const id = initial?.id ?? uid('p');
+    // The same marking (same markedAt) keeps the post's *current* acks and reminder state —
+    // others may have acknowledged while this editor was open. A removed-and-re-added marking
+    // has no markedAt yet, so it starts fresh and is announced as new.
+    const current = initial ? state.posts.find((x) => x.id === initial.id)?.mandatory : undefined;
+    const sameMarking = !!current && !remarked.current;
+    const markedAt = sameMarking ? current.markedAt ?? mandatory?.markedAt ?? Date.now() : Date.now();
     const fields = {
       type, text: body, scope, attachments, status,
       mentions: mentions.filter((m) => body.includes(`@${user(m)?.name}`)),
@@ -114,7 +123,9 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
       // Votes follow the option id, so rewording an option while editing keeps its votes.
       poll: type === 'poll' ? { options: opts.map((o) => ({ id: o.id, text: o.text, votes: initial?.poll?.options.find((x) => x.id === o.id)?.votes ?? [] })) } : undefined,
       advocacy: type === 'advocacy' ? { shares: {}, ...adv } : undefined,
-      mandatory: mandatory && scope.type !== 'user' ? { acks: [], ...mandatory } : undefined,
+      mandatory: mandatory && scope.type !== 'user'
+        ? { acks: [], ...mandatory, markedAt, ...(sameMarking ? { acks: current.acks, remindedAt: current.remindedAt } : {}) }
+        : undefined,
     };
     const wasLive = initial?.status === 'published';
     if (initial && !wasLive && status === 'published') {
@@ -129,7 +140,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
     if (status === 'published') {
       // Edits of a live post only notify newly added mentions, and a newly added Mandatory Read.
       publishNotifications(state, dispatch, { ...fields, id, authorId: me.id },
-        { skipMentions: wasLive ? initial.mentions ?? [] : [], mandatory: !(wasLive && initial.mandatory) });
+        { skipMentions: wasLive ? initial.mentions ?? [] : [], mandatory: !(wasLive && sameMarking) });
     }
     reset();
     onDone?.(status);
@@ -227,7 +238,7 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
           ✅ Mandatory Read{mandatory.deadline ? ` · due ${new Date(mandatory.deadline).toLocaleDateString()}` : ''}
           <button className="ml-auto underline" onClick={() => setMandatoryOpen(true)}>Edit</button>
-          <button className="underline" onClick={() => setMandatory(null)}>Remove</button>
+          <button className="underline" onClick={removeMandatory}>Remove</button>
         </div>
       )}
 
@@ -266,15 +277,19 @@ export default function Composer({ scope: fixedScope, initial, onDone, compact =
         )}
         {(onDone && initial) && <button className="btn btn-ghost" onClick={() => onDone()}>Cancel</button>}
         {compact && !initial && <button className="btn btn-ghost" onClick={reset}>Cancel</button>}
-        <button className="btn btn-ghost" onClick={() => submit('draft')}>Save draft</button>
-        <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="⏰" tile={false} size={16} /></button>
+        {/* A live post can't be pulled back into a draft or schedule from Edit: that silently hid
+            it (pins, reads and all) from everyone. Delete it from the post menu instead. */}
+        {initial?.status !== 'published' && <>
+          <button className="btn btn-ghost" onClick={() => submit('draft')}>Save draft</button>
+          <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="⏰" tile={false} size={16} /></button>
+        </>}
         <button className="btn btn-primary h-11 px-5" onClick={() => submit('publish')}>{initial?.status === 'published' ? 'Save' : type === 'advocacy' ? 'Share' : 'Post'}</button>
       </div>
 
       {mandatoryOpen && (
         <MandatoryConfig initial={mandatory} onClose={() => setMandatoryOpen(false)}
           onSave={(cfg) => { setMandatory(cfg); setMandatoryOpen(false); }}
-          onRemove={mandatory ? () => { setMandatory(null); setMandatoryOpen(false); } : null} />
+          onRemove={mandatory ? () => { removeMandatory(); setMandatoryOpen(false); } : null} />
       )}
     </div>
   );

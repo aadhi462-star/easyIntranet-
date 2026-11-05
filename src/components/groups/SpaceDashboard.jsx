@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { uid, useStore, fmtDate } from '../../lib/store.jsx';
 import { Avatar, Field, Modal } from '../ui.jsx';
 import { canSee, occurrences } from '../events/eventUtils.js';
+import { isLive } from '../feed/utils.js';
 
 const KINDS = {
   about: 'About', rules: 'Guidelines', events: 'Upcoming events', members: 'Recent members',
@@ -65,7 +66,7 @@ function Widget({ w, group }) {
       const now = Date.now();
       // Next occurrence of each visible group event (recurring series included).
       const list = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && canSee(e, me, state.groups))
-        .flatMap((e) => occurrences(e, now, now + 120 * 864e5).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
+        .flatMap((e) => occurrences(e, now, now + 400 * 864e5).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
       if (!list.length) return <p className="text-sm text-slate-400">No upcoming events.</p>;
       return (
         <ul className="space-y-2">
@@ -99,9 +100,10 @@ function Widget({ w, group }) {
       return <iframe title={w.title || 'Custom content'} sandbox="" className="h-40 w-full rounded-lg bg-white"
         srcDoc={`<!doctype html><body style="font-family:system-ui;padding:12px;color:#111">${w.html || ''}</body>`} />;
     case 'stats': {
-      const posts = state.posts.filter((p) => p.scope?.type === 'group' && p.scope.id === group.id).length;
-      const events = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id).length;
-      const forums = state.forumPosts.filter((f) => f.groupId === group.id).length;
+      // Only what this viewer could open: live posts, published forum posts, visible events.
+      const posts = state.posts.filter((p) => p.scope?.type === 'group' && p.scope.id === group.id && isLive(p)).length;
+      const events = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && canSee(e, me, state.groups)).length;
+      const forums = state.forumPosts.filter((f) => f.groupId === group.id && f.status !== 'draft').length;
       return (
         <dl className="grid grid-cols-2 gap-3 text-center">
           {[['Members', group.members.length], ['Posts', posts], ['Events', events], ['Discussions', forums]].map(([k, n]) => (

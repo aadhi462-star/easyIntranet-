@@ -74,6 +74,9 @@ function core(s, a) {
 
     // Generic collection CRUD. `patch` may be an object or (item) => item.
     case 'add': {
+      // Runner/workflow items carry deterministic ids; a repeat (e.g. the same job in two
+      // tabs) is ignored rather than duplicated.
+      if (a.item?.id && (s[a.col] || []).some((x) => x.id === a.item.id)) return s;
       const item = { id: uid(a.col.slice(0, 2)), createdAt: Date.now(), authorId: me, ...a.item };
       return { ...s, [a.col]: a.prepend === false ? [...(s[a.col] || []), item] : [item, ...(s[a.col] || [])] };
     }
@@ -82,10 +85,12 @@ function core(s, a) {
     case 'remove': return { ...s, [a.col]: (s[a.col] || []).filter((x) => x.id !== a.id) };
     case 'set': return { ...s, [a.key]: typeof a.value === 'function' ? a.value(s[a.key], me) : a.value };
     case 'notify':
+      if (a.notification?.id && s.notifications.some((n) => n.id === a.notification.id)) return s;
       return { ...s, notifications: [{ id: uid('n'), createdAt: Date.now(), read: false, kind: 'info', ...a.notification }, ...s.notifications] };
 
     // Wall
     case 'post/create':
+      if (a.post?.id && s.posts.some((p) => p.id === a.post.id)) return s;
       return { ...s, posts: [{ id: uid('p'), authorId: me, createdAt: Date.now(), likes: [], comments: [], status: 'published', ...a.post }, ...s.posts] };
     case 'post/delete': return { ...s, posts: s.posts.filter((p) => p.id !== a.id) };
     // Draft, scheduled or pending → live. Points go to the author (see `creditTo`).
@@ -106,7 +111,9 @@ function core(s, a) {
         options: p.poll.options.map((o) => ({ ...o, votes: o.id === a.optionId ? [...new Set([...o.votes, me])] : o.votes.filter((v) => v !== me) })) } })) };
     }
     case 'post/mandatory':
-      return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, mandatory: a.mandatory ? { acks: [], ...p.mandatory, ...a.mandatory } : undefined })) };
+      // `markedAt` identifies this marking, so reminders for a re-marked post aren't mistaken
+      // for the earlier marking's (their notification ids include it).
+      return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, mandatory: a.mandatory ? { acks: [], markedAt: p.mandatory?.markedAt ?? Date.now(), ...p.mandatory, ...a.mandatory } : undefined })) };
     case 'post/ack':
       return { ...s, posts: mapById(s.posts, a.id, (p) => ({ ...p, mandatory: { ...p.mandatory, acks: [...new Set([...p.mandatory.acks, me])] } })) };
     // Bookmarks are per member: { [userId]: postIds[] }.
@@ -200,7 +207,7 @@ function core(s, a) {
     // Another tab saved newer data: adopt it wholesale (see the storage listener below).
     // Keep this tab's signed-in member unless the other tab signed out; `hydratedAt` lets
     // runners skip activity that another tab already handled.
-    case 'hydrate': return { ...a.state, session: a.state.session && s.session ? s.session : a.state.session, hydratedAt: Date.now() };
+    case 'hydrate': return { ...a.state, session: a.keepSession || (a.state.session && s.session) ? s.session : a.state.session, hydratedAt: Date.now() };
     default: return s;
   }
 }
@@ -218,7 +225,9 @@ function reducer(s, a) {
   if (next === s || a.type === 'hydrate' || a.type === 'set' && a.key === 'activity' || a.silent) return next;
   const key = a.col ? `${a.type}:${a.col}` : a.type;
   // A signup (even one waiting for approval) is attributed to the new member.
-  const joined = a.type === 'signup' ? next.users.at(-1)?.id : a.type === 'member/approve' ? a.id : null;
+  // A signup (even one waiting for approval) is attributed to the new member. An approval is
+  // the admin's action, with the member as its ref (workflows read ref as "who joined").
+  const joined = a.type === 'signup' ? next.users.at(-1)?.id : null;
   const userId = a.creditTo ?? joined ?? s.session?.userId ?? next.session?.userId;
   const ref = joined ?? a.id ?? a.item?.id ?? a.post?.id ?? null;
   let points = POINTS[key] ?? 0;
@@ -260,12 +269,20 @@ export function StoreProvider({ children }) {
   const lastSaved = useRef(null);
   // Actions since the last successful save, replayed if another tab's save arrives first.
   const unsaved = useRef([]);
-  const save = useCallback(() => {
+  // What actually needs saving: tab-only details (hydratedAt, which member this tab has
+  // signed in) don't count, otherwise two tabs would keep re-saving to each other.
+  const lastBody = useRef(null);
+  const bodyOf = (st) => { const { hydratedAt: _h, session: _s, ...rest } = st; return JSON.stringify(rest); };
+  const save = useCallback((force = false) => {
     try {
-      const raw = JSON.stringify(latest.current);
+      const { hydratedAt: _h, ...persist } = latest.current;
+      const body = bodyOf(latest.current);
+      if (!force && body === lastBody.current) { unsaved.current = []; return; }
+      const raw = JSON.stringify(persist);
       if (raw === lastSaved.current) return;
       localStorage.setItem(KEY, raw);
       lastSaved.current = raw;
+      lastBody.current = body;
       unsaved.current = [];
     } catch (err) {
       // Quota: say so instead of silently dropping every later change.
@@ -280,7 +297,7 @@ export function StoreProvider({ children }) {
     return () => { clearTimeout(t); if (handle) cancel(handle); };
   }, [state, save]);
   // Flush right away on sign-in, sign-out and reset so a quick reload never loses them.
-  useEffect(() => { save(); }, [state.session, state.resetAt, save]);
+  useEffect(() => { save(true); }, [state.session, state.resetAt, save]);
   useEffect(() => {
     const onHide = () => { if (document.visibilityState === 'hidden') save(); };
     // Two tabs: adopt the other tab's save rather than overwriting it later with stale data.
@@ -288,9 +305,20 @@ export function StoreProvider({ children }) {
       if (e.key !== KEY || !e.newValue || e.newValue === lastSaved.current) return;
       try {
         lastSaved.current = e.newValue;
+        const incoming = migrate(JSON.parse(e.newValue));
+        lastBody.current = bodyOf(incoming);
         const replay = unsaved.current;
-        rawDispatch({ type: 'hydrate', state: migrate(JSON.parse(e.newValue)) });
-        replay.forEach((x) => rawDispatch(x)); // keep this tab's not-yet-saved work
+        const mine = latest.current.session;
+        if (replay.length && mine && !incoming.session) {
+          // The other tab signed out while this tab had unsaved work: save that work under the
+          // member who did it, then follow the sign-out.
+          rawDispatch({ type: 'hydrate', state: incoming, keepSession: true });
+          replay.forEach((x) => rawDispatch(x));
+          rawDispatch({ type: 'logout' });
+        } else {
+          rawDispatch({ type: 'hydrate', state: incoming });
+          replay.forEach((x) => rawDispatch(x)); // keep this tab's not-yet-saved work
+        }
       } catch { /* ignore corrupt */ }
     };
     window.addEventListener('pagehide', save);

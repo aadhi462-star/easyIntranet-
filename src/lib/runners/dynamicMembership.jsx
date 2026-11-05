@@ -15,7 +15,7 @@ export default function DynamicMembership() {
       if (!add.length) continue;
       dispatch({ type: 'group/addMembers', id: g.id, userIds: add, silent: true });
       for (const userId of add) {
-        dispatch({ type: 'notify', silent: true, notification: { userId, kind: 'group', text: `You were added to ${g.name} based on your profile`, link: `/groups/${g.id}` } });
+        dispatch({ type: 'notify', silent: true, notification: { id: `dm-${g.id}-${userId}`, userId, kind: 'group', text: `You were added to ${g.name} based on your profile`, link: `/groups/${g.id}` } });
       }
     }
   }, [state.groups, state.users, dispatch]);

@@ -66,7 +66,9 @@ export function CelebrateClassmates() {
   const [open, setOpen] = useState(null);
   const [showAll, setShowAll] = useState(false);
   if (!me) return null;
-  const blocked = new Set((state.blocks || []).filter((b) => b.authorId === me.id).map((b) => b.targetId));
+  // Blocks work both ways, as in Channels: neither side sees or wishes the other.
+  const blocked = new Set((state.blocks || []).filter((b) => b.authorId === me.id || b.targetId === me.id)
+    .map((b) => (b.authorId === me.id ? b.targetId : b.authorId)));
   // Birthdays follow the member's contact privacy; join dates are public on profiles anyway.
   const list = upcomingCelebrations(state.users, me.id, 7)
     .filter((c) => !blocked.has(c.user.id) && (c.kind !== 'birthday' || canSeeContact(state, me.id, c.user)));

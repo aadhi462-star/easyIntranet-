@@ -38,7 +38,7 @@ export default function SavedSearchAlerts() {
           patch: (x) => ({ ...x, lastSeenIds: [...new Set([...(x.lastSeenIds || []), ...fresh])].slice(-MAX_SEEN) }) });
         const params = new URLSearchParams({ q: ss.q, ...(ss.type && ss.type !== 'all' ? { type: ss.type } : {}) });
         const n = fresh.length;
-        dispatch({ type: 'notify', silent: true, notification: { userId: viewer.id, kind: 'search', link: `/search?${params}`,
+        dispatch({ type: 'notify', silent: true, notification: { id: `ss-${ss.id}-${fresh[fresh.length - 1]}`, userId: viewer.id, kind: 'search', link: `/search?${params}`,
           text: `${n} new result${n === 1 ? '' : 's'} for your saved search “${ss.name || ss.q}”${ss.type && ss.type !== 'all' ? ` in ${typeLabel(ss.type)}` : ''}` } });
       }
     };

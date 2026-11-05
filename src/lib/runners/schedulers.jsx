@@ -22,14 +22,14 @@ export function runJob(job, state, dispatch) {
       ...top.map((p) => `• ${p.text.slice(0, 80)}${p.text.length > 80 ? '…' : ''}`),
       events.length ? `📅 Coming up: ${events.map((e) => e.title).join(', ')}` : '',
     ].filter(Boolean);
-    dispatch({ type: 'post/create', silent: true, post: { type: 'announcement', text: lines.join('\n'), scope, authorId: admin?.id } });
+    dispatch({ type: 'post/create', silent: true, post: { id: `dg-${job.id}-${job.nextRun ?? 0}`, type: 'announcement', text: lines.join('\n'), scope, authorId: admin?.id } });
   } else if (job.kind === 'inactive') {
     const cutoff = Date.now() - 30 * DAY;
     const active = new Set((state.activity || []).filter((a) => a.at >= cutoff).map((a) => a.userId));
     state.users.filter((u) => !active.has(u.id) && !u.deactivated).forEach((u) =>
-      dispatch({ type: 'notify', silent: true, notification: { userId: u.id, kind: 'reminder', link: '/feed', text: 'We miss you! See what your batchmates have been up to.' } }));
+      dispatch({ type: 'notify', silent: true, notification: { id: `in-${job.id}-${job.nextRun ?? 0}-${u.id}`, userId: u.id, kind: 'reminder', link: '/feed', text: 'We miss you! See what your batchmates have been up to.' } }));
   } else {
-    dispatch({ type: 'post/create', silent: true, post: { type: 'announcement', text: job.text || job.name, scope, authorId: admin?.id } });
+    dispatch({ type: 'post/create', silent: true, post: { id: `an-${job.id}-${job.nextRun ?? 0}`, type: 'announcement', text: job.text || job.name, scope, authorId: admin?.id } });
   }
   const now = Date.now();
   dispatch({ type: 'update', col: 'schedulers', id: job.id, silent: true, patch: { lastRun: now, nextRun: now + (INTERVALS[job.interval] || DAY) } });

@@ -17,8 +17,9 @@ export default function Surveys() {
 }
 
 const isOpen = (s) => s.status === 'active' && (!s.deadline || s.deadline > Date.now());
-// Drafts are only for their author; group-audience surveys only for that group's members.
-const visibleToMe = (state, me, s) => s.authorId === me.id || (s.status !== 'draft'
+// Drafts are only for their author; group-audience surveys only for that group's members
+// (network admins see every published survey). Shared with the search index.
+export const visibleToMe = (state, me, s) => s.authorId === me.id || (s.status !== 'draft' && me.admin) || (s.status !== 'draft'
   && (s.audience?.type !== 'group' || !!state.groups.find((g) => g.id === s.audience.id)?.members.includes(me.id)));
 
 function SurveyList() {

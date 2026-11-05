@@ -22,11 +22,11 @@ export default function ScheduledPosts() {
           if (needsApproval(s, author, p.text)) {
             // Held for moderation: it goes live (and earns points) when a moderator approves it.
             dispatch({ type: 'update', col: 'posts', id: p.id, silent: true, patch: { status: 'pending', createdAt: p.publishAt, publishAt: undefined } });
-            dispatch({ type: 'notify', silent: true, notification: { userId: p.authorId, kind: 'info', link: `/post/${p.id}`, text: 'Your scheduled post is awaiting moderator approval' } });
+            dispatch({ type: 'notify', silent: true, notification: { id: `sp-held-${p.id}`, userId: p.authorId, kind: 'info', link: `/post/${p.id}`, text: 'Your scheduled post is awaiting moderator approval' } });
           } else {
             // post/publish itself isn't silent, so the author is credited; only the notifications are.
             publishPost(s, dispatch, p, { silent: true });
-            dispatch({ type: 'notify', silent: true, notification: { userId: p.authorId, kind: 'info', link: `/post/${p.id}`, text: 'Your scheduled post was published' } });
+            dispatch({ type: 'notify', silent: true, notification: { id: `sp-pub-${p.id}`, userId: p.authorId, kind: 'info', link: `/post/${p.id}`, text: 'Your scheduled post was published' } });
           }
           continue;
         }
@@ -39,7 +39,7 @@ export default function ScheduledPosts() {
         if (!due || handled.has(key)) continue;
         handled.add(key);
         audienceOf(s, p).filter((id) => !m.acks.includes(id)).forEach((id) => dispatch({ type: 'notify', silent: true,
-          notification: { userId: id, kind: 'mandatory', link: `/post/${p.id}`, text: 'Reminder: a Mandatory Read post is waiting for your acknowledgement' } }));
+          notification: { id: `mr-${p.id}-${m.markedAt ?? 0}-${m.remindedAt ?? 0}-${id}`, userId: id, kind: 'mandatory', link: `/post/${p.id}`, text: 'Reminder: a Mandatory Read post is waiting for your acknowledgement' } }));
         dispatch({ type: 'post/mandatory', id: p.id, silent: true, mandatory: { remindedAt: now } });
       }
     };

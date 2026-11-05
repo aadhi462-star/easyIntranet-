@@ -73,19 +73,24 @@ function FileView({ file }) {
   const [rev, setRev] = useState(0);
   const restoredAt = file.restoredAt ?? 0;
   const seenRestore = useRef(restoredAt);
+  const editorBox = useRef(null);
+  // A sheet cell or slide field being typed in isn't "pending" until it commits, so treat a
+  // focused field as a local edit too and adopt the outside change once it's done.
+  const editingField = () => { const el = document.activeElement; return !!el && editorBox.current?.contains(el) && /^(INPUT|TEXTAREA)$/.test(el.tagName); };
+  const [blurTick, setBlurTick] = useState(0);
   useEffect(() => {
     const restored = restoredAt !== seenRestore.current;
     seenRestore.current = restoredAt;
     // Sheets/slides are objects; another tab's state arrives as freshly parsed copies, so compare by value.
     const same = file.content === draftRef.current || JSON.stringify(file.content) === JSON.stringify(draftRef.current);
-    if (!restored && (pending.current || same)) return;
+    if (!restored && (pending.current || same || editingField())) return;
     clearTimeout(timer.current);
     pending.current = false;
     draftRef.current = file.content;
     setDraft(file.content);
     setSaved(true);
     setRev((r) => r + 1);
-  }, [file.content, restoredAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [file.content, restoredAt, blurTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -102,9 +107,11 @@ function FileView({ file }) {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
         <div>
+          <div ref={editorBox} onBlur={() => setBlurTick((t) => t + 1)}>
           {file.kind === 'doc' && <DocEditor key={rev} value={draft} onChange={change} readOnly={!canEdit} />}
           {file.kind === 'sheet' && <SheetEditor key={rev} value={draft} onChange={change} readOnly={!canEdit} />}
           {file.kind === 'slides' && <SlidesEditor key={rev} value={draft} onChange={change} readOnly={!canEdit} />}
+          </div>
           {file.kind === 'upload' && <Preview file={file} />}
         </div>
         <Versions file={file} canEdit={canEdit} flush={flush} />

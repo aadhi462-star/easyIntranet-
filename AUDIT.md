@@ -1,5 +1,7 @@
 # Audit — November 2026
 
+Five review rounds in total. Each round reviewed the previous round's fixes, and the findings shrank from 74 to 33, 14, 2 and finally 1 edge case, all fixed. The final browser pass found one more (editing a live post offered "Save draft", which silently unpublished it), also fixed.
+
 A full code-and-behaviour audit across every module, with fixes verified in the browser.
 
 ## What was fixed (74 issues)
@@ -24,6 +26,13 @@ Points can no longer be farmed by toggling likes, votes, RSVPs or group membersh
 
 Checked by reading code and running the date maths outside the browser, not through the UI:
 monthly/daily recurrence edge cases (Jan 31, multi-year daily series).
+
+## Rounds 2–5 (after the first audit)
+
+- Regressions from round 1 fixed: document restore, typing in sheets/slides, two-tab saving (including an endless save loop between tabs), duplicate workflow and scheduler side effects across tabs, private-group content in forums, ideas, manuals, files, surveys and search.
+- Storage safety: an event attachment budget, and deterministic ids so the same background action can never be applied twice.
+- Approvals now trigger "new member" workflows and are credited to the approving admin.
+- New polish features: profile strength meter, birthday and work-anniversary wishes, saved searches with alerts.
 
 ## Known limitations and external dependencies
 

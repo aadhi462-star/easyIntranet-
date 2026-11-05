@@ -2,7 +2,9 @@
 // saved-search alerts runner, so alerts can never surface anything Search wouldn't.
 import { canSee as canSeePost } from '../components/feed/utils.js';
 import { canSee as canSeeEvent, canSeeTownhall } from '../components/events/eventUtils.js';
-import { canReadArticle } from '../components/collab/manual.js';
+import { canReadArticle, manualRoles, sharedAccess } from '../components/collab/manual.js';
+import { canSeeGroupItem } from '../components/collab/common.jsx';
+import { visibleToMe as canSeeSurvey } from '../pages/Surveys.jsx';
 import { canSeeBoard } from '../components/collab/board.jsx';
 
 export const TYPES = [
@@ -31,18 +33,18 @@ export function buildIndex(s, user, me) {
     if (f.status === 'draft' ? f.authorId !== me.id : f.groupId && !inGroup(f.groupId)) continue;
     push('forums', f.id, f.title, [f.body, ...(f.replies || []).map((r) => r.text)].join(' — '), `/forums/${f.id}`, f.createdAt);
   }
-  for (const m of s.manuals || []) for (const c of m.chapters || []) for (const a of c.articles || []) if (canReadArticle(m, a, me)) push('articles', a.id, a.title, `${m.title} › ${c.title} — ${a.body ?? ''}`, `/manuals/${m.id}/${a.id}`, a.updatedAt);
+  for (const m of s.manuals || []) for (const c of m.chapters || []) for (const a of c.articles || []) if ((canSeeGroupItem(s, me, m) || manualRoles(m, me).canEdit || sharedAccess(a, me)) && canReadArticle(m, a, me)) push('articles', a.id, a.title, `${m.title} › ${c.title} — ${a.body ?? ''}`, `/manuals/${m.id}/${a.id}`, a.updatedAt);
   for (const f of s.files || []) if (!f.groupId || inGroup(f.groupId) || f.authorId === me.id || f.sharedWith?.includes(me.id)) push('files', f.id, f.name, [f.description, f.folder, f.type].filter(Boolean).join(' · '), `/files/${f.id}`, f.createdAt);
-  for (const i of s.ideas || []) push('ideas', i.id, i.title, i.description || i.body, `/ideas/${i.id}`, i.createdAt);
+  for (const i of s.ideas || []) if (canSeeGroupItem(s, me, i)) push('ideas', i.id, i.title, i.description || i.body, `/ideas/${i.id}`, i.createdAt);
   for (const c of s.channels || []) if ((c.members || []).includes(me.id)) for (const m of c.messages || []) push('messages', `${c.id}-${m.id}`, `#${c.name} · ${nameOf(m.authorId)}`, m.text, `/channels/${c.id}`, m.createdAt);
   for (const d of s.dms || []) if ((d.members || []).includes(me.id)) for (const m of d.messages || []) push('messages', `${d.id}-${m.id}`, `Chat · ${nameOf(m.authorId)}`, m.text, `/messages/${d.id}`, m.createdAt);
   const boards = s.boards || [];
   for (const t of s.tasks || []) {
     const board = boards.find((b) => b.id === t.boardId);
-    if (board && !canSeeBoard(s, me, board)) continue;
-    push('tasks', t.id, t.title, t.description, `/tasks/${t.id}`, t.createdAt);
+    if (!board || !canSeeBoard(s, me, board)) continue; // no board: nothing to open
+    push('tasks', t.id, t.title, t.description, `/tasks/${t.boardId}`, t.createdAt);
   }
-  for (const sv of s.surveys || []) if (sv.authorId === me.id || sv.audience?.type !== 'group' || inGroup(sv.audience.id)) push('surveys', sv.id, sv.title, sv.description, `/surveys/${sv.id}`, sv.createdAt);
+  for (const sv of s.surveys || []) if (canSeeSurvey(s, me, sv)) push('surveys', sv.id, sv.title, sv.description, `/surveys/${sv.id}`, sv.createdAt);
   for (const th of s.townhalls || []) if (canSeeTownhall(th, me, groups)) push('townhalls', th.id, th.title, th.description, `/townhalls/${th.id}`, th.start ?? th.createdAt);
   return out;
 }
