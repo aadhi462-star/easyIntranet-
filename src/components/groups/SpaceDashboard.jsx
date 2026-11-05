@@ -1,0 +1,141 @@
+import { Glyph } from '../icons.jsx';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { uid, useStore, fmtDate } from '../../lib/store.jsx';
+import { Avatar, Field, Modal } from '../ui.jsx';
+
+const KINDS = {
+  about: 'About', rules: 'Guidelines', events: 'Upcoming events', members: 'Recent members',
+  links: 'Pinned links', html: 'Custom HTML', stats: 'Stats',
+};
+
+/** Configurable home page for a group. Admins add, remove and reorder widgets. */
+export default function SpaceDashboard({ group, isAdmin }) {
+  const { dispatch } = useStore();
+  const [adding, setAdding] = useState(false);
+  const widgets = group.dashboard ?? [];
+  const save = (dashboard) => dispatch({ type: 'update', col: 'groups', id: group.id, patch: { dashboard } });
+  const move = (i, d) => {
+    const next = [...widgets];
+    const j = i + d;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    save(next);
+  };
+
+  return (
+    <div>
+      {isAdmin && (
+        <div className="mb-4 flex justify-end">
+          <button className="btn btn-ghost" onClick={() => setAdding(true)}>＋ Add widget</button>
+        </div>
+      )}
+      {widgets.length === 0 && <div className="glass p-8 text-center text-sm text-slate-400">No widgets yet.</div>}
+      <div className="grid gap-4 md:grid-cols-2">
+        {widgets.map((w, i) => (
+          <section key={w.id} className={`glass p-5 ${w.kind === 'about' || w.kind === 'html' ? 'md:col-span-2' : ''}`} aria-label={KINDS[w.kind]}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">{w.title || KINDS[w.kind]}</h3>
+              {isAdmin && (
+                <div className="flex gap-1">
+                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, -1)} aria-label="Move widget up" disabled={i === 0}>↑</button>
+                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, 1)} aria-label="Move widget down" disabled={i === widgets.length - 1}>↓</button>
+                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => save(widgets.filter((x) => x.id !== w.id))} aria-label="Remove widget">✕</button>
+                </div>
+              )}
+            </div>
+            <Widget w={w} group={group} />
+          </section>
+        ))}
+      </div>
+      {adding && <AddWidget onClose={() => setAdding(false)} onAdd={(w) => { save([...widgets, { id: uid('w'), ...w }]); setAdding(false); }} />}
+    </div>
+  );
+}
+
+function Widget({ w, group }) {
+  const { state, user } = useStore();
+  switch (w.kind) {
+    case 'about':
+      return <p className="text-sm leading-relaxed text-slate-200">{group.description || 'No description yet.'}</p>;
+    case 'rules':
+      return <p className="whitespace-pre-wrap text-sm text-slate-300">{group.guidelines || 'No guidelines set.'}</p>;
+    case 'events': {
+      const list = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && e.end > Date.now()).sort((a, b) => a.start - b.start).slice(0, 3);
+      if (!list.length) return <p className="text-sm text-slate-400">No upcoming events.</p>;
+      return (
+        <ul className="space-y-2">
+          {list.map((e) => (
+            <li key={e.id}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-white/5">
+              <div className="text-sm font-semibold">{e.title}</div>
+              <div className="text-xs text-slate-400">{fmtDate(e.start)} · {e.location}</div>
+            </Link></li>
+          ))}
+        </ul>
+      );
+    }
+    case 'members':
+      return (
+        <div className="flex flex-wrap gap-3">
+          {group.members.slice(-8).reverse().map((id) => user(id) && (
+            <Link key={id} to={`/people/${id}`} className="flex items-center gap-2 rounded-lg p-1 pr-2 text-sm hover:bg-white/5">
+              <Avatar user={user(id)} size={28} />{user(id).name.split(' ')[0]}
+            </Link>
+          ))}
+        </div>
+      );
+    case 'links':
+      return (w.links?.length ? (
+        <ul className="space-y-1">
+          {w.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-400 hover:underline"><Glyph value="🔗" tile={false} size={16} /> {l.label}</a></li>)}
+        </ul>
+      ) : <p className="text-sm text-slate-400">No links.</p>);
+    case 'html':
+      // Sandboxed with no permissions: scripts and same-origin access are blocked.
+      return <iframe title={w.title || 'Custom content'} sandbox="" className="h-40 w-full rounded-lg bg-white"
+        srcDoc={`<!doctype html><body style="font-family:system-ui;padding:12px;color:#111">${w.html || ''}</body>`} />;
+    case 'stats': {
+      const posts = state.posts.filter((p) => p.scope?.type === 'group' && p.scope.id === group.id).length;
+      const events = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id).length;
+      const forums = state.forumPosts.filter((f) => f.groupId === group.id).length;
+      return (
+        <dl className="grid grid-cols-2 gap-3 text-center">
+          {[['Members', group.members.length], ['Posts', posts], ['Events', events], ['Discussions', forums]].map(([k, n]) => (
+            <div key={k} className="rounded-xl bg-white/5 p-3"><dd className="text-2xl font-extrabold text-brand-gradient">{n}</dd><dt className="text-xs text-slate-400">{k}</dt></div>
+          ))}
+        </dl>
+      );
+    }
+    default: return null;
+  }
+}
+
+function AddWidget({ onAdd, onClose }) {
+  const [kind, setKind] = useState('about');
+  const [title, setTitle] = useState('');
+  const [html, setHtml] = useState('');
+  const [links, setLinks] = useState('');
+  const submit = (e) => {
+    e.preventDefault();
+    const w = { kind, title: title.trim() || undefined };
+    if (kind === 'html') w.html = html;
+    if (kind === 'links') {
+      w.links = links.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+        const [label, url] = l.includes('|') ? l.split('|').map((x) => x.trim()) : [l, l];
+        return { label, url: /^https?:\/\//.test(url) ? url : `https://${url}` };
+      });
+    }
+    onAdd(w);
+  };
+  return (
+    <Modal title="Add a widget" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Widget"><select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>{Object.entries(KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+        <Field label="Title (optional)"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+        {kind === 'html' && <Field label="HTML" hint="Rendered in a sandbox. Scripts don’t run."><textarea className="input min-h-28 font-mono text-xs" value={html} onChange={(e) => setHtml(e.target.value)} /></Field>}
+        {kind === 'links' && <Field label="Links" hint="One per line: Label | https://url"><textarea className="input min-h-24" value={links} onChange={(e) => setLinks(e.target.value)} /></Field>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary">Add</button></div>
+      </form>
+    </Modal>
+  );
+}

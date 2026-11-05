@@ -1,0 +1,263 @@
+import { Glyph } from '../icons.jsx';
+import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { uid, useStore } from '../../lib/store.jsx';
+import { write } from '../../lib/zia.js';
+import { Avatar } from '../ui.jsx';
+import { MandatoryConfig } from './Mandatory.jsx';
+import { audienceOf, needsApproval, SHARE_TARGETS } from './utils.js';
+
+const MAX_FILE = 1024 * 1024;
+const scopeKey = (s) => (s.type === 'network' ? 'network' : `${s.type}:${s.id}`);
+const parseKey = (k) => (k === 'network' ? { type: 'network' } : { type: k.split(':')[0], id: k.split(':')[1] });
+const toLocal = (t) => (t ? new Date(t - new Date(t).getTimezoneOffset() * 6e4).toISOString().slice(0, 16) : '');
+
+/**
+ * Post editor. `scope` fixes where the post goes (group / profile walls); without it the
+ * author picks network wall, their own wall or one of their groups. `initial` edits a post.
+ */
+export default function Composer({ scope: fixedScope, initial, onDone, compact = false }) {
+  const { state, dispatch, me, user, can } = useStore();
+  const [open, setOpen] = useState(!compact || !!initial);
+  const [type, setType] = useState(initial?.type ?? 'post');
+  const [text, setText] = useState(initial?.text ?? '');
+  const [mentions, setMentions] = useState(initial?.mentions ?? []);
+  const [options, setOptions] = useState(initial?.poll?.options.map((o) => o.text) ?? ['', '']);
+  const [attachments, setAttachments] = useState(initial?.attachments ?? []);
+  const [mandatory, setMandatory] = useState(initial?.mandatory ?? null);
+  const [adv, setAdv] = useState(initial?.advocacy ?? { title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' });
+  const [scopeSel, setScopeSel] = useState(scopeKey(initial?.scope ?? fixedScope ?? { type: 'network' }));
+  const [scheduleAt, setScheduleAt] = useState(initial?.publishAt ?? null);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [mandatoryOpen, setMandatoryOpen] = useState(false);
+  const [mq, setMq] = useState(null); // active @mention query
+  const [tone, setTone] = useState('neutral');
+  const [zia, setZia] = useState(null);
+  const [error, setError] = useState('');
+  const ta = useRef(null);
+  const fileRef = useRef(null);
+
+  const scope = parseKey(scopeSel);
+  const myGroups = state.groups.filter((g) => g.members.includes(me.id));
+  const group = scope.type === 'group' ? state.groups.find((g) => g.id === scope.id) : null;
+  const canMandatory = scope.type === 'network' ? me.admin || (state.roles?.length && can('mandatory.mark')) : !!group && (group.admins.includes(me.id) || me.admin);
+  const canAnnounce = me.admin || (state.roles?.length ? can('post.announce') : false);
+
+  const TYPES = [
+    { id: 'post', label: 'Status', icon: '✏️' },
+    canAnnounce && { id: 'announcement', label: 'Announcement', icon: '📢' },
+    { id: 'poll', label: 'Poll', icon: '📊' },
+    { id: 'question', label: 'Question', icon: '❓' },
+    me.admin && { id: 'advocacy', label: 'Social Advocacy', icon: '📣' },
+  ].filter(Boolean);
+
+  const onText = (e) => {
+    setText(e.target.value);
+    const before = e.target.value.slice(0, e.target.selectionStart);
+    const m = before.match(/(?:^|\s)@(\w{0,20})$/);
+    setMq(m ? m[1].toLowerCase() : null);
+  };
+  const suggestions = mq == null ? [] : state.users.filter((u) => u.id !== me.id && u.name.toLowerCase().split(' ').some((p) => p.startsWith(mq))).slice(0, 5);
+  const pickMention = (u) => {
+    const pos = ta.current.selectionStart;
+    const before = text.slice(0, pos).replace(/@(\w{0,20})$/, `@${u.name} `);
+    setText(before + text.slice(pos));
+    setMentions((m) => [...new Set([...m, u.id])]);
+    setMq(null);
+    requestAnimationFrame(() => { ta.current.focus(); ta.current.selectionStart = ta.current.selectionEnd = before.length; });
+  };
+
+  const onFiles = (e) => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    for (const f of files) {
+      if (f.size > MAX_FILE) { setError(`${f.name} is over 1 MB and wasn't attached.`); continue; }
+      const r = new FileReader();
+      r.onload = () => setAttachments((a) => [...a, { id: uid('at'), name: f.name, type: f.type, size: f.size, dataUrl: r.result }]);
+      r.readAsDataURL(f);
+    }
+  };
+
+  const reset = () => {
+    setText(''); setMentions([]); setOptions(['', '']); setAttachments([]); setMandatory(null); setType('post');
+    setAdv({ title: '', url: '', platforms: ['linkedin', 'x', 'facebook'], tweet: '' }); setScheduleAt(null); setShowSchedule(false); setZia(null); setError('');
+    if (compact) setOpen(false);
+  };
+
+  const submit = (mode) => {
+    const body = text.trim();
+    if (type === 'advocacy' ? !adv.title.trim() || !/^https?:\/\//.test(adv.url) : !body && !attachments.length) {
+      setError(type === 'advocacy' ? 'Add a title and a website URL starting with http(s)://.' : 'Write something or attach a file.'); return;
+    }
+    const opts = options.map((o) => o.trim()).filter(Boolean);
+    if (type === 'poll' && opts.length < 2) { setError('A poll needs at least two options.'); return; }
+    if (mode === 'schedule' && (!scheduleAt || scheduleAt <= Date.now())) { setError('Pick a time in the future to schedule.'); return; }
+
+        const status = mode === 'draft' ? 'draft' : mode === 'schedule' ? 'scheduled' : needsApproval(state, me, body) ? 'pending' : 'published';
+    const id = initial?.id ?? uid('p');
+    const fields = {
+      type, text: body, scope, attachments, status,
+      mentions: mentions.filter((m) => body.includes(`@${user(m)?.name}`)),
+      publishAt: mode === 'schedule' ? scheduleAt : undefined,
+      poll: type === 'poll' ? { options: opts.map((t, i) => ({ id: `o${i}`, text: t, votes: initial?.poll?.options.find((o) => o.text === t)?.votes ?? [] })) } : undefined,
+      advocacy: type === 'advocacy' ? { shares: {}, ...adv } : undefined,
+      mandatory: mandatory && scope.type !== 'user' ? { acks: [], ...mandatory } : undefined,
+    };
+    if (initial) {
+      dispatch({ type: 'update', col: 'posts', id, patch: { ...fields, editedAt: Date.now(), createdAt: initial.status === 'published' ? initial.createdAt : Date.now() } });
+    } else {
+      dispatch({ type: 'post/create', post: { id, ...fields } });
+    }
+    if (status === 'published') {
+      fields.mentions.forEach((uid_) => uid_ !== me.id && dispatch({ type: 'notify',
+        notification: { userId: uid_, kind: 'mention', link: `/post/${id}`, text: `${me.name} mentioned you in a post` } }));
+      if (fields.mandatory && !initial?.mandatory) {
+        audienceOf(state, { ...fields, authorId: me.id }).forEach((u) => dispatch({ type: 'notify',
+          notification: { userId: u, kind: 'mandatory', link: `/post/${id}`, text: `${me.name} marked a post as Mandatory Read` } }));
+      }
+    }
+    reset();
+    onDone?.(status);
+  };
+
+  const helpWrite = async () => {
+    if (!text.trim()) { setError('Type a few words about what you want to say, then ask Zia.'); return; }
+    setZia({ loading: true });
+    const r = await write(text, tone);
+    setText(r.text);
+    setZia({ source: r.source });
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="glass flex w-full items-center gap-3 p-4 text-left text-slate-400 hover:text-slate-200">
+        <Avatar user={me} size={40} /> What’s on your mind right now?
+      </button>
+    );
+  }
+
+  return (
+    <div className={initial ? '' : 'glass p-4'}>
+      <div className="mb-3 flex flex-wrap gap-1" role="tablist" aria-label="Post type">
+        {TYPES.map((t) => (
+          <button key={t.id} role="tab" aria-selected={type === t.id} onClick={() => setType(t.id)}
+            className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${type === t.id ? 'bg-brand-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+            <Glyph value={t.icon} tile={false} size={16} /> {t.label}
+          </button>
+        ))}
+        {!initial && <Link to="/events?new=1" className="min-h-9 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5"><Glyph value="📅" tile={false} size={16} /> Event</Link>}
+      </div>
+
+      {type === 'advocacy' && (
+        <div className="mb-3 grid gap-2">
+          <input className="input" placeholder="Post title" value={adv.title} onChange={(e) => setAdv({ ...adv, title: e.target.value })} />
+          <input className="input" placeholder="Website URL members will share (https://…)" value={adv.url} onChange={(e) => setAdv({ ...adv, url: e.target.value })} />
+          <div className="flex flex-wrap gap-4 text-sm">
+            {Object.entries(SHARE_TARGETS).map(([k, t]) => (
+              <label key={k} className="flex min-h-11 items-center gap-2">
+                <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={adv.platforms.includes(k)}
+                  onChange={() => setAdv({ ...adv, platforms: adv.platforms.includes(k) ? adv.platforms.filter((p) => p !== k) : [...adv.platforms, k] })} />{t.label}
+              </label>
+            ))}
+          </div>
+          {adv.platforms.includes('x') && <input className="input" maxLength={280} placeholder="Tweet content" value={adv.tweet} onChange={(e) => setAdv({ ...adv, tweet: e.target.value })} />}
+        </div>
+      )}
+
+      <div className="relative flex gap-3">
+        {!initial && <Avatar user={me} size={40} />}
+        <div className="flex-1">
+          <textarea ref={ta} className="input min-h-24 resize-y" value={text} onChange={onText} aria-label="Post text"
+            onKeyDown={(e) => { if (e.key === 'Escape') setMq(null); }}
+            placeholder={type === 'question' ? 'Ask the community a question…' : type === 'advocacy' ? 'Description for members (not shared outside the network)' : 'What’s on your mind right now? Use @ to mention and # to tag.'} />
+          {suggestions.length > 0 && (
+            <ul className="glass glass-strong absolute z-20 mt-1 w-64 p-1" role="listbox" aria-label="Mention suggestions">
+              {suggestions.map((u) => (
+                <li key={u.id}><button type="button" onClick={() => pickMention(u)} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-white/10">
+                  <Avatar user={u} size={26} />{u.name}<span className="ml-auto text-xs text-slate-500">{u.batch}</span></button></li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {type === 'poll' && (
+        <div className="mt-3 space-y-2">
+          {options.map((o, i) => (
+            <div key={i} className="flex gap-2">
+              <input className="input" placeholder={`Option ${i + 1}`} value={o} onChange={(e) => setOptions(options.map((x, j) => (j === i ? e.target.value : x)))} />
+              {options.length > 2 && <button className="btn btn-ghost w-11 !p-0" aria-label={`Remove option ${i + 1}`} onClick={() => setOptions(options.filter((_, j) => j !== i))}>✕</button>}
+            </div>
+          ))}
+          {options.length < 6 && <button className="btn btn-ghost text-xs" onClick={() => setOptions([...options, ''])}>+ Add option</button>}
+        </div>
+      )}
+
+      {attachments.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((a) => (
+            <li key={a.id} className="chip !py-1">
+              {a.type.startsWith('image/') ? <img src={a.dataUrl} alt="" className="h-8 w-8 rounded object-cover" /> : '📎'}
+              <span className="max-w-40 truncate">{a.name}</span>
+              <button aria-label={`Remove ${a.name}`} onClick={() => setAttachments(attachments.filter((x) => x.id !== a.id))}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {mandatory && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+          ✅ Mandatory Read{mandatory.deadline ? ` · due ${new Date(mandatory.deadline).toLocaleDateString()}` : ''}
+          <button className="ml-auto underline" onClick={() => setMandatoryOpen(true)}>Edit</button>
+          <button className="underline" onClick={() => setMandatory(null)}>Remove</button>
+        </div>
+      )}
+
+      {showSchedule && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="text-xs font-semibold text-slate-300" htmlFor="sched">Publish at</label>
+          <input id="sched" type="datetime-local" className="input !w-auto" value={toLocal(scheduleAt)}
+            onChange={(e) => setScheduleAt(e.target.value ? new Date(e.target.value).getTime() : null)} />
+          <button className="btn btn-primary" onClick={() => submit('schedule')}>Schedule</button>
+          <button className="btn btn-ghost" onClick={() => setShowSchedule(false)}>Cancel</button>
+        </div>
+      )}
+
+      {zia && <p className="mt-2 text-xs text-slate-400">{zia.loading ? 'Zia is writing…' : `✨ Written by Zia (${zia.source}). Review before posting.`}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
+        <input ref={fileRef} type="file" multiple hidden onChange={onFiles} />
+        <button className="btn btn-ghost h-11 w-11 !p-0" title="Attach files (max 1 MB each)" aria-label="Attach files" onClick={() => fileRef.current.click()}><Glyph value="📎" tile={false} size={16} /></button>
+        {canMandatory && scope.type !== 'user' && (
+          <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="✅" tile={false} size={16} /></button>
+        )}
+        <span className="flex items-center gap-1">
+          <button className="btn btn-ghost h-11" onClick={helpWrite} title="Zia: help me write"><Glyph value="✨" tile={false} size={16} /> Help me write</button>
+          <select className="input !w-auto !py-2 text-xs" value={tone} onChange={(e) => setTone(e.target.value)} aria-label="Tone">
+            <option value="neutral">Neutral</option><option value="casual">Casual</option><option value="formal">Formal</option>
+          </select>
+        </span>
+        <span className="flex-1" />
+        {!fixedScope && (
+          <select className="input !w-auto !py-2 text-sm" value={scopeSel} onChange={(e) => setScopeSel(e.target.value)} aria-label="Post to">
+            <option value="network">🏛️ Company wall</option>
+            <option value={`user:${me.id}`}>🙋 My wall</option>
+            {myGroups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.emoji} {g.name}</option>)}
+          </select>
+        )}
+        {(onDone && initial) && <button className="btn btn-ghost" onClick={() => onDone()}>Cancel</button>}
+        {compact && !initial && <button className="btn btn-ghost" onClick={reset}>Cancel</button>}
+        <button className="btn btn-ghost" onClick={() => submit('draft')}>Save draft</button>
+        <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="⏰" tile={false} size={16} /></button>
+        <button className="btn btn-primary h-11 px-5" onClick={() => submit('publish')}>{initial?.status === 'published' ? 'Save' : type === 'advocacy' ? 'Share' : 'Post'}</button>
+      </div>
+
+      {mandatoryOpen && (
+        <MandatoryConfig initial={mandatory} onClose={() => setMandatoryOpen(false)}
+          onSave={(cfg) => { setMandatory(cfg); setMandatoryOpen(false); }}
+          onRemove={mandatory ? () => { setMandatory(null); setMandatoryOpen(false); } : null} />
+      )}
+    </div>
+  );
+}

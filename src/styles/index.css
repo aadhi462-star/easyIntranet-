@@ -1,0 +1,285 @@
+@import "tailwindcss";
+@import "./light-invert.css";
+
+/*
+ * Graphite · lime theme, dark by default with a light mode on
+ * :root[data-theme="light"] (set by lib/theme.js).
+ *
+ * Scales follow one rule so module code works in both modes without changes: the low
+ * stops (50–400) are the "readable on the page" end and the high stops (500+) are fills.
+ * In dark mode brand-500 is a deep lime that carries white text; in light mode the
+ * scales flip, `text-white` becomes near-black, and brand-500 becomes a pale lime that
+ * carries that dark text. Contrast stays ≥4.5:1 either way. `leaf` (historically the
+ * green accent) is now the graphite scale, so "leaf" icons and chips read as neutral steel.
+ */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", "Inter", ui-sans-serif, sans-serif;
+
+  --color-ink-950: #0a0b0a;
+  --color-ink-900: #101211;
+  --color-ink-850: #161817;
+  --color-ink-800: #1d201e;
+  --color-ink-700: #2c302d;
+
+  /* Lime */
+  --color-brand-50: #f7fee7;
+  --color-brand-100: #ecfccb;
+  --color-brand-200: #d9f99d;
+  --color-brand-300: #bef264;
+  --color-brand-400: #a3e635;
+  --color-brand-500: #4d7c0f;
+  --color-brand-600: #3f6212;
+  --color-brand-700: #365314;
+  --color-brand-800: #263c0d;
+  --color-brand-900: #1a2e05;
+
+  /* Graphite */
+  --color-leaf-50: #f6f7f6;
+  --color-leaf-100: #e9ebe9;
+  --color-leaf-200: #d3d7d4;
+  --color-leaf-300: #b3b9b5;
+  --color-leaf-400: #959c97;
+  --color-leaf-500: #4a504c;
+  --color-leaf-600: #3a3f3c;
+  --color-leaf-700: #2c302d;
+  --color-leaf-800: #1f2220;
+  --color-leaf-900: #141614;
+
+  --color-dim: rgba(255, 255, 255, 0.72);
+}
+
+:root {
+  color-scheme: dark;
+  --az-text: #f3f5f2;
+  --az-surface: rgba(24, 27, 25, 0.6);
+  --az-surface-strong: rgba(15, 17, 16, 0.88);
+  --az-hairline: rgba(255, 255, 255, 0.09);
+  --az-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.7);
+  --az-field: rgba(8, 9, 8, 0.6);
+  --az-placeholder: #868d88;
+  --az-focus: #a3e635;
+  /* Bright fill with dark text (primary button, logo, active tab). */
+  --az-fill: linear-gradient(150deg, #e4fbb0 -20%, #bef264 40%, #84cc16 100%);
+  --az-on-fill: #142004;
+  --az-fill-glow: rgba(163, 230, 53, 0.4);
+  /* Deep fill with white text (banners, CTA panels, progress). */
+  --az-deep: linear-gradient(135deg, #3f6212 0%, #2c302d 55%, #1d201e 100%);
+  /* Display gradient: lime → white → steel. */
+  --az-display: linear-gradient(90deg, #bef264 0%, #f7fee7 50%, #b3b9b5 100%);
+  --az-aurora-a: #84cc16;
+  --az-aurora-b: #64748b;
+  --az-aurora-opacity: 0.15;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-ink-950: #ffffff;
+  --color-ink-900: #f7f8f6;
+  --color-ink-850: #eff1ee;
+  --color-ink-800: #e4e7e3;
+  --color-ink-700: #cdd2cc;
+
+  --color-brand-50: #1a2e05;
+  --color-brand-100: #263c0d;
+  --color-brand-200: #365314;
+  --color-brand-300: #4d7c0f;
+  --color-brand-400: #4d7c0f;
+  --color-brand-500: #d9f99d;
+  --color-brand-600: #bef264;
+  --color-brand-700: #ecfccb;
+  --color-brand-800: #f3fdd9;
+  --color-brand-900: #f7fee7;
+
+  --color-leaf-50: #141614;
+  --color-leaf-100: #1f2220;
+  --color-leaf-200: #2c302d;
+  --color-leaf-300: #4a504c;
+  --color-leaf-400: #4a504c;
+  --color-leaf-500: #d3d7d4;
+  --color-leaf-600: #b3b9b5;
+  --color-leaf-700: #e9ebe9;
+  --color-leaf-800: #f1f2f1;
+  --color-leaf-900: #f6f7f6;
+
+  --color-dim: rgba(20, 22, 20, 0.74);
+
+  --az-text: #141614;
+  --az-surface: rgba(255, 255, 255, 0.74);
+  --az-surface-strong: rgba(255, 255, 255, 0.93);
+  --az-hairline: rgba(20, 24, 21, 0.1);
+  --az-shadow: 0 10px 30px -14px rgba(20, 24, 21, 0.25);
+  --az-field: #ffffff;
+  --az-placeholder: #737a75;
+  --az-focus: #4d7c0f;
+  /* Light mode: graphite button with a lime-white label, the dark half of the pair. */
+  --az-fill: linear-gradient(150deg, #3a3f3c -10%, #1f2220 55%, #141614 100%);
+  --az-on-fill: #ecfccb;
+  --az-fill-glow: rgba(20, 22, 20, 0.3);
+  --az-deep: linear-gradient(135deg, #ecfccb 0%, #f7fee7 50%, #eff1ee 100%);
+  --az-display: linear-gradient(90deg, #141614 0%, #3f6212 50%, #65a30d 100%);
+  --az-aurora-a: #a3e635;
+  --az-aurora-b: #94a3b8;
+  --az-aurora-opacity: 0.16;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-ink-950);
+  color: var(--az-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .2s, color .2s;
+}
+h1, h2, h3, .font-display { font-family: var(--font-display); }
+*:focus-visible { outline: 2px solid var(--az-focus); outline-offset: 2px; }
+
+/*
+ * Component classes live in a layer so Tailwind utilities on the same element win
+ * (e.g. `glass fixed`, `btn hidden`). Unlayered CSS would beat every utility.
+ */
+@layer components {
+  /* Little pointer under the menu-visibility popover, aimed at its chevron button. */
+  .menu-tail { position: absolute; left: 12px; top: 100%; width: 12px; height: 12px; margin-top: -6px;
+    transform: rotate(45deg); background: inherit; border-right: 1px solid var(--az-hairline);
+    border-bottom: 1px solid var(--az-hairline); }
+  .bg-accent-fill { background-image: var(--az-fill); color: var(--az-on-fill); }
+  .brand-gradient { background-image: var(--az-deep); }
+  .text-brand-gradient {
+    background-image: var(--az-display);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /*
+   * Soft glows behind the app shell. Radial gradients rather than blurred blobs: a 90px
+   * blur filter on a 60vmax layer is expensive to raster, and every glass pane above it
+   * re-samples that layer while scrolling.
+   */
+  .aurora {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: var(--az-aurora-opacity);
+    background:
+      radial-gradient(circle at 8% 4%, var(--az-aurora-a) 0, transparent 42vmax),
+      radial-gradient(circle at 96% 100%, var(--az-aurora-b) 0, transparent 44vmax);
+  }
+
+  /*
+   * CSS glass: backdrop blur with a specular rim. The real WebGL liquid glass from
+   * @ybouane/liquidglass is reserved for the auth card. (An SVG displacement filter used to
+   * run on every pane; it re-rendered on each scroll frame and made laptops lag.)
+   */
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background: var(--az-surface);
+    border: 1px solid var(--az-hairline);
+    border-radius: 1rem;
+    box-shadow: var(--az-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+  /* A pane inside a pane would blur an already-blurred backdrop: pay for one layer only. */
+  .glass .glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .glass::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,.10), transparent 35%, transparent 70%, rgba(255,255,255,.04));
+  }
+  .glass-strong { background: var(--az-surface-strong); }
+
+  .input {
+    width: 100%;
+    background: var(--az-field);
+    border: 1px solid var(--az-hairline);
+    border-radius: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    color: var(--az-text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input::placeholder { color: var(--az-placeholder); }
+  .input:focus { border-color: var(--az-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--az-focus) 25%, transparent); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    border-radius: 0.75rem; padding: 0.6rem 1rem; font-weight: 600; font-size: .9rem;
+    transition: transform .1s, filter .15s, background-color .15s;
+    cursor: pointer;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background-image: var(--az-fill); color: var(--az-on-fill); box-shadow: 0 8px 28px -10px var(--az-fill-glow); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: color-mix(in srgb, var(--az-text) 5%, transparent); color: var(--az-text); border: 1px solid var(--az-hairline); }
+  .btn-ghost:hover { background: color-mix(in srgb, var(--az-text) 9%, transparent); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .72rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px;
+    background: color-mix(in srgb, var(--color-brand-400) 14%, transparent); color: var(--color-brand-300);
+  }
+
+  /*
+   * Illustrated icons (components/icons.jsx): a tinted tile, deep outline and soft fill.
+   * Each tone sets the outline (currentColor), --ill-fill, and the tile gradient.
+   */
+  .ill { display: inline-grid; place-items: center; flex-shrink: 0; color: var(--ill-ink); }
+  .ill-tile {
+    border-radius: 30%;
+    background: linear-gradient(150deg, var(--ill-bg-a), var(--ill-bg-b));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 0 0 1px var(--ill-ring), 0 3px 8px -4px var(--ill-shadow);
+  }
+  /* Tone names are kept for the data model: saffron = lime, leaf = graphite, gold = gold. */
+  .ill-saffron { --ill-ink: #c6f36b; --ill-fill: rgba(163, 230, 53, 0.3); --ill-bg-a: rgba(163, 230, 53, 0.22); --ill-bg-b: rgba(77, 124, 15, 0.1); --ill-ring: rgba(198, 243, 107, 0.2); --ill-shadow: rgba(132, 204, 22, 0.45); }
+  .ill-leaf { --ill-ink: #d3d7d4; --ill-fill: rgba(211, 215, 212, 0.2); --ill-bg-a: rgba(179, 185, 181, 0.18); --ill-bg-b: rgba(74, 80, 76, 0.12); --ill-ring: rgba(211, 215, 212, 0.16); --ill-shadow: rgba(0, 0, 0, 0.5); }
+  .ill-gold { --ill-ink: #fcd77a; --ill-fill: rgba(252, 211, 77, 0.28); --ill-bg-a: rgba(250, 204, 21, 0.2); --ill-bg-b: rgba(180, 83, 9, 0.1); --ill-ring: rgba(252, 215, 122, 0.2); --ill-shadow: rgba(217, 119, 6, 0.45); }
+  :root[data-theme="light"] .ill-saffron { --ill-ink: #3f6212; --ill-fill: #d9f99d; --ill-bg-a: #f7fee7; --ill-bg-b: #e6f9bd; --ill-ring: rgba(63, 98, 18, 0.16); --ill-shadow: rgba(77, 124, 15, 0.22); }
+  :root[data-theme="light"] .ill-leaf { --ill-ink: #2c302d; --ill-fill: #d3d7d4; --ill-bg-a: #f4f5f4; --ill-bg-b: #e2e5e2; --ill-ring: rgba(20, 22, 20, 0.12); --ill-shadow: rgba(20, 22, 20, 0.18); }
+  :root[data-theme="light"] .ill-gold { --ill-ink: #a16207; --ill-fill: #fde68a; --ill-bg-a: #fffbea; --ill-bg-b: #fdefb8; --ill-ring: rgba(161, 98, 7, 0.14); --ill-shadow: rgba(161, 98, 7, 0.22); }
+
+  /* User label chips reuse the illustrated-icon tones. */
+  .ulabel {
+    display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap;
+    font-size: .7rem; font-weight: 600; line-height: 1; padding: .28rem .5rem; border-radius: 999px;
+    color: var(--ill-ink); background: var(--ill-bg-a); box-shadow: inset 0 0 0 1px var(--ill-ring);
+  }
+  .ulabel-sm { font-size: .65rem; padding: .2rem .42rem; }
+
+  .toast-in { animation: toast-in .18s ease-out; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* Visible only when focused by keyboard: jump past the sidebar and header. */
+  .skip-link { position: fixed; left: 1rem; top: -4rem; z-index: 60; padding: .6rem 1rem; border-radius: .75rem;
+    background-image: var(--az-fill); color: var(--az-on-fill); font-weight: 600; transition: top .15s; }
+  .skip-link:focus { top: 1rem; }
+
+  .scroll-thin::-webkit-scrollbar { width: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: var(--az-hairline); border-radius: 8px; }
+}
+
+/*
+ * Menu layout prefs (lib/menus.js). Desktop only: on small screens the main menu is
+ * already a drawer and extended menus collapse into horizontal strips.
+ */
+@media (min-width: 1024px) {
+  :root[data-ext-menu="hidden"] .ext-menu { display: none !important; }
+  :root[data-ext-menu="hidden"] .ext-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (min-width: 1280px) {
+  :root[data-ext-menu="hidden"] .ext-grid-feed { grid-template-columns: minmax(0, 1fr) 250px !important; }
+}
+
+/*
+ * Reduced effects (lib/effects.js sets html[data-effects="lite"]): no backdrop blur and
+ * solid panes. Chosen automatically on low-memory devices, data saver or "reduce
+ * transparency", and available as a toggle in the account menu.
+ */
+:root[data-effects="lite"] .glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--az-surface-strong); }
+:root[data-effects="lite"] .glass::after { display: none; }
+:root[data-effects="lite"] .aurora { opacity: calc(var(--az-aurora-opacity) * 0.6); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

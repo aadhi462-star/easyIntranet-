@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <!-- Auth backdrop: blurred colour fields after HooBank, in the graphite / lime theme (light). -->
+  <defs>
+    <radialGradient id="saffron" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#a3e635" stop-opacity=".55"/><stop offset=".6" stop-color="#a3e635" stop-opacity=".18"/><stop offset="1" stop-color="#a3e635" stop-opacity="0"/></radialGradient>
+    <radialGradient id="leaf" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#94a3b8" stop-opacity=".55"/><stop offset=".6" stop-color="#94a3b8" stop-opacity=".18"/><stop offset="1" stop-color="#94a3b8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ecfccb" stop-opacity=".5"/><stop offset="1" stop-color="#ecfccb" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#141614" stroke-opacity=".05"/></pattern>
+  </defs>
+  <rect width="1600" height="1000" fill="#ffffff"/>
+  <rect width="1600" height="1000" fill="url(#grid)"/>
+  <circle cx="240" cy="160" r="420" fill="url(#leaf)" opacity=".55"/>
+  <circle cx="1170" cy="300" r="380" fill="url(#saffron)"/>
+  <circle cx="1440" cy="780" r="320" fill="url(#leaf)"/>
+  <circle cx="980" cy="800" r="250" fill="url(#glow)"/>
+  <circle cx="1060" cy="140" r="150" fill="url(#saffron)" opacity=".8"/>
+  <!-- Rings echo the "connected community" idea and give the glass edges something to bend. -->
+  <g fill="none" stroke="#65a30d" stroke-opacity=".18" stroke-width="2">
+    <circle cx="1180" cy="500" r="330"/>
+    <circle cx="1180" cy="500" r="250"/>
+  </g>
+  <g fill="#84cc16">
+    <circle cx="880" cy="290" r="7" opacity=".7"/><circle cx="1490" cy="420" r="6" opacity=".6"/>
+    <circle cx="1020" cy="770" r="8" opacity=".6"/><circle cx="1340" cy="220" r="5" opacity=".8"/>
+  </g>
+</svg>

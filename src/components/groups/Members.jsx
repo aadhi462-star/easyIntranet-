@@ -1,0 +1,84 @@
+import { useState } from 'react';
+import { useStore } from '../../lib/store.jsx';
+import { Avatar, UserLink } from '../ui.jsx';
+import { roleOf } from './helpers.js';
+
+const ROLE_CHIP = { admin: '!bg-leaf-500/20 !text-leaf-200', moderator: '!bg-brand-500/15 !text-brand-200', member: '' };
+
+export default function Members({ group, isAdmin }) {
+  const { state, dispatch, user, me } = useStore();
+  const [q, setQ] = useState('');
+  const patch = (fn) => dispatch({ type: 'update', col: 'groups', id: group.id, patch: fn });
+
+  const setRole = (id, role) => patch((g) => ({
+    ...g,
+    admins: role === 'admin' ? [...new Set([...g.admins, id])] : g.admins.filter((x) => x !== id),
+    moderators: role === 'moderator' ? [...new Set([...(g.moderators || []), id])] : (g.moderators || []).filter((x) => x !== id),
+  }));
+  const remove = (id) => {
+    if (!confirm(`Remove ${user(id)?.name} from ${group.name}?`)) return;
+    patch((g) => ({ ...g, members: g.members.filter((x) => x !== id), admins: g.admins.filter((x) => x !== id), moderators: (g.moderators || []).filter((x) => x !== id) }));
+  };
+  const decide = (id, approve) => {
+    patch((g) => ({ ...g, joinRequests: (g.joinRequests || []).filter((x) => x !== id), members: approve ? [...new Set([...g.members, id])] : g.members }));
+    if (approve) {
+      // Keep any associated channels in step with membership.
+      for (const c of state.channels.filter((c) => c.groupId === group.id && !c.members.includes(id))) {
+        dispatch({ type: 'update', col: 'channels', id: c.id, patch: { members: [...c.members, id] }, silent: true });
+      }
+    }
+    dispatch({ type: 'notify', silent: true, notification: { userId: id, kind: 'group', link: `/groups/${group.id}`,
+      text: approve ? `Your request to join ${group.name} was approved` : `Your request to join ${group.name} was declined` } });
+  };
+
+  const members = group.members.map(user).filter((u) => u && u.name.toLowerCase().includes(q.toLowerCase()));
+  const requests = (group.joinRequests || []).map(user).filter(Boolean);
+  const order = { admin: 0, moderator: 1, member: 2 };
+  members.sort((a, b) => order[roleOf(group, a.id)] - order[roleOf(group, b.id)] || a.name.localeCompare(b.name));
+
+  return (
+    <div className="space-y-5">
+      {isAdmin && requests.length > 0 && (
+        <section className="glass p-5" aria-label="Join requests">
+          <h3 className="mb-3 font-bold">Join requests <span className="chip ml-1">{requests.length}</span></h3>
+          <ul className="space-y-2">
+            {requests.map((u) => (
+              <li key={u.id} className="flex flex-wrap items-center gap-3">
+                <Avatar user={u} size={36} />
+                <div className="flex-1 text-sm"><UserLink id={u.id} /><div className="text-xs text-slate-400">{u.batch} · {u.dept} · {u.city}</div></div>
+                <button className="btn btn-primary" onClick={() => decide(u.id, true)}>Approve</button>
+                <button className="btn btn-ghost" onClick={() => decide(u.id, false)}>Decline</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <section className="glass p-5" aria-label="Members">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold">{group.members.length} members</h3>
+          <input className="input !w-56 !py-2" type="search" placeholder="Filter members" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter members" />
+        </div>
+        <ul className="divide-y divide-white/5">
+          {members.map((u) => {
+            const role = roleOf(group, u.id);
+            return (
+              <li key={u.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                <Avatar user={u} size={36} />
+                <div className="min-w-0 flex-1 text-sm"><UserLink id={u.id} /><div className="truncate text-xs text-slate-400">{u.role}{u.company ? ` · ${u.company}` : ''}</div></div>
+                <span className={`chip capitalize ${ROLE_CHIP[role]}`}>{role}</span>
+                {isAdmin && u.id !== me.id && (
+                  <>
+                    <select className="input !w-36 !py-1.5 text-xs" value={role} onChange={(e) => setRole(u.id, e.target.value)} aria-label={`Role for ${u.name}`}>
+                      <option value="admin">Admin</option><option value="moderator">Moderator</option><option value="member">Member</option>
+                    </select>
+                    <button className="btn btn-ghost h-9 !px-3 text-xs text-rose-300" onClick={() => remove(u.id)}>Remove</button>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    </div>
+  );
+}

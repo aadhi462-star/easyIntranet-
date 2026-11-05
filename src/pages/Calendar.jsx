@@ -1,0 +1,154 @@
+import { Glyph } from '../components/icons.jsx';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useStore } from '../lib/store.jsx';
+import { Avatar, PageHeader, Tabs } from '../components/ui.jsx';
+import CalendarGrid, { RangeNav, viewRange } from '../components/events/CalendarGrid.jsx';
+import EventForm from '../components/events/EventForm.jsx';
+import { TYPE_COLORS, addDays, canSee, isInvolved, occurrences, startOfDay, startOfWeek } from '../components/events/eventUtils.js';
+
+const TASK_COLOR = '#84cc16';
+const TOWNHALL_COLOR = '#e879f9';
+
+export default function Calendar() {
+  const [tab, setTab] = useState('mine');
+  return (
+    <div>
+      <PageHeader title="Calendar" subtitle="Events, town halls and task deadlines in one place." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="📅" tile={false} size={16} /> Events</Link>} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: 'mine', label: 'My calendar' }, { id: 'team', label: 'Team schedule' }]} />
+      {tab === 'mine' ? <MyCalendar /> : <TeamSchedule />}
+    </div>
+  );
+}
+
+function MyCalendar() {
+  const { state, me } = useStore();
+  const nav = useNavigate();
+  const [mode, setMode] = useState('month');
+  const [cursor, setCursor] = useState(Date.now());
+  const [show, setShow] = useState({ events: true, tasks: true, townhalls: true, onlyMine: false });
+  const [draft, setDraft] = useState(null);
+  const [from, to] = viewRange(mode, cursor);
+
+  const items = [];
+  if (show.events) {
+    for (const e of state.events) {
+      if (!canSee(e, me, state.groups) || (show.onlyMine && !isInvolved(e, me.id))) continue;
+      for (const o of occurrences(e, from, to)) {
+        items.push({ key: `e-${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, color: TYPE_COLORS[o.eventType] ?? '#a3e635', href: `/events/${o.id}` });
+      }
+    }
+  }
+  if (show.tasks) {
+    for (const t of state.tasks || []) {
+      if (!t.dueAt || t.dueAt < from || t.dueAt > to) continue;
+      if (show.onlyMine && t.assigneeId !== me.id && !(t.assigneeIds || []).includes(me.id)) continue;
+      items.push({ key: `t-${t.id}`, title: t.title, start: t.dueAt, end: t.dueAt, allDay: true, icon: t.done || t.status === 'done' ? '✔️ ' : '☑️ ', color: TASK_COLOR, href: `/tasks/${t.boardId ?? t.id}` });
+    }
+  }
+  if (show.townhalls) {
+    for (const th of state.townhalls || []) {
+      if (th.start < from || th.start > to) continue;
+      items.push({ key: `th-${th.id}`, title: th.title, start: th.start, end: th.end, icon: '🎤 ', color: TOWNHALL_COLOR, href: `/townhalls/${th.id}` });
+    }
+  }
+
+  const toggle = (k) => setShow((s) => ({ ...s, [k]: !s[k] }));
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <RangeNav mode={mode} cursor={cursor} onChange={setCursor} />
+        <div role="group" aria-label="View" className="glass inline-flex !rounded-xl p-1">
+          {[['month', 'Month'], ['week', 'Week']].map(([v, l]) => (
+            <button key={v} aria-pressed={mode === v} onClick={() => setMode(v)}
+              className={`min-h-8 rounded-lg px-3 text-sm font-semibold ${mode === v ? 'bg-brand-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div className="mb-4 flex flex-wrap gap-2 text-sm">
+        {[['events', 'Events', '#a3e635'], ['townhalls', 'Town halls', TOWNHALL_COLOR], ['tasks', 'Task due dates', TASK_COLOR], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
+          <label key={k} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full bg-white/5 px-3">
+            <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={show[k]} onChange={() => toggle(k)} />
+            {c && <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />}{l}
+          </label>
+        ))}
+      </div>
+      <CalendarGrid mode={mode} cursor={cursor} items={items} onDayClick={(d) => { const x = new Date(d); x.setHours(18, 0, 0, 0); setDraft(x.getTime()); }} />
+      {!(state.tasks || []).length && show.tasks && <p className="mt-3 text-xs text-slate-500">No tasks with due dates yet. Deadlines from Tasks & Boards show up here.</p>}
+      {draft && <EventForm initial={{ start: draft }} onClose={() => setDraft(null)} onSaved={(id) => { setDraft(null); nav(`/events/${id}`); }} />}
+    </>
+  );
+}
+
+/** Week grid with one row per member: their events and assigned tasks. */
+function TeamSchedule() {
+  const { state, me } = useStore();
+  const myGroups = state.groups.filter((g) => g.members.includes(me.id));
+  const [groupId, setGroupId] = useState(myGroups[0]?.id ?? 'all');
+  const [cursor, setCursor] = useState(Date.now());
+  const weekStart = startOfWeek(cursor);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const members = groupId === 'all' ? state.users : state.users.filter((u) => state.groups.find((g) => g.id === groupId)?.members.includes(u.id));
+
+  const cell = (userId, d) => {
+    const end = d + 864e5 - 1;
+    const evs = state.events.filter((e) => canSee(e, me, state.groups) && isInvolved(e, userId))
+      .flatMap((e) => occurrences(e, d, end)).map((o) => ({ key: `e${o.id}${o.occStart}`, title: o.title, href: `/events/${o.id}`, color: TYPE_COLORS[o.eventType] ?? '#a3e635', start: o.occStart, allDay: o.allDay }));
+    const tasks = (state.tasks || []).filter((t) => t.dueAt && (t.assigneeId === userId || (t.assigneeIds || []).includes(userId)) && startOfDay(t.dueAt) === d)
+      .map((t) => ({ key: `t${t.id}`, title: `☑️ ${t.title}`, href: `/tasks/${t.boardId ?? t.id}`, color: TASK_COLOR, allDay: true }));
+    return [...evs, ...tasks];
+  };
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <RangeNav mode="week" cursor={cursor} onChange={setCursor} />
+        <select className="input !w-auto" value={groupId} onChange={(e) => setGroupId(e.target.value)} aria-label="Team">
+          {myGroups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+          <option value="all">Everyone</option>
+        </select>
+      </div>
+      <div className="glass overflow-x-auto">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+              <th className="w-44 p-3">Member</th>
+              {days.map((d) => (
+                <th key={d} className={`p-3 ${startOfDay(Date.now()) === d ? 'text-brand-400' : ''}`}>
+                  {new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((u) => (
+              <tr key={u.id} className="border-t border-white/5 align-top">
+                <th scope="row" className="p-3 text-left font-normal">
+                  <Link to={`/people/${u.id}`} className="flex items-center gap-2 hover:underline"><Avatar user={u} size={28} /><span className="truncate font-semibold">{u.name}</span></Link>
+                </th>
+                {days.map((d) => {
+                  const list = cell(u.id, d);
+                  return (
+                    <td key={d} className="p-1.5">
+                      {list.length === 0 ? <span className="block h-8 rounded-md bg-white/[.02]" aria-label="Free" /> : (
+                        <div className="space-y-1">
+                          {list.map((it) => (
+                            <Link key={it.key} to={it.href} title={it.title} className="block truncate rounded-md px-1.5 py-1 text-[11px] font-medium hover:brightness-125"
+                              style={{ background: `${it.color}33`, borderLeft: `3px solid ${it.color}` }}>
+                              {!it.allDay && it.start && <span className="mr-1 opacity-70">{new Date(it.start).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>}{it.title}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">Shows events each member hosts, assists, is invited to or is attending, plus tasks assigned to them.</p>
+    </>
+  );
+}

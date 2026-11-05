@@ -1,0 +1,97 @@
+import { lazy, Suspense, Component } from 'react';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useStore } from './lib/store.jsx';
+import { MODULES, EXTRA_ROUTES } from './lib/modules.js';
+import { GlassFilters } from './components/ui.jsx';
+import Layout from './components/Layout.jsx';
+import Landing from './pages/Landing.jsx';
+import Login from './pages/Login.jsx';
+import Invite from './pages/Invite.jsx';
+import Signup from './pages/Signup.jsx';
+import Explore from './pages/Explore.jsx';
+
+// Pages load lazily by file name, so each module ships as its own chunk.
+const files = import.meta.glob(['./pages/*.jsx', '!./pages/{Landing,Login,Invite,Signup,Explore}.jsx']);
+const pageCache = {};
+function page(name) {
+  const loader = files[`./pages/${name}.jsx`];
+  if (!loader) return () => <Missing name={name} />;
+  return (pageCache[name] ??= lazy(() => loader().catch(reloadForNewBuild)));
+}
+
+// After a new build, a tab opened earlier still asks for the old hashed chunk names, which
+// are gone. Reload once to pick up the new build; the session flag stops a reload loop if
+// the chunk is missing for some other reason (then the error shows as usual).
+const RELOAD_FLAG = 'alumnizone:chunk-reload';
+function claimReload() {
+  try {
+    if (sessionStorage.getItem(RELOAD_FLAG) === '1') return false;
+    sessionStorage.setItem(RELOAD_FLAG, '1');
+  } catch { /* storage blocked: still try once */ }
+  return true;
+}
+function reloadForNewBuild(err) {
+  if (!claimReload()) throw err;
+  window.location.reload();
+  return new Promise(() => {}); // keep the spinner up until the reload lands
+}
+// Vite raises this when a chunk or its preloaded CSS fails to load. preventDefault() makes
+// Vite resolve the import as empty, so only do it when we're actually reloading.
+window.addEventListener('vite:preloadError', (e) => { if (claimReload()) { e.preventDefault(); window.location.reload(); } });
+// A page that loaded cleanly means the build is current again.
+window.addEventListener('load', () => { setTimeout(() => { try { sessionStorage.removeItem(RELOAD_FLAG); } catch { /* ignore */ } }, 5000); });
+
+function Missing({ name }) {
+  return <div className="glass p-8 text-slate-300">The <b>{name}</b> module isn’t available yet.</div>;
+}
+
+class Boundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    const { error } = this.state;
+    if (error && /dynamically imported module|Importing a module script failed|error loading dynamically/i.test(error.message)) {
+      return (
+        <div className="glass p-8">
+          <p className="font-semibold">AlumniZone was updated.</p>
+          <p className="mt-1 text-sm text-slate-400">This page is from the new version. Reload to open it.</p>
+          <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Reload</button>
+        </div>
+      );
+    }
+    if (error) return <div className="glass p-8"><p className="font-semibold">Something went wrong on this page.</p><pre className="mt-3 whitespace-pre-wrap text-xs text-rose-300">{String(error.message)}</pre></div>;
+    return this.props.children;
+  }
+}
+
+function Protected({ children }) {
+  const { me } = useStore();
+  return me ? children : <Navigate to="/login" replace />;
+}
+
+export default function App() {
+  const { me, state } = useStore();
+  const routes = [
+    ...MODULES.flatMap((m) => [m.path, ...(m.routes || [])].map((path) => ({ path, page: m.page }))),
+    ...EXTRA_ROUTES,
+  ];
+  return (
+    <HashRouter>
+      <GlassFilters />
+      <Routes>
+        <Route path="/" element={me ? <Navigate to={state.settings.landing || '/feed'} replace /> : <Landing />} />
+        <Route path="/login" element={me ? <Navigate to="/feed" replace /> : <Login />} />
+        <Route path="/signup" element={me ? <Navigate to="/feed" replace /> : <Signup />} />
+        <Route path="/explore" element={<Explore />} />
+        <Route path="/invite/:code" element={<Invite />} />
+        <Route element={<Protected><Layout /></Protected>}>
+          {routes.map(({ path, page: name }) => {
+            const Page = page(name);
+            return <Route key={path} path={path} element={<Boundary key={path}><Suspense fallback={<div className="glass h-40 animate-pulse" />}><Page /></Suspense></Boundary>} />;
+          })}
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </HashRouter>
+  );
+}
