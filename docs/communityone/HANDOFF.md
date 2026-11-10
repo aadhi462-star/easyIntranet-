@@ -1,6 +1,6 @@
 # CommunityOne — Session handoff (10 Nov 2026, after step 4c)
 
-Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
+Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
 ## What this project is
 
@@ -57,11 +57,13 @@ Server is the authority; legacy screens still read the local store. `lib/api.js`
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — Phase 1 step 4c done (committed, not pushed)
+## Where we stopped — redesign Stage 0 review (waiting for approval)
 
-Step 4c is complete: see PHASE0_ASSESSMENT.md §14 for what was built, tested and the known gaps (RSVPs of leavers count again on rejoin; `whoCanCreateEvents` not exposed in the community list; no waitlist; sidebar above modal backdrops — probably older).
+Phase 1 step 4c is done (§14). Hosting is live on AppSail (see Hosting). The user then gave the redesign brief and said "let's build it"; per the brief's working rules, the Stage 0 review was prepared first: https://claude.ai/artifact/1HEFyv7gXgWW2sHfqbc5rw (screen inventory, IA, journeys, decisions R1–R8, stage plan, design system, wireframes for landing desktop/phone, app shell desktop/phone, AlumniZone community page, role dashboards). **Nothing in the app has changed for the redesign yet.**
 
-Next: **Phase 1 step 5** — platform admin UI on the API (users, suspend/approve, roles, settings, audit, institutions). Then step 6 (remaining client data layer incl. Explore/search/schedulers/admin export still reading local events, react-router 7 upgrade), step 7 (CommunityOne rebrand + client reads feature flags). Then Phase 2.
+Decisions awaiting approval: R1 Inter only · R2 remove liquid glass · R3 outline SVG icons · R4 merge All Hands into AlumniZone (reversible migration) · R5 auto-join AlumniZone on email confirmation · R6 only working features in navigation · R7 public discovery endpoint · R8 do redesign Stages 1–3 before Platform Admin UI (step 5).
+
+Next once approved: redesign Stage 1 (tokens, components, icons, app shell), then Stage 2 (public site + R5/R7 on the server).
 
 ## Working style that's been effective
 
