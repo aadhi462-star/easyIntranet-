@@ -10,15 +10,21 @@ in it are fictional.
 
 ## Run it
 
+CommunityOne is moving from a browser-only prototype to a server-backed app (see
+`docs/communityone/PHASE0_ASSESSMENT.md`). Accounts and sessions already run on the server.
+
 ```bash
 npm install
-npm run dev
+npm run db:seed        # creates the local database and demo accounts (safe to re-run)
+npm run build          # builds the web app into dist/
+npm run server         # API + web app on http://localhost:5181
 ```
 
-Then open http://localhost:5180. To build for production:
+The server uses PostgreSQL. Locally that's PGlite (the PostgreSQL engine as an npm package),
+stored in `server/.data/pg`; set `DATABASE_URL` to use a PostgreSQL server instead.
 
 ```bash
-npm run build
+npm run test:server    # server tests (in-memory database)
 ```
 
 `.npmrc` sets `ignore-scripts=true` because `@ybouane/liquidglass` ships a postinstall

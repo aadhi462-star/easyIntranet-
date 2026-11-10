@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { api } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
 import { Field, Logo, Modal, ThemeToggle } from '../components/ui.jsx';
 import { useTheme } from '../lib/theme.js';
@@ -30,28 +31,24 @@ const stats = [['8,400+', 'Alumni'], ['120', 'Groups'], ['340', 'Events a year']
 
 export const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
-/** Shown when Web Crypto is unavailable (e.g. the app opened over plain http). */
-export const CRYPTO_ERROR = 'Your browser blocked secure password hashing. Open the app over https or localhost.';
-
-/** Salted SHA-256 of a password, as hex. Only the hash and salt are stored on the account. */
-export async function hashPassword(password, salt) {
-  const data = new TextEncoder().encode(`${salt}:${password}`);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+// Profile details collected at sign-up wait here until the account is confirmed, so the
+// directory entry is complete when the person first signs in (same browser).
+const STASH = 'c1:signup-profile';
+export function stashProfile(email, profile) {
+  try { sessionStorage.setItem(STASH, JSON.stringify({ email: email.toLowerCase(), profile })); } catch { /* optional */ }
+}
+export function takeProfile(email) {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(STASH) || 'null');
+    if (v && v.email === String(email).toLowerCase()) { sessionStorage.removeItem(STASH); return v.profile; }
+  } catch { /* optional */ }
+  return undefined;
 }
 
-/** Random hex salt plus the hash, ready to spread onto a new user. */
-export async function passwordFields(password) {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  const passwordSalt = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  return { passwordSalt, passwordHash: await hashPassword(password, passwordSalt) };
-}
-
-async function passwordMatches(u, password) {
-  if (!password) return false;
-  if (u.passwordHash) return (await hashPassword(password, u.passwordSalt ?? '')) === u.passwordHash;
-  if (u.password) return u.password === password;
-  return true; // original seed demo people accept any non-empty password
+/** Where to go after signing in: the page the visitor was trying to reach, if it's internal. */
+export function nextPath(search) {
+  const next = new URLSearchParams(search).get('next');
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/feed';
 }
 
 const GLASS = { cornerRadius: 24, refraction: 0.8, chromAberration: 0.08, edgeHighlight: 0.45, specular: 0.6, fresnel: 1, blurAmount: 0.7, tintStrength: 0.25, brightness: -0.12, shadowOpacity: 0.55, zRadius: 34 };
@@ -130,30 +127,48 @@ export function AuthShell({ children, mode }) {
 }
 
 export default function Login() {
-  const { state, dispatch } = useStore();
+  const { dispatch } = useStore();
   const nav = useNavigate();
+  const loc = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [next, setNext] = useState(null); // follow-up offered for an account state: resend / reactivate
+  const [note, setNote] = useState('');
   const [forgot, setForgot] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false); // state updates are async, so a fast double submit needs a ref
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const run = async (fn) => {
     if (busyRef.current) return;
-    const u = state.users.find((x) => x.email?.toLowerCase() === email.trim().toLowerCase());
-    // Accounts created here store a salted hash; demo accounts may carry a plain password;
-    // the original demo people accept any password.
-    let ok = false;
-    busyRef.current = true; setBusy(true);
-    try { ok = !!u && await passwordMatches(u, password); } catch { setError(CRYPTO_ERROR); return; } finally { busyRef.current = false; setBusy(false); }
-    if (!ok) { setError('That email and password don’t match an AlumniZone account.'); return; }
-    if (u.status === 'pending') { setError('Your membership is waiting for approval from a community admin. We’ll notify you once you’re in.'); return; }
-    if (u.status === 'deactivated') { setError('This account has been deactivated. Contact the community admins if you think this is a mistake.'); return; }
-    dispatch({ type: 'login', userId: u.id });
-    nav('/feed');
+    busyRef.current = true; setBusy(true); setError(''); setNote('');
+    try { await fn(); } finally { busyRef.current = false; setBusy(false); }
   };
+
+  const signedIn = ({ user }) => {
+    dispatch({ type: 'session/adopt', user, profile: takeProfile(user.email) });
+    nav(nextPath(loc.search), { replace: true });
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password) { setError('Enter your email and password.'); return; }
+    run(async () => {
+      try {
+        signedIn(await api('/auth/login', { method: 'POST', body: { email, password } }));
+      } catch (err) {
+        setError(err.message);
+        setNext(err.code === 'EMAIL_NOT_VERIFIED' ? 'resend' : err.code === 'ACCOUNT_DEACTIVATED' ? 'reactivate' : null);
+      }
+    });
+  };
+
+  const resend = () => run(async () => {
+    try { setNote((await api('/auth/verify/resend', { method: 'POST', body: { email } })).message); setNext(null); setError(''); } catch (err) { setError(err.message); }
+  });
+  const reactivate = () => run(async () => {
+    try { signedIn(await api('/auth/reactivate', { method: 'POST', body: { email, password } })); } catch (err) { setError(err.message); }
+  });
 
   return (
     <AuthShell mode="login">
@@ -169,13 +184,16 @@ export default function Login() {
           </Field>
         </div>
         {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
-        <button className="btn btn-primary mt-5 h-11 w-full" disabled={busy}>Sign in</button>
+        {note && <p role="status" className="mt-3 text-sm text-brand-300">{note}</p>}
+        {next === 'resend' && <button type="button" className="btn btn-ghost mt-3 w-full" disabled={busy} onClick={resend}>Send the confirmation link again</button>}
+        {next === 'reactivate' && <button type="button" className="btn btn-ghost mt-3 w-full" disabled={busy} onClick={reactivate}>Reactivate my account</button>}
+        <button className="btn btn-primary mt-5 h-11 w-full" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         <button type="button" onClick={() => setForgot(true)} className="mx-auto mt-4 block min-h-11 text-sm text-brand-300 hover:underline">Forgot your password?</button>
         <p className="mt-5 rounded-xl bg-white/5 px-4 py-3 text-center text-sm text-slate-300">
           New here? <Link to="/signup" className="font-semibold text-brand-300 hover:underline">Join the community</Link> · <Link to="/explore" className="text-brand-300 hover:underline">Look around first</Link>
         </p>
         <p className="mt-3 text-center text-[11px] text-slate-500">
-          Demo: hosts and members are listed in DEMO_ACCOUNTS.md. <b className="text-slate-300">aisha@example.com</b> (admin) works with any password.
+          Development: demo accounts and their passwords are in DEMO_ACCOUNTS.md.
         </p>
       </form>
       {forgot && <ForgotPassword onClose={() => setForgot(false)} />}
@@ -184,16 +202,25 @@ export default function Login() {
 }
 
 function ForgotPassword({ onClose }) {
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState('');
   const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!EMAIL_RE.test(email.trim())) { setError('Enter the email you signed up with.'); return; }
+    setBusy(true); setError('');
+    try { setSent((await api('/auth/password/forgot', { method: 'POST', body: { email } })).message); } catch (err) { setError(err.message); } finally { setBusy(false); }
+  };
   return (
     <Modal title="Reset your password" onClose={onClose}>
       {sent ? (
-        <p className="text-sm text-slate-300">If <b>{email}</b> belongs to an AlumniZone member, a reset link is on its way. (Demo: no email is actually sent.)</p>
+        <p role="status" className="text-sm text-slate-300">{sent} The link works once and expires in an hour.</p>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); if (email) setSent(true); }} className="space-y-4">
-          <Field label="Email"><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></Field>
-          <button className="btn btn-primary w-full">Send reset link</button>
+        <form onSubmit={submit} className="space-y-4" noValidate>
+          <Field label="Email"><input className="input" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} placeholder="you@example.com" /></Field>
+          {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+          <button className="btn btn-primary w-full" disabled={busy}>{busy ? 'Sending…' : 'Send reset link'}</button>
         </form>
       )}
     </Modal>

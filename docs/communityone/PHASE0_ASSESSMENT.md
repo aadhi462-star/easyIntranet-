@@ -2,7 +2,8 @@
 
 *One Platform. Every Community.*
 
-Status: **Decisions D1–D4 approved (10 Nov 2026).** D5–D6 open. No application code has been changed for CommunityOne yet.
+Status: **Decisions D1–D4, D6 (default) and D7 (PGlite) approved.** D5 open (email provider).
+**Phase 1 progress (10 Nov 2026):** step 1 (server foundation) and step 2 (authentication and account lifecycle) done and tested; see §14.
 Inputs: the three reference documents (Consolidated requirements, Edge-case register, Revamp roadmap), the Master Development Prompt, and a code-level inspection of the current AlumniZone app (`src/`, ~14,100 lines, 27 pages).
 
 ---
@@ -282,3 +283,29 @@ Re-enable Smart Assist and add permission-aware search, summaries and recommenda
 ## 13. What happens next
 
 On approval of §10, Phase 1 starts with the server foundation (step 1). Nothing in the existing prototype is deleted: it stays runnable until the new stack reaches parity, and every parked feature is kept behind a flag.
+
+---
+
+## 14. Progress log
+
+### Phase 1 — steps 1–2 (10 Nov 2026)
+
+Built:
+- **Server** (`server/`): Fastify API on Node 24, PostgreSQL via PGlite locally (`DATABASE_URL` switches to a PostgreSQL server), SQL migrations, seed from the prototype data.
+- **Security foundations:** HttpOnly session cookies (hash stored), per-request session + account-status check, double-submit CSRF, security headers/CSP, per-IP rate limits on auth, `no-store` on all API responses, idempotency keys for creates, optimistic-version settings with field allow-lists, append-only audit log.
+- **Permission engine:** platform roles (Super Admin … Support Agent) with scoped permissions; only Super Admin grants Platform Admin or changes security settings; the last Super Admin can't be removed.
+- **Account lifecycle:** register → confirm email → sign in; lockout; resend; forgot/reset (ends every session); change password (ends other sessions); change email (pending until confirmed); deactivate/reactivate; delete (anonymised, handover checks).
+- **Admin API:** users list, suspend (ends sessions) / reactivate, approve/decline, platform roles, settings, audit log.
+- **Web app:** sign-in, sign-up, invitation, confirm-email, reset and confirm-new-email pages use the API; the server is the authority for who is signed in (checked on load, on focus and on any 401); sign-in returns you to the page you were heading for.
+
+Tested: 35 automated server tests (all pass); browser journeys for sign-in, return-to-page, sign-out, sign-up with double click, confirmation, reused links, revoked sessions, forgot/reset password, phone width. Register: 25 Pass, 1 Blocked (REG-15 awaits community ownership).
+
+Bugs found and fixed while testing: a transaction deadlock in email confirmation; sign-out failing with a 500 (empty JSON body) and the UI then silently signing the person back in; framework client errors reported as 500s; the glass effect's font request blocked by the CSP.
+
+Transitional (by design, until later Phase 1 steps): profiles, feed, groups and other features still use the in-browser data. Accounts created on the server get a matching directory entry in the browser where they confirm. Invitation pre-approval waits for server-side invitations (Phase 2). The admin UI still uses in-browser data; the admin API exists and is tested.
+
+Security notes:
+- `@fastify/static` is pinned to 10.1.9 (6 days old) instead of a 2-week-old release, because it fixes a moderate advisory (glob/minimatch).
+- `react-router-dom` 6.x has a moderate advisory (open redirect via backslash in `<Link>`/`navigate`) fixed only in 7.x. The app builds its own internal links and validates `?next=` to internal paths; the upgrade is scheduled with the client data-layer work (step 6).
+
+Next: step 3 (profiles, institutions/batches and the alumni directory on the server).

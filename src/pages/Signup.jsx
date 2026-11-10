@@ -1,19 +1,23 @@
-import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
-import { AuthShell, CRYPTO_ERROR, EMAIL_RE, passwordFields } from './Login.jsx';
+import { api, newKey } from '../lib/api.js';
+import { AuthShell, EMAIL_RE, stashProfile } from './Login.jsx';
 
 const DEPTS = ['Computer Science', 'Electronics', 'Electrical', 'Mechanical', 'Civil', 'Chemical', 'Business', 'Design', 'Other'];
 
 export default function Signup() {
-  const { state, dispatch } = useStore();
-  const nav = useNavigate();
-  const reg = state.settings.registration ?? { open: true };
+  const { state } = useStore();
+  // The server decides whether sign-ups are open; the guidelines text still comes from settings.
+  const [server, setServer] = useState(null);
+  useEffect(() => { api('/auth/registration').then(setServer).catch(() => setServer({ open: true })); }, []);
+  const reg = { ...(state.settings.registration ?? {}), ...(server ?? {}), open: server ? server.open : true };
   const [form, setForm] = useState({ name: '', email: '', password: '', batch: new Date().getFullYear() - 1, dept: DEPTS[0], city: '' });
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
+  const [sentTo, setSentTo] = useState('');
+  const keyRef = useRef(newKey()); // one key per filled-in form, so retries can't create two accounts
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false); // state updates are async, so a fast double submit needs a ref
   const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setError(''); };
@@ -21,20 +25,19 @@ export default function Signup() {
   const submit = async (e) => {
     e.preventDefault();
     if (busyRef.current) return;
-    const email = form.email.trim().toLowerCase();
+    const email = form.email.trim();
     if (!form.name.trim() || !EMAIL_RE.test(email)) return setError('Enter your name and a valid email address.');
     if (form.password.length < 8) return setError('Use a password of at least 8 characters.');
-    const domains = reg.allowedDomains ?? [];
-    if (domains.length && !domains.some((d) => email.endsWith(`@${d.replace(/^@/, '')}`))) return setError(`Sign-up is limited to these email domains: ${domains.join(', ')}.`);
-    if (state.users.some((u) => u.email?.toLowerCase() === email)) return setError('That email already has an account. Sign in instead.');
     if (!agreed) return setError('Please accept the community guidelines to join.');
-    const { password: _ignored, ...profile } = form;
-    let secret;
     busyRef.current = true; setBusy(true);
-    try { secret = await passwordFields(form.password); } catch { setError(CRYPTO_ERROR); return; } finally { busyRef.current = false; setBusy(false); }
-    dispatch({ type: 'signup', user: { ...profile, ...secret, name: profile.name.trim(), email, batch: Number(form.batch) } });
-    if (reg.requireApproval) setPending(true);
-    else nav('/feed');
+    try {
+      await api('/auth/register', { method: 'POST', idempotencyKey: keyRef.current, body: { name: form.name.trim(), email, password: form.password, acceptedGuidelines: true } });
+      stashProfile(email, { batch: Number(form.batch) || null, dept: form.dept, city: form.city.trim() });
+      setSentTo(email);
+    } catch (err) {
+      setError(err.message);
+      if (err.code !== 'NETWORK') keyRef.current = newKey(); // a changed form is a new attempt
+    } finally { busyRef.current = false; setBusy(false); }
   };
 
   if (!reg.open) {
@@ -49,13 +52,14 @@ export default function Signup() {
     );
   }
 
-  if (pending) {
+  if (sentTo) {
     return (
       <AuthShell>
-        <div className="p-8">
-          <h2 className="text-2xl font-bold">Thanks for joining! 🎉</h2>
-          <p className="mt-2 text-sm text-slate-300">A community admin will review your membership shortly. You can sign in as soon as you’re approved.</p>
-          <Link to="/explore" className="btn btn-primary mt-6 w-full">Look around while you wait</Link>
+        <div className="p-8" role="status">
+          <h2 className="text-2xl font-bold">Check your email</h2>
+          <p className="mt-2 text-sm text-slate-300">We sent a confirmation link to <b className="text-white">{sentTo}</b>. Open it to finish creating your account. The link expires in 24 hours.</p>
+          {server?.devMailbox && <p className="mt-3 rounded-xl bg-white/5 px-4 py-3 text-xs text-slate-400">Development: emails are printed in the server console and listed at <a className="text-brand-300 underline" href={`/api/dev/outbox?to=${encodeURIComponent(sentTo)}`} target="_blank" rel="noreferrer">/api/dev/outbox</a>.</p>}
+          <Link to="/login" className="btn btn-primary mt-6 w-full">Back to sign in</Link>
         </div>
       </AuthShell>
     );

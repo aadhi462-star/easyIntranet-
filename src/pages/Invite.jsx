@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
-import { AuthShell, CRYPTO_ERROR, EMAIL_RE, passwordFields } from './Login.jsx';
+import { api, newKey } from '../lib/api.js';
+import { AuthShell, EMAIL_RE, stashProfile } from './Login.jsx';
 
 // Built-in demo code. It follows the registration settings like normal sign-up (no
 // pre-approval, domain limits apply, unusable while sign-ups are paused). Admins create
@@ -12,7 +13,6 @@ const DEMO_INVITES = { WELCOME2026: { invitedBy: 'u7', batch: 2020, demo: true }
 export default function Invite() {
   const { code } = useParams();
   const { state, dispatch, user } = useStore();
-  const nav = useNavigate();
   const upper = code?.toUpperCase();
   const reg = state.settings.registration ?? { open: true };
   const now = Date.now();
@@ -23,7 +23,8 @@ export default function Invite() {
   const inviteEmail = stored?.email?.trim().toLowerCase() || '';
   const [form, setForm] = useState({ name: '', email: inviteEmail, password: '', batch: invite?.batch ?? 2020, dept: 'Computer Science', city: '' });
   const [error, setError] = useState('');
-  const [waiting, setWaiting] = useState(false);
+  const [sentTo, setSentTo] = useState('');
+  const keyRef = useRef(newKey());
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false); // state updates are async, so a fast double submit needs a ref
   const set = (k) => (e) => { setForm({ ...form, [k]: e.target.value }); setError(''); };
@@ -38,25 +39,26 @@ export default function Invite() {
       const domains = reg.allowedDomains ?? [];
       if (domains.length && !domains.some((d) => email.endsWith(`@${d.replace(/^@/, '')}`))) { setError(`Sign-up is limited to these email domains: ${domains.join(', ')}.`); return; }
     }
-    if (state.users.some((u) => u.email?.trim().toLowerCase() === email)) { setError('That email already has an account. Sign in instead.'); return; }
-    const { password: _ignored, ...profile } = form;
-    let secret;
+    // The account is created on the server (email confirmation included). Invitations move to
+    // the server with communities in Phase 2; until then acceptance is recorded here.
     busyRef.current = true; setBusy(true);
-    try { secret = await passwordFields(form.password); } catch { setError(CRYPTO_ERROR); return; } finally { busyRef.current = false; setBusy(false); }
-    const external = !!stored?.external;
-    // A stored invitation counts as pre-approval; the demo code goes through the normal queue.
-    dispatch({ type: 'signup', user: { ...profile, ...secret, name: profile.name.trim(), email, batch: Number(form.batch), status: approval ? 'pending' : 'active', invitedBy: invite.invitedBy, external, ...(external ? { roleId: 'external' } : {}) } });
-    if (stored) dispatch({ type: 'update', col: 'invites', id: stored.id, silent: true, patch: { status: 'accepted', acceptedAt: Date.now(), usedAt: Date.now() } });
-    if (approval) setWaiting(true);
-    else nav('/feed');
+    try {
+      await api('/auth/register', { method: 'POST', idempotencyKey: keyRef.current, body: { name: form.name.trim(), email, password: form.password, acceptedGuidelines: true } });
+      stashProfile(email, { batch: Number(form.batch) || null, dept: form.dept, city: form.city.trim(), invitedBy: invite.invitedBy, external: !!stored?.external });
+      if (stored) dispatch({ type: 'update', col: 'invites', id: stored.id, silent: true, patch: { status: 'accepted', acceptedAt: Date.now(), usedAt: Date.now() } });
+      setSentTo(email);
+    } catch (err) {
+      setError(err.message);
+      if (err.code !== 'NETWORK') keyRef.current = newKey();
+    } finally { busyRef.current = false; setBusy(false); }
   };
 
-  if (waiting) {
+  if (sentTo) {
     return (
       <AuthShell>
         <div className="p-8">
-          <h2 className="text-2xl font-bold">Thanks for joining! 🎉</h2>
-          <p className="mt-2 text-sm text-slate-300">A community admin will review your membership shortly. You can sign in as soon as you’re approved.</p>
+          <h2 className="text-2xl font-bold">Check your email</h2>
+          <p className="mt-2 text-sm text-slate-300" role="status">We sent a confirmation link to <b className="text-white">{sentTo}</b>. Open it to finish joining.</p>
           <Link to="/login" className="btn btn-primary mt-6 w-full">Back to sign in</Link>
         </div>
       </AuthShell>
@@ -76,7 +78,7 @@ export default function Invite() {
         <form onSubmit={submit} className="p-7 sm:p-8" noValidate>
           <h2 className="text-2xl font-bold">You’re invited</h2>
           <p className="mt-2 text-sm text-slate-300">
-            {user(invite.invitedBy)?.name ?? 'A member'} invited you to join {state.settings.networkName}. {approval ? 'An admin will approve your membership after you sign up.' : 'An invitation is a quick way in: your account is ready as soon as you sign up.'}
+            {user(invite.invitedBy)?.name ?? 'A member'} invited you to join {state.settings.networkName}. {approval ? 'An admin will approve your membership after you sign up.' : 'An invitation is a quick way in: confirm your email and you’re in.'}
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="col-span-2"><Field label="Full name"><input className="input" value={form.name} onChange={set('name')} autoComplete="name" /></Field></div>

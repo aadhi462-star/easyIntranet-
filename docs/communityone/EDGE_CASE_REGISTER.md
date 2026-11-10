@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 10 Nov 2026 (Phase 1, steps 1–2). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -21,24 +21,24 @@ Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links th
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| REG-01 | P0 | 1 | User registers with an email address already linked to an account. | Reject duplicate registration or route the user to sign in/account recovery; do not create a duplicate identity. | Not run | |
-| REG-02 | P0 | 1 | Two registration requests for the same email arrive simultaneously. | Only one account is created; the other request receives a clear duplicate response. | Not run | |
-| REG-03 | P1 | 1 | User submits an invalid email or malformed phone number. | Validate format and explain the correction required; do not persist invalid contact data. | Not run | |
-| REG-04 | P1 | 1 | User never verifies their email/phone. | Keep account in an unverified state and restrict actions according to policy; do not treat it as fully active. | Not run | |
-| REG-05 | P1 | 1 | Verification link is expired, already used, malformed or revoked. | Reject it safely and provide a way to request a fresh verification link. | Not run | |
-| REG-06 | P1 | 1 | User requests multiple verification links; an older link is used after a newer one is issued. | Only the currently valid token succeeds, or token policy is applied consistently; no conflicting account state. | Not run | |
+| REG-01 | P0 | 1 | User registers with an email address already linked to an account. | Reject duplicate registration or route the user to sign in/account recovery; do not create a duplicate identity. | Pass | server/test/auth.test.js REG-01; browser 10 Nov: duplicate sign-up refused |
+| REG-02 | P0 | 1 | Two registration requests for the same email arrive simultaneously. | Only one account is created; the other request receives a clear duplicate response. | Pass | server/test/auth.test.js REG-02 (4 simultaneous → 1 account) |
+| REG-03 | P1 | 1 | User submits an invalid email or malformed phone number. | Validate format and explain the correction required; do not persist invalid contact data. | Pass | server/test/auth.test.js REG-03 (email + password; no phone field exists yet) |
+| REG-04 | P1 | 1 | User never verifies their email/phone. | Keep account in an unverified state and restrict actions according to policy; do not treat it as fully active. | Pass | server/test/auth.test.js REG-04; browser 10 Nov: sign-in before confirming refused, resend offered |
+| REG-05 | P1 | 1 | Verification link is expired, already used, malformed or revoked. | Reject it safely and provide a way to request a fresh verification link. | Pass | server/test/auth.test.js REG-05/06; browser 10 Nov: reused link refused |
+| REG-06 | P1 | 1 | User requests multiple verification links; an older link is used after a newer one is issued. | Only the currently valid token succeeds, or token policy is applied consistently; no conflicting account state. | Pass | server/test/auth.test.js REG-05/06 (older link superseded) |
 | REG-07 | P1 | 1 | Verification email/SMS delivery fails or is delayed. | Show a retry/resend path and preserve the pending account without creating duplicates. | Not run | |
-| REG-08 | P0 | 1 | User changes their email/phone to one already used by another account. | Reject the change and retain the existing verified contact information. | Not run | |
-| REG-09 | P1 | 1 | User changes email/phone but does not complete re-verification. | Mark the new contact as pending; do not silently replace the verified contact. | Not run | |
-| REG-10 | P0 | 1 | User requests password reset for an unknown email. | Return a privacy-safe response that does not reveal whether an account exists. | Not run | |
-| REG-11 | P1 | 1 | Password reset link is expired, reused or requested repeatedly. | Reject invalid tokens, rate-limit abuse and allow a fresh reset request. | Not run | |
-| REG-12 | P0 | 1 | User changes password while other sessions are active. | Apply the defined session-revocation policy; invalidate compromised sessions/tokens where required. | Not run | |
-| REG-13 | P0 | 1 | Account is suspended while user is logged in on another device. | Revoke or block protected actions across sessions and APIs promptly. | Not run | |
-| REG-14 | P1 | 1 | Deactivated user attempts to log in or register again with the same identity. | Apply the account reactivation/deletion policy; do not create an unintended duplicate identity. | Not run | |
-| REG-15 | P0 | 1 | User deletes their account while they own a community or teach courses. | Require ownership/course transfer or a managed handover before deletion completes. | Not run | |
-| REG-16 | P1 | 1 | User has multiple tabs submitting registration or profile changes. | Prevent duplicate creation and resolve conflicting updates predictably. | Not run | |
-| REG-17 | P0 | 1 | Login attempts exceed allowed limits or originate from suspicious patterns. | Apply rate limits, throttling or additional verification without exposing security details. | Not run | |
-| REG-18 | P0 | 1 | User attempts to use a revoked session, API token or refresh token. | Reject the request and require fresh authentication. | Not run | |
+| REG-08 | P0 | 1 | User changes their email/phone to one already used by another account. | Reject the change and retain the existing verified contact information. | Pass | server/test/auth.test.js REG-08/09 (incl. address taken before confirmation) |
+| REG-09 | P1 | 1 | User changes email/phone but does not complete re-verification. | Mark the new contact as pending; do not silently replace the verified contact. | Pass | server/test/auth.test.js REG-08/09 |
+| REG-10 | P0 | 1 | User requests password reset for an unknown email. | Return a privacy-safe response that does not reveal whether an account exists. | Pass | server/test/auth.test.js REG-10; browser 10 Nov: same message for any email |
+| REG-11 | P1 | 1 | Password reset link is expired, reused or requested repeatedly. | Reject invalid tokens, rate-limit abuse and allow a fresh reset request. | Pass | server/test/auth.test.js REG-11/12 + rate limiting |
+| REG-12 | P0 | 1 | User changes password while other sessions are active. | Apply the defined session-revocation policy; invalidate compromised sessions/tokens where required. | Pass | server/test/auth.test.js REG-11/12, REG-12 change; browser 10 Nov: reset signs out everywhere |
+| REG-13 | P0 | 1 | Account is suspended while user is logged in on another device. | Revoke or block protected actions across sessions and APIs promptly. | Pass | server/test/admin.test.js REG-13/USR-06; browser 10 Nov: revoked session signs the tab out on focus |
+| REG-14 | P1 | 1 | Deactivated user attempts to log in or register again with the same identity. | Apply the account reactivation/deletion policy; do not create an unintended duplicate identity. | Pass | server/test/auth.test.js REG-14 |
+| REG-15 | P0 | 1 | User deletes their account while they own a community or teach courses. | Require ownership/course transfer or a managed handover before deletion completes. | Blocked | Super Admin handover enforced (server/test/auth.test.js REG-15); community ownership and courses arrive in Phases 2–3 |
+| REG-16 | P1 | 1 | User has multiple tabs submitting registration or profile changes. | Prevent duplicate creation and resolve conflicting updates predictably. | Pass | server/test/auth.test.js idempotent retry; browser 10 Nov: double click → one account, one email |
+| REG-17 | P0 | 1 | Login attempts exceed allowed limits or originate from suspicious patterns. | Apply rate limits, throttling or additional verification without exposing security details. | Pass | server/test/auth.test.js REG-17 lockout + rate limiting |
+| REG-18 | P0 | 1 | User attempts to use a revoked session, API token or refresh token. | Reject the request and require fresh authentication. | Pass | server/test/auth.test.js REG-18 |
 
 ## 2. Profile and User Management
 
@@ -49,10 +49,10 @@ Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links th
 | USR-03 | P1 | 1 | User uploads an unsupported, oversized or corrupted avatar/cover image. | Reject the file with a clear explanation; retain the previous image. | Not run | |
 | USR-04 | P1 | 1 | User removes a profile photo while cached copies remain. | Use the default image and ensure private media is not exposed through stale URLs. | Not run | |
 | USR-05 | P2 | 1 | User changes display name while posts and comments exist. | Update profile references consistently without breaking attribution or audit records. | Not run | |
-| USR-06 | P0 | 1 | Platform Admin suspends or reactivates a user while they are actively using the platform. | Apply the status consistently across sessions, communities, events and LMS actions. | Not run | |
+| USR-06 | P0 | 1 | Platform Admin suspends or reactivates a user while they are actively using the platform. | Apply the status consistently across sessions, communities, events and LMS actions. | Pass | server/test/admin.test.js REG-13/USR-06 |
 | USR-07 | P0 | 1 | User is removed from one community but remains a member of others. | Revoke only the relevant community access; preserve other memberships. | Not run | |
 | USR-08 | P1 | 1 | User requests personal data export or account deletion. | Verify identity, apply retention/legal rules and report completion/failure clearly. | Not run | |
-| USR-09 | P1 | 1 | User is deleted but their content is retained under a retention policy. | Anonymise or attribute content according to policy; do not leave broken profile links. | Not run | |
+| USR-09 | P1 | 1 | User is deleted but their content is retained under a retention policy. | Anonymise or attribute content according to policy; do not leave broken profile links. | Pass | server/test/auth.test.js USR-09 (anonymised, sessions ended) |
 | USR-10 | P1 | 1 | Two administrators edit the same user record simultaneously. | Prevent silent overwrites; show latest state or resolve conflicts with audit history. | Not run | |
 
 ## 3. Community Creation and Setup
@@ -119,12 +119,12 @@ Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links th
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | PER-01 | P0 | 2 | User is Owner in one community and Member in another. | Resolve permissions using the active community context; never apply the highest role globally. | Not run | |
-| PER-02 | P0 | 2 | Moderator attempts to assign themselves Admin/Owner. | Deny unless an explicitly authorised role-granting workflow permits it. | Not run | |
+| PER-02 | P0 | 2 | Moderator attempts to assign themselves Admin/Owner. | Deny unless an explicitly authorised role-granting workflow permits it. | Pass | server/test/admin.test.js role assignment (no self-grant; Platform Admin needs Super Admin) |
 | PER-03 | P0 | 2 | Admin removes or demotes the only Owner. | Prevent invalid ownership state and require transfer or another eligible Owner. | Not run | |
 | PER-04 | P1 | 2 | Admin removes their own admin role while performing a management action. | Complete or reject atomically; avoid partially applied changes and stale privileged UI. | Not run | |
-| PER-05 | P0 | 2 | Role is revoked while user has an open admin page. | Recheck every protected action server-side; hide/disable stale controls after refresh. | Not run | |
+| PER-05 | P0 | 2 | Role is revoked while user has an open admin page. | Recheck every protected action server-side; hide/disable stale controls after refresh. | Pass | server/test/admin.test.js role changes apply on next request |
 | PER-06 | P1 | 2 | Custom role is deleted while assigned to users. | Require reassignment or map affected users to a safe fallback before deletion. | Not run | |
-| PER-07 | P0 | 2 | Community Admin attempts to change platform-wide settings. | Deny the action and record suspicious/unauthorised attempts where appropriate. | Not run | |
+| PER-07 | P0 | 2 | Community Admin attempts to change platform-wide settings. | Deny the action and record suspicious/unauthorised attempts where appropriate. | Pass | server/test/admin.test.js SET-10/PER-07 (denied + audited) |
 | PER-08 | P0 | 2 | Platform Admin accesses a Private or Closed community without joining. | Allow access in clearly indicated administrative mode; do not create membership or alter counts. | Not run | |
 | PER-09 | P1 | 2 | Platform Admin performs an action while in normal participation mode. | Apply ordinary membership/role rules and attribute contributions normally. | Not run | |
 | PER-10 | P0 | 2 | Platform Admin performs an action in administrative mode. | Allow permitted global override and record admin identity, target, action, timestamp and context. | Not run | |
@@ -133,7 +133,7 @@ Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links th
 | PER-13 | P1 | 2 | Two Platform Admins change the same community settings concurrently. | Prevent silent overwrite and retain a complete change history. | Not run | |
 | PER-14 | P0 | 2 | Platform Admin attempts a critical action such as deleting a community or granting admin privileges. | Apply additional confirmation/reauthentication or approval safeguards if configured; audit the action. | Not run | |
 | PER-15 | P0 | 2 | Platform Admin is accidentally counted as a community member after admin-mode access. | Do not create membership or alter membership analytics. | Not run | |
-| PER-16 | P0 | 2 | Specialist staff member accesses a module outside assigned scope. | Deny access at API and UI layers; log unauthorised attempts. | Not run | |
+| PER-16 | P0 | 2 | Specialist staff member accesses a module outside assigned scope. | Deny access at API and UI layers; log unauthorised attempts. | Pass | server/test/admin.test.js PER-16 staff scope |
 
 ## 7. Posts, Discussions, Comments and Reactions
 
@@ -291,14 +291,14 @@ Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links th
 | --- | --- | --- | --- | --- | --- | --- |
 | SET-01 | P0 | 2 | Community Admin tries to change a setting controlled globally. | Reject the change and explain that the setting is managed at platform level. | Not run | |
 | SET-02 | P0 | 2 | Platform Admin disables a feature while a community is actively using it. | Apply documented graceful shutdown/migration behaviour; prevent new use without corrupting existing data. | Not run | |
-| SET-03 | P1 | 2 | Two admins save conflicting settings simultaneously. | Detect conflict or apply version checks; do not silently overwrite changes. | Not run | |
+| SET-03 | P1 | 2 | Two admins save conflicting settings simultaneously. | Detect conflict or apply version checks; do not silently overwrite changes. | Pass | server/test/admin.test.js SET-03 version check |
 | SET-04 | P2 | 2 | Admin changes community category while it is featured or recommended. | Update discovery metadata and dependent placements consistently. | Not run | |
 | SET-05 | P1 | 2 | File upload limits are reduced below existing stored file sizes. | Do not delete existing files unexpectedly; apply new limits to future uploads and document migration rules. | Not run | |
 | SET-06 | P1 | 2 | Default platform language/timezone changes after communities have configured their own values. | Preserve explicit community/user overrides; apply new defaults only where intended. | Not run | |
 | SET-07 | P0 | 2 | Settings save partially succeeds across multiple services. | Use transactional behaviour or rollback/clear partial state and communicate result. | Not run | |
-| SET-08 | P0 | 2 | User manipulates hidden settings API fields not shown in UI. | Validate permissions and allowed fields server-side; reject mass assignment. | Not run | |
+| SET-08 | P0 | 2 | User manipulates hidden settings API fields not shown in UI. | Validate permissions and allowed fields server-side; reject mass assignment. | Pass | server/test/admin.test.js SET-08 field allow-list |
 | SET-09 | P2 | 2 | Admin leaves settings page with unsaved changes. | Warn about unsaved changes and avoid accidental data loss. | Not run | |
-| SET-10 | P0 | 2 | Platform-wide security setting is changed by an unauthorised staff role. | Deny and record the attempt. | Not run | |
+| SET-10 | P0 | 2 | Platform-wide security setting is changed by an unauthorised staff role. | Deny and record the attempt. | Pass | server/test/admin.test.js SET-10/PER-07 |
 
 ## 17. Community Archive, Transfer and Deletion
 

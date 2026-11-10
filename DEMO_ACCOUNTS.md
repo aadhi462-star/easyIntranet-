@@ -1,9 +1,18 @@
-# Demo accounts
+# Demo accounts (development only)
 
-Fictional people seeded in `src/data/seed.js`, for trying AlumniZone locally. These are
-demo values only — change or remove them before any real deployment.
+Accounts now live in the CommunityOne server database and **every account needs its password**.
+The old "any password works" behaviour is gone. Load them with `npm run db:seed`.
 
-## Community hosts (admin rights)
+These are development values. Never use them in a real deployment.
+
+## Platform roles
+
+| Name        | Email              | Role            | Password             |
+| ----------- | ------------------ | --------------- | -------------------- |
+| Sara Thomas | sara@example.com   | Super Admin + Platform Admin | Community-Demo-2026 |
+| Aisha Raman | aisha@example.com  | Platform Admin  | Community-Demo-2026  |
+
+## Community hosts (Platform Admin)
 
 | Name        | Email                  | Password         |
 | ----------- | ---------------------- | ---------------- |
@@ -18,8 +27,9 @@ demo values only — change or remove them before any real deployment.
 
 ## Everyone else
 
-The other 31 seeded people (for example aisha@example.com, admin) accept any password.
-Accounts with a `password` set in the seed must use it.
+All other seeded people (34 in total) use **Community-Demo-2026**.
 
-New people (u21–u34) arrive with seed version 4; a browser that has older demo data
-reloads the fresh seed automatically. Admin → Members lists everyone.
+## Emails in development
+
+No real email is sent yet (decision D5). Verification and reset emails are printed in the
+server console and listed at `/api/dev/outbox` (disabled when `NODE_ENV=production`).

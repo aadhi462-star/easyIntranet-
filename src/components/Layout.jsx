@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { isRead, useStore } from '../lib/store.jsx';
+import { api } from '../lib/api.js';
+import { toast } from '../lib/toast.js';
 import { navFor } from '../lib/modules.js';
 import { statsFor } from '../lib/gamify.js';
 import { useMenus } from '../lib/menus.js';
@@ -138,7 +140,12 @@ export default function Layout() {
                       <span className={`h-4 w-4 rounded-full bg-ink-950 shadow transition ${effectsMode === 'lite' ? 'translate-x-4' : ''}`} /></span>
                   </button>
                   <button className="block w-full rounded-lg px-3 py-2 text-left hover:bg-white/5" onClick={() => { setMenu(false); if (confirm('Reset all demo data? Posts, groups and settings go back to the starting demo. Your account stays.')) { dispatch({ type: 'reset' }); nav('/feed'); } }}>Reset demo data</button>
-                  <button className="block w-full rounded-lg px-3 py-2 text-left text-rose-300 hover:bg-white/5" onClick={() => { setMenu(false); dispatch({ type: 'logout' }); nav('/login'); }}>Sign out</button>
+                  <button className="block w-full rounded-lg px-3 py-2 text-left text-rose-300 hover:bg-white/5" onClick={async () => {
+                    setMenu(false);
+                    // The server session is the real one: only show "signed out" once it has ended.
+                    try { await api('/auth/logout', { method: 'POST' }); } catch (err) { if (err.status !== 401) { toast(`Couldn’t sign you out: ${err.message}`, 'error'); return; } }
+                    dispatch({ type: 'logout' }); nav('/login');
+                  }}>Sign out</button>
                 </div>
               )}
             </div>

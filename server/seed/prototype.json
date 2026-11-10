@@ -1,0 +1,4000 @@
+{
+ "version": 4,
+ "session": null,
+ "users": [
+  {
+   "id": "u1",
+   "name": "Aisha Raman",
+   "email": "aisha@example.com",
+   "batch": 2016,
+   "dept": "Computer Science",
+   "city": "Bengaluru",
+   "role": "Product Designer",
+   "company": "Lumen Labs",
+   "admin": true,
+   "hue": 262,
+   "bio": "Designing calm software. Ex-president of the design club. Always up for a campus walk.",
+   "skills": [
+    "Product design",
+    "Research",
+    "Figma",
+    "Mentoring"
+   ],
+   "career": [
+    {
+     "title": "Product Designer",
+     "org": "Lumen Labs",
+     "from": 2021,
+     "to": null
+    },
+    {
+     "title": "UX Intern",
+     "org": "Brightpath",
+     "from": 2019,
+     "to": 2020
+    }
+   ],
+   "managerId": "u3",
+   "title": "Mentor · Design",
+   "customFields": {
+    "linkedin": "aisha-raman",
+    "mentor": "Yes",
+    "hostel": "Hostel C"
+   },
+   "joinedAt": 1777035958696,
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u2",
+   "name": "Karthik Menon",
+   "email": "karthik@example.com",
+   "batch": 2016,
+   "dept": "Mechanical",
+   "city": "Chennai",
+   "role": "Founder",
+   "company": "Torque EV",
+   "hue": 20,
+   "bio": "Building electric two-wheelers. Hostel B forever.",
+   "skills": [
+    "Hardware",
+    "Fundraising"
+   ],
+   "career": [
+    {
+     "title": "Founder",
+     "org": "Torque EV",
+     "from": 2022,
+     "to": null
+    }
+   ],
+   "managerId": "u8",
+   "title": "Founders Circle Lead",
+   "customFields": {
+    "linkedin": "karthik-menon",
+    "mentor": "Yes",
+    "hostel": "Hostel B"
+   },
+   "joinedAt": 1778331958696,
+   "lastActiveAt": 1794312358696,
+   "birthday": "11-11"
+  },
+  {
+   "id": "u3",
+   "name": "Priya Sharma",
+   "email": "priya@example.com",
+   "batch": 2015,
+   "dept": "Electronics",
+   "city": "Pune",
+   "role": "Engineering Manager",
+   "company": "Northwind",
+   "hue": 330,
+   "bio": "Leading platform teams. Alumni mentorship coordinator.",
+   "skills": [
+    "Leadership",
+    "Distributed systems"
+   ],
+   "career": [
+    {
+     "title": "Engineering Manager",
+     "org": "Northwind",
+     "from": 2020,
+     "to": null
+    }
+   ],
+   "managerId": "u7",
+   "title": "Mentorship Coordinator",
+   "customFields": {
+    "linkedin": "priya-sharma",
+    "mentor": "Yes",
+    "hostel": "Hostel A"
+   },
+   "joinedAt": 1779627958696,
+   "lastActiveAt": 1794308758696,
+   "birthday": "11-12"
+  },
+  {
+   "id": "u4",
+   "name": "Daniel Okafor",
+   "email": "daniel@example.com",
+   "batch": 2018,
+   "dept": "Computer Science",
+   "city": "Bengaluru",
+   "role": "ML Engineer",
+   "company": "Quanta AI",
+   "hue": 190,
+   "bio": "Training models by day, playing football by night.",
+   "skills": [
+    "Python",
+    "ML"
+   ],
+   "career": [
+    {
+     "title": "ML Engineer",
+     "org": "Quanta AI",
+     "from": 2021,
+     "to": null
+    }
+   ],
+   "managerId": "u8",
+   "title": "Bengaluru Chapter Volunteer",
+   "customFields": {
+    "mentor": "No",
+    "hostel": "Hostel D"
+   },
+   "joinedAt": 1780923958696,
+   "lastActiveAt": 1794315958696,
+   "birthday": "03-14"
+  },
+  {
+   "id": "u5",
+   "name": "Meera Iyer",
+   "email": "meera@example.com",
+   "batch": 2014,
+   "dept": "Civil",
+   "city": "Mumbai",
+   "role": "Urban Planner",
+   "company": "City Lab",
+   "hue": 140,
+   "bio": "Making cities walkable. Organiser of the Mumbai chapter.",
+   "skills": [
+    "Urban design",
+    "Policy"
+   ],
+   "career": [
+    {
+     "title": "Urban Planner",
+     "org": "City Lab",
+     "from": 2018,
+     "to": null
+    }
+   ],
+   "managerId": "u7",
+   "title": "Mumbai Chapter Lead",
+   "customFields": {
+    "mentor": "Yes",
+    "hostel": "Hostel A"
+   },
+   "joinedAt": 1782219958696,
+   "lastActiveAt": 1794312358696,
+   "birthday": "07-22"
+  },
+  {
+   "id": "u6",
+   "name": "Rohan Gupta",
+   "email": "rohan@example.com",
+   "batch": 2017,
+   "dept": "Electrical",
+   "city": "Hyderabad",
+   "role": "Data Analyst",
+   "company": "Finly",
+   "hue": 45,
+   "bio": "Numbers, cricket and filter coffee.",
+   "skills": [
+    "SQL",
+    "Tableau"
+   ],
+   "career": [
+    {
+     "title": "Data Analyst",
+     "org": "Finly",
+     "from": 2019,
+     "to": null
+    }
+   ],
+   "managerId": "u5",
+   "title": "Hyderabad Volunteer",
+   "customFields": {
+    "mentor": "No",
+    "hostel": "Hostel B"
+   },
+   "joinedAt": 1783515958696,
+   "lastActiveAt": 1794308758696
+  },
+  {
+   "id": "u7",
+   "name": "Sara Thomas",
+   "email": "sara@example.com",
+   "batch": 2016,
+   "dept": "Computer Science",
+   "city": "Kochi",
+   "role": "Alumni Relations Lead",
+   "company": "The Institute",
+   "admin": true,
+   "hue": 290,
+   "bio": "Connecting generations of alumni. Reach out for anything reunion-related.",
+   "skills": [
+    "Community",
+    "Events"
+   ],
+   "career": [
+    {
+     "title": "Alumni Relations Lead",
+     "org": "The Institute",
+     "from": 2020,
+     "to": null
+    }
+   ],
+   "managerId": null,
+   "title": "Head of Alumni Relations",
+   "customFields": {
+    "linkedin": "sara-thomas",
+    "mentor": "Yes",
+    "hostel": "Hostel C"
+   },
+   "joinedAt": 1699967158696,
+   "lastActiveAt": 1794315958696,
+   "birthday": "12-09"
+  },
+  {
+   "id": "u8",
+   "name": "Vikram Rao",
+   "email": "vikram@example.com",
+   "batch": 2012,
+   "dept": "Mechanical",
+   "city": "Bengaluru",
+   "role": "VP Operations",
+   "company": "Helix Motors",
+   "hue": 0,
+   "bio": "Happy to mentor anyone moving into operations.",
+   "skills": [
+    "Operations",
+    "Supply chain"
+   ],
+   "career": [
+    {
+     "title": "VP Operations",
+     "org": "Helix Motors",
+     "from": 2019,
+     "to": null
+    }
+   ],
+   "managerId": "u7",
+   "title": "Bengaluru Chapter Lead",
+   "customFields": {
+    "linkedin": "vikram-rao",
+    "mentor": "Yes",
+    "hostel": "Hostel B"
+   },
+   "joinedAt": 1731762358696,
+   "lastActiveAt": 1794312358696,
+   "birthday": "02-29"
+  },
+  {
+   "id": "u21",
+   "name": "Neha Kapoor",
+   "email": "neha.host@example.com",
+   "batch": 2013,
+   "dept": "Computer Science",
+   "city": "Bengaluru",
+   "role": "Community Host",
+   "company": "AlumniZone",
+   "hue": 160,
+   "joinedAt": 1787403958696,
+   "admin": true,
+   "host": true,
+   "password": "Lime-Host-4821",
+   "bio": "Hosts the community: approvals, moderation and the monthly newsletter.",
+   "skills": [
+    "Community",
+    "Moderation",
+    "Events"
+   ],
+   "career": [
+    {
+     "title": "Community Host",
+     "org": "AlumniZone",
+     "from": 2015,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794308758696
+  },
+  {
+   "id": "u22",
+   "name": "Arjun Nair",
+   "email": "arjun.host@example.com",
+   "batch": 2011,
+   "dept": "Electronics",
+   "city": "Kochi",
+   "role": "Community Host",
+   "company": "AlumniZone",
+   "hue": 210,
+   "joinedAt": 1788699958696,
+   "admin": true,
+   "host": true,
+   "password": "Lime-Host-7356",
+   "bio": "Co-host. Runs chapters, town halls and the mentorship drive.",
+   "skills": [
+    "Chapters",
+    "Town halls",
+    "Mentoring"
+   ],
+   "career": [
+    {
+     "title": "Community Host",
+     "org": "AlumniZone",
+     "from": 2013,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u23",
+   "name": "Ishita Verma",
+   "email": "ishita@example.com",
+   "batch": 2019,
+   "dept": "Computer Science",
+   "city": "Bengaluru",
+   "role": "Frontend Engineer",
+   "company": "Pixelcraft",
+   "hue": 300,
+   "joinedAt": 1789995958696,
+   "password": "Alumni-Member-2093",
+   "bio": "Building accessible web apps. New to Bengaluru, say hi!",
+   "skills": [
+    "React",
+    "Accessibility"
+   ],
+   "career": [
+    {
+     "title": "Frontend Engineer",
+     "org": "Pixelcraft",
+     "from": 2021,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794312358696
+  },
+  {
+   "id": "u24",
+   "name": "Varun Shetty",
+   "email": "varun@example.com",
+   "batch": 2017,
+   "dept": "Mechanical",
+   "city": "Pune",
+   "role": "Product Manager",
+   "company": "Gearbox",
+   "hue": 25,
+   "joinedAt": 1791291958696,
+   "bio": "PM for factory software. Weekend trekker.",
+   "skills": [
+    "Product",
+    "Manufacturing"
+   ],
+   "career": [
+    {
+     "title": "Product Manager",
+     "org": "Gearbox",
+     "from": 2019,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794308758696
+  },
+  {
+   "id": "u25",
+   "name": "Meenakshi Iyer",
+   "email": "meenakshi@example.com",
+   "batch": 2010,
+   "dept": "Civil",
+   "city": "Chennai",
+   "role": "Structural Engineer",
+   "company": "Arc & Beam",
+   "hue": 345,
+   "joinedAt": 1792587958696,
+   "bio": "Designing bridges. Happy to talk civil careers.",
+   "skills": [
+    "Structures",
+    "AutoCAD"
+   ],
+   "career": [
+    {
+     "title": "Structural Engineer",
+     "org": "Arc & Beam",
+     "from": 2012,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u26",
+   "name": "Tenzin Dorje",
+   "email": "tenzin@example.com",
+   "batch": 2020,
+   "dept": "Electrical",
+   "city": "Delhi",
+   "role": "Energy Analyst",
+   "company": "SunGrid",
+   "hue": 100,
+   "joinedAt": 1793883958696,
+   "bio": "Solar, storage and long bike rides.",
+   "skills": [
+    "Energy",
+    "Python"
+   ],
+   "career": [
+    {
+     "title": "Energy Analyst",
+     "org": "SunGrid",
+     "from": 2022,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794312358696
+  },
+  {
+   "id": "u27",
+   "name": "Ritu Agarwal",
+   "email": "ritu@example.com",
+   "batch": 2015,
+   "dept": "Computer Science",
+   "city": "Mumbai",
+   "role": "Data Scientist",
+   "company": "Finly",
+   "hue": 280,
+   "joinedAt": 1795179958696,
+   "bio": "Forecasting things. Mumbai chapter regular.",
+   "skills": [
+    "ML",
+    "Statistics"
+   ],
+   "career": [
+    {
+     "title": "Data Scientist",
+     "org": "Finly",
+     "from": 2017,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794308758696
+  },
+  {
+   "id": "u28",
+   "name": "Pooja Menon",
+   "email": "pooja@example.com",
+   "batch": 2009,
+   "dept": "Mechanical",
+   "city": "Kochi",
+   "role": "Plant Head",
+   "company": "Coastal Foods",
+   "hue": 35,
+   "joinedAt": 1796475958696,
+   "bio": "Twenty years in operations. Ask me about scaling plants.",
+   "skills": [
+    "Operations",
+    "Lean"
+   ],
+   "career": [
+    {
+     "title": "Plant Head",
+     "org": "Coastal Foods",
+     "from": 2011,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u29",
+   "name": "Ayesha Khan",
+   "email": "ayesha@example.com",
+   "batch": 2021,
+   "dept": "Electronics",
+   "city": "Pune",
+   "role": "Embedded Engineer",
+   "company": "Northwind",
+   "hue": 315,
+   "joinedAt": 1797771958696,
+   "bio": "Firmware for medical devices. Robotics club alum.",
+   "skills": [
+    "C",
+    "Embedded"
+   ],
+   "career": [
+    {
+     "title": "Embedded Engineer",
+     "org": "Northwind",
+     "from": 2023,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794312358696
+  },
+  {
+   "id": "u30",
+   "name": "Aditya Bose",
+   "email": "aditya@example.com",
+   "batch": 2014,
+   "dept": "Computer Science",
+   "city": "Kolkata",
+   "role": "Founder",
+   "company": "Bookshelf",
+   "hue": 230,
+   "joinedAt": 1799067958696,
+   "bio": "Building a reading app. Hiring interns.",
+   "skills": [
+    "Startups",
+    "Mobile"
+   ],
+   "career": [
+    {
+     "title": "Founder",
+     "org": "Bookshelf",
+     "from": 2016,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794308758696
+  },
+  {
+   "id": "u31",
+   "name": "Harsh Patel",
+   "email": "harsh@example.com",
+   "batch": 2018,
+   "dept": "Civil",
+   "city": "Hyderabad",
+   "role": "Architect",
+   "company": "Studio Kaya",
+   "hue": 120,
+   "joinedAt": 1800363958696,
+   "bio": "Sustainable homes. Sketching at every reunion.",
+   "skills": [
+    "Architecture",
+    "Sustainability"
+   ],
+   "career": [
+    {
+     "title": "Architect",
+     "org": "Studio Kaya",
+     "from": 2020,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u32",
+   "name": "Manoj Das",
+   "email": "manoj@example.com",
+   "batch": 2012,
+   "dept": "Electrical",
+   "city": "Bengaluru",
+   "role": "Engineering Director",
+   "company": "Quanta AI",
+   "hue": 200,
+   "joinedAt": 1801659958696,
+   "bio": "Leads platform engineering. Mentor for career switchers.",
+   "skills": [
+    "Leadership",
+    "Cloud"
+   ],
+   "career": [
+    {
+     "title": "Engineering Director",
+     "org": "Quanta AI",
+     "from": 2014,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794312358696
+  },
+  {
+   "id": "u33",
+   "name": "Zara Sheikh",
+   "email": "zara@example.com",
+   "batch": 2022,
+   "dept": "Computer Science",
+   "city": "Mumbai",
+   "role": "Software Engineer",
+   "company": "Lumen Labs",
+   "hue": 330,
+   "joinedAt": 1802955958696,
+   "bio": "Recent grad. Running the alumni quiz night.",
+   "skills": [
+    "Java",
+    "Quizzing"
+   ],
+   "career": [
+    {
+     "title": "Software Engineer",
+     "org": "Lumen Labs",
+     "from": 2024,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794308758696
+  },
+  {
+   "id": "u34",
+   "name": "Nikhil Joshi",
+   "email": "nikhil@example.com",
+   "batch": 2016,
+   "dept": "Mechanical",
+   "city": "Chennai",
+   "role": "Design Engineer",
+   "company": "Torque EV",
+   "hue": 60,
+   "joinedAt": 1804251958696,
+   "bio": "Designing EV drivetrains with Karthik.",
+   "skills": [
+    "CAD",
+    "EV"
+   ],
+   "career": [
+    {
+     "title": "Design Engineer",
+     "org": "Torque EV",
+     "from": 2018,
+     "to": null
+    }
+   ],
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u9",
+   "name": "Ananya Das",
+   "email": "ananya@example.com",
+   "batch": 2019,
+   "dept": "Computer Science",
+   "city": "Kolkata",
+   "role": "Software Engineer",
+   "company": "Northwind",
+   "hue": 210,
+   "managerId": "u3",
+   "title": "Software Engineer",
+   "skills": [
+    "React",
+    "TypeScript"
+   ],
+   "bio": "Software Engineer at Northwind. Class of 2019.",
+   "career": [
+    {
+     "title": "Software Engineer",
+     "org": "Northwind",
+     "from": 2022,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "Yes"
+   },
+   "joinedAt": 1790859958696,
+   "lastActiveAt": 1794315958696,
+   "birthday": "01-19"
+  },
+  {
+   "id": "u10",
+   "name": "Farhan Siddiqui",
+   "email": "farhan@example.com",
+   "batch": 2013,
+   "dept": "Electronics",
+   "city": "Delhi",
+   "role": "Product Manager",
+   "company": "Brightpath",
+   "hue": 30,
+   "managerId": "u7",
+   "title": "Product Manager",
+   "skills": [
+    "Product",
+    "Strategy"
+   ],
+   "bio": "Product Manager at Brightpath. Class of 2013.",
+   "career": [
+    {
+     "title": "Product Manager",
+     "org": "Brightpath",
+     "from": 2016,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1790082358696,
+   "lastActiveAt": 1794229558696
+  },
+  {
+   "id": "u11",
+   "name": "Lakshmi Nair",
+   "email": "lakshmi@example.com",
+   "batch": 2020,
+   "dept": "Civil",
+   "city": "Kochi",
+   "role": "Site Engineer",
+   "company": "BuildRight",
+   "hue": 160,
+   "managerId": "u5",
+   "title": "Site Engineer",
+   "skills": [
+    "AutoCAD",
+    "Project planning"
+   ],
+   "bio": "Site Engineer at BuildRight. Class of 2020.",
+   "career": [
+    {
+     "title": "Site Engineer",
+     "org": "BuildRight",
+     "from": 2023,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1789304758696,
+   "lastActiveAt": 1794143158696
+  },
+  {
+   "id": "u12",
+   "name": "Arjun Pillai",
+   "email": "arjun@example.com",
+   "batch": 2017,
+   "dept": "Mechanical",
+   "city": "Chennai",
+   "role": "Design Engineer",
+   "company": "Torque EV",
+   "hue": 10,
+   "managerId": "u2",
+   "title": "Design Engineer",
+   "skills": [
+    "CAD",
+    "Prototyping"
+   ],
+   "bio": "Design Engineer at Torque EV. Class of 2017.",
+   "career": [
+    {
+     "title": "Design Engineer",
+     "org": "Torque EV",
+     "from": 2020,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "Yes"
+   },
+   "joinedAt": 1788527158696,
+   "lastActiveAt": 1794056758696
+  },
+  {
+   "id": "u13",
+   "name": "Neha Kulkarni",
+   "email": "neha@example.com",
+   "batch": 2018,
+   "dept": "Electrical",
+   "city": "Pune",
+   "role": "Data Scientist",
+   "company": "Quanta AI",
+   "hue": 300,
+   "managerId": "u3",
+   "title": "Data Scientist",
+   "skills": [
+    "Python",
+    "Statistics"
+   ],
+   "bio": "Data Scientist at Quanta AI. Class of 2018.",
+   "career": [
+    {
+     "title": "Data Scientist",
+     "org": "Quanta AI",
+     "from": 2021,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1787749558696,
+   "lastActiveAt": 1793970358696,
+   "birthday": "09-05"
+  },
+  {
+   "id": "u14",
+   "name": "Joseph Mathew",
+   "email": "joseph@example.com",
+   "batch": 2011,
+   "dept": "Mechanical",
+   "city": "Bengaluru",
+   "role": "Plant Head",
+   "company": "Helix Motors",
+   "hue": 80,
+   "managerId": "u8",
+   "title": "Plant Head",
+   "skills": [
+    "Manufacturing",
+    "Lean"
+   ],
+   "bio": "Plant Head at Helix Motors. Class of 2011.",
+   "career": [
+    {
+     "title": "Plant Head",
+     "org": "Helix Motors",
+     "from": 2014,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1786971958696,
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u15",
+   "name": "Divya Reddy",
+   "email": "divya@example.com",
+   "batch": 2021,
+   "dept": "Computer Science",
+   "city": "Hyderabad",
+   "role": "Frontend Developer",
+   "company": "Finly",
+   "hue": 240,
+   "managerId": "u6",
+   "title": "Frontend Developer",
+   "skills": [
+    "CSS",
+    "Accessibility"
+   ],
+   "bio": "Frontend Developer at Finly. Class of 2021.",
+   "career": [
+    {
+     "title": "Frontend Developer",
+     "org": "Finly",
+     "from": 2024,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "Yes"
+   },
+   "joinedAt": 1786194358696,
+   "lastActiveAt": 1794229558696
+  },
+  {
+   "id": "u16",
+   "name": "Imran Khan",
+   "email": "imran@example.com",
+   "batch": 2015,
+   "dept": "Electronics",
+   "city": "Mumbai",
+   "role": "Consultant",
+   "company": "City Lab",
+   "hue": 120,
+   "managerId": "u5",
+   "title": "Consultant",
+   "skills": [
+    "Consulting",
+    "IoT"
+   ],
+   "bio": "Consultant at City Lab. Class of 2015.",
+   "career": [
+    {
+     "title": "Consultant",
+     "org": "City Lab",
+     "from": 2018,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1785416758696,
+   "lastActiveAt": 1794143158696
+  },
+  {
+   "id": "u17",
+   "name": "Kavya Srinivasan",
+   "email": "kavya@example.com",
+   "batch": 2016,
+   "dept": "Computer Science",
+   "city": "Bengaluru",
+   "role": "Researcher",
+   "company": "Institute Labs",
+   "hue": 280,
+   "managerId": "u1",
+   "title": "Researcher",
+   "skills": [
+    "HCI",
+    "Research"
+   ],
+   "bio": "Researcher at Institute Labs. Class of 2016.",
+   "career": [
+    {
+     "title": "Researcher",
+     "org": "Institute Labs",
+     "from": 2019,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1784639158696,
+   "lastActiveAt": 1794056758696,
+   "birthday": "06-30"
+  },
+  {
+   "id": "u18",
+   "name": "Tomás Fernandes",
+   "email": "tomas@example.com",
+   "batch": 2019,
+   "dept": "Civil",
+   "city": "Goa",
+   "role": "Architect",
+   "company": "Studio Laterite",
+   "hue": 50,
+   "managerId": "u5",
+   "title": "Architect",
+   "skills": [
+    "Architecture",
+    "Sketching"
+   ],
+   "bio": "Architect at Studio Laterite. Class of 2019.",
+   "career": [
+    {
+     "title": "Architect",
+     "org": "Studio Laterite",
+     "from": 2022,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "Yes"
+   },
+   "joinedAt": 1783861558696,
+   "lastActiveAt": 1793970358696
+  },
+  {
+   "id": "u19",
+   "name": "Sneha Joshi",
+   "email": "sneha@example.com",
+   "batch": 2022,
+   "dept": "Electrical",
+   "city": "Pune",
+   "role": "Graduate Engineer",
+   "company": "GridWorks",
+   "hue": 340,
+   "managerId": "u13",
+   "title": "Graduate Engineer",
+   "skills": [
+    "Power systems"
+   ],
+   "bio": "Graduate Engineer at GridWorks. Class of 2022.",
+   "career": [
+    {
+     "title": "Graduate Engineer",
+     "org": "GridWorks",
+     "from": 2025,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1783083958696,
+   "lastActiveAt": 1794315958696
+  },
+  {
+   "id": "u20",
+   "name": "Rahul Verma",
+   "email": "rahul@example.com",
+   "batch": 2014,
+   "dept": "Computer Science",
+   "city": "Delhi",
+   "role": "CTO",
+   "company": "Kiteboard",
+   "hue": 200,
+   "managerId": "u10",
+   "title": "CTO",
+   "skills": [
+    "Engineering leadership",
+    "Go"
+   ],
+   "bio": "CTO at Kiteboard. Class of 2014.",
+   "career": [
+    {
+     "title": "CTO",
+     "org": "Kiteboard",
+     "from": 2017,
+     "to": null
+    }
+   ],
+   "customFields": {
+    "mentor": "No"
+   },
+   "joinedAt": 1782306358696,
+   "lastActiveAt": 1794229558696
+  }
+ ],
+ "groups": [
+  {
+   "id": "g0",
+   "name": "All Hands",
+   "description": "Network-wide announcements from the alumni relations team. Everyone is a member.",
+   "type": "Department",
+   "accessType": "public",
+   "emoji": "📢",
+   "hue": 230,
+   "members": [
+    "u1",
+    "u2",
+    "u3",
+    "u4",
+    "u5",
+    "u6",
+    "u7",
+    "u8",
+    "u9",
+    "u10",
+    "u11",
+    "u12",
+    "u13",
+    "u14",
+    "u15",
+    "u16",
+    "u17",
+    "u18",
+    "u19",
+    "u20",
+    "u21",
+    "u22",
+    "u23",
+    "u24",
+    "u25",
+    "u26",
+    "u27",
+    "u28",
+    "u29",
+    "u30",
+    "u31",
+    "u32",
+    "u33",
+    "u34"
+   ],
+   "admins": [
+    "u7"
+   ],
+   "moderators": [],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "events",
+    "townhalls",
+    "members"
+   ],
+   "announceOnly": true,
+   "allHands": true,
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    },
+    {
+     "id": "w-stats",
+     "kind": "stats"
+    }
+   ],
+   "guidelines": "Only admins post here. Comment and react freely."
+  },
+  {
+   "id": "g1",
+   "name": "Class of 2016",
+   "description": "Everything for the 2016 batch: reunions, updates and throwbacks.",
+   "type": "Batch",
+   "accessType": "private",
+   "emoji": "🎓",
+   "hue": 262,
+   "members": [
+    "u1",
+    "u2",
+    "u7",
+    "u3",
+    "u34"
+   ],
+   "admins": [
+    "u7"
+   ],
+   "moderators": [
+    "u1"
+   ],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "forums",
+    "events",
+    "files",
+    "members"
+   ],
+   "dynamicRule": {
+    "field": "batch",
+    "op": "eq",
+    "value": "2016"
+   },
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    },
+    {
+     "id": "w-rules",
+     "kind": "rules"
+    },
+    {
+     "id": "w-links",
+     "kind": "links",
+     "links": [
+      {
+       "label": "Reunion photo album",
+       "url": "https://example.com/album"
+      }
+     ]
+    }
+   ],
+   "guidelines": "Keep it friendly. Reunion logistics go in the Events tab."
+  },
+  {
+   "id": "g2",
+   "name": "Bengaluru Chapter",
+   "description": "Alumni living and working in Bengaluru. Monthly meet-ups.",
+   "type": "City",
+   "accessType": "public",
+   "emoji": "🌆",
+   "hue": 190,
+   "members": [
+    "u1",
+    "u4",
+    "u8",
+    "u21",
+    "u23",
+    "u32"
+   ],
+   "admins": [
+    "u8",
+    "u21"
+   ],
+   "moderators": [],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "events",
+    "files",
+    "webtabs",
+    "members"
+   ],
+   "dynamicRule": {
+    "field": "city",
+    "op": "eq",
+    "value": "Bengaluru"
+   },
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    },
+    {
+     "id": "w-stats",
+     "kind": "stats"
+    }
+   ],
+   "guidelines": "Be on time for meet-ups. Share photos after!"
+  },
+  {
+   "id": "g3",
+   "name": "Founders Circle",
+   "description": "Alumni founders sharing lessons, intros and hiring needs.",
+   "type": "Interest",
+   "accessType": "restricted",
+   "emoji": "🚀",
+   "hue": 20,
+   "members": [
+    "u2",
+    "u8",
+    "u30"
+   ],
+   "admins": [
+    "u2"
+   ],
+   "moderators": [],
+   "joinRequests": [
+    "u4"
+   ],
+   "apps": [
+    "dashboard",
+    "feed",
+    "forums",
+    "ideas",
+    "members"
+   ],
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    },
+    {
+     "id": "w-rules",
+     "kind": "rules"
+    }
+   ],
+   "guidelines": "Founders and early employees only. What is shared here stays here."
+  },
+  {
+   "id": "g4",
+   "name": "Mentorship Program",
+   "description": "Pairing students with alumni mentors across industries.",
+   "type": "Interest",
+   "accessType": "public",
+   "emoji": "🤝",
+   "hue": 330,
+   "members": [
+    "u3",
+    "u7",
+    "u1",
+    "u5",
+    "u22",
+    "u28",
+    "u32",
+    "u26"
+   ],
+   "admins": [
+    "u3",
+    "u22"
+   ],
+   "moderators": [
+    "u7"
+   ],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "forums",
+    "events",
+    "manuals",
+    "tasks",
+    "members"
+   ],
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    },
+    {
+     "id": "w-html",
+     "kind": "html",
+     "html": "<h3 style=\"margin:0 0 6px\">Become a mentor</h3><p style=\"margin:0\">One hour a month changes a student's year.</p>"
+    }
+   ],
+   "guidelines": "Respect mentee privacy. Log sessions in Tasks."
+  },
+  {
+   "id": "g5",
+   "name": "Mumbai Chapter",
+   "description": "Mumbai alumni: sea-face walks and startup nights.",
+   "type": "City",
+   "accessType": "public",
+   "emoji": "🌊",
+   "hue": 140,
+   "members": [
+    "u5",
+    "u27",
+    "u33"
+   ],
+   "admins": [
+    "u5"
+   ],
+   "moderators": [],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "events",
+    "members"
+   ],
+   "dynamicRule": {
+    "field": "city",
+    "op": "eq",
+    "value": "Mumbai"
+   },
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    }
+   ],
+   "guidelines": ""
+  },
+  {
+   "id": "g6",
+   "name": "Homecoming 2026 Committee",
+   "description": "Volunteers planning this year's homecoming.",
+   "type": "Project",
+   "accessType": "private",
+   "emoji": "🏛️",
+   "hue": 290,
+   "members": [
+    "u7",
+    "u1",
+    "u3"
+   ],
+   "admins": [
+    "u7"
+   ],
+   "moderators": [],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "forums",
+    "events",
+    "files",
+    "manuals",
+    "tasks",
+    "ideas",
+    "townhalls",
+    "webtabs",
+    "members"
+   ],
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    },
+    {
+     "id": "w-stats",
+     "kind": "stats"
+    }
+   ],
+   "guidelines": "Decisions go in Tasks. Vendors and budgets in Files."
+  },
+  {
+   "id": "g7",
+   "name": "Computer Science Alumni",
+   "description": "CS grads across all batches: tech talks, jobs and research.",
+   "type": "Department",
+   "accessType": "public",
+   "emoji": "💻",
+   "hue": 210,
+   "members": [
+    "u1",
+    "u4",
+    "u7"
+   ],
+   "admins": [
+    "u4"
+   ],
+   "moderators": [],
+   "joinRequests": [],
+   "apps": [
+    "dashboard",
+    "feed",
+    "forums",
+    "ideas",
+    "events",
+    "members"
+   ],
+   "dynamicRule": {
+    "field": "dept",
+    "op": "eq",
+    "value": "Computer Science"
+   },
+   "dashboard": [
+    {
+     "id": "w-about",
+     "kind": "about"
+    },
+    {
+     "id": "w-events",
+     "kind": "events"
+    },
+    {
+     "id": "w-members",
+     "kind": "members"
+    }
+   ],
+   "guidelines": ""
+  }
+ ],
+ "posts": [
+  {
+   "id": "p1",
+   "authorId": "u7",
+   "scope": {
+    "type": "network"
+   },
+   "createdAt": 1794308758685,
+   "type": "announcement",
+   "status": "published",
+   "pinned": true,
+   "text": "The Annual Alumni Homecoming is confirmed for next month! Please read the code of conduct and confirm below so we can finalise passes. #homecoming",
+   "mandatory": {
+    "deadline": 1795179958685,
+    "reminder": "daily",
+    "message": "I have read and agree to the Homecoming code of conduct.",
+    "button": "Acknowledge",
+    "color": "#4d7c0f",
+    "acks": [
+     "u2",
+     "u3"
+    ]
+   },
+   "likes": [
+    "u2",
+    "u3",
+    "u4",
+    "u5"
+   ],
+   "reactions": {
+    "u2": "happy",
+    "u3": "happy",
+    "u6": "neutral"
+   },
+   "views": {
+    "u2": 1,
+    "u3": 2,
+    "u4": 1,
+    "u5": 1,
+    "u6": 1
+   },
+   "comments": [
+    {
+     "id": "c1",
+     "authorId": "u2",
+     "text": "Cannot wait! Booking tickets already.",
+     "createdAt": 1794312358685,
+     "upvotes": []
+    }
+   ]
+  },
+  {
+   "id": "p2",
+   "authorId": "u2",
+   "scope": {
+    "type": "network"
+   },
+   "createdAt": 1794297958685,
+   "type": "post",
+   "status": "published",
+   "text": "Torque EV just closed our seed round 🎉 Huge thanks to the Founders Circle for the intros. We are hiring firmware engineers. Alumni referrals get priority! #hiring #startups",
+   "likes": [
+    "u1",
+    "u4",
+    "u8",
+    "u6",
+    "u7"
+   ],
+   "reactions": {
+    "u1": "happy",
+    "u8": "happy"
+   },
+   "views": {
+    "u1": 1,
+    "u4": 1,
+    "u8": 2,
+    "u6": 1,
+    "u7": 1,
+    "u3": 1
+   },
+   "comments": [
+    {
+     "id": "c2",
+     "authorId": "u8",
+     "text": "Proud of you, Karthik!",
+     "createdAt": 1794301558685,
+     "upvotes": [
+      "u2"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "p3",
+   "authorId": "u4",
+   "scope": {
+    "type": "group",
+    "id": "g2"
+   },
+   "createdAt": 1794222358685,
+   "type": "poll",
+   "status": "published",
+   "text": "Where should the next Bengaluru meet-up be? #meetup",
+   "poll": {
+    "options": [
+     {
+      "id": "o1",
+      "text": "Cubbon Park picnic",
+      "votes": [
+       "u1",
+       "u8"
+      ]
+     },
+     {
+      "id": "o2",
+      "text": "Brewery in Indiranagar",
+      "votes": [
+       "u4"
+      ]
+     },
+     {
+      "id": "o3",
+      "text": "Campus visit",
+      "votes": []
+     }
+    ]
+   },
+   "likes": [
+    "u8"
+   ],
+   "comments": []
+  },
+  {
+   "id": "p4",
+   "authorId": "u3",
+   "scope": {
+    "type": "group",
+    "id": "g4"
+   },
+   "createdAt": 1794143158685,
+   "type": "post",
+   "status": "published",
+   "text": "Mentorship applications for the spring cohort are open. 40 students are waiting for mentors. Even one hour a month helps. #mentorship",
+   "likes": [
+    "u1",
+    "u7"
+   ],
+   "comments": []
+  },
+  {
+   "id": "p5",
+   "authorId": "u5",
+   "scope": {
+    "type": "network"
+   },
+   "createdAt": 1794056758685,
+   "type": "post",
+   "status": "published",
+   "text": "Found this photo from our 2014 convocation. Tag yourself if you can find your younger self 😄 #throwback",
+   "attachments": [
+    {
+     "id": "at1",
+     "name": "convocation-2014.svg",
+     "type": "image/svg+xml",
+     "size": 1200,
+     "dataUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%233a3f3c%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23a3e635%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20fill%3D%22url(%23g)%22%2F%3E%3Cg%20fill%3D%22%23fff%22%20opacity%3D%22.9%22%3E%3Ccircle%20cx%3D%22200%22%20cy%3D%22260%22%20r%3D%2240%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22250%22%20r%3D%2240%22%2F%3E%3Ccircle%20cx%3D%22440%22%20cy%3D%22262%22%20r%3D%2240%22%2F%3E%3Ccircle%20cx%3D%22560%22%20cy%3D%22248%22%20r%3D%2240%22%2F%3E%3C%2Fg%3E%3Ctext%20x%3D%22400%22%20y%3D%22390%22%20font-family%3D%22Inter%2CArial%22%20font-size%3D%2234%22%20font-weight%3D%22700%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EConvocation%202014%3C%2Ftext%3E%3C%2Fsvg%3E"
+    }
+   ],
+   "likes": [
+    "u7",
+    "u3",
+    "u1"
+   ],
+   "reactions": {
+    "u7": "happy"
+   },
+   "comments": [
+    {
+     "id": "c3",
+     "authorId": "u7",
+     "text": "Adding this to the alumni archive!",
+     "createdAt": 1794099958685,
+     "upvotes": []
+    }
+   ]
+  },
+  {
+   "id": "p6",
+   "authorId": "u6",
+   "scope": {
+    "type": "network"
+   },
+   "createdAt": 1794207958685,
+   "type": "question",
+   "status": "published",
+   "text": "Any alumni working in climate tech? I am exploring a move and would love a 20-minute chat about what the day-to-day looks like. #careers #climate",
+   "likes": [
+    "u5"
+   ],
+   "bestAnswerId": "c5",
+   "comments": [
+    {
+     "id": "c4",
+     "authorId": "u5",
+     "text": "City Lab works with a few climate startups on urban heat mapping. Happy to intro you.",
+     "createdAt": 1794215158685,
+     "upvotes": [
+      "u6",
+      "u1"
+     ]
+    },
+    {
+     "id": "c5",
+     "authorId": "u8",
+     "text": "Helix Motors has a battery recycling team. DM me and I will connect you with the lead.",
+     "createdAt": 1794218758685,
+     "upvotes": [
+      "u6",
+      "u2",
+      "u4"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "p7",
+   "authorId": "u7",
+   "scope": {
+    "type": "network"
+   },
+   "createdAt": 1793970358685,
+   "type": "advocacy",
+   "status": "published",
+   "text": "Our Institute was ranked among the top 10 engineering schools this year. Please share the news with your network!",
+   "advocacy": {
+    "title": "Institute ranked in the national top 10",
+    "url": "https://example.com/news/institute-top-10",
+    "platforms": [
+     "linkedin",
+     "x",
+     "facebook"
+    ],
+    "tweet": "Proud alum! My alma mater just made the national top 10 🎓",
+    "shares": {
+     "linkedin": [
+      "u2",
+      "u3",
+      "u8"
+     ],
+     "x": [
+      "u4"
+     ],
+     "facebook": [
+      "u5"
+     ]
+    }
+   },
+   "likes": [
+    "u1",
+    "u3"
+   ],
+   "comments": []
+  },
+  {
+   "id": "p8",
+   "authorId": "u1",
+   "scope": {
+    "type": "group",
+    "id": "g1"
+   },
+   "createdAt": 1794312358685,
+   "type": "post",
+   "status": "scheduled",
+   "publishAt": 1794488758685,
+   "text": "Reminder: the 10-year reunion planning call is this weekend. Bring your venue ideas! #reunion",
+   "likes": [],
+   "comments": []
+  },
+  {
+   "id": "p9",
+   "authorId": "u1",
+   "scope": {
+    "type": "network"
+   },
+   "createdAt": 1794294358685,
+   "type": "post",
+   "status": "draft",
+   "text": "Draft: thinking of starting a design mentorship circle for juniors. Who would be interested?",
+   "likes": [],
+   "comments": []
+  }
+ ],
+ "events": [
+  {
+   "id": "e1",
+   "title": "Annual Alumni Homecoming",
+   "eventType": "Reunion",
+   "scope": {
+    "type": "network"
+   },
+   "hostId": "u7",
+   "assistants": [
+    "u1"
+   ],
+   "start": 1795519800000,
+   "end": 1795537800000,
+   "allDay": false,
+   "location": "Main Campus Auditorium",
+   "description": "An evening of reconnecting, awards and a dinner on the lawns.",
+   "rsvpEnabled": true,
+   "rsvps": {
+    "u1": "going",
+    "u2": "going",
+    "u3": "maybe",
+    "u5": "going"
+   },
+   "invitees": [],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [
+    1440,
+    60
+   ],
+   "attachments": [
+    {
+     "name": "homecoming-schedule.pdf",
+     "size": 482000
+    }
+   ],
+   "comments": [
+    {
+     "id": "ec1",
+     "authorId": "u2",
+     "text": "Is there parking on campus for alumni?",
+     "createdAt": 1794297958681
+    },
+    {
+     "id": "ec2",
+     "authorId": "u7",
+     "text": "Yes, Gate 3 lot is reserved for us.",
+     "createdAt": 1794301558681
+    }
+   ]
+  },
+  {
+   "id": "e2",
+   "title": "Bengaluru Chapter Meet-up",
+   "eventType": "Meetup",
+   "scope": {
+    "type": "group",
+    "id": "g2"
+   },
+   "hostId": "u8",
+   "assistants": [],
+   "start": 1794747600000,
+   "end": 1794756600000,
+   "allDay": false,
+   "location": "https://maps.app.goo.gl/cubbonpark",
+   "description": "Casual picnic. Bring snacks and stories.",
+   "rsvpEnabled": true,
+   "rsvps": {
+    "u4": "going",
+    "u8": "going"
+   },
+   "invitees": [],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [
+    120
+   ],
+   "attachments": [],
+   "comments": []
+  },
+  {
+   "id": "e3",
+   "title": "Mentor orientation call",
+   "eventType": "Webinar",
+   "scope": {
+    "type": "group",
+    "id": "g4"
+   },
+   "hostId": "u3",
+   "assistants": [
+    "u7"
+   ],
+   "start": 1794490200000,
+   "end": 1794493800000,
+   "allDay": false,
+   "location": "Online",
+   "description": "A 45-minute walkthrough of how mentorship pairing works.",
+   "rsvpEnabled": true,
+   "rsvps": {
+    "u1": "going"
+   },
+   "invitees": [],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [
+    30
+   ],
+   "attachments": [],
+   "comments": []
+  },
+  {
+   "id": "e4",
+   "title": "Coffee with Priya",
+   "eventType": "Meeting",
+   "scope": {
+    "type": "private"
+   },
+   "hostId": "u1",
+   "assistants": [],
+   "start": 1794369600000,
+   "end": 1794373200000,
+   "allDay": false,
+   "location": "Third Wave, Koramangala",
+   "description": "Catch-up on the mentorship program.",
+   "rsvpEnabled": true,
+   "rsvps": {},
+   "invitees": [
+    "u3"
+   ],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [
+    15
+   ],
+   "attachments": [],
+   "comments": []
+  },
+  {
+   "id": "e5",
+   "title": "Class of 2016 – 10 year reunion planning",
+   "eventType": "Reunion",
+   "scope": {
+    "type": "group",
+    "id": "g1"
+   },
+   "hostId": "u7",
+   "assistants": [],
+   "start": 1796103000000,
+   "end": 1796106600000,
+   "allDay": false,
+   "location": "Online",
+   "description": "Help shape our 10-year reunion.",
+   "rsvpEnabled": true,
+   "rsvps": {},
+   "invitees": [],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [],
+   "attachments": [],
+   "comments": []
+  },
+  {
+   "id": "e6",
+   "title": "Mentorship office hours",
+   "eventType": "Webinar",
+   "scope": {
+    "type": "group",
+    "id": "g4"
+   },
+   "hostId": "u3",
+   "assistants": [],
+   "start": 1794580200000,
+   "end": 1794583800000,
+   "allDay": false,
+   "location": "Online",
+   "description": "Drop in with questions about careers, higher studies or the mentorship program.",
+   "rsvpEnabled": true,
+   "rsvps": {
+    "u1": "maybe"
+   },
+   "invitees": [],
+   "recurrence": {
+    "freq": "weekly",
+    "until": 1799515800000
+   },
+   "reminders": [
+    30
+   ],
+   "attachments": [],
+   "comments": []
+  },
+  {
+   "id": "e7",
+   "title": "Alumni Hackathon 2026",
+   "eventType": "Contest",
+   "scope": {
+    "type": "network"
+   },
+   "hostId": "u4",
+   "assistants": [
+    "u6"
+   ],
+   "start": 1796668200000,
+   "end": 1796840940000,
+   "allDay": true,
+   "location": "Innovation Centre, Main Campus",
+   "description": "Two days, mixed alumni–student teams, one problem statement from a local NGO.",
+   "rsvpEnabled": true,
+   "rsvps": {
+    "u4": "going",
+    "u6": "going",
+    "u2": "maybe"
+   },
+   "invitees": [],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [
+    1440
+   ],
+   "attachments": [],
+   "comments": []
+  },
+  {
+   "id": "e8",
+   "title": "Founders ShowTime: demo night",
+   "eventType": "ShowTime",
+   "scope": {
+    "type": "group",
+    "id": "g3"
+   },
+   "hostId": "u2",
+   "assistants": [],
+   "start": 1793799000000,
+   "end": 1793806200000,
+   "allDay": false,
+   "location": "Online",
+   "description": "Five alumni startups demo in five minutes each.",
+   "rsvpEnabled": true,
+   "rsvps": {
+    "u2": "going",
+    "u8": "going",
+    "u1": "going"
+   },
+   "invitees": [],
+   "recurrence": {
+    "freq": "none"
+   },
+   "reminders": [],
+   "attachments": [],
+   "comments": [
+    {
+     "id": "ec3",
+     "authorId": "u8",
+     "text": "Great demos, thanks everyone!",
+     "createdAt": 1793808000000
+    }
+   ]
+  }
+ ],
+ "forumCategories": [
+  {
+   "id": "fc1",
+   "name": "Careers & Jobs",
+   "autoFollow": true
+  },
+  {
+   "id": "fc2",
+   "name": "Higher Studies",
+   "autoFollow": false
+  },
+  {
+   "id": "fc3",
+   "name": "Campus News",
+   "autoFollow": true
+  },
+  {
+   "id": "fc4",
+   "name": "Off-topic",
+   "autoFollow": false
+  }
+ ],
+ "forumPosts": [
+  {
+   "id": "f1",
+   "authorId": "u6",
+   "title": "Switching from analytics to product management. Advice?",
+   "groupId": null,
+   "categories": [
+    "fc1"
+   ],
+   "status": "published",
+   "commentsDisabled": false,
+   "body": "I have 5 years in data analytics and want to move into PM. Did anyone here make that switch? What helped the most?",
+   "createdAt": 1794186358697,
+   "upvotes": [
+    "u1",
+    "u3"
+   ],
+   "replies": [
+    {
+     "id": "r1",
+     "authorId": "u3",
+     "text": "Start owning a metric end to end in your current role. That story sells.",
+     "createdAt": 1794229558697
+    }
+   ]
+  },
+  {
+   "id": "f2",
+   "authorId": "u4",
+   "title": "MS in the US vs Europe in 2026",
+   "groupId": null,
+   "categories": [
+    "fc2"
+   ],
+   "status": "published",
+   "commentsDisabled": false,
+   "body": "A few juniors asked me this. Would love inputs from alumni who studied abroad recently.",
+   "createdAt": 1794056758697,
+   "upvotes": [
+    "u6"
+   ],
+   "replies": []
+  },
+  {
+   "id": "f3",
+   "authorId": "u7",
+   "title": "New library wing opens to alumni",
+   "groupId": null,
+   "categories": [
+    "fc3"
+   ],
+   "status": "published",
+   "commentsDisabled": true,
+   "body": "Alumni can now get reading access to the new library wing with their AlumniZone ID. Details at the front desk.",
+   "createdAt": 1793970358697,
+   "upvotes": [
+    "u1",
+    "u5",
+    "u2"
+   ],
+   "replies": []
+  },
+  {
+   "id": "f4",
+   "authorId": "u2",
+   "title": "Hardware founders: where do you prototype?",
+   "groupId": "g3",
+   "categories": [
+    "fc1"
+   ],
+   "status": "published",
+   "commentsDisabled": false,
+   "body": "Looking for maker spaces in Chennai and Bengaluru with CNC access.",
+   "createdAt": 1794143158697,
+   "upvotes": [],
+   "replies": []
+  }
+ ],
+ "channels": [
+  {
+   "id": "ch1",
+   "name": "general",
+   "description": "Network-wide chatter",
+   "groupId": null,
+   "members": [
+    "u1",
+    "u2",
+    "u3",
+    "u4",
+    "u5",
+    "u6",
+    "u7",
+    "u8",
+    "u21",
+    "u22",
+    "u23",
+    "u24",
+    "u25",
+    "u26",
+    "u27",
+    "u28",
+    "u29",
+    "u30",
+    "u31",
+    "u32",
+    "u33",
+    "u34"
+   ],
+   "admins": [
+    "u7"
+   ],
+   "messages": [
+    {
+     "id": "m1",
+     "authorId": "u7",
+     "text": "Welcome to AlumniZone, everyone 👋",
+     "createdAt": 1794056758697
+    },
+    {
+     "id": "m2",
+     "authorId": "u4",
+     "text": "Great to be here!",
+     "createdAt": 1794057358697
+    },
+    {
+     "id": "m3",
+     "authorId": "u5",
+     "text": "Homecoming passes go live on Monday.",
+     "createdAt": 1794312358697
+    }
+   ]
+  },
+  {
+   "id": "ch2",
+   "name": "class-of-2016",
+   "description": "Linked to the Class of 2016 group",
+   "groupId": "g1",
+   "members": [
+    "u1",
+    "u2",
+    "u7",
+    "u3"
+   ],
+   "admins": [
+    "u7"
+   ],
+   "messages": [
+    {
+     "id": "m4",
+     "authorId": "u2",
+     "text": "Who is coming for the reunion planning call?",
+     "createdAt": 1794308758697
+    }
+   ]
+  },
+  {
+   "id": "ch3",
+   "name": "jobs-referrals",
+   "description": "Share openings and referrals",
+   "groupId": null,
+   "members": [
+    "u1",
+    "u2",
+    "u4",
+    "u6",
+    "u8"
+   ],
+   "admins": [
+    "u8"
+   ],
+   "messages": [
+    {
+     "id": "m5",
+     "authorId": "u2",
+     "text": "Torque EV is hiring firmware engineers. DM me.",
+     "createdAt": 1794297958697
+    }
+   ]
+  }
+ ],
+ "manuals": [
+  {
+   "id": "man1",
+   "title": "Alumni Handbook",
+   "description": "How the alumni network works.",
+   "admins": [
+    "u7"
+   ],
+   "published": true,
+   "chapters": [
+    {
+     "id": "ch-a",
+     "title": "Getting started",
+     "articles": [
+      {
+       "id": "a1",
+       "title": "Welcome to AlumniZone",
+       "published": true,
+       "updatedAt": 1793451958697,
+       "body": "AlumniZone is the private, invite-only network for graduates of the Institute.\n\nUse the Wall to share updates, Groups for your batch or city, Events for reunions, and Forums for longer discussions."
+      },
+      {
+       "id": "a2",
+       "title": "Completing your profile",
+       "published": true,
+       "updatedAt": 1793538358697,
+       "body": "Add your batch, department, city and current role so classmates can find you.\n\nYour career history helps students find mentors."
+      }
+     ]
+    },
+    {
+     "id": "ch-b",
+     "title": "Community guidelines",
+     "articles": [
+      {
+       "id": "a3",
+       "title": "Code of conduct",
+       "published": true,
+       "updatedAt": 1793624758697,
+       "body": "Be kind. Be respectful of privacy. No unsolicited sales pitches.\n\nAdmins may remove content that breaks these guidelines."
+      },
+      {
+       "id": "a4",
+       "title": "Reporting a problem",
+       "published": false,
+       "updatedAt": 1794229558697,
+       "body": "Draft: how to report a post or a member to the alumni relations team."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "man2",
+   "title": "Event Organiser Kit",
+   "description": "Templates and checklists for hosting chapter events.",
+   "admins": [
+    "u7",
+    "u8"
+   ],
+   "published": true,
+   "chapters": [
+    {
+     "id": "ch-c",
+     "title": "Planning",
+     "articles": [
+      {
+       "id": "a5",
+       "title": "Chapter meet-up checklist",
+       "published": true,
+       "updatedAt": 1793883958697,
+       "body": "1. Pick a date at least three weeks out.\n2. Create the event in your chapter group.\n3. Post a poll for the venue.\n4. Send a reminder two days before."
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "notifications": [
+  {
+   "id": "n1",
+   "kind": "mandatory",
+   "text": "Sara Thomas marked a post as Mandatory Read",
+   "link": "/feed/mandatory",
+   "createdAt": 1794308758697,
+   "read": false
+  },
+  {
+   "id": "n2",
+   "kind": "event",
+   "text": "You are invited as an Event Assistant for Annual Alumni Homecoming",
+   "link": "/events/e1",
+   "createdAt": 1794294358697,
+   "read": false
+  },
+  {
+   "id": "n3",
+   "kind": "like",
+   "text": "Priya Sharma and 2 others liked your comment",
+   "link": "/feed",
+   "createdAt": 1794229558697,
+   "read": true
+  },
+  {
+   "id": "n4",
+   "kind": "group",
+   "text": "Daniel Okafor posted a poll in Bengaluru Chapter",
+   "link": "/groups/g2",
+   "createdAt": 1794222358697,
+   "read": true
+  }
+ ],
+ "bookmarks": {},
+ "activity": [],
+ "settings": {
+  "networkName": "AlumniZone",
+  "tagline": "Your alumni community, in one place.",
+  "accent": "#84cc16",
+  "logoText": "AZ",
+  "customCss": "",
+  "landing": "/feed",
+  "moduleNames": {},
+  "hiddenModules": [
+   "orgchart"
+  ],
+  "navOrder": [],
+  "registration": {
+   "open": true,
+   "requireApproval": false,
+   "guidelines": "Be kind and respectful. Keep conversations relevant to our alumni community. No spam, sales pitches or sharing others’ personal information without consent. Admins may remove content or members that break these guidelines.",
+   "allowedDomains": []
+  },
+  "moderation": {
+   "requireApproval": false,
+   "newMemberHoldDays": 0,
+   "bannedWords": [],
+   "whitelist": []
+  },
+  "security": {
+   "sso": {
+    "enabled": false,
+    "provider": "",
+    "entityId": "",
+    "ssoUrl": ""
+   },
+   "externalUsers": true,
+   "directorySync": false,
+   "customDomain": "",
+   "mobileAppName": ""
+  },
+  "assist": {
+   "enabled": true,
+   "writer": true,
+   "summaries": true,
+   "translation": true,
+   "sentiment": true
+  }
+ },
+ "roles": [
+  {
+   "id": "member",
+   "name": "Member",
+   "system": true,
+   "perms": [
+    "post.create",
+    "group.create",
+    "channel.create",
+    "files.upload",
+    "survey.create"
+   ]
+  },
+  {
+   "id": "moderator",
+   "name": "Moderator",
+   "system": true,
+   "perms": [
+    "post.create",
+    "post.announce",
+    "mandatory.mark",
+    "group.create",
+    "channel.create",
+    "forum.category",
+    "idea.moderate",
+    "files.upload",
+    "survey.create"
+   ]
+  },
+  {
+   "id": "alumni-relations",
+   "name": "Alumni Relations",
+   "system": false,
+   "perms": [
+    "post.create",
+    "post.announce",
+    "mandatory.mark",
+    "group.create",
+    "event.create.network",
+    "forum.category",
+    "channel.create",
+    "manual.create",
+    "idea.moderate",
+    "townhall.host",
+    "survey.create",
+    "files.upload",
+    "admin.analytics"
+   ]
+  },
+  {
+   "id": "external",
+   "name": "External user",
+   "system": true,
+   "perms": [
+    "post.create"
+   ]
+  }
+ ],
+ "policies": {
+  "groupCreation": "everyone",
+  "channelCreation": "everyone",
+  "allowExternalUsers": true,
+  "maxFileSizeMb": 30,
+  "retentionDays": 0,
+  "profileVisibility": "members"
+ },
+ "customFields": [
+  {
+   "id": "linkedin",
+   "label": "LinkedIn handle",
+   "type": "text"
+  },
+  {
+   "id": "mentor",
+   "label": "Open to mentoring",
+   "type": "select",
+   "options": [
+    "Yes",
+    "No"
+   ]
+  },
+  {
+   "id": "hostel",
+   "label": "Hostel",
+   "type": "text"
+  }
+ ],
+ "invites": [
+  {
+   "id": "inv1",
+   "code": "BATCH2019",
+   "email": "neha@example.com",
+   "invitedBy": "u7",
+   "batch": 2019,
+   "external": false,
+   "status": "pending",
+   "createdAt": 1794143158671
+  },
+  {
+   "id": "inv2",
+   "code": "GUEST2026",
+   "email": "speaker@example.org",
+   "invitedBy": "u7",
+   "batch": null,
+   "external": true,
+   "status": "pending",
+   "createdAt": 1794229558671
+  }
+ ],
+ "flags": [
+  {
+   "id": "fl1",
+   "kind": "post",
+   "refId": "p2",
+   "reason": "Promotional content / hiring spam",
+   "reporterId": "u6",
+   "status": "open",
+   "createdAt": 1794297958671
+  },
+  {
+   "id": "fl2",
+   "kind": "forum",
+   "refId": "f2",
+   "reason": "Off-topic for category",
+   "reporterId": "u5",
+   "status": "open",
+   "createdAt": 1794229558671
+  },
+  {
+   "id": "fl3",
+   "kind": "comment",
+   "refId": "c3",
+   "reason": "Spoiler",
+   "reporterId": "u4",
+   "status": "dismissed",
+   "createdAt": 1794056758671
+  }
+ ],
+ "workflows": [
+  {
+   "id": "wf1",
+   "name": "Welcome new members",
+   "enabled": true,
+   "trigger": "signup",
+   "condition": {
+    "groupId": "",
+    "keyword": ""
+   },
+   "actions": [
+    {
+     "kind": "notifyAdmins",
+     "text": "A new member joined AlumniZone"
+    }
+   ],
+   "runs": []
+  },
+  {
+   "id": "wf2",
+   "name": "Flag job posts for moderators",
+   "enabled": true,
+   "trigger": "post/create",
+   "condition": {
+    "groupId": "",
+    "keyword": "hiring"
+   },
+   "actions": [
+    {
+     "kind": "createTask",
+     "text": "Review hiring post"
+    }
+   ],
+   "runs": []
+  },
+  {
+   "id": "wf3",
+   "name": "Badge for first idea",
+   "enabled": false,
+   "trigger": "add:ideas",
+   "condition": {
+    "groupId": "",
+    "keyword": ""
+   },
+   "actions": [
+    {
+     "kind": "awardBadge",
+     "badgeId": "ideator"
+    }
+   ],
+   "runs": []
+  }
+ ],
+ "schedulers": [
+  {
+   "id": "sc1",
+   "name": "Weekly digest",
+   "kind": "digest",
+   "interval": "weekly",
+   "enabled": true,
+   "target": "network",
+   "text": "",
+   "lastRun": 1793797558671,
+   "nextRun": 1794402358671
+  },
+  {
+   "id": "sc2",
+   "name": "Inactive member reminder",
+   "kind": "inactive",
+   "interval": "monthly",
+   "enabled": true,
+   "target": "network",
+   "text": "",
+   "lastRun": 1792587958671,
+   "nextRun": 1795179958671
+  },
+  {
+   "id": "sc3",
+   "name": "Friday reminder to update profiles",
+   "kind": "announcement",
+   "interval": "weekly",
+   "enabled": false,
+   "target": "network",
+   "text": "Reminder: keep your career history up to date so juniors can find mentors 🎓",
+   "lastRun": null,
+   "nextRun": 1794488758671
+  }
+ ],
+ "badgeAwards": [
+  {
+   "id": "ba1",
+   "toId": "u7",
+   "badgeId": "first-post"
+  }
+ ],
+ "customApps": [
+  {
+   "id": "app1",
+   "name": "Mentorship request",
+   "icon": "🤝",
+   "description": "Students and young alumni request a mentor.",
+   "ownerId": "u3",
+   "notifyOwner": true,
+   "fields": [
+    {
+     "id": "fa1",
+     "label": "Your name",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "fa2",
+     "label": "Area",
+     "type": "select",
+     "required": true,
+     "options": [
+      "Product",
+      "Engineering",
+      "Design",
+      "Finance",
+      "Higher studies"
+     ]
+    },
+    {
+     "id": "fa3",
+     "label": "Preferred mentor",
+     "type": "user",
+     "required": false,
+     "options": []
+    },
+    {
+     "id": "fa4",
+     "label": "What do you need help with?",
+     "type": "longtext",
+     "required": true,
+     "options": []
+    }
+   ]
+  },
+  {
+   "id": "app2",
+   "name": "Job referral",
+   "icon": "💼",
+   "description": "Share openings that alumni can refer for.",
+   "ownerId": "u8",
+   "notifyOwner": true,
+   "fields": [
+    {
+     "id": "fb1",
+     "label": "Role",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "fb2",
+     "label": "Company",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "fb3",
+     "label": "Location",
+     "type": "select",
+     "required": false,
+     "options": [
+      "Bengaluru",
+      "Chennai",
+      "Mumbai",
+      "Pune",
+      "Remote"
+     ]
+    },
+    {
+     "id": "fb4",
+     "label": "Closing date",
+     "type": "date",
+     "required": false,
+     "options": []
+    },
+    {
+     "id": "fb5",
+     "label": "Referral available",
+     "type": "checkbox",
+     "required": false,
+     "options": []
+    }
+   ]
+  }
+ ],
+ "appRecords": [
+  {
+   "id": "ar1",
+   "appId": "app1",
+   "authorId": "u6",
+   "createdAt": 1794143158671,
+   "values": {
+    "fa1": "Rohan Gupta",
+    "fa2": "Product",
+    "fa3": "u3",
+    "fa4": "Moving from analytics to PM."
+   }
+  },
+  {
+   "id": "ar2",
+   "appId": "app1",
+   "authorId": "u4",
+   "createdAt": 1794229558671,
+   "values": {
+    "fa1": "Daniel Okafor",
+    "fa2": "Higher studies",
+    "fa3": "",
+    "fa4": "Considering a PhD in Europe."
+   }
+  },
+  {
+   "id": "ar3",
+   "appId": "app1",
+   "authorId": "u1",
+   "createdAt": 1794312358671,
+   "values": {
+    "fa1": "Aisha Raman",
+    "fa2": "Design",
+    "fa3": "u8",
+    "fa4": "Leadership in design teams."
+   }
+  },
+  {
+   "id": "ar4",
+   "appId": "app2",
+   "authorId": "u2",
+   "createdAt": 1794056758671,
+   "values": {
+    "fb1": "Firmware Engineer",
+    "fb2": "Torque EV",
+    "fb3": "Chennai",
+    "fb4": "",
+    "fb5": true
+   }
+  },
+  {
+   "id": "ar5",
+   "appId": "app2",
+   "authorId": "u4",
+   "createdAt": 1794229558671,
+   "values": {
+    "fb1": "ML Engineer",
+    "fb2": "Quanta AI",
+    "fb3": "Bengaluru",
+    "fb4": "",
+    "fb5": true
+   }
+  }
+ ],
+ "dashboardWidgets": [],
+ "forumFollows": {
+  "u1": [
+   "fc1",
+   "fc3"
+  ]
+ },
+ "ideas": [
+  {
+   "id": "i1",
+   "authorId": "u4",
+   "title": "Alumni-run coding bootcamp for final-year students",
+   "category": "Mentorship",
+   "groupId": "g4",
+   "status": "planned",
+   "description": "A six-week weekend bootcamp taught by alumni engineers, ending in a demo day with recruiters from alumni companies.",
+   "votes": {
+    "u1": 1,
+    "u3": 1,
+    "u7": 1,
+    "u2": 1
+   },
+   "comments": [
+    {
+     "id": "ic1",
+     "authorId": "u3",
+     "text": "I can run the system design week.",
+     "createdAt": 1794143158676
+    }
+   ],
+   "createdAt": 1793797558676
+  },
+  {
+   "id": "i2",
+   "authorId": "u5",
+   "title": "City chapter starter kit",
+   "category": "Chapters",
+   "groupId": null,
+   "status": "under-review",
+   "description": "A template group, event checklist and welcome post that anyone can use to start a chapter in a new city.",
+   "votes": {
+    "u8": 1,
+    "u7": 1
+   },
+   "comments": [],
+   "createdAt": 1793970358676
+  },
+  {
+   "id": "i3",
+   "authorId": "u6",
+   "title": "Quarterly alumni salary & career survey",
+   "category": "Careers",
+   "groupId": null,
+   "status": "new",
+   "description": "Anonymous survey so students and juniors can see realistic career paths.",
+   "votes": {
+    "u4": 1,
+    "u2": -1
+   },
+   "comments": [],
+   "createdAt": 1794229558676
+  },
+  {
+   "id": "i4",
+   "authorId": "u7",
+   "title": "Digitise the convocation photo archive",
+   "category": "Campus",
+   "groupId": null,
+   "status": "implemented",
+   "description": "Scan and tag the old convocation albums into Files so alumni can find themselves.",
+   "votes": {
+    "u1": 1,
+    "u5": 1,
+    "u3": 1,
+    "u8": 1,
+    "u6": 1
+   },
+   "comments": [
+    {
+     "id": "ic2",
+     "authorId": "u5",
+     "text": "Found my 2014 photo already!",
+     "createdAt": 1794056758676
+    }
+   ],
+   "createdAt": 1792587958676
+  }
+ ],
+ "ideaCategories": [
+  "Mentorship",
+  "Chapters",
+  "Careers",
+  "Campus",
+  "Events",
+  "Platform"
+ ],
+ "boards": [
+  {
+   "id": "b1",
+   "name": "Homecoming 2026",
+   "scope": "network",
+   "groupId": null,
+   "members": [
+    "u1",
+    "u7",
+    "u3",
+    "u5"
+   ],
+   "ownerId": "u7",
+   "createdAt": 1793279158676,
+   "sections": [
+    {
+     "id": "s1",
+     "name": "To do"
+    },
+    {
+     "id": "s2",
+     "name": "In progress"
+    },
+    {
+     "id": "s3",
+     "name": "Review"
+    },
+    {
+     "id": "s4",
+     "name": "Done",
+     "done": true
+    }
+   ],
+   "labels": [
+    "Venue",
+    "Comms",
+    "Finance",
+    "Logistics"
+   ],
+   "customFields": [
+    {
+     "id": "cf1",
+     "name": "Budget (₹)",
+     "type": "number"
+    },
+    {
+     "id": "cf2",
+     "name": "Vendor",
+     "type": "text"
+    },
+    {
+     "id": "cf3",
+     "name": "Stage",
+     "type": "select",
+     "options": [
+      "Idea",
+      "Confirmed",
+      "Booked"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "b2",
+   "name": "Bengaluru meet-up",
+   "scope": "group",
+   "groupId": "g2",
+   "members": [
+    "u1",
+    "u4",
+    "u8"
+   ],
+   "ownerId": "u8",
+   "createdAt": 1793883958676,
+   "sections": [
+    {
+     "id": "s5",
+     "name": "To do"
+    },
+    {
+     "id": "s6",
+     "name": "Doing"
+    },
+    {
+     "id": "s7",
+     "name": "Done",
+     "done": true
+    }
+   ],
+   "labels": [
+    "Food",
+    "Venue"
+   ],
+   "customFields": []
+  }
+ ],
+ "tasks": [
+  {
+   "id": "t1",
+   "boardId": "b1",
+   "title": "Book the main auditorium",
+   "status": "s4",
+   "order": 0,
+   "assigneeId": "u7",
+   "dueAt": 1794056758676,
+   "priority": "high",
+   "labels": [
+    "Venue"
+   ],
+   "description": "Confirm with the facilities office.",
+   "custom": {
+    "cf3": "Booked",
+    "cf1": 0
+   },
+   "blockedBy": [],
+   "checklist": [
+    {
+     "id": "k1",
+     "text": "Email facilities",
+     "done": true
+    }
+   ],
+   "comments": [],
+   "createdAt": 1793451958676
+  },
+  {
+   "id": "t2",
+   "boardId": "b1",
+   "title": "Finalise catering vendor",
+   "status": "s2",
+   "order": 0,
+   "assigneeId": "u5",
+   "dueAt": 1794661558676,
+   "priority": "high",
+   "labels": [
+    "Finance",
+    "Logistics"
+   ],
+   "description": "Compare three quotes.",
+   "custom": {
+    "cf1": 180000,
+    "cf2": "Green Leaf Caterers",
+    "cf3": "Confirmed"
+   },
+   "blockedBy": [
+    "t1"
+   ],
+   "checklist": [
+    {
+     "id": "k2",
+     "text": "Collect quotes",
+     "done": true
+    },
+    {
+     "id": "k3",
+     "text": "Taste test",
+     "done": false
+    }
+   ],
+   "comments": [
+    {
+     "id": "tc1",
+     "authorId": "u7",
+     "text": "Keep a vegan option.",
+     "createdAt": 1794229558676
+    }
+   ],
+   "createdAt": 1793624758676
+  },
+  {
+   "id": "t3",
+   "boardId": "b1",
+   "title": "Design passes and badges",
+   "status": "s1",
+   "order": 0,
+   "assigneeId": "u1",
+   "dueAt": 1794920758676,
+   "priority": "medium",
+   "labels": [
+    "Comms"
+   ],
+   "description": "",
+   "custom": {},
+   "blockedBy": [],
+   "checklist": [],
+   "comments": [],
+   "createdAt": 1793797558676
+  },
+  {
+   "id": "t4",
+   "boardId": "b1",
+   "title": "Send save-the-date email",
+   "status": "s3",
+   "order": 0,
+   "assigneeId": "u3",
+   "dueAt": 1794402358676,
+   "priority": "low",
+   "labels": [
+    "Comms"
+   ],
+   "description": "",
+   "custom": {},
+   "blockedBy": [
+    "t3"
+   ],
+   "checklist": [],
+   "comments": [],
+   "createdAt": 1793883958676
+  },
+  {
+   "id": "t5",
+   "boardId": "b2",
+   "title": "Pick a picnic spot",
+   "status": "s6",
+   "order": 0,
+   "assigneeId": "u4",
+   "dueAt": 1794488758676,
+   "priority": "medium",
+   "labels": [
+    "Venue"
+   ],
+   "description": "See the poll on the group wall.",
+   "custom": {},
+   "blockedBy": [],
+   "checklist": [],
+   "comments": [],
+   "createdAt": 1794143158676
+  }
+ ],
+ "folders": [
+  {
+   "id": "fo1",
+   "name": "Event photos",
+   "parentId": null,
+   "groupId": null,
+   "createdAt": 1791723958676
+  },
+  {
+   "id": "fo2",
+   "name": "Templates",
+   "parentId": null,
+   "groupId": null,
+   "createdAt": 1791723958676
+  },
+  {
+   "id": "fo3",
+   "name": "Meet-up notes",
+   "parentId": null,
+   "groupId": "g2",
+   "createdAt": 1793711158676
+  }
+ ],
+ "files": [
+  {
+   "id": "fl1",
+   "name": "Homecoming run-of-show",
+   "kind": "doc",
+   "type": "text/html",
+   "size": 0,
+   "folderId": "fo2",
+   "groupId": null,
+   "authorId": "u7",
+   "sharedWith": [],
+   "createdAt": 1793797558676,
+   "updatedAt": 1794143158676,
+   "versions": [],
+   "content": "<h2>Homecoming run-of-show</h2><p><b>17:00</b> Registration and welcome drinks</p><p><b>18:00</b> Address by the alumni president</p><p><b>19:00</b> Awards</p><p><b>20:00</b> Dinner on the lawns</p>"
+  },
+  {
+   "id": "fl2",
+   "name": "Meet-up budget",
+   "kind": "sheet",
+   "type": "application/x-sheet",
+   "size": 0,
+   "folderId": "fo3",
+   "groupId": "g2",
+   "authorId": "u8",
+   "sharedWith": [],
+   "createdAt": 1793970358676,
+   "updatedAt": 1794229558676,
+   "versions": [],
+   "content": {
+    "cells": {
+     "A1": "Item",
+     "B1": "Cost",
+     "A2": "Snacks",
+     "B2": "2400",
+     "A3": "Mats",
+     "B3": "800",
+     "A4": "Drinks",
+     "B4": "1500",
+     "A5": "Total",
+     "B5": "=SUM(B2:B4)"
+    }
+   }
+  },
+  {
+   "id": "fl3",
+   "name": "Mentorship program intro",
+   "kind": "slides",
+   "type": "application/x-slides",
+   "size": 0,
+   "folderId": null,
+   "groupId": null,
+   "authorId": "u3",
+   "sharedWith": [],
+   "createdAt": 1793538358676,
+   "updatedAt": 1793538358676,
+   "versions": [],
+   "content": {
+    "slides": [
+     {
+      "id": "sl1",
+      "title": "Mentorship Program",
+      "body": "Pairing students with alumni across industries"
+     },
+     {
+      "id": "sl2",
+      "title": "How it works",
+      "body": "1. Students apply\n2. We match by interest\n3. Meet once a month"
+     },
+     {
+      "id": "sl3",
+      "title": "Join us",
+      "body": "Sign up in the Mentorship Program group"
+     }
+    ]
+   }
+  }
+ ],
+ "articleTemplates": [
+  {
+   "id": "at1",
+   "name": "Blank",
+   "body": ""
+  },
+  {
+   "id": "at2",
+   "name": "How-to guide",
+   "body": "## Overview\nWhat this guide helps you do.\n\n## Before you begin\n- Requirement\n\n## Steps\n1. First step\n2. Second step\n\n## Need help?\nContact the alumni relations team."
+  },
+  {
+   "id": "at3",
+   "name": "Policy",
+   "body": "## Purpose\n\n## Scope\nWho this policy applies to.\n\n## Policy\n\n## Exceptions\n\n## Contact"
+  },
+  {
+   "id": "at4",
+   "name": "Event recap",
+   "body": "## Event\nName, date and place.\n\n## Highlights\n- \n\n## Attendance\n\n## What we learned\n"
+  },
+  {
+   "id": "at5",
+   "name": "FAQ",
+   "body": "## Question one?\nAnswer.\n\n## Question two?\nAnswer."
+  }
+ ],
+ "webTabs": [
+  {
+   "id": "w1",
+   "name": "Campus map",
+   "url": "https://www.openstreetmap.org/export/embed.html?bbox=77.56%2C12.96%2C77.62%2C13.0&layer=mapnik",
+   "scope": "network",
+   "groupId": null,
+   "ownerId": "u7",
+   "createdAt": 1793451958676
+  },
+  {
+   "id": "w2",
+   "name": "Wikipedia: Alumni association",
+   "url": "https://en.wikipedia.org/wiki/Alumni_association",
+   "scope": "network",
+   "groupId": null,
+   "ownerId": "u7",
+   "createdAt": 1793538358676
+  }
+ ],
+ "townhalls": [
+  {
+   "id": "th1",
+   "title": "AMA with the Director",
+   "description": "Ask the Institute Director anything about campus plans, research and alumni partnerships.",
+   "hostId": "u7",
+   "moderators": [
+    "u7",
+    "u1"
+   ],
+   "groupId": null,
+   "start": 1794569400000,
+   "end": 1794573000000,
+   "status": "upcoming",
+   "allowAnonymous": true,
+   "moderateQuestions": true,
+   "createdAt": 1794143158681
+  },
+  {
+   "id": "th2",
+   "title": "Placement season Q&A",
+   "description": "Alumni recruiters answer student and alumni questions about hiring this year.",
+   "hostId": "u3",
+   "moderators": [
+    "u3"
+   ],
+   "groupId": "g4",
+   "start": 1794314758681,
+   "end": 1794318358681,
+   "status": "live",
+   "allowAnonymous": true,
+   "moderateQuestions": false,
+   "createdAt": 1793970358681
+  },
+  {
+   "id": "th3",
+   "title": "Campus 2030 plan",
+   "description": "The alumni association walked through the 2030 campus master plan.",
+   "hostId": "u7",
+   "moderators": [
+    "u7"
+   ],
+   "groupId": null,
+   "start": 1793446200000,
+   "end": 1793449800000,
+   "status": "ended",
+   "allowAnonymous": false,
+   "moderateQuestions": false,
+   "createdAt": 1793106358681
+  }
+ ],
+ "townhallQuestions": [
+  {
+   "id": "q1",
+   "townhallId": "th1",
+   "authorId": "u2",
+   "anonymous": false,
+   "text": "Will alumni get access to the new incubation centre?",
+   "votes": [
+    "u1",
+    "u4",
+    "u8"
+   ],
+   "status": "approved",
+   "createdAt": 1794229558681
+  },
+  {
+   "id": "q2",
+   "townhallId": "th1",
+   "authorId": "u6",
+   "anonymous": true,
+   "text": "How is the endowment fund being used?",
+   "votes": [
+    "u5"
+   ],
+   "status": "approved",
+   "createdAt": 1794243958681
+  },
+  {
+   "id": "q3",
+   "townhallId": "th1",
+   "authorId": "u4",
+   "anonymous": false,
+   "text": "Any plans for a part-time master’s for working alumni?",
+   "votes": [],
+   "status": "pending",
+   "createdAt": 1794312358681
+  },
+  {
+   "id": "q4",
+   "townhallId": "th2",
+   "authorId": "u6",
+   "anonymous": false,
+   "text": "Do referrals from alumni actually make a difference?",
+   "votes": [
+    "u1",
+    "u4"
+   ],
+   "status": "answered",
+   "answer": "Yes. Referred candidates are three times more likely to reach the final round.",
+   "answeredBy": "u3",
+   "createdAt": 1794315058681
+  },
+  {
+   "id": "q5",
+   "townhallId": "th2",
+   "authorId": "u4",
+   "anonymous": true,
+   "text": "Is it OK to negotiate a campus offer?",
+   "votes": [
+    "u6",
+    "u2",
+    "u5"
+   ],
+   "status": "approved",
+   "createdAt": 1794315358681
+  },
+  {
+   "id": "q6",
+   "townhallId": "th3",
+   "authorId": "u5",
+   "anonymous": false,
+   "text": "Will the new hostels be walkable from the academic blocks?",
+   "votes": [
+    "u1",
+    "u7"
+   ],
+   "status": "answered",
+   "answer": "Yes. Every hostel is planned within a ten-minute walk of the academic core, with covered walkways.",
+   "answeredBy": "u7",
+   "createdAt": 1793446800000
+  },
+  {
+   "id": "q7",
+   "townhallId": "th3",
+   "authorId": "u2",
+   "anonymous": false,
+   "text": "How can alumni contribute to the new labs?",
+   "votes": [
+    "u8"
+   ],
+   "status": "answered",
+   "answer": "Through named lab sponsorships and by mentoring student research teams. Details will be shared in the Alumni Handbook.",
+   "answeredBy": "u7",
+   "createdAt": 1793447700000
+  },
+  {
+   "id": "q8",
+   "townhallId": "th3",
+   "authorId": "u3",
+   "anonymous": false,
+   "text": "What is the timeline for the library expansion?",
+   "votes": [],
+   "status": "answered",
+   "answer": "Phase one opens next year. Phase two depends on fundraising.",
+   "answeredBy": "u7",
+   "createdAt": 1793448600000
+  }
+ ],
+ "broadcasts": [
+  {
+   "id": "bc1",
+   "title": "Convocation 2026 livestream",
+   "description": "Watch the graduating batch walk the stage.",
+   "hostId": "u7",
+   "status": "scheduled",
+   "scheduledAt": 1795062600000,
+   "chat": [],
+   "subscribers": [
+    "u2"
+   ],
+   "peakViewers": 0,
+   "createdAt": 1794056758681
+  },
+  {
+   "id": "bc2",
+   "title": "Founders fireside chat",
+   "description": "Aisha hosts a fireside chat with alumni founders.",
+   "hostId": "u1",
+   "status": "scheduled",
+   "scheduledAt": 1794663000000,
+   "chat": [],
+   "subscribers": [],
+   "peakViewers": 0,
+   "createdAt": 1794229558681
+  },
+  {
+   "id": "bc3",
+   "title": "Alumni awards night",
+   "description": "Recognising alumni who gave back this year.",
+   "hostId": "u7",
+   "status": "ended",
+   "scheduledAt": 1792589400000,
+   "endedAt": 1792596600000,
+   "peakViewers": 412,
+   "chat": [
+    {
+     "id": "bm1",
+     "authorId": "u5",
+     "text": "Congratulations to all the winners! 🎉",
+     "createdAt": 1792591800000
+    }
+   ],
+   "subscribers": [],
+   "createdAt": 1792155958681
+  }
+ ],
+ "meetings": [
+  {
+   "id": "mt1",
+   "title": "Homecoming planning sync",
+   "hostId": "u7",
+   "participants": [
+    "u7",
+    "u1",
+    "u2",
+    "u3"
+   ],
+   "scheduledAt": 1794393000000,
+   "chat": [],
+   "createdAt": 1794229558681
+  },
+  {
+   "id": "mt2",
+   "title": "Mentorship pairing review",
+   "hostId": "u3",
+   "participants": [
+    "u3",
+    "u1",
+    "u5"
+   ],
+   "scheduledAt": 1794634200000,
+   "chat": [],
+   "createdAt": 1794143158681
+  }
+ ],
+ "follows": [
+  {
+   "id": "fo1",
+   "authorId": "u1",
+   "targetId": "u3"
+  },
+  {
+   "id": "fo2",
+   "authorId": "u1",
+   "targetId": "u7"
+  },
+  {
+   "id": "fo3",
+   "authorId": "u2",
+   "targetId": "u1"
+  },
+  {
+   "id": "fo4",
+   "authorId": "u4",
+   "targetId": "u1"
+  },
+  {
+   "id": "fo5",
+   "authorId": "u3",
+   "targetId": "u7"
+  },
+  {
+   "id": "fo6",
+   "authorId": "u9",
+   "targetId": "u3"
+  },
+  {
+   "id": "fo7",
+   "authorId": "u17",
+   "targetId": "u1"
+  },
+  {
+   "id": "fo8",
+   "authorId": "u8",
+   "targetId": "u2"
+  }
+ ],
+ "userLabels": [
+  {
+   "id": "lb0",
+   "name": "Community Host",
+   "tone": "saffron",
+   "icon": "shield",
+   "description": "Runs the community: approvals, moderation and events.",
+   "members": [
+    "u21",
+    "u22"
+   ],
+   "showOnPosts": true
+  },
+  {
+   "id": "lb1",
+   "name": "Mentor",
+   "tone": "leaf",
+   "icon": "sprout",
+   "description": "Volunteers time to guide students and recent grads.",
+   "members": [
+    "u3",
+    "u8",
+    "u1",
+    "u32",
+    "u28"
+   ],
+   "showOnPosts": true
+  },
+  {
+   "id": "lb2",
+   "name": "Chapter Lead",
+   "tone": "saffron",
+   "icon": "pinned",
+   "description": "Runs a city chapter and its meet-ups.",
+   "members": [
+    "u5",
+    "u8"
+   ],
+   "showOnPosts": true
+  },
+  {
+   "id": "lb3",
+   "name": "Verified Alumni",
+   "tone": "gold",
+   "icon": "shield",
+   "description": "Graduation details confirmed by the alumni office.",
+   "members": [
+    "u1",
+    "u2",
+    "u3",
+    "u4",
+    "u5",
+    "u6",
+    "u7",
+    "u8"
+   ],
+   "showOnPosts": false
+  },
+  {
+   "id": "lb4",
+   "name": "Founder",
+   "tone": "saffron",
+   "icon": "sparkle",
+   "description": "Started a company. Happy to talk startups.",
+   "members": [
+    "u2"
+   ],
+   "showOnPosts": true
+  },
+  {
+   "id": "lb5",
+   "name": "Alumni Office",
+   "tone": "gold",
+   "icon": "cap",
+   "description": "Official alumni relations team.",
+   "members": [
+    "u7"
+   ],
+   "showOnPosts": true
+  },
+  {
+   "id": "lb6",
+   "name": "Volunteer",
+   "tone": "leaf",
+   "icon": "groups",
+   "description": "Helps run events and the Homecoming committee.",
+   "members": [
+    "u4",
+    "u6",
+    "u33",
+    "u26"
+   ],
+   "showOnPosts": false
+  }
+ ],
+ "dms": [
+  {
+   "id": "dm1",
+   "members": [
+    "u1",
+    "u3"
+   ],
+   "messages": [
+    {
+     "id": "dm1m1",
+     "authorId": "u3",
+     "text": "Hey Aisha! Are you free to mentor two design students this cohort?",
+     "createdAt": 1794297958696
+    },
+    {
+     "id": "dm1m2",
+     "authorId": "u1",
+     "text": "Absolutely, send their details over.",
+     "createdAt": 1794301558696
+    }
+   ]
+  },
+  {
+   "id": "dm2",
+   "members": [
+    "u1",
+    "u2",
+    "u4"
+   ],
+   "name": "Bengaluru hike crew",
+   "messages": [
+    {
+     "id": "dm2m1",
+     "authorId": "u4",
+     "text": "Nandi Hills on Sunday? 5 AM start 🌄",
+     "createdAt": 1794229558696
+    }
+   ]
+  }
+ ],
+ "praise": [
+  {
+   "id": "pr1",
+   "authorId": "u7",
+   "fromId": "u7",
+   "toId": "u3",
+   "badge": "mentor",
+   "message": "For pairing 40 students with mentors in record time!",
+   "createdAt": 1794143158696
+  },
+  {
+   "id": "pr2",
+   "authorId": "u2",
+   "fromId": "u2",
+   "toId": "u8",
+   "badge": "helper",
+   "message": "Thanks for the investor intros.",
+   "createdAt": 1793970358696
+  },
+  {
+   "id": "pr3",
+   "authorId": "u3",
+   "fromId": "u3",
+   "toId": "u1",
+   "badge": "rockstar",
+   "message": "Your portfolio review session was brilliant.",
+   "createdAt": 1793797558696
+  }
+ ],
+ "wishes": [],
+ "savedSearches": [],
+ "blocks": [],
+ "surveyTemplates": [
+  {
+   "id": "tpl1",
+   "title": "Engagement pulse",
+   "description": "A quick monthly check on how connected alumni feel.",
+   "questions": [
+    {
+     "id": "q1",
+     "type": "rating",
+     "text": "How connected do you feel to the alumni community?"
+    },
+    {
+     "id": "q2",
+     "type": "single",
+     "text": "How often do you visit AlumniZone?",
+     "options": [
+      "Daily",
+      "Weekly",
+      "Monthly",
+      "Rarely"
+     ]
+    },
+    {
+     "id": "q3",
+     "type": "long",
+     "text": "What would make you more active?"
+    }
+   ]
+  },
+  {
+   "id": "tpl2",
+   "title": "Event feedback",
+   "description": "Collect feedback after a reunion or meet-up.",
+   "questions": [
+    {
+     "id": "q1",
+     "type": "rating",
+     "text": "Overall, how was the event?"
+    },
+    {
+     "id": "q2",
+     "type": "multi",
+     "text": "What did you enjoy?",
+     "options": [
+      "Venue",
+      "Food",
+      "Networking",
+      "Talks",
+      "Activities"
+     ]
+    },
+    {
+     "id": "q3",
+     "type": "short",
+     "text": "One thing we should change"
+    }
+   ]
+  },
+  {
+   "id": "tpl3",
+   "title": "Alumni NPS",
+   "description": "Net Promoter Score for the alumni network.",
+   "questions": [
+    {
+     "id": "q1",
+     "type": "nps",
+     "text": "How likely are you to recommend AlumniZone to a fellow graduate?"
+    },
+    {
+     "id": "q2",
+     "type": "long",
+     "text": "What is the main reason for your score?"
+    }
+   ]
+  }
+ ],
+ "surveys": [
+  {
+   "id": "s1",
+   "authorId": "u7",
+   "title": "Homecoming 2026 planning",
+   "description": "Help us shape this year’s homecoming.",
+   "status": "active",
+   "anonymous": false,
+   "audience": {
+    "type": "network"
+   },
+   "deadline": 1795093558696,
+   "createdAt": 1794143158696,
+   "questions": [
+    {
+     "id": "q1",
+     "type": "single",
+     "text": "Which day works best?",
+     "options": [
+      "Friday evening",
+      "Saturday",
+      "Sunday"
+     ]
+    },
+    {
+     "id": "q2",
+     "type": "multi",
+     "text": "Which sessions interest you?",
+     "options": [
+      "Career panel",
+      "Campus tour",
+      "Sports meet",
+      "Cultural night"
+     ]
+    },
+    {
+     "id": "q3",
+     "type": "rating",
+     "text": "How was last year’s homecoming?"
+    },
+    {
+     "id": "q4",
+     "type": "short",
+     "text": "Any suggestions?"
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "authorId": "u3",
+   "title": "Alumni NPS – Q3",
+   "description": "Quarterly NPS pulse.",
+   "status": "closed",
+   "anonymous": true,
+   "audience": {
+    "type": "network"
+   },
+   "deadline": 1794056758696,
+   "createdAt": 1792587958696,
+   "questions": [
+    {
+     "id": "q1",
+     "type": "nps",
+     "text": "How likely are you to recommend AlumniZone to a fellow graduate?"
+    },
+    {
+     "id": "q2",
+     "type": "long",
+     "text": "What is the main reason for your score?"
+    }
+   ]
+  }
+ ],
+ "surveyResponses": [
+  {
+   "id": "sr1",
+   "surveyId": "s1",
+   "authorId": "u2",
+   "answers": {
+    "q1": "Saturday",
+    "q2": [
+     "Career panel",
+     "Sports meet"
+    ],
+    "q3": 4,
+    "q4": "More time for networking"
+   },
+   "createdAt": 1794229558696
+  },
+  {
+   "id": "sr2",
+   "surveyId": "s1",
+   "authorId": "u3",
+   "answers": {
+    "q1": "Saturday",
+    "q2": [
+     "Campus tour"
+    ],
+    "q3": 5,
+    "q4": ""
+   },
+   "createdAt": 1794229558696
+  },
+  {
+   "id": "sr3",
+   "surveyId": "s1",
+   "authorId": "u5",
+   "answers": {
+    "q1": "Friday evening",
+    "q2": [
+     "Cultural night",
+     "Career panel"
+    ],
+    "q3": 3,
+    "q4": "Better food stalls"
+   },
+   "createdAt": 1794243958696
+  },
+  {
+   "id": "sr-n0",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 10,
+    "q2": "Great network"
+   },
+   "createdAt": 1793451958696
+  },
+  {
+   "id": "sr-n1",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 9,
+    "q2": "Helpful mentors"
+   },
+   "createdAt": 1793365558696
+  },
+  {
+   "id": "sr-n2",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 9,
+    "q2": "Too few events in my city"
+   },
+   "createdAt": 1793279158696
+  },
+  {
+   "id": "sr-n3",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 7,
+    "q2": "Love the forums"
+   },
+   "createdAt": 1793192758696
+  },
+  {
+   "id": "sr-n4",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 8,
+    "q2": "Good"
+   },
+   "createdAt": 1793106358696
+  },
+  {
+   "id": "sr-n5",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 6,
+    "q2": "Needs more jobs content"
+   },
+   "createdAt": 1793019958696
+  },
+  {
+   "id": "sr-n6",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 10,
+    "q2": "Brilliant"
+   },
+   "createdAt": 1792933558696
+  },
+  {
+   "id": "sr-n7",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 4,
+    "q2": "Hard to find people"
+   },
+   "createdAt": 1792847158696
+  },
+  {
+   "id": "sr-n8",
+   "surveyId": "s2",
+   "authorId": null,
+   "anonymous": true,
+   "answers": {
+    "q1": 9,
+    "q2": "Events!"
+   },
+   "createdAt": 1792760758696
+  }
+ ]
+}

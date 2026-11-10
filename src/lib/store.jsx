@@ -47,6 +47,17 @@ function core(s, a) {
   const me = s.session?.userId;
   switch (a.type) {
     case 'login': return { ...s, session: { userId: a.userId } };
+    // The server signed this person in. Until profiles move to the API (Phase 1, step 3), the
+    // local directory needs a matching record, so add one for accounts created on the server.
+    case 'profile/sync-email': return { ...s, users: mapById(s.users, a.id, (u) => ({ ...u, email: a.email })) };
+    case 'session/adopt': {
+      const known = s.users.find((u) => u.id === a.user.id);
+      const users = known
+        ? s.users.map((u) => (u.id === a.user.id ? { ...u, name: a.user.name, email: a.user.email, status: 'active' } : u))
+        : [...s.users, { hue: Math.floor(Math.random() * 360), skills: [], career: [], bio: '', company: '', role: '', joinedAt: Date.now(), ...a.profile, id: a.user.id, name: a.user.name, email: a.user.email, status: 'active' }];
+      const admin = (a.user.roles || []).some((r) => r === 'platform_admin' || r === 'super_admin');
+      return { ...s, users: users.map((u) => (u.id === a.user.id ? { ...u, admin } : u)), session: { userId: a.user.id } };
+    }
     case 'logout': return { ...s, session: null };
     case 'reset': {
       // Fresh demo data, but keep whoever is signed in. Someone who joined through sign-up

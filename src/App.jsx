@@ -1,5 +1,5 @@
 import { lazy, Suspense, Component } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useStore } from './lib/store.jsx';
 import { MODULES, EXTRA_ROUTES } from './lib/modules.js';
 import { GlassFilters } from './components/ui.jsx';
@@ -9,6 +9,8 @@ import Login from './pages/Login.jsx';
 import Invite from './pages/Invite.jsx';
 import Signup from './pages/Signup.jsx';
 import Explore from './pages/Explore.jsx';
+import { ConfirmEmail, ResetPassword, VerifyEmail } from './components/auth/TokenPages.jsx';
+import AuthSync from './components/auth/AuthSync.jsx';
 
 // Pages load lazily by file name, so each module ships as its own chunk.
 const files = import.meta.glob(['./pages/*.jsx', '!./pages/{Landing,Login,Invite,Signup,Explore}.jsx']);
@@ -72,7 +74,9 @@ const runners = Object.values(import.meta.glob('./lib/runners/*.jsx', { eager: t
 
 function Protected({ children }) {
   const { me } = useStore();
-  return me ? children : <Navigate to="/login" replace />;
+  const loc = useLocation();
+  // Keep where the visitor was heading so sign-in can bring them back (prompt §5).
+  return me ? children : <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
 }
 
 export default function App() {
@@ -86,6 +90,7 @@ export default function App() {
   return (
     <HashRouter>
       <GlassFilters />
+      <AuthSync />
       {runners.map((R, i) => <R key={i} />)}
       <Routes>
         <Route path="/" element={me ? <Navigate to={state.settings.landing || '/feed'} replace /> : <Landing />} />
@@ -93,6 +98,9 @@ export default function App() {
         <Route path="/signup" element={me ? <Navigate to="/feed" replace /> : <Signup />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/invite/:code" element={<Invite />} />
+        <Route path="/verify" element={<VerifyEmail />} />
+        <Route path="/reset" element={<ResetPassword />} />
+        <Route path="/confirm-email" element={<ConfirmEmail />} />
         <Route element={<Protected><Layout /></Protected>}>
           {routes.map(({ path, page: name }) => {
             const Page = page(name);
