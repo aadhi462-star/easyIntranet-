@@ -1,6 +1,6 @@
 # CommunityOne — Session handoff (10 Nov 2026)
 
-Read this first in a new session, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
+Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
 ## What this project is
 
@@ -63,3 +63,19 @@ Then: Phase 1 step 5 (platform admin UI on the API: users, suspend/approve, role
 - Each step: server + migration + seed → tests named by edge-case ID → client switch → browser journeys (incl. double clicks, two tabs, phone width 375px) → register/progress log → commit → wrap up asking to push.
 - Report honestly: bugs found while testing, what wasn't verified, what's still local.
 - Explanatory output style: include a short `★ Insight` block.
+
+## How the remaining work maps to the master prompt
+
+| Master prompt section | Status | Where it lands |
+| --- | --- | --- |
+| §2 Inspect, inventory, migration plan | Done | Phase 0 |
+| §6 Accounts & profiles, §15 security foundations | Done (no 2FA, avatars yet) | Phase 1 steps 1–3 |
+| §5 Public/Private/Closed, §8 roles/states (server) | Foundation done | Phase 1 step 4b; invitations Phase 2 |
+| §9 Admin override + Administrative Mode | Server done (header) | UI toggle + banner Phase 1 step 5 / Phase 2 |
+| Events foundation, member dashboard (§11) | **In progress** | Phase 1 step 4c |
+| §13 Platform Admin settings, §11 control centre | Server API partly done | Phase 1 step 5 |
+| §17 CommunityOne branding, §4 platform navigation | Not started | Phase 1 step 7 (+ nav restructure in Phase 2) |
+| §7 creation wizard, §12 community settings + deletion requests, resources, notifications/email, moderation reports | Not started | Phase 2 |
+| §4/§10 Learning module (basic) | Not started | Phase 2 (basic) → Phase 3 (full LMS) |
+| §14 analytics/WMAM, exports | Not started | Phase 2 (community) → Phase 4 (platform) |
+| Phase 5 AI | Parked | Last |
