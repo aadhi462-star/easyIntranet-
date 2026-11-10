@@ -2,19 +2,19 @@ import { Glyph } from '../components/icons.jsx';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
+import { useEvents } from '../lib/events.js';
 import { Avatar, PageHeader, Tabs } from '../components/ui.jsx';
 import CalendarGrid, { RangeNav, viewRange } from '../components/events/CalendarGrid.jsx';
 import EventForm from '../components/events/EventForm.jsx';
-import { TYPE_COLORS, addDays, canSee, canSeeTownhall, isInvolved, occurrences, startOfDay, startOfWeek } from '../components/events/eventUtils.js';
+import { TYPE_COLORS, addDays, isInvolved, occurrences, startOfDay, startOfWeek } from '../components/events/eventUtils.js';
 
 const TASK_COLOR = '#84cc16';
-const TOWNHALL_COLOR = '#e879f9';
 
 export default function Calendar() {
   const [tab, setTab] = useState('mine');
   return (
     <div>
-      <PageHeader title="Calendar" subtitle="Events, town halls and task deadlines in one place." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="📅" tile={false} size={16} /> Events</Link>} />
+      <PageHeader title="Calendar" subtitle="Events and task deadlines in one place." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="📅" tile={false} size={16} /> Events</Link>} />
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'mine', label: 'My calendar' }, { id: 'team', label: 'Team schedule' }]} />
       {tab === 'mine' ? <MyCalendar /> : <TeamSchedule />}
     </div>
@@ -26,16 +26,18 @@ function MyCalendar() {
   const nav = useNavigate();
   const [mode, setMode] = useState('month');
   const [cursor, setCursor] = useState(Date.now());
-  const [show, setShow] = useState({ events: true, tasks: true, townhalls: true, onlyMine: false });
+  const [show, setShow] = useState({ events: true, tasks: true, onlyMine: false });
   const [draft, setDraft] = useState(null);
   const [from, to] = viewRange(mode, cursor);
+  // Only events this viewer may see come back from the server (EVT-08).
+  const { events, error } = useEvents({ from, to });
 
   const items = [];
   if (show.events) {
-    for (const e of state.events) {
-      if (!canSee(e, me, state.groups) || (show.onlyMine && !isInvolved(e, me.id))) continue;
+    for (const e of events) {
+      if (show.onlyMine && !isInvolved(e, me.id)) continue;
       for (const o of occurrences(e, from, to)) {
-        items.push({ key: `e-${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, color: TYPE_COLORS[o.eventType] ?? '#a3e635', href: `/events/${o.id}` });
+        items.push({ key: `e-${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, icon: o.status === 'cancelled' ? '🚫 ' : undefined, color: TYPE_COLORS[o.eventType] ?? '#a3e635', href: `/events/${o.id}` });
       }
     }
   }
@@ -46,12 +48,7 @@ function MyCalendar() {
       items.push({ key: `t-${t.id}`, title: t.title, start: t.dueAt, end: t.dueAt, allDay: true, icon: t.done || t.status === 'done' ? '✔️ ' : '☑️ ', color: TASK_COLOR, href: `/tasks/${t.boardId ?? t.id}` });
     }
   }
-  if (show.townhalls) {
-    for (const th of state.townhalls || []) {
-      if (th.start < from || th.start > to || !canSeeTownhall(th, me, state.groups)) continue;
-      items.push({ key: `th-${th.id}`, title: th.title, start: th.start, end: th.end, icon: '🎤 ', color: TOWNHALL_COLOR, href: `/townhalls/${th.id}` });
-    }
-  }
+  // Town halls are parked behind a feature flag (decision D2), so they aren't listed here.
 
   const toggle = (k) => setShow((s) => ({ ...s, [k]: !s[k] }));
   return (
@@ -66,13 +63,14 @@ function MyCalendar() {
         </div>
       </div>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        {[['events', 'Events', '#a3e635'], ['townhalls', 'Town halls', TOWNHALL_COLOR], ['tasks', 'Task due dates', TASK_COLOR], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
+        {[['events', 'Events', '#a3e635'], ['tasks', 'Task due dates', TASK_COLOR], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
           <label key={k} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full bg-white/5 px-3">
             <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={show[k]} onChange={() => toggle(k)} />
             {c && <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />}{l}
           </label>
         ))}
       </div>
+      {error && <p role="alert" className="mb-3 text-sm text-rose-300">Couldn’t load events: {error}</p>}
       <CalendarGrid mode={mode} cursor={cursor} items={items} onDayClick={(d) => { const x = new Date(d); x.setHours(18, 0, 0, 0); setDraft(x.getTime()); }} />
       {!(state.tasks || []).length && show.tasks && <p className="mt-3 text-xs text-slate-500">No tasks with due dates yet. Deadlines from Tasks & Boards show up here.</p>}
       {draft && <EventForm initial={{ start: draft }} onClose={() => setDraft(null)} onSaved={(id) => { setDraft(null); nav(`/events/${id}`); }} />}
@@ -88,11 +86,12 @@ function TeamSchedule() {
   const [cursor, setCursor] = useState(Date.now());
   const weekStart = startOfWeek(cursor);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const { events } = useEvents({ from: weekStart, to: addDays(weekStart, 7) - 1 });
   const members = groupId === 'all' ? state.users : state.users.filter((u) => state.groups.find((g) => g.id === groupId)?.members.includes(u.id));
 
   const cell = (userId, d) => {
     const end = d + 864e5 - 1;
-    const evs = state.events.filter((e) => canSee(e, me, state.groups) && isInvolved(e, userId))
+    const evs = events.filter((e) => e.status !== 'cancelled' && isInvolved(e, userId))
       .flatMap((e) => occurrences(e, d, end)).map((o) => ({ key: `e${o.id}${o.occStart}`, title: o.title, href: `/events/${o.id}`, color: TYPE_COLORS[o.eventType] ?? '#a3e635', start: o.occStart, allDay: o.allDay }));
     const tasks = (state.tasks || []).filter((t) => t.dueAt && (t.assigneeId === userId || (t.assigneeIds || []).includes(userId)) && startOfDay(t.dueAt) === d)
       .map((t) => ({ key: `t${t.id}`, title: `☑️ ${t.title}`, href: `/tasks/${t.boardId ?? t.id}`, color: TASK_COLOR, allDay: true }));

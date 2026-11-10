@@ -365,3 +365,40 @@ Bugs found and fixed: the "my communities" cache survived switching accounts in 
 Still on local data (next steps): Dashboard widgets, search index, Admin → Moderation queue, the old scheduled-post and scheduler runners, signed-out Explore. Sync makes one request per community at sign-in and probes remembered ids (harmless 404s); to be simplified now that archived communities are listed.
 
 Next: step 4c (events foundation and member dashboard on the server).
+
+### Phase 1 — step 4c: events foundation and member dashboard (10 Nov 2026)
+
+Built:
+- **Events** (migration 005): events belong to a community and follow its visibility; they can also be invite-only within it. Times are stored as an instant plus the organiser's time zone. Co-hosts, guest lists, one RSVP per member (going / maybe / not going), capacity, RSVP deadline, cancel with a reason (the event and its RSVPs are kept), soft delete, comments.
+- **Shared recurrence** (`shared/recurrence.js`): daily / weekly / monthly series keep the organiser's local time across daylight-saving changes. The server and the web app use the same code (`eventUtils.js` re-exports it).
+- **API:** list by date range, community and view (all / mine / hosting); detail; create (idempotent); versioned edit by the host, co-hosts or community admins (only the host or admins change co-hosts); cancel; delete (host or admin); RSVP inside a locked transaction (capacity, cancelled, ended, RSVPs off, deadline); comments. Anything you may not see is "not found". Removed members' RSVPs stop counting at once. A community can keep open events to admins (`whoCanCreateEvents`; AlumniZone is set this way, matching the prototype's "company events" permission), while any member may still arrange an invite-only event.
+- **Emails** to going/maybe registrants when an event is cancelled or its time or place changes (outbox templates `event_changed`, `event_cancelled`).
+- **Member dashboard** `GET /api/dashboard`: my communities, the next 5 events I can see, unread Mandatory Reads, recent announcements, connection request count, new members, all with the same access and block rules as the full screens.
+- **Migration:** 8 prototype events (network → AlumniZone, group → same community, private → invite-only in AlumniZone), 3 co-hosts, 1 invitee, 13 RSVPs, 3 comments. One RSVP was dropped because that person isn't a member of the event's community.
+- **Web app:** Events (list, month/week, detail), Calendar, the group-space event widgets, the reminders runner and the Dashboard read and write through the API (`src/lib/events.js`). New fields: capacity and RSVP deadline. There's a cancel dialog with a reason, and "Full", "Cancelled" and "RSVPs closed" states. Controls follow the server's `can` flags. Attachments are hidden ("coming soon") until secure files arrive in Phase 2. Town halls, Tasks and Leaderboard widgets are hidden (D2).
+
+Tested: 120 server tests (21 new in `server/test/events.test.js`), all pass. I also removed the capacity check and the invite-only filter on purpose to confirm EVT-02 and EVT-08 fail without them. Browser (fresh preview DB, member Ishita):
+- events load from the server;
+- RSVP double click → one request, one RSVP, kept after reload; comment double click → one comment;
+- an invite-only event she isn't on shows "Event not found";
+- dashboard shows her communities, events with her RSVP, announcements and a Mandatory Read; Acknowledge removes it;
+- create in a group with a double click → one event with her browser's time zone; capacity 1 shows "1 of 1 places taken · Full"; cancel with a reason shows the banner and hides RSVP and Edit;
+- phone width (375px): events, event detail, calendar, dashboard and group page have no sideways scroll.
+
+Bugs found and fixed while testing:
+- the dashboard was 580px wide on a phone (grid items couldn't shrink);
+- editing an event without touching its times would have emailed registrants about a "change", because the form rounds times to the minute.
+
+Not verified in the browser: the two-tab edit conflict (covered by a server test), and a second member seeing "Full" (server test).
+
+Known gaps:
+- RSVPs of people who leave stay stored (not counted) and count again if they rejoin.
+- Communities don't expose `whoCanCreateEvents` in their list, so for groups the form relies on the server's message.
+- No waitlist (overflow is refused; Phase 2).
+- No in-app notifications for event changes (Phase 2).
+- Explore (signed out), search, schedulers/workflows and the admin data export still read the old local events.
+- The sidebar sits above modal backdrops at tablet/desktop widths (seen on the event form and cancel dialog; the shared Modal wasn't changed in this step, so this is likely older — to check in step 6).
+
+Process note: the previous session's preview server was still running on its preview database when I migrated and seeded that database (it wasn't listed in this session's previews, and I didn't check the port first). I couldn't stop it from this session, so I left that database alone and tested on a fresh copy. The old database's integrity is unconfirmed: stop that server, then check it or re-seed with `--reset`. Rule reinforced: check `lsof -i :<port>` before migrating any preview database.
+
+Next: Phase 1 step 5 (platform administration UI on the API).

@@ -3,11 +3,11 @@ import { useStore } from '../../lib/store.jsx';
 import { Avatar } from '../ui.jsx';
 import { isActiveUser } from '../people/shared.jsx';
 
-/** Searchable multi-select of network members. */
-export default function PeoplePicker({ value, onChange, exclude = [], label = 'people' }) {
+/** Searchable multi-select of network members; `only` limits it to those ids (e.g. a community's members). */
+export default function PeoplePicker({ value, onChange, exclude = [], only, label = 'people' }) {
   const { state } = useStore();
   const [q, setQ] = useState('');
-  const list = state.users.filter((u) => isActiveUser(u) && !exclude.includes(u.id) && u.name.toLowerCase().includes(q.toLowerCase()));
+  const list = state.users.filter((u) => isActiveUser(u) && !exclude.includes(u.id) && (!only || only.includes(u.id)) && u.name.toLowerCase().includes(q.toLowerCase()));
   const toggle = (id) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   return (
     <div className="rounded-xl border border-white/10 bg-black/20">

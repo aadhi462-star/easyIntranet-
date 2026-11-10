@@ -1,19 +1,30 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
+import { setRsvp } from '../../lib/events.js';
+import { toast } from '../../lib/toast.js';
 import { AvatarStack } from '../ui.jsx';
 import { TYPE_COLORS, recurrenceText, scopeLabel, whenText } from './eventUtils.js';
 
+/** RSVP choices. The server decides whether they're open (`can.rsvp`) and has the last word on
+ * capacity and deadlines, so a refusal is shown as its message. */
 export function RsvpButtons({ event, compact = false }) {
-  const { me, dispatch } = useStore();
-  if (!event.rsvpEnabled) return null;
-  const mine = event.rsvps?.[me.id];
+  const [pending, setPending] = useState(null);
+  if (!event.rsvpEnabled || !event.can?.rsvp) return null;
+  const mine = event.myRsvp;
   const opts = [['going', 'Going'], ['maybe', 'Maybe'], ['no', 'Not going']];
+  const choose = async (v) => {
+    if (pending || v === mine) return;
+    setPending(v);
+    try { await setRsvp(event.id, v); toast('RSVP saved'); } catch (err) { toast(err.message, 'error'); } finally { setPending(null); }
+  };
   return (
     <div role="group" aria-label="RSVP" className="flex flex-wrap gap-1.5">
       {opts.map(([v, l]) => (
-        <button key={v} aria-pressed={mine === v} onClick={(e) => { e.preventDefault(); dispatch({ type: 'event/rsvp', id: event.id, status: v }); }}
+        <button key={v} aria-pressed={mine === v} disabled={!!pending || (v === 'going' && event.can.full && mine !== 'going')}
+          onClick={(e) => { e.preventDefault(); choose(v); }}
           className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${mine === v ? (v === 'going' ? 'bg-emerald-500 text-white' : v === 'maybe' ? 'bg-amber-500 text-black' : 'bg-rose-500/80 text-white') : 'bg-white/5 text-slate-300 hover:bg-white/10'} ${compact ? '' : 'sm:min-h-10 sm:px-4 sm:text-sm'}`}>
-          {l}
+          {v === 'going' && event.can.full && mine !== 'going' ? 'Full' : l}
         </button>
       ))}
     </div>
@@ -26,10 +37,11 @@ export default function EventCard({ event }) {
   const start = event.occStart ?? event.start;
   const d = new Date(start);
   const going = Object.entries(event.rsvps || {}).filter(([, v]) => v === 'going').map(([k]) => k);
+  const cancelled = event.status === 'cancelled';
   const color = TYPE_COLORS[event.eventType] ?? '#a3e635';
   const past = (event.occEnd ?? event.end) < Date.now();
   return (
-    <article className={`glass flex flex-col gap-4 p-4 sm:flex-row sm:items-center ${past ? 'opacity-70' : ''}`}>
+    <article className={`glass flex flex-col gap-4 p-4 sm:flex-row sm:items-center ${past || cancelled ? 'opacity-70' : ''}`}>
       <Link to={`/events/${event.id}`} className="flex flex-1 items-start gap-4">
         <div className="grid w-14 shrink-0 place-items-center rounded-xl py-2 text-center" style={{ background: `${color}22`, boxShadow: `inset 0 0 0 1px ${color}55` }}>
           <span className="text-[11px] font-bold uppercase" style={{ color }}>{d.toLocaleDateString(undefined, { month: 'short' })}</span>
@@ -39,16 +51,18 @@ export default function EventCard({ event }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-bold hover:underline">{event.title}</h3>
             <span className="chip" style={{ background: `${color}26`, color }}>{event.eventType ?? 'Event'}</span>
-            {past && <span className="chip !bg-white/10 !text-slate-400">Ended</span>}
+            {cancelled && <span className="chip !bg-rose-500/15 !text-rose-200">Cancelled</span>}
+            {!cancelled && past && <span className="chip !bg-white/10 !text-slate-400">Ended</span>}
+            {event.inviteOnly && <span className="chip !bg-white/10 !text-slate-300">Invite-only</span>}
           </div>
           <p className="mt-1 text-sm text-slate-300">{whenText(event)}</p>
           <p className="mt-0.5 truncate text-xs text-slate-400">
             {scopeLabel(event, state.groups)}{event.location && ` · 📍 ${event.location}`}{recurrenceText(event.recurrence) && ` · 🔁 ${recurrenceText(event.recurrence)}`}
           </p>
-          {going.length > 0 && <div className="mt-2 flex items-center gap-2 text-xs text-slate-400"><AvatarStack ids={going} size={22} />{going.length} going</div>}
+          {going.length > 0 && <div className="mt-2 flex items-center gap-2 text-xs text-slate-400"><AvatarStack ids={going} size={22} />{event.counts?.going ?? going.length} going{event.capacity ? ` of ${event.capacity}` : ''}</div>}
         </div>
       </Link>
-      {!past && <RsvpButtons event={event} compact />}
+      {!past && !cancelled && <RsvpButtons event={event} compact />}
     </article>
   );
 }

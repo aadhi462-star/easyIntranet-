@@ -10,7 +10,7 @@ import { UNIQUE_VIOLATION } from '../db/index.js';
 
 // Settings a community stores for its own screens (tabs, dashboard, guidelines, membership rule).
 // Validated as a plain object of limited size; nothing here grants permissions.
-const SETTING_KEYS = new Set(['apps', 'dashboard', 'guidelines', 'dynamicRule', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue']);
+const SETTING_KEYS = new Set(['apps', 'dashboard', 'guidelines', 'dynamicRule', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue', 'whoCanCreateEvents']);
 function cleanSettings(input) {
   if (input == null) return {};
   if (typeof input !== 'object' || Array.isArray(input)) throw badRequest('INVALID_INPUT', 'Settings must be an object.');
@@ -20,6 +20,7 @@ function cleanSettings(input) {
     out[k] = v;
   }
   if (out.whoCanPost && !['members', 'admins'].includes(out.whoCanPost)) throw badRequest('INVALID_INPUT', 'Choose who can post: members or admins.');
+  if (out.whoCanCreateEvents && !['members', 'admins'].includes(out.whoCanCreateEvents)) throw badRequest('INVALID_INPUT', 'Choose who can create events: members or admins.');
   if (JSON.stringify(out).length > 20000) throw badRequest('TOO_LONG', 'These settings are too large.');
   return out;
 }

@@ -18,6 +18,16 @@ const TEMPLATES = {
     subject: 'Your CommunityOne password was changed',
     body: `Hi ${name},\n\nYour password was just changed and your other sessions were signed out. If this wasn't you, reset your password now.`,
   }),
+  // Event emails name the event and its community only: the recipient is already a registrant
+  // who can see it, and the details live behind sign-in (NTF privacy).
+  event_changed: ({ name, title, community, link }) => ({
+    subject: `Updated: ${title}`,
+    body: `Hi ${name},\n\nThe time or place of “${title}” in ${community} changed. See the new details:\n${link}`,
+  }),
+  event_cancelled: ({ name, title, community, reason, link }) => ({
+    subject: `Cancelled: ${title}`,
+    body: `Hi ${name},\n\n“${title}” in ${community} was cancelled.\nReason: ${reason}\n\n${link}`,
+  }),
 };
 
 export function createMailer({ db, transport = logTransport, log = console }) {

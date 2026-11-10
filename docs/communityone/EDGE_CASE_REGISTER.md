@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Last updated 10 Nov 2026 (Phase 1, steps 1–4b). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 10 Nov 2026 (Phase 1, steps 1–4c). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -78,10 +78,10 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b). Status values: **Not run**, **
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | VIS-01 | P0 | 2 | Visitor opens a private community page directly by URL. | Show only permitted public metadata or an access-denied/join-request state; never expose protected content. | Pass | server/test/communities.test.js VIS-01/02 |
-| VIS-02 | P0 | 2 | Visitor opens a private post, file or member profile endpoint directly. | Deny access server-side; do not rely on hidden UI controls. | Pass | server/test/communities.test.js VIS-01/02 |
-| VIS-03 | P0 | 2 | Non-invited user opens a closed community URL. | Deny access and do not reveal protected content or member details. | Pass | server/test/communities.test.js VIS-03 |
+| VIS-02 | P0 | 2 | Visitor opens a private post, file or member profile endpoint directly. | Deny access server-side; do not rely on hidden UI controls. | Pass | server/test/communities.test.js VIS-01/02 + server/test/events.test.js VIS-02/03 (events) |
+| VIS-03 | P0 | 2 | Non-invited user opens a closed community URL. | Deny access and do not reveal protected content or member details. | Pass | server/test/communities.test.js VIS-03 + server/test/events.test.js VIS-02/03 (events) |
 | VIS-04 | P0 | 2 | Closed community appears in search, recommendations, sitemap or public API. | Exclude it from all public discovery surfaces. | Pass | server/test/communities.test.js VIS-04 |
-| VIS-05 | P0 | 2 | Public community changes to Private while a visitor is viewing it. | Recheck permissions on subsequent requests and immediately protect restricted content. | Pass | server/test/communities.test.js VIS-05 |
+| VIS-05 | P0 | 2 | Public community changes to Private while a visitor is viewing it. | Recheck permissions on subsequent requests and immediately protect restricted content. | Pass | server/test/communities.test.js VIS-05 + server/test/events.test.js VIS-05 (events) |
 | VIS-06 | P0 | 2 | Private community changes to Closed. | Remove it from discovery and require a valid invitation for new access. | Not run | |
 | VIS-07 | P1 | 2 | Closed community changes to Public. | Apply public visibility consistently while preserving role and membership rules. | Not run | |
 | VIS-08 | P0 | 2 | Search engine or application cache contains content after visibility is restricted. | Purge/invalidate protected cached data; stale caches must not reveal content. | Not run | |
@@ -176,14 +176,14 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b). Status values: **Not run**, **
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| EVT-01 | P1 | 2 | User registers for the same event multiple times. | Allow only one active registration per user unless multiple tickets are explicitly supported. | Not run | |
-| EVT-02 | P1 | 2 | Event reaches capacity while two users register simultaneously. | Enforce capacity atomically; place overflow on waitlist or reject. | Not run | |
-| EVT-03 | P1 | 2 | Event is cancelled or rescheduled after registrations. | Notify registrants and update calendar/reminder state; do not retain stale event details. | Not run | |
-| EVT-04 | P1 | 2 | Event time crosses daylight-saving or user timezone boundaries. | Display local time correctly and store a consistent canonical timestamp/timezone. | Not run | |
-| EVT-05 | P1 | 2 | Member is removed from the community before a members-only event. | Recheck access and apply the defined registration/attendance policy. | Not run | |
-| EVT-06 | P1 | 2 | Event creator leaves, is suspended or deleted. | Transfer event management or assign an authorised replacement. | Not run | |
-| EVT-07 | P1 | 2 | Registration deadline passes while a form is open. | Revalidate deadline at submission; reject late registration clearly. | Not run | |
-| EVT-08 | P0 | 2 | Private event URL is shared with a non-member. | Enforce event visibility and eligibility on every request. | Not run | |
+| EVT-01 | P1 | 2 | User registers for the same event multiple times. | Allow only one active registration per user unless multiple tickets are explicitly supported. | Pass | server/test/events.test.js EVT-01 (3 simultaneous RSVPs → 1 row; change updates it) |
+| EVT-02 | P1 | 2 | Event reaches capacity while two users register simultaneously. | Enforce capacity atomically; place overflow on waitlist or reject. | Pass | server/test/events.test.js EVT-02 (last seat, 2 at once → 1 going, 1 EVENT_FULL; row locked in a transaction). Overflow is rejected; a waitlist comes with Phase 2 registrations |
+| EVT-03 | P1 | 2 | Event is cancelled or rescheduled after registrations. | Notify registrants and update calendar/reminder state; do not retain stale event details. | Pass | server/test/events.test.js EVT-03 (time/place change and cancel email going/maybe registrants; RSVP and edit refused after cancel). In-app notifications and reminder state follow in Phase 2 |
+| EVT-04 | P1 | 2 | Event time crosses daylight-saving or user timezone boundaries. | Display local time correctly and store a consistent canonical timestamp/timezone. | Pass | server/test/events.test.js EVT-04 (stored as an instant + organiser zone; weekly London 18:00 stays 18:00 across the Oct DST change; monthly 31st skips short months). shared/recurrence.js is used by server and web app |
+| EVT-05 | P1 | 2 | Member is removed from the community before a members-only event. | Recheck access and apply the defined registration/attendance policy. | Pass | server/test/events.test.js EVT-05 (removed member: event not found, RSVP refused, RSVP stops counting and frees the seat) |
+| EVT-06 | P1 | 2 | Event creator leaves, is suspended or deleted. | Transfer event management or assign an authorised replacement. | Pass | server/test/events.test.js EVT-06 (host suspended → community admin edits and cancels). A deleted host shows as “Deleted member” and the event stays with community admins; explicit host transfer is Phase 2 |
+| EVT-07 | P1 | 2 | Registration deadline passes while a form is open. | Revalidate deadline at submission; reject late registration clearly. | Pass | server/test/events.test.js EVT-07 (deadline passes with the form open → RSVP_CLOSED on submit; “not going” still allowed) |
+| EVT-08 | P0 | 2 | Private event URL is shared with a non-member. | Enforce event visibility and eligibility on every request. | Pass | server/test/events.test.js EVT-08 (invite-only: non-invitees get 404 on detail, RSVP, comments and lists; removed invitee loses access and RSVP) + VIS-02/03 events |
 | EVT-09 | P1 | 2 | Waitlisted user is promoted after capacity changes but has already cancelled. | Do not reactivate a cancelled registration; promote the next eligible user. | Not run | |
 | EVT-10 | P2 | 2 | Attendance is marked more than once or changed after event closure. | Prevent duplicate attendance records and audit corrections. | Not run | |
 

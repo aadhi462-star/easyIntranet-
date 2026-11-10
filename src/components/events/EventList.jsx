@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
+import { useEvents } from '../../lib/events.js';
 import { Empty } from '../ui.jsx';
 import EventCard from './EventCard.jsx';
 import EventForm from './EventForm.jsx';
-import { canSee, lastOccurrence, occurrences } from './eventUtils.js';
+import { lastOccurrence, occurrences } from './eventUtils.js';
 
 const DAY = 864e5;
 
@@ -16,10 +17,12 @@ export default function EventList({ groupId, limit, showPast = true }) {
   const { state, me } = useStore();
   const [creating, setCreating] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
-  const now = Date.now();
+  // Fixed for the mount so the request range doesn't change on every render.
+  const [now] = useState(Date.now);
   const isMember = !groupId || state.groups.find((g) => g.id === groupId)?.members.includes(me.id);
 
-  const events = state.events.filter((e) => canSee(e, me, state.groups) && (!groupId || (e.scope?.type === 'group' && e.scope.id === groupId)));
+  // The server returns only events this viewer may see (EVT-08).
+  const { events, loading, error } = useEvents({ community: groupId, from: now - 365 * DAY, to: now + 120 * DAY });
   const upcoming = events.flatMap((e) => occurrences(e, now, now + 120 * DAY).slice(0, 3)).sort((a, b) => a.occStart - b.occStart);
   // One-off events that are over, plus recurring series that have ended (shown at their last date).
   const past = events.flatMap((e) => {
@@ -38,7 +41,8 @@ export default function EventList({ groupId, limit, showPast = true }) {
           {isMember && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ New event</button>}
         </div>
       )}
-      {shown.length === 0 ? <Empty icon="📅" title="No upcoming events">{isMember ? 'Create one to get people together.' : ''}</Empty>
+      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+      {loading && !events.length ? <p className="text-sm text-slate-400">Loading events…</p> : shown.length === 0 ? <Empty icon="📅" title="No upcoming events">{isMember ? 'Create one to get people together.' : ''}</Empty>
         : shown.map((e) => <EventCard key={`${e.id}-${e.occStart}`} event={e} />)}
       {limit && upcoming.length > limit && <Link to="/events?view=list" className="block text-center text-sm text-brand-400 hover:underline">See all events</Link>}
       {showPast && past.length > 0 && (

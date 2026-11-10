@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { uid, useStore, fmtDate } from '../../lib/store.jsx';
 import { Avatar, Field, Modal } from '../ui.jsx';
-import { canSee, occurrences } from '../events/eventUtils.js';
+import { occurrences } from '../events/eventUtils.js';
+import { useEvents } from '../../lib/events.js';
 import { isLive } from '../feed/utils.js';
 import { useCommunityWrite } from './useCommunity.js';
 
@@ -68,23 +69,8 @@ function Widget({ w, group }) {
       return <p className="text-sm leading-relaxed text-slate-200">{group.description || 'No description yet.'}</p>;
     case 'rules':
       return <p className="whitespace-pre-wrap text-sm text-slate-300">{group.guidelines || 'No guidelines set.'}</p>;
-    case 'events': {
-      const now = Date.now();
-      // Next occurrence of each visible group event (recurring series included).
-      const list = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && canSee(e, me, state.groups))
-        .flatMap((e) => occurrences(e, now, now + 400 * 864e5).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
-      if (!list.length) return <p className="text-sm text-slate-400">No upcoming events.</p>;
-      return (
-        <ul className="space-y-2">
-          {list.map((e) => (
-            <li key={`${e.id}-${e.occStart}`}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-white/5">
-              <div className="text-sm font-semibold">{e.title}</div>
-              <div className="text-xs text-slate-400">{fmtDate(e.occStart)}{e.location ? ` · ${e.location}` : ''}</div>
-            </Link></li>
-          ))}
-        </ul>
-      );
-    }
+    case 'events':
+      return <EventsWidget group={group} />;
     case 'members':
       return (
         <div className="flex flex-wrap gap-3">
@@ -108,11 +94,10 @@ function Widget({ w, group }) {
     case 'stats': {
       // Only what this viewer could open: live posts, published forum posts, visible events.
       const posts = state.posts.filter((p) => p.scope?.type === 'group' && p.scope.id === group.id && isLive(p)).length;
-      const events = state.events.filter((e) => e.scope?.type === 'group' && e.scope.id === group.id && canSee(e, me, state.groups)).length;
       const forums = state.forumPosts.filter((f) => f.groupId === group.id && f.status !== 'draft').length;
       return (
         <dl className="grid grid-cols-2 gap-3 text-center">
-          {[['Members', group.memberCount ?? group.members.length], ['Posts', posts], ['Events', events], ['Discussions', forums]].map(([k, n]) => (
+          {[['Members', group.memberCount ?? group.members.length], ['Posts', posts], ['Events', <EventCount key="e" group={group} />], ['Discussions', forums]].map(([k, n]) => (
             <div key={k} className="rounded-xl bg-white/5 p-3"><dd className="text-2xl font-extrabold text-brand-gradient">{n}</dd><dt className="text-xs text-slate-400">{k}</dt></div>
           ))}
         </dl>
@@ -120,6 +105,36 @@ function Widget({ w, group }) {
     }
     default: return null;
   }
+}
+
+const DAY = 864e5;
+
+// Next occurrence of each upcoming group event the viewer may see (recurring series included).
+function EventsWidget({ group }) {
+  const [now] = useState(Date.now);
+  const { events, loading, error } = useEvents({ community: group.id, from: now, to: now + 400 * DAY });
+  if (error) return <p className="text-sm text-rose-300">{error}</p>;
+  if (loading && !events.length) return <p className="text-sm text-slate-400">Loading…</p>;
+  const list = events.filter((e) => e.status !== 'cancelled')
+    .flatMap((e) => occurrences(e, now, now + 400 * DAY).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
+  if (!list.length) return <p className="text-sm text-slate-400">No upcoming events.</p>;
+  return (
+    <ul className="space-y-2">
+      {list.map((e) => (
+        <li key={`${e.id}-${e.occStart}`}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-white/5">
+          <div className="text-sm font-semibold">{e.title}</div>
+          <div className="text-xs text-slate-400">{fmtDate(e.occStart)}{e.location ? ` · ${e.location}` : ''}</div>
+        </Link></li>
+      ))}
+    </ul>
+  );
+}
+
+/** Events in this group from the past year and the year ahead that the viewer can open. */
+function EventCount({ group }) {
+  const [now] = useState(Date.now);
+  const { events, loading } = useEvents({ community: group.id, from: now - 365 * DAY, to: now + 365 * DAY });
+  return loading && !events.length ? '…' : events.length;
 }
 
 function AddWidget({ onAdd, onClose }) {

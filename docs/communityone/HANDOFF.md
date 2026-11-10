@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (10 Nov 2026)
+# CommunityOne — Session handoff (10 Nov 2026, after step 4c)
 
 Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -18,45 +18,38 @@ D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real
 npm install
 npm run db:seed        # migrations + idempotent seed from server/seed/prototype.json
 npm run build && npm run server   # http://localhost:5181 (API + built app)
-npm run test:server    # node:test, in-memory PGlite — 99 tests, all pass at last commit
+npm run test:server    # node:test, in-memory PGlite — 120 tests, all pass at last commit
 ```
 
 Demo logins: `DEMO_ACCOUNTS.md` (most: `Community-Demo-2026`; hosts `neha.host@example.com` / `Lime-Host-4821`; member `ishita@example.com` / `Alumni-Member-2093`; test signup `riya.menon@example.com` / `riya-new-pass-1` exists only in the preview DB).
 
 ### Preview quirk (important)
-Processes can't run with cwd on the Desktop (EPERM). The preview runs a **copy** in the scratchpad:
-- launch entry `communityone` in `/Users/jaswa-zsbch1582/Desktop/My projects/Game rush/.claude/launch.json` (python chdir → node `server/index.js`, PORT 5181, `PGLITE_DIR=<copy>/data`, `STATIC_DIR=<copy>/dist`).
-- Copy dir: `/private/tmp/claude-502/-Users-jaswa-zsbch1582-Desktop-My-projects-Game-rush/6469d2af-edfc-488e-8a21-3b3982a1aa17/scratchpad/run/communityone` (a new session gets a new scratchpad — recreate: `rsync -a --exclude .data server package.json node_modules` + `dist/`, then `PGLITE_DIR=<copy>/data node server/scripts/seed.mjs`, and update the launch.json path).
-- Deploy: `npx vite build` → `rsync -a --delete --exclude .data server $R/` and `rsync -a dist/ $R/dist/` (no `--delete` on dist, keeps old chunks).
-- **Rule: stop the preview server before running seed/migrations on its PGlite dir** (PGlite is single-process).
+Processes can't run with cwd on the Desktop (EPERM) for the preview, so it runs a **copy** in a scratchpad:
+- Step 4c used launch entry `communityone-4c` (port **5182**) in `/Users/jaswa-zsbch1582/Desktop/My projects/Portfolio website/.claude/launch.json` (the session ran from the Portfolio folder). Copy dir: `/private/tmp/claude-502/-Users-jaswa-zsbch1582--claude-spares-spare-vrVP81/0a437b1a-9ae4-4e1e-af5f-acac9d7c2b37/scratchpad/run/communityone` (fresh DB, seeded in 4c; no `riya.menon` test signup).
+- The older entry `communityone` (port 5181) in `Game rush/.claude/launch.json` points at the 4b copy. **Its server was left running from an earlier session and its DB was migrated+seeded underneath it in 4c — treat that DB as suspect**: stop it, then re-seed with `--reset` or discard it.
+- A new session gets a new scratchpad — recreate: `rsync -a --exclude .data server shared package.json node_modules <copy>/` + `rsync -a dist/ <copy>/dist/`, then `PGLITE_DIR=<copy>/data node server/scripts/seed.mjs`, and update launch.json. **`shared/` must be copied too** (server imports `shared/recurrence.js`).
+- Deploy: `npx vite build` → `rsync -a --delete --exclude .data server $R/` + `rsync -a --delete shared $R/` + `rsync -a dist/ $R/dist/`.
+- **Rules: check `lsof -i :<port>` and stop the preview server before running seed/migrations on its PGlite dir** (PGlite is single-process; preview_list only shows this session's servers).
 
 ## Architecture (server/)
 
 - `app.js` buildApp (helmet CSP, cookies, rate limits, error handler, ajv `removeAdditional:false`), `index.js` (+ scheduled-post publisher every 60s).
 - `lib/`: `session.js` (HttpOnly hashed sessions, per-request status check, double-submit CSRF `c1_csrf` + `x-csrf-token`, `idempotent()` via `Idempotency-Key`), `permissions.js` (platform roles), `community.js` (`access()` — the single community permission function; admin mode only with header `x-admin-mode: 1` + audited), `relations.js` (connections/blocks), `settings.js` (versioned, allow-listed), `audit.js`, `mailer.js` (outbox), `crypto.js` (scrypt).
-- `routes/`: `auth.js`, `admin.js`, `profiles.js`, `connections.js`, `communities.js`, `posts.js`, `dev.js`.
-- `migrations/`: 001 foundation, 002 profiles, 003 connections, 004 communities/posts, **005 events (written, NOT yet applied/tested/committed)**.
+- `routes/`: `auth.js`, `admin.js`, `profiles.js`, `connections.js`, `communities.js`, `posts.js`, `events.js` (+ exported `listEvents`/`presentEvents`), `dashboard.js`, `dev.js`. `shared/recurrence.js` (time-zone-aware series expansion) is used by both server and web app.
+- `migrations/`: 001 foundation, 002 profiles, 003 connections, 004 communities/posts, 005 events (with `rsvp_deadline`).
 - Gotchas learned: inside `db.tx(...)` use only `t.query` (PGlite deadlocks on outer `db`); cast reused SQL params (`$6::text`); never select two columns with the same name (`status`); `@fastify/static` must use `wildcard: true`; missing `/assets/*` must 404, not index.html.
 
 ## Client (src/) bridge pattern
 
-Server is the authority; legacy screens still read the local store. `lib/api.js` (CSRF, idempotency, 401 → `c1-signed-out`), `components/auth/AuthSync.jsx` (session check, `syncDirectory`, `syncCommunities`, fires `c1-session-changed`), `lib/people.js` (`users/merge`), `lib/communities.js` (`communities/merge`), `lib/feed.js`. Already on the server: auth pages, People/profiles/directory/connections/blocks, Groups & Spaces, Feed.
+Server is the authority; legacy screens still read the local store. `lib/api.js` (CSRF, idempotency, 401 → `c1-signed-out`), `components/auth/AuthSync.jsx` (session check, `syncDirectory`, `syncCommunities`, fires `c1-session-changed`), `lib/people.js` (`users/merge`), `lib/communities.js` (`communities/merge`), `lib/feed.js`, `lib/events.js` (events + dashboard; `fromServer` keeps the old ms/`scope` shape; `useEvents` hook). Already on the server: auth pages, People/profiles/directory/connections/blocks, Groups & Spaces, Feed, Events/Calendar/reminders, Dashboard.
 
-**Still on local data:** Events/Calendar/TownHalls, Dashboard, Search index, Admin screens (Members, Moderation, settings UI), scheduler runners, signed-out Explore, notifications.
+**Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — Phase 1 step 4c (events + member dashboard)
+## Where we stopped — Phase 1 step 4c done (committed, not pushed)
 
-Done: `server/migrations/005_events.sql` (events, event_staff, event_invitees, event_rsvps, event_comments).
+Step 4c is complete: see PHASE0_ASSESSMENT.md §14 for what was built, tested and the known gaps (RSVPs of leavers count again on rejoin; `whoCanCreateEvents` not exposed in the community list; no waitlist; sidebar above modal backdrops — probably older).
 
-Next:
-1. `server/routes/events.js`: list (`from/to/community/view`), detail, create (`POST /communities/:id/events`, idempotent, validate start≤end, recurrence until ≥ start), edit (host/co-host/community admin, versioned), cancel with reason, delete, RSVP upsert (one per member, capacity check in a transaction, no RSVP on cancelled), invite-only visibility (EVT-08), comments. Reuse `src/components/events/eventUtils.js` (pure, no imports) for recurrence/next occurrence on the server.
-2. `GET /api/dashboard`: my communities, next events, unacknowledged Mandatory Reads, recent announcements, connection requests count, new members.
-3. Seed: prototype `events` (scope network → `alumnizone`, group → same id, private → `alumnizone` + `invite_only` with invitees), RSVPs, assistants, comments.
-4. Tests (EVT-01/02/04/05/07/08, VIS paths) in `server/test/events.test.js`.
-5. Client: switch `pages/Events.jsx`, `pages/Calendar.jsx`, `components/events/*`, `lib/runners/eventReminders.jsx` and `pages/Dashboard.jsx` to the API (two parallel agents with disjoint files worked well before). Hide parked widgets (tasks, leaderboard).
-6. Browser-verify, update the register + §14 progress log, commit, ask to push.
-
-Then: Phase 1 step 5 (platform admin UI on the API: users, suspend/approve, roles, settings, audit, institutions), step 6 (remaining client data layer + react-router 7 upgrade for the open-redirect advisory), step 7 (CommunityOne rebrand + read feature flags in the client). Then Phase 2.
+Next: **Phase 1 step 5** — platform admin UI on the API (users, suspend/approve, roles, settings, audit, institutions). Then step 6 (remaining client data layer incl. Explore/search/schedulers/admin export still reading local events, react-router 7 upgrade), step 7 (CommunityOne rebrand + client reads feature flags). Then Phase 2.
 
 ## Working style that's been effective
 
@@ -72,7 +65,7 @@ Then: Phase 1 step 5 (platform admin UI on the API: users, suspend/approve, role
 | §6 Accounts & profiles, §15 security foundations | Done (no 2FA, avatars yet) | Phase 1 steps 1–3 |
 | §5 Public/Private/Closed, §8 roles/states (server) | Foundation done | Phase 1 step 4b; invitations Phase 2 |
 | §9 Admin override + Administrative Mode | Server done (header) | UI toggle + banner Phase 1 step 5 / Phase 2 |
-| Events foundation, member dashboard (§11) | **In progress** | Phase 1 step 4c |
+| Events foundation, member dashboard (§11) | Done | Phase 1 step 4c (waitlist, notifications Phase 2) |
 | §13 Platform Admin settings, §11 control centre | Server API partly done | Phase 1 step 5 |
 | §17 CommunityOne branding, §4 platform navigation | Not started | Phase 1 step 7 (+ nav restructure in Phase 2) |
 | §7 creation wizard, §12 community settings + deletion requests, resources, notifications/email, moderation reports | Not started | Phase 2 |

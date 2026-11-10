@@ -34,6 +34,7 @@ if (existing) {
 await seedProfiles();
 await seedConnections();
 await seedCommunities();
+await seedEvents();
 await db.close();
 
 async function seedAccounts() {
@@ -181,4 +182,45 @@ async function seedCommunities() {
     }
   });
   console.log('communities', counts);
+}
+
+// Prototype events → community events (network → AlumniZone; group → that community; private →
+// an invite-only AlumniZone event with its invitees). Assistants become co-hosts. People who
+// aren't active members of the event's community are left off guest lists and RSVPs. Runs once.
+async function seedEvents() {
+  if ((await db.query(`select count(*)::int as n from events`)).rows[0].n) return;
+  const counts = { events: 0, cohosts: 0, invitees: 0, rsvps: 0, comments: 0, skipped: 0 };
+  await db.tx(async (t) => {
+    const members = {};
+    for (const r of (await t.query(`select m.community_id, m.user_id from memberships m join users u on u.id = m.user_id where m.state = 'active' and u.status = 'active'`)).rows) {
+      (members[r.community_id] ??= new Set()).add(r.user_id);
+    }
+    // The prototype let only permitted people create network-wide ("company") events.
+    await t.query(`update communities set settings = settings || '{"whoCanCreateEvents": "admins"}'::jsonb where id = 'alumnizone' and not settings ? 'whoCanCreateEvents'`);
+    for (const e of proto.events || []) {
+      const cid = e.scope?.type === 'group' ? e.scope.id : 'alumnizone';
+      const ok = members[cid];
+      if (!ok?.has(e.hostId) || !String(e.title || '').trim() || !(e.end >= e.start)) { counts.skipped += 1; continue; }
+      const inviteOnly = e.scope?.type === 'private';
+      const rec = e.recurrence?.freq && e.recurrence.freq !== 'none'
+        ? { freq: e.recurrence.freq, ...(e.recurrence.until ? { until: new Date(e.recurrence.until).toISOString() } : {}) } : { freq: 'none' };
+      await t.query(`insert into events (id, community_id, host_id, title, description, event_type, start_at, end_at, all_day, timezone, location, recurrence, invite_only, rsvp_enabled, reminders)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Asia/Kolkata', $10, $11, $12, $13, $14)`,
+      [e.id, cid, e.hostId, String(e.title).slice(0, 140), e.description ? String(e.description).slice(0, 5000) : null,
+        e.eventType || 'Meetup', new Date(e.start), new Date(e.end), !!e.allDay, e.location ? String(e.location).slice(0, 300) : null,
+        JSON.stringify(rec), inviteOnly, e.rsvpEnabled !== false, (e.reminders || []).filter((m) => [5, 15, 30, 60, 120, 1440, 10080].includes(m))]);
+      counts.events += 1;
+      for (const uid of new Set(e.assistants || [])) if (ok.has(uid) && uid !== e.hostId) { await t.query(`insert into event_staff (event_id, user_id) values ($1, $2)`, [e.id, uid]); counts.cohosts += 1; }
+      if (inviteOnly) for (const uid of new Set(e.invitees || [])) if (ok.has(uid)) { await t.query(`insert into event_invitees (event_id, user_id) values ($1, $2)`, [e.id, uid]); counts.invitees += 1; }
+      for (const [uid, st] of Object.entries(e.rsvps || {})) {
+        if (ok.has(uid) && ['going', 'maybe', 'no'].includes(st)) { await t.query(`insert into event_rsvps (event_id, user_id, status) values ($1, $2, $3)`, [e.id, uid, st]); counts.rsvps += 1; }
+      }
+      for (const c of e.comments || []) {
+        if (!ok.has(c.authorId) || !String(c.text || '').trim()) continue;
+        await t.query(`insert into event_comments (id, event_id, author_id, body, created_at) values ($1, $2, $3, $4, $5)`, [c.id, e.id, c.authorId, String(c.text).slice(0, 2000), new Date(c.createdAt || Date.now())]);
+        counts.comments += 1;
+      }
+    }
+  });
+  console.log('events', counts);
 }

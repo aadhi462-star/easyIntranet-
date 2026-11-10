@@ -10,7 +10,6 @@ export const MAX_ATTACHMENT = 30 * 1024 * 1024;
 /** Attachments are stored as data URLs in localStorage, so each one must stay small. */
 export const MAX_STORED_ATTACHMENT = 1024 * 1024;
 
-const DAY = 864e5;
 const pad = (n) => String(n).padStart(2, '0');
 
 export const sectionOf = (e) => (e.scope?.type === 'network' ? 'company' : e.scope?.type === 'group' ? 'group' : 'private');
@@ -38,70 +37,8 @@ export function canSeeTownhall(th, me, groups = []) {
   return !!g && [g.members, g.admins, g.moderators].some((l) => (l || []).includes(me.id));
 }
 
-const isRecurring = (e) => !!e.recurrence?.freq && e.recurrence.freq !== 'none';
-
-/**
- * Start of occurrence `i` of a recurring event, always computed from the original start so
- * nothing drifts (DST-safe: local hours are kept). Monthly series skip months that don't
- * have the start day (e.g. the 31st), like an RRULE does; those return null.
- */
-function nthStart(e, i) {
-  const d = new Date(e.start);
-  if (e.recurrence.freq === 'monthly') {
-    const day = d.getDate();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + i);
-    d.setDate(day);
-    return d.getDate() === day ? d.getTime() : null;
-  }
-  d.setDate(d.getDate() + i * (e.recurrence.freq === 'weekly' ? 7 : 1));
-  return d.getTime();
-}
-
-/** An occurrence index at or a little before the one starting at time `t` (never negative). */
-function indexNear(e, t) {
-  if (t <= e.start) return 0;
-  if (e.recurrence.freq === 'monthly') {
-    const a = new Date(e.start); const b = new Date(t);
-    return Math.max(0, (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth() - 1);
-  }
-  const step = (e.recurrence.freq === 'weekly' ? 7 : 1) * DAY;
-  return Math.max(0, Math.floor((t - e.start) / step) - 1);
-}
-
-/** Expand an event (and its recurrence) into occurrences overlapping [from, to]. */
-export function occurrences(e, from, to) {
-  const dur = Math.max(0, e.end - e.start);
-  if (!isRecurring(e)) return e.end >= from && e.start <= to ? [{ ...e, occStart: e.start, occEnd: e.end }] : [];
-  const out = [];
-  const until = e.recurrence.until ?? Infinity;
-  const first = indexNear(e, from - dur);
-  for (let i = first; out.length < 1000 && i < first + 5000; i++) {
-    const s = nthStart(e, i);
-    if (s == null) continue;
-    if (s > to || s > until) break;
-    if (s + dur >= from) out.push({ ...e, occStart: s, occEnd: s + dur });
-  }
-  return out;
-}
-
-/** Start of the last occurrence at or before `limit` (and the series' end), or null. */
-export function lastOccurrence(e, limit = Date.now()) {
-  if (!isRecurring(e)) return e.start <= limit ? e.start : null;
-  const cap = Math.min(limit, e.recurrence.until ?? Infinity);
-  for (let i = indexNear(e, cap) + 2; i >= 0; i--) {
-    const s = nthStart(e, i);
-    if (s != null && s <= cap) return s;
-  }
-  return null;
-}
-
-/** Next occurrence start (or the last one, if the series is over). */
-export function nextOccurrence(e, now = Date.now()) {
-  const next = occurrences(e, now, now + 400 * DAY)[0];
-  if (next) return next.occStart;
-  return isRecurring(e) ? (lastOccurrence(e, now) ?? e.start) : e.start;
-}
+// Recurrence lives in shared/ so the server expands a series exactly like the web app (EVT-04).
+export { occurrences, lastOccurrence, nextOccurrence, seriesEnd, isValidTimeZone } from '../../../shared/recurrence.js';
 
 export const startOfDay = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 export const sameDay = (a, b) => startOfDay(a) === startOfDay(b);
@@ -133,7 +70,8 @@ export function recurrenceText(r) {
 }
 
 export const scopeLabel = (e, groups) => (e.scope?.type === 'network' ? 'Company event'
-  : e.scope?.type === 'group' ? (groups.find((g) => g.id === e.scope.id)?.name ?? 'Group event') : 'Private event');
+  : e.scope?.type === 'group' ? (e.community?.name ?? groups.find((g) => g.id === e.scope.id)?.name ?? 'Group event')
+    : `Invite-only${e.community && e.communityId !== 'alumnizone' ? ` · ${e.community.name}` : ''}`);
 
 export const isUrl = (s = '') => /^https?:\/\//i.test(s.trim());
 
