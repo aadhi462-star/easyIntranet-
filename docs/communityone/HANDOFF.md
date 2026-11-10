@@ -35,10 +35,12 @@ Processes can't run with cwd on the Desktop (EPERM) for the preview, so it runs 
 
 One AppSail service serves the API and the built web app (no Slate; keeps the same-origin cookie/CSRF model).
 - Build: `npm run build:appsail` → `appsail-build.zip` (git-ignored). Upload from Console.
-- Settings: Catalyst-Managed Runtime, Node24, startup command `npm start`, port default (server reads `X_ZOHO_CATALYST_LISTEN_PORT`, binds 0.0.0.0), **memory 2048 MB**, **1 instance**.
+- Settings: Catalyst-Managed Runtime, Node24, startup command `npm start` (= `node server/index.js`; seeds in-process), port default (server reads `X_ZOHO_CATALYST_LISTEN_PORT`, binds 0.0.0.0), **memory 2048 MB**, **1 instance**.
 - Env: `NODE_ENV=production`, `SEED_PASSWORD` (secret; all seeded accounts use it — the DEMO_ACCOUNTS.md passwords don't work there; without it nothing is seeded), `APP_ORIGIN` (the service URL, required in production: email links use it, never the Host header), `MAIL_TRANSPORT=catalyst` + `MAIL_FROM` (a sender verified in Catalyst Mail; SMTP configured in the console) + optional `MAIL_FROM_NAME`.
 - Email (D5 → Catalyst Mail): `server/lib/mailer.js` `catalystTransport` initialises `zcatalyst-sdk-node` 3.4.0 with the request headers, admin scope; every send is in `email_outbox` (failed ones keep `last_error`, the request still succeeds).
-- Why 2048 MB: PGlite peaks ≈1.36 GB on first start (creating the database + seed), ≈0.7 GB when reopening, ≈136 MB idle. 512/1024 MB got the process `Killed` (out of memory).
+- Fast first start: the bundle ships `server/db-template` (built by `scripts/build-db-template.mjs`: migrated + seeded, every account locked with `LOCKED_HASH`, table vacuumed so no hash remains). On a deploy with no database the server *moves* it into place and unlocks the seeded accounts with `SEED_PASSWORD`. Measured per step: creating a database ≈3 s and seeding ≈2 s are gone; first-start peak memory ≈0.77 GB (was ≈1.36 GB).
+- Memory: 2048 MB is safe; 1024 MB should now fit (peak ≈0.77 GB) but isn't tested on AppSail. 512 MB was `Killed`.
+- Observed: each redeploy started with an empty database (accounts created before it were gone), so the app folder is not persistent.
 - Caveats: data lives in files in the app folder — persistence across redeploys/restarts is unconfirmed, so treat it as a pilot; move to a managed PostgreSQL (`DATABASE_URL`) before real members — it also drops memory to ~256–512 MB.
 
 ## Architecture (server/)

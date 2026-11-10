@@ -2,7 +2,7 @@
 # Builds the folder (and zip) to upload to Catalyst AppSail: one Node service that serves the
 # API on /api and the built web app on every other path, exactly as `npm run server` does.
 #   npm run build:appsail   →  appsail-build/  and  appsail-build.zip
-# Startup command on AppSail: npm start   (seeds an empty database once, then starts the server)
+# Startup command on AppSail: npm start   (copies the bundled database on first start, then starts)
 set -e
 cd "$(dirname "$0")/.."
 OUT=appsail-build
@@ -14,5 +14,7 @@ rsync -a --exclude .data --exclude test server shared dist package.json package-
 # Production dependencies only (no Vite/Tailwind build tools).
 rsync -a node_modules "$OUT/"
 (cd "$OUT" && npm prune --omit=dev --no-audit --no-fund >/dev/null)
+# A ready-made database (migrated + seeded, accounts locked) so the first start is fast.
+node scripts/build-db-template.mjs "$OUT/server/db-template"
 (cd "$OUT" && zip -qr "../$OUT.zip" .)
 echo "built $OUT/ and $OUT.zip ($(du -sh "$OUT.zip" | cut -f1))"

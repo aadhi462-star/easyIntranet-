@@ -16,35 +16,52 @@ export const DEV_PASSWORD = 'Community-Demo-2026';
 // without one the seed does nothing.
 const production = process.env.NODE_ENV === 'production';
 const SEED_PASSWORD = process.env.SEED_PASSWORD;
-if (production && (!SEED_PASSWORD || SEED_PASSWORD.length < 12)) {
-  console.log('production: SEED_PASSWORD (12+ characters) is not set — demo data not seeded');
-  process.exit(0);
-}
 const SUPER_ADMIN = 'u7'; // decision D6 default: the alumni office account
+/** Password hash of accounts in a shipped database template: matches no password (locked). */
+export const LOCKED_HASH = '!locked';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const dataDir = process.env.PGLITE_DIR || path.join(root, 'server', '.data', 'pg');
+let db; let proto;
 
-if (process.argv.includes('--reset')) {
-  if (process.env.DATABASE_URL) throw new Error('--reset only works on the local PGlite database.');
-  await rm(dataDir, { recursive: true, force: true });
-  console.log(`reset ${path.relative(root, dataDir)}`);
+/**
+ * Seeds an open database (migrations already applied). Safe on every start: each step only
+ * fills what's empty. Returns false when production has no SEED_PASSWORD.
+ */
+export async function runSeed(database, { log = console.log } = {}) {
+  if (production && (!SEED_PASSWORD || SEED_PASSWORD.length < 12)) {
+    log('production: SEED_PASSWORD (12+ characters) is not set — demo data not seeded');
+    return false;
+  }
+  db = database;
+  // Accounts from a shipped template are locked until the host's own secret is applied.
+  if (production) {
+    const locked = await db.query(`update users set password_hash = $1 where password_hash = $2 returning id`, [await hashPassword(SEED_PASSWORD), LOCKED_HASH]);
+    if (locked.rows.length) log(`unlocked ${locked.rows.length} seeded accounts with SEED_PASSWORD`);
+  }
+  proto = JSON.parse(await readFile(path.join(root, 'server', 'seed', 'prototype.json'), 'utf8'));
+  const existing = (await db.query(`select count(*)::int as n from users`)).rows[0].n;
+  if (existing) log(`database already has ${existing} accounts — accounts not re-seeded (use --reset to start over)`);
+  else await seedAccounts();
+  await seedProfiles();
+  await seedConnections();
+  await seedCommunities();
+  await seedEvents();
+  return true;
 }
 
-const db = await createDb({ dataDir });
-await migrate(db, { log: console.log });
-const proto = JSON.parse(await readFile(path.join(root, 'server', 'seed', 'prototype.json'), 'utf8'));
-const existing = (await db.query(`select count(*)::int as n from users`)).rows[0].n;
-if (existing) {
-  console.log(`database already has ${existing} accounts — accounts not re-seeded (use --reset to start over)`);
-} else {
-  await seedAccounts();
+// Run directly: `npm run db:seed` (the server imports runSeed instead).
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const dataDir = process.env.PGLITE_DIR || path.join(root, 'server', '.data', 'pg');
+  if (process.argv.includes('--reset')) {
+    if (process.env.DATABASE_URL) throw new Error('--reset only works on the local PGlite database.');
+    await rm(dataDir, { recursive: true, force: true });
+    console.log(`reset ${path.relative(root, dataDir)}`);
+  }
+  const database = await createDb({ dataDir });
+  await migrate(database, { log: console.log });
+  await runSeed(database);
+  await database.close();
 }
-await seedProfiles();
-await seedConnections();
-await seedCommunities();
-await seedEvents();
-await db.close();
 
 async function seedAccounts() {
 const statusOf = (u) => (u.deactivated || u.status === 'deactivated' ? 'deactivated' : u.status === 'pending' ? 'pending_approval' : 'active');

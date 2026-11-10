@@ -4,3 +4,4 @@ dist
 server/.data
 appsail-build
 appsail-build.zip
+server/db-template
