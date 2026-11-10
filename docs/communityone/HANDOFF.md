@@ -31,6 +31,15 @@ Processes can't run with cwd on the Desktop (EPERM) for the preview, so it runs 
 - Deploy: `npx vite build` → `rsync -a --delete --exclude .data server $R/` + `rsync -a --delete shared $R/` + `rsync -a dist/ $R/dist/`.
 - **Rules: check `lsof -i :<port>` and stop the preview server before running seed/migrations on its PGlite dir** (PGlite is single-process; preview_list only shows this session's servers).
 
+## Hosting — Catalyst AppSail (live since 10 Nov 2026)
+
+One AppSail service serves the API and the built web app (no Slate; keeps the same-origin cookie/CSRF model).
+- Build: `npm run build:appsail` → `appsail-build.zip` (git-ignored). Upload from Console.
+- Settings: Catalyst-Managed Runtime, Node24, startup command `npm start`, port default (server reads `X_ZOHO_CATALYST_LISTEN_PORT`, binds 0.0.0.0), **memory 2048 MB**, **1 instance**.
+- Env: `NODE_ENV=production`, `SEED_PASSWORD` (secret; all seeded accounts use it — the DEMO_ACCOUNTS.md passwords don't work there; without it nothing is seeded).
+- Why 2048 MB: PGlite peaks ≈1.36 GB on first start (creating the database + seed), ≈0.7 GB when reopening, ≈136 MB idle. 512/1024 MB got the process `Killed` (out of memory).
+- Caveats: data lives in files in the app folder — persistence across redeploys/restarts is unconfirmed, so treat it as a pilot; sign-ups can't finish (emails only go to the log until D5); move to a managed PostgreSQL (`DATABASE_URL`) before real members — it also drops memory to ~256–512 MB.
+
 ## Architecture (server/)
 
 - `app.js` buildApp (helmet CSP, cookies, rate limits, error handler, ajv `removeAdditional:false`), `index.js` (+ scheduled-post publisher every 60s).
