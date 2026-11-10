@@ -273,3 +273,57 @@ describe('account deletion', () => {
     assert.match(res.body.error.message, /Transfer ownership/);
   });
 });
+
+describe('creating and managing communities', () => {
+  test('COM-05 create is idempotent; COM-01 near-duplicate names are refused; creator is owner', async () => {
+    const h = { 'idempotency-key': 'create-1' };
+    const a = await c.mem.post('/api/communities', { name: 'Pune Runners', visibility: 'public' }, h);
+    const b = await c.mem.post('/api/communities', { name: 'Pune Runners', visibility: 'public' }, h);
+    assert.equal(a.status, 201);
+    assert.equal(a.body.community.id, b.body.community.id);
+    assert.equal(a.body.community.membership.role, 'owner');
+    const dup = await c.out.post('/api/communities', { name: 'pune  runners!', visibility: 'private' });
+    assert.equal(dup.status, 409);
+    assert.equal((await c.mem.post('/api/communities', { name: 'x', visibility: 'public' })).body.error.code, 'INVALID_NAME');
+  });
+
+  test('settings accept only known keys; edits are version-checked; only admins edit', async () => {
+    const id = (await c.mem.get('/api/communities')).body.communities.find((x) => x.name === 'Pune Runners').id;
+    const v = (await c.mem.get(`/api/communities/${id}`)).body.community.version;
+    assert.equal((await c.mem.patch(`/api/communities/${id}`, { version: v, settings: { isAdmin: true } })).body.error.code, 'FIELD_NOT_ALLOWED');
+    assert.equal((await c.mem.patch(`/api/communities/${id}`, { version: v, description: 'Weekend runs', settings: { guidelines: 'Be kind' } })).status, 200);
+    assert.equal((await c.mem.patch(`/api/communities/${id}`, { version: v, description: 'stale' })).body.error.code, 'STALE_VERSION');
+    await c.out.post(`/api/communities/${id}/join`);
+    const v2 = (await c.out.get(`/api/communities/${id}`)).body.community.version;
+    assert.equal((await c.out.patch(`/api/communities/${id}`, { version: v2, name: 'Taken over' })).status, 403);
+  });
+
+  test('VIS-13 pending requests are re-evaluated when visibility changes', async () => {
+    const id = (await c.mem.post('/api/communities', { name: 'Quiet Readers', visibility: 'private' })).body.community.id;
+    await c.out.post(`/api/communities/${id}/join`);
+    const v = (await c.mem.get(`/api/communities/${id}`)).body.community.version;
+    await c.mem.patch(`/api/communities/${id}`, { version: v, visibility: 'closed' });
+    const st = (await env.db.query(`select state from memberships where community_id = $1 and user_id = 'out'`, [id])).rows[0].state;
+    assert.equal(st, 'left', 'closing the community drops the request rather than granting access');
+    assert.equal((await c.out.get(`/api/communities/${id}`)).status, 404);
+  });
+
+  test('admins add members directly; removed members are not silently restored (MEM-05)', async () => {
+    const id = (await c.mem.post('/api/communities', { name: 'Book Club', visibility: 'closed' })).body.community.id;
+    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out', 'res'] })).body.added.sort(), ['out', 'res']);
+    await c.mem.post(`/api/communities/${id}/members/out`, { state: 'removed' });
+    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.added, []);
+    assert.equal((await c.out.post(`/api/communities/${id}/members`, { userIds: ['adm'] })).status, 404, 'removed member sees nothing');
+  });
+
+  test('DEL-01 / TC-03 community admins can archive but not delete; platform staff can delete', async () => {
+    const id = (await c.mem.post('/api/communities', { name: 'Temporary Group', visibility: 'public' })).body.community.id;
+    const del = await c.mem.delete(`/api/communities/${id}`);
+    assert.equal(del.status, 403);
+    assert.equal(del.body.error.code, 'DELETE_NOT_ALLOWED');
+    assert.equal((await c.mem.post(`/api/communities/${id}/archive`, { archived: true })).status, 200);
+    assert.equal((await post('mem', id)).status, 403, 'archived communities take no new posts');
+    assert.ok(!(await c.out.get('/api/communities')).body.communities.some((x) => x.id === id), 'archived ones leave discovery (VIS-14)');
+    assert.equal((await c.pa.delete(`/api/communities/${id}`)).status, 200);
+  });
+});
