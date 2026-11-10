@@ -10,7 +10,7 @@ Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (t
 
 ## Decisions (approved)
 
-D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real server) · D2 park Tasks/Custom Apps/Web Tabs/Live/Town Halls/Channels/Surveys/Ideas/Leaderboard/Smart Assist behind flags (flags exist in DB `feature_flags`, **not yet read by the client**) · D3 network-wide content → public community `alumnizone` · D4 institutions → departments → batches are first-class · D6 Super Admin = Sara Thomas (`u7`) · D7 PGlite. D5 (email provider) open — emails go to the server log + `/api/dev/outbox`.
+D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real server) · D2 park Tasks/Custom Apps/Web Tabs/Live/Town Halls/Channels/Surveys/Ideas/Leaderboard/Smart Assist behind flags (flags exist in DB `feature_flags`, **not yet read by the client**) · D3 network-wide content → public community `alumnizone` · D4 institutions → departments → batches are first-class · D6 Super Admin = Sara Thomas (`u7`) · D7 PGlite. D5 (email) → Catalyst Mail on AppSail (`MAIL_TRANSPORT=catalyst`); locally emails still go to the server log + `/api/dev/outbox`.
 
 ## Run / test
 
@@ -36,9 +36,10 @@ Processes can't run with cwd on the Desktop (EPERM) for the preview, so it runs 
 One AppSail service serves the API and the built web app (no Slate; keeps the same-origin cookie/CSRF model).
 - Build: `npm run build:appsail` → `appsail-build.zip` (git-ignored). Upload from Console.
 - Settings: Catalyst-Managed Runtime, Node24, startup command `npm start`, port default (server reads `X_ZOHO_CATALYST_LISTEN_PORT`, binds 0.0.0.0), **memory 2048 MB**, **1 instance**.
-- Env: `NODE_ENV=production`, `SEED_PASSWORD` (secret; all seeded accounts use it — the DEMO_ACCOUNTS.md passwords don't work there; without it nothing is seeded).
+- Env: `NODE_ENV=production`, `SEED_PASSWORD` (secret; all seeded accounts use it — the DEMO_ACCOUNTS.md passwords don't work there; without it nothing is seeded), `APP_ORIGIN` (the service URL, required in production: email links use it, never the Host header), `MAIL_TRANSPORT=catalyst` + `MAIL_FROM` (a sender verified in Catalyst Mail; SMTP configured in the console) + optional `MAIL_FROM_NAME`.
+- Email (D5 → Catalyst Mail): `server/lib/mailer.js` `catalystTransport` initialises `zcatalyst-sdk-node` 3.4.0 with the request headers, admin scope; every send is in `email_outbox` (failed ones keep `last_error`, the request still succeeds).
 - Why 2048 MB: PGlite peaks ≈1.36 GB on first start (creating the database + seed), ≈0.7 GB when reopening, ≈136 MB idle. 512/1024 MB got the process `Killed` (out of memory).
-- Caveats: data lives in files in the app folder — persistence across redeploys/restarts is unconfirmed, so treat it as a pilot; sign-ups can't finish (emails only go to the log until D5); move to a managed PostgreSQL (`DATABASE_URL`) before real members — it also drops memory to ~256–512 MB.
+- Caveats: data lives in files in the app folder — persistence across redeploys/restarts is unconfirmed, so treat it as a pilot; move to a managed PostgreSQL (`DATABASE_URL`) before real members — it also drops memory to ~256–512 MB.
 
 ## Architecture (server/)
 

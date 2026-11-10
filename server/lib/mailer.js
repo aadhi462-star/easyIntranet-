@@ -1,6 +1,9 @@
 // Email goes through an outbox table: the row is the record of what was sent (or failed), so a
 // provider outage never loses a message silently (REG-07, NTF-03). The transport is pluggable:
-// development logs the message; a real SMTP transport is chosen before the pilot (decision D5).
+// development logs the message; on Catalyst AppSail, MAIL_TRANSPORT=catalyst sends through Catalyst
+// Mail (the SMTP/sender settings configured in the Catalyst console) — decision D5.
+import catalyst from 'zcatalyst-sdk-node';
+
 const TEMPLATES = {
   verify_email: ({ name, link }) => ({
     subject: 'Confirm your CommunityOne email',
@@ -30,9 +33,20 @@ const TEMPLATES = {
   }),
 };
 
-export function createMailer({ db, transport = logTransport, log = console }) {
+/** Picks the transport from the environment: Catalyst Mail when configured, else the log. */
+export function defaultTransport(env = process.env) {
+  if (env.MAIL_TRANSPORT !== 'catalyst') return logTransport;
+  if (!env.MAIL_FROM) throw new Error('MAIL_TRANSPORT=catalyst needs MAIL_FROM (a sender verified in the Catalyst console).');
+  return catalystTransport({ from: env.MAIL_FROM, displayName: env.MAIL_FROM_NAME || 'CommunityOne' });
+}
+
+/**
+ * `send(to, template, data, { req })`: the request is passed through to the transport, because
+ * the Catalyst SDK authenticates with the headers AppSail adds to each incoming request.
+ */
+export function createMailer({ db, transport = defaultTransport(), log = console }) {
   return {
-    async send(to, template, data) {
+    async send(to, template, data, { req } = {}) {
       const { subject, body } = TEMPLATES[template](data);
       const { rows } = await db.query(
         `insert into email_outbox (to_email, template, subject, body) values ($1, $2, $3, $4) returning id`,
@@ -40,10 +54,13 @@ export function createMailer({ db, transport = logTransport, log = console }) {
       );
       const id = rows[0].id;
       try {
-        await transport({ to, subject, body }, log);
+        await transport({ to, subject, body }, log, { req });
         await db.query(`update email_outbox set status = 'sent', attempts = attempts + 1, sent_at = now() where id = $1`, [id]);
       } catch (err) {
-        await db.query(`update email_outbox set status = 'failed', attempts = attempts + 1, last_error = $2 where id = $1`, [id, String(err.message || err)]);
+        // The request still succeeds (the outbox row is the record and can be retried); the
+        // failure is logged without the message body, which may hold a sign-in link.
+        log.warn?.({ to, template, err: String(err.message || err) }, 'email not sent');
+        await db.query(`update email_outbox set status = 'failed', attempts = attempts + 1, last_error = $2 where id = $1`, [id, String(err.message || err).slice(0, 500)]);
       }
       return id;
     },
@@ -53,4 +70,18 @@ export function createMailer({ db, transport = logTransport, log = console }) {
 function logTransport({ to, subject, body }, log) {
   log.info?.({ to, subject }, 'email (development transport)');
   if (process.env.NODE_ENV !== 'test') console.log(`\n✉️  To: ${to}\n   ${subject}\n   ${body.replace(/\n/g, '\n   ')}\n`);
+}
+
+const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+/** Plain-text template → simple HTML: escaped, links clickable, line breaks kept. */
+export const toHtml = (text) => escapeHtml(text)
+  .replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`)
+  .replace(/\n/g, '<br>');
+
+export function catalystTransport({ from, displayName, sdk = catalyst }) {
+  return async ({ to, subject, body }, log, { req } = {}) => {
+    if (!req?.headers) throw new Error('Catalyst Mail needs the incoming request to authenticate.');
+    const app = sdk.initialize({ headers: req.headers }, { scope: 'admin' });
+    await app.email().sendMail({ from_email: from, display_name: displayName, to_email: [to], subject, content: toHtml(body), html_mode: true });
+  };
 }

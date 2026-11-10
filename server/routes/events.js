@@ -219,7 +219,7 @@ export default async function eventRoutes(app, { ctx }) {
     const { rows } = await db.query(`select u.email, u.name, c.name as community from event_rsvps r join events e on e.id = r.event_id
       join users u on u.id = r.user_id join communities c on c.id = e.community_id
       where r.event_id = $1 and r.status in ('going', 'maybe') and r.user_id <> $2 and ${COUNTED}`, [e.id, req.user.id]);
-    for (const r of rows) await mailer.send(r.email, template, { name: r.name, title: e.title, community: r.community, link: `${origin(req)}/#/events/${e.id}`, ...extra });
+    for (const r of rows) await mailer.send(r.email, template, { name: r.name, title: e.title, community: r.community, link: `${origin(req)}/#/events/${e.id}`, ...extra }, { req });
     return rows.length;
   }
 

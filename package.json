@@ -25,7 +25,8 @@
     "pg": "8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.0",
+    "zcatalyst-sdk-node": "3.4.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

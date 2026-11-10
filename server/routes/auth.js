@@ -80,7 +80,7 @@ export default async function authRoutes(app, { ctx }) {
         await t.query(`insert into profiles (user_id, avatar_hue) values ($1, $2)`, [id, Math.floor(Math.random() * 360)]);
         return issueToken(t, id, 'verify_email');
       });
-      await mailer.send(email, 'verify_email', { name, link: link(req, 'verify', token) });
+      await mailer.send(email, 'verify_email', { name, link: link(req, 'verify', token) }, { req });
       await audit(db, { actorId: id, action: 'account.register', targetType: 'user', targetId: id, ip: req.ip });
       reply.status(201);
       return { user: { id, name, email, status: 'unverified' }, message: 'Check your email to confirm your account.' };
@@ -116,7 +116,7 @@ export default async function authRoutes(app, { ctx }) {
       const u = rows[0];
       if (u && u.status === 'unverified') {
         const token = await db.tx((t) => issueToken(t, u.id, 'verify_email'));
-        await mailer.send(u.email, 'verify_email', { name: u.name, link: link(req, 'verify', token) });
+        await mailer.send(u.email, 'verify_email', { name: u.name, link: link(req, 'verify', token) }, { req });
       }
       return PRIVACY_SAFE;
     });
@@ -202,7 +202,7 @@ export default async function authRoutes(app, { ctx }) {
       const u = rows[0];
       if (u) {
         const token = await db.tx((t) => issueToken(t, u.id, 'reset_password'));
-        await mailer.send(u.email, 'reset_password', { name: u.name, link: link(req, 'reset', token) });
+        await mailer.send(u.email, 'reset_password', { name: u.name, link: link(req, 'reset', token) }, { req });
         await audit(db, { actorId: null, action: 'auth.reset_requested', targetType: 'user', targetId: u.id, ip: req.ip });
       }
       return PRIVACY_SAFE;
@@ -225,7 +225,7 @@ export default async function authRoutes(app, { ctx }) {
         return rows[0];
       });
       await audit(db, { actorId: u.id, action: 'auth.password_reset', targetType: 'user', targetId: u.id, ip: req.ip });
-      await mailer.send(u.email, 'password_changed', { name: u.name });
+      await mailer.send(u.email, 'password_changed', { name: u.name }, { req });
       return { ok: true, message: 'Password updated. Sign in with your new password.' };
     });
 
@@ -240,7 +240,7 @@ export default async function authRoutes(app, { ctx }) {
       // Keep this device signed in; sign out every other session (REG-12).
       await revokeAllSessions(db, u.id, { except: req.sessionHash });
       await audit(db, { actorId: u.id, action: 'auth.password_change', targetType: 'user', targetId: u.id, ip: req.ip });
-      await mailer.send(u.email, 'password_changed', { name: u.name });
+      await mailer.send(u.email, 'password_changed', { name: u.name }, { req });
       return { ok: true, message: 'Password changed. Your other sessions were signed out.' };
     });
 
@@ -260,7 +260,7 @@ export default async function authRoutes(app, { ctx }) {
         await t.query(`update users set pending_email = $2, updated_at = now() where id = $1`, [u.id, newEmail]);
         return issueToken(t, u.id, 'change_email', { email: newEmail });
       });
-      await mailer.send(newEmail, 'change_email', { name: u.name, link: link(req, 'confirm-email', token) });
+      await mailer.send(newEmail, 'change_email', { name: u.name, link: link(req, 'confirm-email', token) }, { req });
       await audit(db, { actorId: u.id, action: 'account.email_change_requested', targetType: 'user', targetId: u.id, ip: req.ip });
       return { ok: true, message: `We sent a confirmation link to ${newEmail}. Your current email stays in use until you confirm.` };
     });
