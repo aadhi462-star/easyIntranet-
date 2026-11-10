@@ -18,8 +18,9 @@ export function toLocal(p) {
     career: (p.experience || []).map((x) => ({ title: x.title, org: x.org, from: x.fromYear, to: x.toYear })),
     ...(p.email ? { email: p.email } : {}),
     birthday: p.birthday || null,
-    privacy: { contact: p.contactVisibility === 'connections' ? 'following' : (p.contactVisibility ?? (p.contactHidden ? 'nobody' : 'everyone')) },
+    privacy: { contact: ({ connections: 'following', nobody: 'me' })[p.contactVisibility] ?? p.contactVisibility ?? 'everyone' },
     contactHidden: !!p.contactHidden,
+    ...(p.connection ? { connection: p.connection } : {}),
     customFields,
     ...(p.version != null ? { profileVersion: p.version, directoryVisible: p.directoryVisible, completenessDismissed: p.completenessDismissed } : {}),
   };

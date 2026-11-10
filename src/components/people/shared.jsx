@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../../lib/store.jsx';
+import { api } from '../../lib/api.js';
+import { toast } from '../../lib/toast.js';
 import { Avatar, Field, Modal } from '../ui.jsx';
 
 export const PRAISE_BADGES = [
@@ -15,11 +17,13 @@ export const praiseBadge = (id) => PRAISE_BADGES.find((b) => b.id === id) ?? PRA
 /** Pending and deactivated accounts are hidden from the directory, leaderboard and pickers. */
 export const isActiveUser = (u) => !!u && !u.deactivated && (u.status ?? 'active') === 'active';
 
-export const CONTACT_PRIVACY = [['everyone', 'Everyone in the community'], ['following', 'Only members I follow'], ['me', 'Only me']];
+export const CONTACT_PRIVACY = [['everyone', 'Everyone in the community'], ['following', 'Only my connections'], ['me', 'Only me']];
 
 /** user.privacy.contact: everyone (default) | following (people the owner follows) | me. */
 export function canSeeContact(state, viewerId, target) {
   if (!target || viewerId === target.id) return true;
+  // Profiles from the server already say whether this viewer may see contact details.
+  if (target.contactHidden !== undefined) return !target.contactHidden;
   const rule = target.privacy?.contact ?? 'everyone';
   if (rule === 'everyone') return true;
   if (rule === 'following') return (state.follows || []).some((f) => f.authorId === target.id && f.targetId === viewerId);
@@ -30,12 +34,55 @@ export function useBlocks() {
   const { state, me, dispatch } = useStore();
   const mine = (state.blocks || []).filter((b) => b.authorId === me.id);
   const blocked = new Set(mine.map((b) => b.targetId));
-  const toggle = (targetId) => {
+  // The server enforces blocks (profiles, directory, connections); the local copy still hides
+  // chats and content in screens that haven't moved to the server yet.
+  const toggle = async (targetId) => {
     const rec = mine.find((b) => b.targetId === targetId);
+    try {
+      await api(`/blocks/${encodeURIComponent(targetId)}`, { method: rec ? 'DELETE' : 'POST' });
+    } catch (err) { toast(`Couldn’t ${rec ? 'unblock' : 'block'}: ${err.message}`, 'error'); return; }
     if (rec) dispatch({ type: 'remove', col: 'blocks', id: rec.id });
     else dispatch({ type: 'add', col: 'blocks', item: { targetId } });
+    toast(rec ? 'Unblocked' : 'Blocked');
   };
   return { blocked, toggle };
+}
+
+/** Connect / Requested / Accept–Decline / Connected, driven by the server's relation. */
+export function ConnectButton({ userId, initial, onChange, className = '' }) {
+  const [rel, setRel] = useState(initial ?? null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (initial) setRel(initial); }, [initial]);
+  useEffect(() => {
+    if (initial) return undefined;
+    let live = true;
+    api(`/connections/${encodeURIComponent(userId)}`).then((r) => { if (live) setRel(r.relation.connection); }).catch(() => {});
+    return () => { live = false; };
+  }, [userId, initial]);
+  const run = async (path, method, done) => {
+    setBusy(true);
+    try {
+      const r = await api(path, { method });
+      setRel(r.relation.connection); onChange?.(r.relation.connection);
+      if (done) toast(done);
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  const base = `/connections/${encodeURIComponent(userId)}`;
+  if (!rel || rel === 'self') return null;
+  if (rel === 'incoming') {
+    return (
+      <span className={`inline-flex gap-2 ${className}`}>
+        <button className="btn btn-primary min-h-11" disabled={busy} onClick={() => run(`${base}/accept`, 'POST', 'Connected')}>Accept</button>
+        <button className="btn btn-ghost min-h-11" disabled={busy} onClick={() => run(`${base}/decline`, 'POST', 'Request declined')}>Decline</button>
+      </span>
+    );
+  }
+  if (rel === 'outgoing') return <button className={`btn btn-ghost min-h-11 ${className}`} disabled={busy} title="Cancel request" onClick={() => run(base, 'DELETE', 'Request cancelled')}>Requested · Cancel</button>;
+  if (rel === 'connected') {
+    return <button className={`btn btn-ghost min-h-11 ${className}`} disabled={busy} title="Remove connection"
+      onClick={() => { if (confirm('Remove this connection? You can connect again later.')) run(base, 'DELETE', 'Connection removed'); }}>✓ Connected</button>;
+  }
+  return <button className={`btn btn-primary min-h-11 ${className}`} disabled={busy} onClick={() => run(base, 'POST', 'Request sent')}>Connect</button>;
 }
 
 export function useFollow(targetId) {

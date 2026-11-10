@@ -3,7 +3,7 @@
 *One Platform. Every Community.*
 
 Status: **Decisions D1–D4, D6 (default) and D7 (PGlite) approved.** D5 open (email provider).
-**Phase 1 progress (10 Nov 2026):** steps 1–3 done and tested (server foundation, accounts, profiles and directory); see §14.
+**Phase 1 progress (10 Nov 2026):** steps 1–3 and 4a done and tested (server foundation, accounts, profiles and directory, connections and blocks); see §14.
 Inputs: the three reference documents (Consolidated requirements, Edge-case register, Revamp roadmap), the Master Development Prompt, and a code-level inspection of the current AlumniZone app (`src/`, ~14,100 lines, 27 pages).
 
 ---
@@ -320,4 +320,16 @@ Tested: 51 server tests (all pass); browser: directory (35 members, 24 per page,
 
 Bugs found and fixed while testing: unknown fields were silently dropped instead of rejected (framework default); a retried edit after a conflict overwrote the other tab's change (twice: resending unchanged fields, then a baseline captured too late); missing build files were answered with index.html (blank page instead of the reload recovery); new build files weren't served until a restart.
 
-Next: step 4 (connections, home feed, announcements, events foundation, member dashboard).
+### Phase 1 — step 4a (10 Nov 2026)
+
+Step 4 is split: **4a** connections and blocks, **4b** community foundation + home feed + announcements (the feed needs server-side communities and memberships to decide who sees what), **4c** events foundation + member dashboard.
+
+Built (4a): connections (request, accept, decline, cancel, remove; one record per pair; asking someone who already asked you accepts theirs; pending-request cap), blocks (remove any connection, stop requests both ways, hide each other in profiles and the directory, "not found" so blocks aren't revealed; blocking staff doesn't limit staff authority), and the "only my connections" contact privacy. Prototype follows migrated to accepted connections (8). People: Connect / Requested / Accept–Decline / Connected on profiles, a requests panel on the directory, blocking via the server.
+
+Tested: 62 server tests; browser: request → accept from the panel → connected; connections-only email visible to a connection, hidden from a non-connection; block and unblock with directory effect.
+
+Bugs found and fixed: the connections list was always empty (two columns named `status` in one query; the existing test passed only because it checked absence); the app's "Only me" privacy value didn't match the server's (would have been rejected on save).
+
+Process note: I ran a migration against the preview database while believing its server was still running. The server had in fact been stopped; integrity checked (all rows and migrations intact). Rule from now on: stop the server before migrating a PGlite database.
+
+Next: step 4b (community foundation, home feed, announcements).

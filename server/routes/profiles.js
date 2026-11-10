@@ -5,6 +5,7 @@ import { newId, verifyPassword } from '../lib/crypto.js';
 import { badRequest, conflict, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { authorize, can } from '../lib/permissions.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
+import { notBlockedSql, relation } from '../lib/relations.js';
 
 const LIMITS = { name: 80, headline: 120, bio: 2000, city: 80, country: 80, company: 120, jobTitle: 120, linkedin: 100, programme: 120, skill: 40, skills: 30, rows: 20 };
 const YEAR_MIN = 1950;
@@ -62,11 +63,11 @@ const PROFILE_SQL = `
   from users u join profiles p on p.user_id = u.id`;
 
 /** Shapes a profile row for a viewer: contact details follow the owner's privacy choice. */
-function present(row, viewer) {
+function present(row, viewer, rel) {
   const self = viewer?.id === row.id;
   const staff = can(viewer, 'users.view');
-  // "connections" needs the connections feature (Phase 1, step 4); until then only "everyone" is shared.
-  const showContact = self || staff || row.contact_visibility === 'everyone';
+  const showContact = self || staff || row.contact_visibility === 'everyone'
+    || (row.contact_visibility === 'connections' && rel?.connection === 'connected');
   const primary = row.education.find((e) => e.isPrimary) ?? row.education[0] ?? null;
   return {
     id: row.id, name: row.name, status: row.status, joinedAt: row.created_at,
@@ -76,6 +77,7 @@ function present(row, viewer) {
     batch: primary?.gradYear ?? null, department: primary?.department ?? null, institution: primary?.institution ?? null,
     email: showContact ? row.email : null, birthday: showContact ? row.birthday : null, linkedin: showContact ? row.linkedin : null,
     contactHidden: !showContact,
+    ...(rel && !self ? { connection: rel.connection, blockedByMe: rel.blockedByMe } : {}),
     ...(self ? { contactVisibility: row.contact_visibility, directoryVisible: row.directory_visible, completenessDismissed: row.completeness_dismissed, version: row.version } : {}),
   };
 }
@@ -106,7 +108,7 @@ export default async function profileRoutes(app, { ctx }) {
     const params = [q, req.query.institution || null, req.query.department || null, req.query.batch ? Number(req.query.batch) : null,
       req.query.city ? String(req.query.city).toLowerCase() : null, req.query.company ? String(req.query.company).toLowerCase() : null,
       req.query.skill ? String(req.query.skill).toLowerCase() : null];
-    const where = `u.status = 'active' and (p.directory_visible or u.id = $8)
+    const where = `u.status = 'active' and (p.directory_visible or u.id = $8) and ${notBlockedSql('u.id', '$8')}
       and ($1 = '' or lower(u.name || ' ' || coalesce(p.headline, '') || ' ' || coalesce(p.job_title, '') || ' ' || coalesce(p.company, '') || ' ' || coalesce(p.city, '') || ' ' || array_to_string(p.skills, ' ')) like '%' || $1 || '%'
         or exists (select 1 from education e join departments d on d.id = e.department_id where e.user_id = u.id and d.name_norm like '%' || $1 || '%'))
       and ($2::text is null or exists (select 1 from education e where e.user_id = u.id and e.institution_id = $2))
@@ -141,8 +143,12 @@ export default async function profileRoutes(app, { ctx }) {
     // Deleted members keep a placeholder so old content still has a name to point to (USR-09).
     if (row.status === 'deleted') return { profile: { id: row.id, name: 'Deleted member', deleted: true } };
     // Suspended, deactivated, pending or unconfirmed accounts are only visible to staff.
-    if (row.status !== 'active' && row.id !== req.user.id && !can(req.user, 'users.view')) throw notFound('That member doesn’t exist.');
-    return { profile: present(row, req.user) };
+    const staff = can(req.user, 'users.view');
+    if (row.status !== 'active' && row.id !== req.user.id && !staff) throw notFound('That member doesn’t exist.');
+    const rel = await relation(db, req.user.id, row.id);
+    // Someone who blocked you looks like they don't exist (staff excepted), so blocks aren't revealed.
+    if (rel.blockedMe && !staff) throw notFound('That member doesn’t exist.');
+    return { profile: present(row, req.user, rel) };
   });
 
   app.patch('/profiles/me', {

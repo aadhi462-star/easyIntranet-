@@ -32,6 +32,7 @@ if (existing) {
   await seedAccounts();
 }
 await seedProfiles();
+await seedConnections();
 await db.close();
 
 async function seedAccounts() {
@@ -93,4 +94,24 @@ async function seedProfiles() {
   const n = (q) => db.query(q).then((r) => r.rows[0].n);
   console.log('profiles', { profiles: await n(`select count(*)::int as n from profiles`), education: await n(`select count(*)::int as n from education`),
     experience: await n(`select count(*)::int as n from experience`), departments: await n(`select count(*)::int as n from departments`), blankProfilesAdded: filled.rows.length });
+}
+
+// Prototype follows become accepted connections; prototype blocks move across. Runs once.
+async function seedConnections() {
+  const has = (await db.query(`select (select count(*) from connections) + (select count(*) from blocks) as n`)).rows[0].n > 0;
+  if (has) return;
+  const ids = new Set((await db.query(`select id from users`)).rows.map((r) => r.id));
+  let made = 0;
+  await db.tx(async (t) => {
+    for (const f of proto.follows || []) {
+      if (!ids.has(f.authorId) || !ids.has(f.targetId) || f.authorId === f.targetId) continue;
+      const [a, b] = [f.authorId, f.targetId].sort();
+      const r = await t.query(`insert into connections (user_a, user_b, requested_by, status, responded_at) values ($1, $2, $3, 'accepted', now()) on conflict do nothing returning 1`, [a, b, f.authorId]);
+      made += r.rows.length;
+    }
+    for (const bl of proto.blocks || []) {
+      if (ids.has(bl.authorId) && ids.has(bl.targetId)) await t.query(`insert into blocks (blocker_id, blocked_id) values ($1, $2) on conflict do nothing`, [bl.authorId, bl.targetId]);
+    }
+  });
+  console.log('connections', { fromFollows: made });
 }

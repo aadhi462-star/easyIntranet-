@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Last updated 10 Nov 2026 (Phase 1, steps 1–3). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -128,7 +128,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–3). Status values: **Not run**, **P
 | PER-08 | P0 | 2 | Platform Admin accesses a Private or Closed community without joining. | Allow access in clearly indicated administrative mode; do not create membership or alter counts. | Not run | |
 | PER-09 | P1 | 2 | Platform Admin performs an action while in normal participation mode. | Apply ordinary membership/role rules and attribute contributions normally. | Not run | |
 | PER-10 | P0 | 2 | Platform Admin performs an action in administrative mode. | Allow permitted global override and record admin identity, target, action, timestamp and context. | Not run | |
-| PER-11 | P0 | 2 | Community blocks a Platform Admin account at community level. | Community-level block must not override platform authority; account authentication/security status still applies. | Not run | |
+| PER-11 | P0 | 2 | Community blocks a Platform Admin account at community level. | Community-level block must not override platform authority; account authentication/security status still applies. | Pass | server/test/connections.test.js PER-11 (blocking staff doesn’t limit staff authority) |
 | PER-12 | P0 | 2 | Platform Admin account is suspended, compromised or loses authentication. | Do not allow global override without valid authenticated authority; revoke sessions and tokens as required. | Not run | |
 | PER-13 | P1 | 2 | Two Platform Admins change the same community settings concurrently. | Prevent silent overwrite and retain a complete change history. | Not run | |
 | PER-14 | P0 | 2 | Platform Admin attempts a critical action such as deleting a community or granting admin privileges. | Apply additional confirmation/reauthentication or approval safeguards if configured; audit the action. | Not run | |

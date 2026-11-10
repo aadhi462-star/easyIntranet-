@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import devRoutes from './routes/dev.js';
 import profileRoutes from './routes/profiles.js';
+import connectionRoutes from './routes/connections.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
   const app = Fastify({
@@ -59,6 +60,7 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   await app.register(authRoutes, { prefix: '/api', ctx });
   await app.register(adminRoutes, { prefix: '/api/admin', ctx });
   await app.register(profileRoutes, { prefix: '/api', ctx });
+  await app.register(connectionRoutes, { prefix: '/api', ctx });
   if (process.env.NODE_ENV !== 'production') await app.register(devRoutes, { prefix: '/api/dev', ctx });
 
   if (staticDir) {

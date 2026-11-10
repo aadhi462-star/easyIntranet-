@@ -30,6 +30,7 @@ export function client(app) {
     post: (url, body = {}, headers) => call('POST', url, body, headers),
     put: (url, body = {}, headers) => call('PUT', url, body, headers),
     patch: (url, body = {}, headers) => call('PATCH', url, body, headers),
+    delete: (url, headers) => call('DELETE', url, undefined, headers),
   };
 }
 

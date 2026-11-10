@@ -10,7 +10,7 @@ import { statsFor, BADGES } from '../lib/gamify.js';
 import { Avatar, Empty, Field, Modal, PageHeader, Tabs } from '../components/ui.jsx';
 import { CompletenessMeter, completeness } from '../components/people/Completeness.jsx';
 import { MONTHS, daysInMonth, formatMonthDay, isValidBirthday } from '../lib/celebrations.js';
-import { FollowButton, PraiseModal, useOpenDm, praiseBadge, isActiveUser, canSeeContact, useBlocks, CONTACT_PRIVACY } from '../components/people/shared.jsx';
+import { ConnectButton, FollowButton, PraiseModal, useOpenDm, praiseBadge, isActiveUser, canSeeContact, useBlocks, CONTACT_PRIVACY } from '../components/people/shared.jsx';
 
 // Optional embed from the Feed module (built separately).
 const feedLoader = Object.values(import.meta.glob('../components/feed/FeedList.jsx'))[0];
@@ -60,6 +60,9 @@ function Directory() {
     return () => { live = false; clearTimeout(t); };
   }, [q, f.batch, f.dept, f.city, f.company, f.skill, limit, dispatch]);
 
+  const [requests, setRequests] = useState([]);
+  useEffect(() => { api('/connections').then((r) => setRequests(r.incoming)).catch(() => {}); }, []);
+
   const { blocked } = useBlocks();
   // Blocks and user labels still live in the app; they're applied to the server's results.
   const list = result.people.filter((u) => !blocked.has(u.id)
@@ -95,6 +98,20 @@ function Directory() {
         {active && <button className="btn btn-ghost min-h-11 sm:col-span-3 lg:col-span-7" onClick={() => { setQ(''); setF({ batch: '', dept: '', city: '', company: '', label: '', skill: '' }); }}>Clear filters · {list.length} result{list.length === 1 ? '' : 's'}</button>}
       </div>
 
+      {requests.length > 0 && (
+        <section className="glass mb-5 p-4" aria-label="Connection requests">
+          <h2 className="mb-3 text-sm font-semibold">Connection requests · {requests.length}</h2>
+          <ul className="space-y-2">
+            {requests.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-3">
+                <Avatar user={state.users.find((x) => x.id === r.id) ?? { id: r.id, name: r.name }} size={36} />
+                <Link to={`/people/${r.id}`} className="min-w-0 flex-1 truncate font-semibold hover:underline">{r.name}</Link>
+                <ConnectButton userId={r.id} initial="incoming" onChange={(next) => { if (next !== 'incoming') setRequests((list) => list.filter((x) => x.id !== r.id)); }} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {result.error && <p role="alert" className="mb-4 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">Couldn’t load the directory: {result.error}</p>}
       {result.loading && !list.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="glass h-40 animate-pulse" />)}</div>
         : !list.length ? <Empty icon="🔍" title="No one matches those filters">Try removing a filter.</Empty> : view === 'grid' ? (
@@ -214,6 +231,7 @@ function Profile({ id }) {
           <div className="flex flex-wrap gap-2">
             {isMe ? <button className="btn btn-primary min-h-11" onClick={() => setEditing('1')}><Glyph value="✏️" tile={false} size={16} /> Edit profile</button> : <>
               {!isBlocked && <>
+                <ConnectButton userId={u.id} initial={u.connection} onChange={() => loadProfile(u.id, dispatch).catch(() => {})} />
                 <FollowButton userId={u.id} />
                 <button className="btn btn-ghost min-h-11" onClick={() => nav(openDm(u.id))}><Glyph value="💬" tile={false} size={16} /> Message</button>
                 <button className="btn btn-ghost min-h-11" onClick={() => setPraise(true)}>🙌 Praise</button>
@@ -448,7 +466,7 @@ function EditProfile({ onClose, focus }) {
       body.mentorOpen = mentor === 'Yes';
       body.customFields = Object.fromEntries(Object.entries(otherFields).filter(([, v]) => v != null && v !== ''));
     }
-    if (changed('privacy')) body.contactVisibility = d.privacy.contact === 'following' ? 'connections' : d.privacy.contact;
+    if (changed('privacy')) body.contactVisibility = ({ following: 'connections', me: 'nobody' })[d.privacy.contact] ?? d.privacy.contact;
     if (changed('batch') || !same(edu, baseEdu.current)) {
       body.education = edu.institutionId && (!blank(d.batch) || edu.departmentId)
         ? [{ institutionId: edu.institutionId, departmentId: edu.departmentId || null, gradYear: blank(d.batch) ? null : Number(d.batch), isPrimary: true }] : [];
