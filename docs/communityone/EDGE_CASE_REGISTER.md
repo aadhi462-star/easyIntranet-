@@ -1,0 +1,362 @@
+# CommunityOne — Edge Case Register
+
+Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
+
+Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+
+
+## Summary by phase
+
+| Phase | P0 | P1 | P2 | Total |
+| --- | --- | --- | --- | --- |
+| 1 | 17 | 16 | 1 | 34 |
+| 2 | 75 | 70 | 16 | 161 |
+| 3 | 7 | 11 | 0 | 18 |
+| 4 | 10 | 9 | 4 | 23 |
+| All | 1 | 4 | 3 | 8 |
+| **Total** | 110 | 110 | 24 | 244 |
+
+
+## 1. Registration, Login and Account Lifecycle
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| REG-01 | P0 | 1 | User registers with an email address already linked to an account. | Reject duplicate registration or route the user to sign in/account recovery; do not create a duplicate identity. | Not run | |
+| REG-02 | P0 | 1 | Two registration requests for the same email arrive simultaneously. | Only one account is created; the other request receives a clear duplicate response. | Not run | |
+| REG-03 | P1 | 1 | User submits an invalid email or malformed phone number. | Validate format and explain the correction required; do not persist invalid contact data. | Not run | |
+| REG-04 | P1 | 1 | User never verifies their email/phone. | Keep account in an unverified state and restrict actions according to policy; do not treat it as fully active. | Not run | |
+| REG-05 | P1 | 1 | Verification link is expired, already used, malformed or revoked. | Reject it safely and provide a way to request a fresh verification link. | Not run | |
+| REG-06 | P1 | 1 | User requests multiple verification links; an older link is used after a newer one is issued. | Only the currently valid token succeeds, or token policy is applied consistently; no conflicting account state. | Not run | |
+| REG-07 | P1 | 1 | Verification email/SMS delivery fails or is delayed. | Show a retry/resend path and preserve the pending account without creating duplicates. | Not run | |
+| REG-08 | P0 | 1 | User changes their email/phone to one already used by another account. | Reject the change and retain the existing verified contact information. | Not run | |
+| REG-09 | P1 | 1 | User changes email/phone but does not complete re-verification. | Mark the new contact as pending; do not silently replace the verified contact. | Not run | |
+| REG-10 | P0 | 1 | User requests password reset for an unknown email. | Return a privacy-safe response that does not reveal whether an account exists. | Not run | |
+| REG-11 | P1 | 1 | Password reset link is expired, reused or requested repeatedly. | Reject invalid tokens, rate-limit abuse and allow a fresh reset request. | Not run | |
+| REG-12 | P0 | 1 | User changes password while other sessions are active. | Apply the defined session-revocation policy; invalidate compromised sessions/tokens where required. | Not run | |
+| REG-13 | P0 | 1 | Account is suspended while user is logged in on another device. | Revoke or block protected actions across sessions and APIs promptly. | Not run | |
+| REG-14 | P1 | 1 | Deactivated user attempts to log in or register again with the same identity. | Apply the account reactivation/deletion policy; do not create an unintended duplicate identity. | Not run | |
+| REG-15 | P0 | 1 | User deletes their account while they own a community or teach courses. | Require ownership/course transfer or a managed handover before deletion completes. | Not run | |
+| REG-16 | P1 | 1 | User has multiple tabs submitting registration or profile changes. | Prevent duplicate creation and resolve conflicting updates predictably. | Not run | |
+| REG-17 | P0 | 1 | Login attempts exceed allowed limits or originate from suspicious patterns. | Apply rate limits, throttling or additional verification without exposing security details. | Not run | |
+| REG-18 | P0 | 1 | User attempts to use a revoked session, API token or refresh token. | Reject the request and require fresh authentication. | Not run | |
+
+## 2. Profile and User Management
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| USR-01 | P1 | 1 | User submits a blank name or required profile field. | Reject invalid required fields and identify what must be completed. | Not run | |
+| USR-02 | P0 | 1 | Profile contains very long text, unsupported characters or script/HTML payloads. | Enforce limits and safely encode/sanitise displayed content. | Not run | |
+| USR-03 | P1 | 1 | User uploads an unsupported, oversized or corrupted avatar/cover image. | Reject the file with a clear explanation; retain the previous image. | Not run | |
+| USR-04 | P1 | 1 | User removes a profile photo while cached copies remain. | Use the default image and ensure private media is not exposed through stale URLs. | Not run | |
+| USR-05 | P2 | 1 | User changes display name while posts and comments exist. | Update profile references consistently without breaking attribution or audit records. | Not run | |
+| USR-06 | P0 | 1 | Platform Admin suspends or reactivates a user while they are actively using the platform. | Apply the status consistently across sessions, communities, events and LMS actions. | Not run | |
+| USR-07 | P0 | 1 | User is removed from one community but remains a member of others. | Revoke only the relevant community access; preserve other memberships. | Not run | |
+| USR-08 | P1 | 1 | User requests personal data export or account deletion. | Verify identity, apply retention/legal rules and report completion/failure clearly. | Not run | |
+| USR-09 | P1 | 1 | User is deleted but their content is retained under a retention policy. | Anonymise or attribute content according to policy; do not leave broken profile links. | Not run | |
+| USR-10 | P1 | 1 | Two administrators edit the same user record simultaneously. | Prevent silent overwrites; show latest state or resolve conflicts with audit history. | Not run | |
+
+## 3. Community Creation and Setup
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| COM-01 | P1 | 2 | Two users create communities with the same or near-identical names. | Apply the agreed uniqueness policy; show a useful conflict message without creating duplicates. | Not run | |
+| COM-02 | P1 | 2 | Community name contains prohibited terms, impersonation or misleading branding. | Reject or route for review under platform policy. | Not run | |
+| COM-03 | P1 | 2 | Description is empty, too long or contains unsafe markup. | Validate length and safely render allowed formatting only. | Not run | |
+| COM-04 | P1 | 2 | Logo or cover upload fails midway. | Do not publish a broken asset; allow retry and preserve other entered setup data. | Not run | |
+| COM-05 | P0 | 2 | User double-clicks Create or retries after a slow response. | Create one community only; return the existing result for an idempotent retry. | Not run | |
+| COM-06 | P0 | 2 | Network drops after server creates community but before client receives confirmation. | On retry, detect the existing creation and avoid duplicates. | Not run | |
+| COM-07 | P1 | 2 | Platform Admin disables community creation while a user is in the creation wizard. | Block final submission and explain that creation is currently unavailable. | Not run | |
+| COM-08 | P0 | 2 | Creator is suspended during setup or immediately after publishing. | Prevent prohibited actions and preserve community ownership through an authorised reassignment process. | Not run | |
+| COM-09 | P0 | 2 | Creator account is deleted or becomes inaccessible. | Trigger ownership transfer/recovery; do not orphan the community. | Not run | |
+| COM-10 | P1 | 2 | Required category, rules or other mandatory field is missing. | Prevent publication and identify missing fields. | Not run | |
+| COM-11 | P1 | 2 | Community requires approval before publication but user expects instant creation. | Show Pending Approval state and prevent premature public discovery. | Not run | |
+| COM-12 | P2 | 2 | User opens multiple creation wizards and submits different drafts. | Handle independent drafts safely and prevent accidental cross-population. | Not run | |
+| COM-13 | P1 | 2 | Community creation limit per user has been reached. | Block creation with a clear limit explanation and route to existing communities. | Not run | |
+
+## 4. Community Visibility, Privacy and Discovery
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| VIS-01 | P0 | 2 | Visitor opens a private community page directly by URL. | Show only permitted public metadata or an access-denied/join-request state; never expose protected content. | Not run | |
+| VIS-02 | P0 | 2 | Visitor opens a private post, file or member profile endpoint directly. | Deny access server-side; do not rely on hidden UI controls. | Not run | |
+| VIS-03 | P0 | 2 | Non-invited user opens a closed community URL. | Deny access and do not reveal protected content or member details. | Not run | |
+| VIS-04 | P0 | 2 | Closed community appears in search, recommendations, sitemap or public API. | Exclude it from all public discovery surfaces. | Not run | |
+| VIS-05 | P0 | 2 | Public community changes to Private while a visitor is viewing it. | Recheck permissions on subsequent requests and immediately protect restricted content. | Not run | |
+| VIS-06 | P0 | 2 | Private community changes to Closed. | Remove it from discovery and require a valid invitation for new access. | Not run | |
+| VIS-07 | P1 | 2 | Closed community changes to Public. | Apply public visibility consistently while preserving role and membership rules. | Not run | |
+| VIS-08 | P0 | 2 | Search engine or application cache contains content after visibility is restricted. | Purge/invalidate protected cached data; stale caches must not reveal content. | Not run | |
+| VIS-09 | P0 | 2 | A previously valid invitation is forwarded to another person. | Apply invitation binding/eligibility rules; forwarded access must not bypass intended restrictions. | Not run | |
+| VIS-10 | P0 | 2 | Invitation is expired, revoked or already consumed. | Reject it and show a safe next step; do not grant membership. | Not run | |
+| VIS-11 | P0 | 2 | Community member list is configured as private but appears in previews or API responses. | Hide member details everywhere from unauthorised users. | Not run | |
+| VIS-12 | P0 | 2 | User is removed or blocked while viewing community content in another tab. | Subsequent requests must fail; cached protected content should be cleared where feasible. | Not run | |
+| VIS-13 | P1 | 2 | Visibility changes while a join request is pending. | Re-evaluate the request against the new policy; do not auto-grant access unexpectedly. | Not run | |
+| VIS-14 | P1 | 2 | Community is archived but remains in Explore or recommendations. | Remove it from active discovery and clearly communicate archived state to existing members. | Not run | |
+| VIS-15 | P0 | 2 | User accesses private media through a copied CDN/file URL. | Require authorised, expiring access rather than relying on URL secrecy. | Not run | |
+
+## 5. Membership, Invitations and Join Requests
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| MEM-01 | P0 | 2 | Member clicks Join repeatedly or submits concurrent requests. | Create one membership/request record only. | Not run | |
+| MEM-02 | P1 | 2 | User requests membership and then withdraws before approval. | Mark request withdrawn; later approval must not silently restore membership. | Not run | |
+| MEM-03 | P1 | 2 | Admin approves a request that has already been withdrawn or rejected. | Reject stale action and refresh the request state. | Not run | |
+| MEM-04 | P1 | 2 | Two admins approve/reject the same request simultaneously. | Persist one valid terminal outcome and record the actor/action in audit history. | Not run | |
+| MEM-05 | P0 | 2 | User is blocked but receives a new invitation. | Block status takes precedence; invitation cannot restore access unless an authorised unblock occurs. | Not run | |
+| MEM-06 | P1 | 2 | Community reaches its membership capacity during an approval flow. | Recheck capacity at approval time; queue or reject according to policy. | Not run | |
+| MEM-07 | P1 | 2 | User is removed and immediately tries to rejoin. | Apply cooldown/rejoin policy and clearly communicate the result. | Not run | |
+| MEM-08 | P0 | 2 | User is removed from one community but still has an active session. | Revoke only that community's access immediately. | Not run | |
+| MEM-09 | P0 | 2 | Owner attempts to leave without transferring ownership. | Require transfer to an eligible member or prevent leaving. | Not run | |
+| MEM-10 | P0 | 2 | Last Admin leaves, is suspended or is deleted. | Require another authorised Admin/Owner or trigger recovery workflow. | Not run | |
+| MEM-11 | P0 | 2 | Invitation is accepted after the inviter loses permission to invite. | Revalidate inviter authority at acceptance; reject invalid invitation. | Not run | |
+| MEM-12 | P1 | 2 | Invitation is resent multiple times or to a changed email address. | Invalidate old tokens as appropriate and bind invitation to intended recipient/policy. | Not run | |
+| MEM-13 | P1 | 2 | User has a pending request and receives an invitation to the same community. | Resolve to one coherent membership path; avoid duplicate membership records. | Not run | |
+| MEM-14 | P0 | 2 | Community becomes full or Closed after an invitation is issued. | Recheck policy at acceptance and deny or queue according to configured rules. | Not run | |
+| MEM-15 | P2 | 2 | Membership approval notification is delayed or delivered twice. | Membership state remains authoritative; notifications are deduplicated and do not repeat actions. | Not run | |
+| MEM-16 | P0 | 2 | Member is restricted from posting but can still read. | Enforce separate read and participation permissions consistently. | Not run | |
+
+## 6. Roles, Permissions and Administrative Override
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| PER-01 | P0 | 2 | User is Owner in one community and Member in another. | Resolve permissions using the active community context; never apply the highest role globally. | Not run | |
+| PER-02 | P0 | 2 | Moderator attempts to assign themselves Admin/Owner. | Deny unless an explicitly authorised role-granting workflow permits it. | Not run | |
+| PER-03 | P0 | 2 | Admin removes or demotes the only Owner. | Prevent invalid ownership state and require transfer or another eligible Owner. | Not run | |
+| PER-04 | P1 | 2 | Admin removes their own admin role while performing a management action. | Complete or reject atomically; avoid partially applied changes and stale privileged UI. | Not run | |
+| PER-05 | P0 | 2 | Role is revoked while user has an open admin page. | Recheck every protected action server-side; hide/disable stale controls after refresh. | Not run | |
+| PER-06 | P1 | 2 | Custom role is deleted while assigned to users. | Require reassignment or map affected users to a safe fallback before deletion. | Not run | |
+| PER-07 | P0 | 2 | Community Admin attempts to change platform-wide settings. | Deny the action and record suspicious/unauthorised attempts where appropriate. | Not run | |
+| PER-08 | P0 | 2 | Platform Admin accesses a Private or Closed community without joining. | Allow access in clearly indicated administrative mode; do not create membership or alter counts. | Not run | |
+| PER-09 | P1 | 2 | Platform Admin performs an action while in normal participation mode. | Apply ordinary membership/role rules and attribute contributions normally. | Not run | |
+| PER-10 | P0 | 2 | Platform Admin performs an action in administrative mode. | Allow permitted global override and record admin identity, target, action, timestamp and context. | Not run | |
+| PER-11 | P0 | 2 | Community blocks a Platform Admin account at community level. | Community-level block must not override platform authority; account authentication/security status still applies. | Not run | |
+| PER-12 | P0 | 2 | Platform Admin account is suspended, compromised or loses authentication. | Do not allow global override without valid authenticated authority; revoke sessions and tokens as required. | Not run | |
+| PER-13 | P1 | 2 | Two Platform Admins change the same community settings concurrently. | Prevent silent overwrite and retain a complete change history. | Not run | |
+| PER-14 | P0 | 2 | Platform Admin attempts a critical action such as deleting a community or granting admin privileges. | Apply additional confirmation/reauthentication or approval safeguards if configured; audit the action. | Not run | |
+| PER-15 | P0 | 2 | Platform Admin is accidentally counted as a community member after admin-mode access. | Do not create membership or alter membership analytics. | Not run | |
+| PER-16 | P0 | 2 | Specialist staff member accesses a module outside assigned scope. | Deny access at API and UI layers; log unauthorised attempts. | Not run | |
+
+## 7. Posts, Discussions, Comments and Reactions
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| CNT-01 | P1 | 2 | User submits an empty post, comment or reply. | Reject submission with a clear validation message. | Not run | |
+| CNT-02 | P0 | 2 | User double-clicks Publish or retries after timeout. | Create one content item only and return the existing result for a retry. | Not run | |
+| CNT-03 | P0 | 2 | User edits a post while a moderator removes it. | Resolve the race deterministically; removed content must not be republished by a stale edit. | Not run | |
+| CNT-04 | P0 | 2 | Suspended or restricted user attempts to post/comment/react. | Reject actions according to restriction scope and current account status. | Not run | |
+| CNT-05 | P1 | 2 | Post is deleted while it has comments/replies. | Apply the defined cascade/retention behaviour; avoid orphaned or inaccessible child content. | Not run | |
+| CNT-06 | P1 | 2 | Comment author account is deleted. | Retain, anonymise or remove content according to policy; preserve thread integrity. | Not run | |
+| CNT-07 | P1 | 2 | User replies to a comment that was deleted moments earlier. | Reject or attach reply to a clearly marked deleted-comment placeholder according to product rules. | Not run | |
+| CNT-08 | P2 | 2 | User reports the same content repeatedly. | Deduplicate or group reports while preserving report history and reporter identity. | Not run | |
+| CNT-09 | P0 | 2 | User attempts to edit/delete another user's content. | Deny unless the user's role explicitly grants moderation authority. | Not run | |
+| CNT-10 | P0 | 2 | Post includes script, malicious HTML, unsafe link or embedded payload. | Sanitise/encode output and apply link/file safety checks. | Not run | |
+| CNT-11 | P0 | 2 | Attachment exceeds size/type limit or scanning fails. | Reject/quarantine the attachment; do not publish a downloadable unsafe file. | Not run | |
+| CNT-12 | P1 | 2 | Post exceeds character or attachment count limits. | Validate consistently on client and server and preserve draft text where possible. | Not run | |
+| CNT-13 | P1 | 2 | Network fails during post submission. | Show uncertain/pending state and allow safe retry without duplicate content. | Not run | |
+| CNT-14 | P0 | 2 | Pinned or announced content is edited/deleted by a user without permission. | Deny the change and preserve the content state. | Not run | |
+| CNT-15 | P0 | 2 | A private discussion is quoted in a public notification preview. | Do not leak protected content in notifications, emails or push previews. | Not run | |
+| CNT-16 | P2 | 2 | Reaction is toggled repeatedly or from multiple devices. | Keep one reaction per user/content/type if that is the defined rule; counts remain consistent. | Not run | |
+
+## 8. Moderation, Reports and Safety
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| MOD-01 | P1 | 2 | User reports content that has already been deleted. | Retain report context where policy allows and indicate that content is no longer available. | Not run | |
+| MOD-02 | P2 | 2 | Multiple users report the same content. | Group duplicate reports while preserving each reporter's submission and evidence. | Not run | |
+| MOD-03 | P0 | 2 | Moderator attempts to investigate a community outside assigned scope. | Deny access unless Platform Admin authority or explicit assignment applies. | Not run | |
+| MOD-04 | P1 | 2 | Moderator acts on a report that another moderator has already resolved. | Show latest state and prevent duplicate/conflicting action. | Not run | |
+| MOD-05 | P1 | 2 | Moderator issues a warning/restriction to the wrong user or content. | Require clear target context and confirmation; record reversible action history. | Not run | |
+| MOD-06 | P2 | 2 | A user appeals a moderation action. | Create an appeal record and route it to an authorised reviewer who is not improperly conflicted. | Not run | |
+| MOD-07 | P2 | 2 | Blocked keyword incorrectly flags legitimate content. | Provide review/override path and avoid irreversible automated deletion without policy basis. | Not run | |
+| MOD-08 | P1 | 2 | Spam or harmful content is posted at high volume. | Apply rate limits, detection and queue prioritisation without taking down unrelated users' content. | Not run | |
+| MOD-09 | P0 | 2 | Moderator account is suspended while cases are assigned. | Reassign open cases and revoke moderation privileges. | Not run | |
+| MOD-10 | P0 | 2 | Moderator exports report data containing sensitive information. | Restrict export to authorised roles and log export events. | Not run | |
+| MOD-11 | P1 | 2 | Reported content is edited after report submission. | Preserve the reported snapshot/version where policy permits and show current state separately. | Not run | |
+
+## 9. Events and Registrations
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| EVT-01 | P1 | 2 | User registers for the same event multiple times. | Allow only one active registration per user unless multiple tickets are explicitly supported. | Not run | |
+| EVT-02 | P1 | 2 | Event reaches capacity while two users register simultaneously. | Enforce capacity atomically; place overflow on waitlist or reject. | Not run | |
+| EVT-03 | P1 | 2 | Event is cancelled or rescheduled after registrations. | Notify registrants and update calendar/reminder state; do not retain stale event details. | Not run | |
+| EVT-04 | P1 | 2 | Event time crosses daylight-saving or user timezone boundaries. | Display local time correctly and store a consistent canonical timestamp/timezone. | Not run | |
+| EVT-05 | P1 | 2 | Member is removed from the community before a members-only event. | Recheck access and apply the defined registration/attendance policy. | Not run | |
+| EVT-06 | P1 | 2 | Event creator leaves, is suspended or deleted. | Transfer event management or assign an authorised replacement. | Not run | |
+| EVT-07 | P1 | 2 | Registration deadline passes while a form is open. | Revalidate deadline at submission; reject late registration clearly. | Not run | |
+| EVT-08 | P0 | 2 | Private event URL is shared with a non-member. | Enforce event visibility and eligibility on every request. | Not run | |
+| EVT-09 | P1 | 2 | Waitlisted user is promoted after capacity changes but has already cancelled. | Do not reactivate a cancelled registration; promote the next eligible user. | Not run | |
+| EVT-10 | P2 | 2 | Attendance is marked more than once or changed after event closure. | Prevent duplicate attendance records and audit corrections. | Not run | |
+
+## 10. LMS Courses, Lessons and Enrolment
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| LMS-01 | P0 | 2 | Course is deleted while learners are enrolled or progressing. | Block immediate deletion or require an impact review, learner notice and retention decision. | Not run | |
+| LMS-02 | P1 | 3 | Instructor leaves, is removed or suspended while course is active. | Reassign instructor or pause affected management actions; learners retain valid access as policy allows. | Not run | |
+| LMS-03 | P1 | 2 | Course is unpublished after learners enrol. | Apply a clear policy for existing learners; do not silently erase access/progress. | Not run | |
+| LMS-04 | P1 | 3 | Course content is updated after a learner has completed it. | Preserve completion/version history and define whether re-completion is required. | Not run | |
+| LMS-05 | P2 | 2 | Learner repeats a lesson or marks it complete multiple times. | Keep progress and completion records consistent; avoid inflated counts. | Not run | |
+| LMS-06 | P0 | 2 | User submits multiple enrolment requests or clicks Enrol repeatedly. | Create one enrolment and return the existing state on retry. | Not run | |
+| LMS-07 | P1 | 3 | Course capacity is reached during simultaneous enrolment. | Enforce capacity atomically and apply waitlist/closed behaviour. | Not run | |
+| LMS-08 | P0 | 2 | Guest tries to access a members-only lesson using a direct URL. | Deny access server-side even if the lesson URL is known. | Not run | |
+| LMS-09 | P1 | 3 | Member is removed from the community while enrolled in a members-only course. | Apply the configured continuation/revocation policy and communicate the impact. | Not run | |
+| LMS-10 | P1 | 2 | Video, PDF or external learning resource fails to load. | Show a useful error/retry path and do not mark the lesson complete automatically. | Not run | |
+| LMS-11 | P1 | 2 | Learner loses network connection while watching/reading or submitting progress. | Save progress safely where possible and reconcile without duplicate or false completion. | Not run | |
+| LMS-12 | P1 | 2 | Learner opens a lesson in multiple tabs/devices. | Synchronise progress without overwriting newer progress or double-counting completion. | Not run | |
+| LMS-13 | P0 | 2 | Course is moved to another community or ownership changes. | Re-evaluate enrolment, visibility, instructor authority and resource permissions. | Not run | |
+| LMS-14 | P0 | 2 | Instructor tries to manage a course in a community where they are not assigned. | Deny the action; instructor scope must be community/course-specific. | Not run | |
+| LMS-15 | P1 | 2 | Course has no lessons or a required module is missing. | Prevent publication or clearly mark the course as incomplete according to publishing rules. | Not run | |
+
+## 11. LMS Assessments, Grading and Certificates
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| ASM-01 | P0 | 3 | Learner submits a quiz twice due to a slow response. | Accept one submission or preserve attempts according to configured attempt limits. | Not run | |
+| ASM-02 | P0 | 3 | Network disconnects during an assessment. | Preserve saved answers where possible and apply a documented resume/attempt policy. | Not run | |
+| ASM-03 | P0 | 3 | Learner submits after deadline due to timezone mismatch or client clock manipulation. | Use server-side deadline and configured grace-period rules. | Not run | |
+| ASM-04 | P1 | 3 | Quiz questions/options change after learner starts an attempt. | Lock the attempt to a version or apply a controlled update policy. | Not run | |
+| ASM-05 | P1 | 3 | Instructor changes the grading rubric after submissions. | Retain rubric version and prevent unexplained retroactive score changes. | Not run | |
+| ASM-06 | P1 | 3 | Two instructors grade the same submission simultaneously. | Prevent conflicting final grades or require a defined moderation/second-marker process. | Not run | |
+| ASM-07 | P0 | 3 | Instructor grades a submission belonging to an unassigned course. | Deny access and grading action. | Not run | |
+| ASM-08 | P1 | 3 | Learner is removed from course/community before assessment deadline. | Apply enrolment status policy; preserve submitted work and communicate remaining access. | Not run | |
+| ASM-09 | P0 | 3 | Certificate is issued despite unmet completion criteria. | Validate eligibility server-side before issuance. | Not run | |
+| ASM-10 | P1 | 3 | Certificate is revoked, reissued or learner name changes. | Maintain verifiable issuance history and ensure old certificate status is clear. | Not run | |
+| ASM-11 | P1 | 3 | Course is deleted after certificates have been issued. | Preserve certificate verification/history according to retention policy. | Not run | |
+| ASM-12 | P0 | 3 | Learner attempts to access another learner's submission or grade. | Deny access unless explicit peer-review permissions allow limited access. | Not run | |
+| ASM-13 | P1 | 3 | Question bank contains malformed or missing answers. | Prevent publishing/assessment start or flag the invalid question to the instructor. | Not run | |
+| ASM-14 | P0 | 3 | Assessment attempt limit is reached across multiple devices. | Enforce attempt limits centrally, not per browser/device. | Not run | |
+
+## 12. Resources and File Management
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| FIL-01 | P0 | 2 | User uploads unsupported extension, spoofed MIME type or executable file. | Validate actual file type, quarantine unsafe files and block prohibited formats. | Not run | |
+| FIL-02 | P1 | 2 | File exceeds configured size or storage quota. | Reject before/after upload safely and explain the applicable limit. | Not run | |
+| FIL-03 | P1 | 2 | Upload is interrupted or retried. | Resume safely if supported; otherwise discard incomplete object and avoid duplicate resources. | Not run | |
+| FIL-04 | P0 | 2 | Malware scanning service is unavailable. | Keep file quarantined/unavailable until scan succeeds; do not expose unscanned files. | Not run | |
+| FIL-05 | P0 | 2 | Private resource URL is shared outside the community. | Require authenticated, authorised access and expiring links. | Not run | |
+| FIL-06 | P1 | 2 | Resource owner is removed or deleted. | Preserve community-owned resources and transfer management; do not orphan them. | Not run | |
+| FIL-07 | P2 | 2 | Resource is deleted while users are downloading it. | Handle in-flight downloads consistently and invalidate future access as policy requires. | Not run | |
+| FIL-08 | P1 | 2 | Two users upload resources with the same filename. | Use unique identifiers and display names safely; never overwrite another user's file accidentally. | Not run | |
+| FIL-09 | P1 | 2 | File is replaced while a learner or member has it open. | Version or invalidate the resource predictably and avoid serving mismatched content. | Not run | |
+| FIL-10 | P1 | 2 | Global file size/type policy changes while upload is in progress. | Revalidate at completion and reject non-compliant uploads safely. | Not run | |
+
+## 13. Notifications, Email and In-app Alerts
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| NTF-01 | P1 | 2 | User disables a notification category but receives it anyway. | Respect preference and channel settings, except for explicitly defined essential security notices. | Not run | |
+| NTF-02 | P2 | 2 | One event generates duplicate notifications through retries or multiple workers. | Deduplicate using event/recipient identifiers. | Not run | |
+| NTF-03 | P1 | 2 | Email provider is unavailable or rejects delivery. | Retry with limits, record failure and retain in-app notification where applicable. | Not run | |
+| NTF-04 | P0 | 2 | User is removed from a community before a scheduled reminder is sent. | Recheck recipient eligibility at send time. | Not run | |
+| NTF-05 | P1 | 2 | Invitation expires before notification is opened. | Show expired state and do not allow acceptance. | Not run | |
+| NTF-06 | P0 | 2 | Private post text appears in push/email preview for a non-member. | Use privacy-safe generic previews or omit protected content. | Not run | |
+| NTF-07 | P1 | 2 | User changes email while a message is queued. | Send only to the currently verified destination according to policy. | Not run | |
+| NTF-08 | P1 | 2 | Admin email alert for a deletion request fails. | Keep request in internal queue and surface delivery failure for retry. | Not run | |
+| NTF-09 | P1 | 2 | User receives a notification after account suspension/deletion. | Suppress non-essential messages and follow account lifecycle/privacy policy. | Not run | |
+| NTF-10 | P0 | 2 | Notification links to content whose visibility has changed. | Recheck permissions on click; never assume notification possession grants access. | Not run | |
+
+## 14. Search, Explore and Recommendations
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| SRC-01 | P0 | 2 | Closed community name appears in public search suggestions/autocomplete. | Do not return closed community names or metadata to unauthorised users. | Not run | |
+| SRC-02 | P0 | 2 | Private post content appears in search results for non-members. | Filter search results by current access permissions. | Not run | |
+| SRC-03 | P1 | 2 | Community is renamed but old search result links remain. | Redirect only to the new permitted page; recheck visibility and access. | Not run | |
+| SRC-04 | P1 | 2 | Archived/suspended community remains in recommendations. | Remove or clearly label it according to platform policy. | Not run | |
+| SRC-05 | P0 | 2 | User's access changes between search and result click. | Recheck permission on destination; do not rely on search-time authorisation. | Not run | |
+| SRC-06 | P2 | 2 | Search returns no results or service is unavailable. | Show useful empty/error state and preserve query for retry. | Not run | |
+| SRC-07 | P2 | 2 | Multiple communities have similar names or duplicate descriptions. | Show distinguishing metadata without exposing private details. | Not run | |
+| SRC-08 | P0 | 2 | Recommendation engine uses closed/private activity outside authorised scope. | Respect visibility, consent and data access rules in recommendation inputs and outputs. | Not run | |
+
+## 15. Analytics, Reporting and Exports
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| ANL-01 | P1 | 4 | Community has zero members or no activity in selected period. | Show zero/empty states; avoid divide-by-zero or misleading percentages. | Not run | |
+| ANL-02 | P1 | 4 | One person belongs to several communities and platform unique users are calculated. | Count unique platform users once; distinguish memberships from unique people. | Not run | |
+| ANL-03 | P1 | 4 | Account is deleted but historical activity remains in aggregate reports. | Apply anonymisation/retention rules and keep metrics internally consistent. | Not run | |
+| ANL-04 | P1 | 4 | Date range crosses timezone/daylight-saving boundaries. | Use defined reporting timezone and inclusive/exclusive boundaries consistently. | Not run | |
+| ANL-05 | P2 | 4 | Analytics data is delayed or partially processed. | Display last-updated time and avoid presenting partial figures as final. | Not run | |
+| ANL-06 | P0 | 4 | Moderator attempts to view revenue or unrelated platform analytics. | Deny unless separately authorised. | Not run | |
+| ANL-07 | P0 | 4 | Unauthorised user exports member-level or learner-level data. | Deny export and audit access attempts. | Not run | |
+| ANL-08 | P0 | 4 | Small-group report could identify an individual. | Suppress, aggregate or restrict the result according to privacy threshold. | Not run | |
+| ANL-09 | P0 | 4 | CSV export formula cells contain user-controlled text. | Escape formula-leading characters and prevent spreadsheet formula injection. | Not run | |
+| ANL-10 | P2 | 4 | Analytics filter is changed while export is being generated. | Bind export to a fixed filter snapshot and show the applied date range. | Not run | |
+| ANL-11 | P2 | 4 | Metrics definitions change between reporting periods. | Version definitions or annotate changes to avoid misleading comparisons. | Not run | |
+
+## 16. Community and Platform Settings
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| SET-01 | P0 | 2 | Community Admin tries to change a setting controlled globally. | Reject the change and explain that the setting is managed at platform level. | Not run | |
+| SET-02 | P0 | 2 | Platform Admin disables a feature while a community is actively using it. | Apply documented graceful shutdown/migration behaviour; prevent new use without corrupting existing data. | Not run | |
+| SET-03 | P1 | 2 | Two admins save conflicting settings simultaneously. | Detect conflict or apply version checks; do not silently overwrite changes. | Not run | |
+| SET-04 | P2 | 2 | Admin changes community category while it is featured or recommended. | Update discovery metadata and dependent placements consistently. | Not run | |
+| SET-05 | P1 | 2 | File upload limits are reduced below existing stored file sizes. | Do not delete existing files unexpectedly; apply new limits to future uploads and document migration rules. | Not run | |
+| SET-06 | P1 | 2 | Default platform language/timezone changes after communities have configured their own values. | Preserve explicit community/user overrides; apply new defaults only where intended. | Not run | |
+| SET-07 | P0 | 2 | Settings save partially succeeds across multiple services. | Use transactional behaviour or rollback/clear partial state and communicate result. | Not run | |
+| SET-08 | P0 | 2 | User manipulates hidden settings API fields not shown in UI. | Validate permissions and allowed fields server-side; reject mass assignment. | Not run | |
+| SET-09 | P2 | 2 | Admin leaves settings page with unsaved changes. | Warn about unsaved changes and avoid accidental data loss. | Not run | |
+| SET-10 | P0 | 2 | Platform-wide security setting is changed by an unauthorised staff role. | Deny and record the attempt. | Not run | |
+
+## 17. Community Archive, Transfer and Deletion
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| DEL-01 | P0 | 2 | Community Admin looks for a direct permanent-delete action. | Show Request Community Deletion only; no direct delete control/API permission. | Not run | |
+| DEL-02 | P1 | 2 | Admin submits the same deletion request repeatedly. | Deduplicate or link requests; do not create conflicting active requests. | Not run | |
+| DEL-03 | P1 | 2 | Email to Platform Admin fails after request submission. | Keep the request in the in-platform queue and flag failed delivery. | Not run | |
+| DEL-04 | P1 | 2 | Platform Admin rejects a request without a reason. | Require a reason and notify the requester. | Not run | |
+| DEL-05 | P2 | 2 | Requester wants to cancel while request is under review. | Allow cancellation only in permitted statuses and record it. | Not run | |
+| DEL-06 | P1 | 2 | New members, posts or courses are created during deletion review. | Freeze selected operations or include new changes in the review; define the policy explicitly. | Not run | |
+| DEL-07 | P0 | 2 | Community has active courses, learners, certificates or upcoming events. | Require impact review, learner/member communication and continuity decisions before deletion. | Not run | |
+| DEL-08 | P0 | 2 | Community has outstanding payments, refunds or financial records. | Resolve financial obligations and retain legally required records before deletion. | Not run | |
+| DEL-09 | P0 | 2 | Community has open reports or investigations. | Preserve evidence and resolve/transfer cases before permanent deletion. | Not run | |
+| DEL-10 | P0 | 2 | Platform Admin selects the wrong community for deletion. | Show unmistakable identity details and require explicit confirmation/reauthentication. | Not run | |
+| DEL-11 | P1 | 2 | Community is archived while deletion is pending. | Define member access, exports, restoration and notification behaviour. | Not run | |
+| DEL-12 | P1 | 2 | Deleted community URL is accessed later. | Show a safe unavailable/removed state without leaking retained data. | Not run | |
+| DEL-13 | P0 | 2 | Deletion process fails midway across services/storage. | Use recoverable jobs, retries and status tracking; do not report complete deletion prematurely. | Not run | |
+| DEL-14 | P0 | 2 | Community is restored from backup after deletion. | Ensure restored state respects deletion requests, retention and audit/legal policy. | Not run | |
+| DEL-15 | P1 | 2 | Owner requests deletion but Platform Admin has already transferred ownership. | Revalidate requester authority and current community state before acting. | Not run | |
+
+## 18. Integrations, APIs and External Services
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| INT-01 | P1 | 4 | Email, video, storage, payment or analytics provider is unavailable. | Show degraded state, retry safely and preserve platform data; do not mark failed work complete. | Not run | |
+| INT-02 | P0 | 4 | Webhook is delivered more than once or out of order. | Use idempotency/event identifiers and tolerate ordering differences. | Not run | |
+| INT-03 | P0 | 4 | Webhook signature is invalid or timestamp is stale. | Reject request and log security event. | Not run | |
+| INT-04 | P0 | 4 | API key is revoked while an integration is using it. | Reject subsequent calls and provide controlled credential rotation. | Not run | |
+| INT-05 | P1 | 4 | External service returns malformed or unexpected data. | Validate response schema and fail safely without corrupting records. | Not run | |
+| INT-06 | P0 | 4 | Payment succeeds externally but callback is delayed/lost. | Reconcile payment state through verified provider records; avoid duplicate charge or entitlement. | Not run | |
+| INT-07 | P2 | 4 | External video/resource URL changes or becomes unavailable. | Show unavailable state and allow authorised replacement; do not silently mark content complete. | Not run | |
+| INT-08 | P0 | 4 | Integration attempts to access data outside its granted scope. | Enforce scoped permissions and log denied access. | Not run | |
+
+## 19. Performance, Availability and Data Integrity
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| SYS-01 | P1 | 4 | Large community feed or member list is loaded without pagination. | Use pagination/limits and prevent memory/performance degradation. | Not run | |
+| SYS-02 | P1 | 4 | High-volume posting or notification activity occurs suddenly. | Apply rate limits, queues and back-pressure without losing accepted records. | Not run | |
+| SYS-03 | P0 | 1 | Database/service is unavailable during a write. | Do not show success unless committed; allow safe retry and preserve consistency. | Not run | |
+| SYS-04 | P0 | 1 | Background job runs twice after retry or worker restart. | Make jobs idempotent and prevent duplicate emails, certificates or deletion actions. | Not run | |
+| SYS-05 | P0 | 1 | Cache contains stale membership or permission data. | Invalidate or recheck critical permissions before serving protected data/actions. | Not run | |
+| SYS-06 | P0 | 4 | Backup restore produces mismatched users, memberships or files. | Run integrity checks and reconcile references before reopening the platform. | Not run | |
+| SYS-07 | P1 | 4 | Maintenance begins during a quiz, upload or deletion workflow. | Preserve state or communicate interruption and recovery rules; do not corrupt partial work. | Not run | |
+| SYS-08 | P0 | 1 | System clock differs across application services. | Use trusted time synchronisation and server-side timestamps for deadlines/audit. | Not run | |
+| SYS-09 | P0 | 1 | Concurrent requests update the same counters or membership records. | Use atomic updates/transactions so counts and state remain accurate. | Not run | |
+| SYS-10 | P1 | 1 | A user submits an action after session timeout. | Reject safely, preserve draft where possible and require reauthentication. | Not run | |
+
+## 20. Accessibility, Responsive UI and Usability
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| UX-01 | P1 | All | User relies on keyboard navigation only. | All core controls, dialogs, menus and forms must be keyboard accessible with visible focus. | Not run | |
+| UX-02 | P1 | All | Screen reader encounters icon-only buttons or status indicators. | Provide accessible names, labels and announced state changes. | Not run | |
+| UX-03 | P2 | All | User has low bandwidth or images fail to load. | Provide loading/error states, sensible fallbacks and avoid blocking core navigation. | Not run | |
+| UX-04 | P1 | All | Layout is used on small mobile screens or at high zoom. | Prevent clipped controls, horizontal overflow and inaccessible actions. | Not run | |
+| UX-05 | P1 | All | Important action is available only on hover. | Provide touch and keyboard alternatives. | Not run | |
+| UX-06 | P2 | All | User submits a form with errors across multiple steps. | Preserve valid entries, identify each error and return focus to the relevant field. | Not run | |
+| UX-07 | P0 | All | Destructive action confirmation is vague or does not identify target. | State the exact community/content/action and consequence before confirmation. | Not run | |
+| UX-08 | P2 | All | Loading state persists after a failed request. | Resolve to a clear error/retry state and avoid leaving controls permanently disabled. | Not run | |
