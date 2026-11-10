@@ -327,3 +327,27 @@ describe('creating and managing communities', () => {
     assert.equal((await c.pa.delete(`/api/communities/${id}`)).status, 200);
   });
 });
+
+describe('member lists and rules', () => {
+  test('restricted members are listed (so they can be un-restricted); moderators also see removed', async () => {
+    const list = (await c.mod.get('/api/communities/pri/members')).body.members;
+    assert.equal(list.find((m) => m.id === 'res')?.state, 'restricted');
+    const memberView = (await c.mem.get('/api/communities/pri/members')).body.members;
+    assert.ok(memberView.every((m) => ['active', 'restricted'].includes(m.state)));
+  });
+
+  test('rule-based adds never bring back someone who left', async () => {
+    const id = (await c.mem.post('/api/communities', { name: 'Rule Club', visibility: 'public' })).body.community.id;
+    await c.out.post(`/api/communities/${id}/join`);
+    await c.out.post(`/api/communities/${id}/leave`);
+    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'], source: 'rule' })).body.added, []);
+    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.added, ['out'], 'an admin can still add them on purpose');
+  });
+
+  test('archived communities stay listed for their members only', async () => {
+    const id = (await c.mem.post('/api/communities', { name: 'Old Archive', visibility: 'public' })).body.community.id;
+    await c.mem.post(`/api/communities/${id}/archive`, { archived: true });
+    assert.ok((await c.mem.get('/api/communities')).body.communities.some((x) => x.id === id && x.status === 'archived'));
+    assert.ok(!(await c.res.get('/api/communities')).body.communities.some((x) => x.id === id));
+  });
+});

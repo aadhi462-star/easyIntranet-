@@ -5,6 +5,7 @@ import { uid, useStore, fmtDate } from '../../lib/store.jsx';
 import { Avatar, Field, Modal } from '../ui.jsx';
 import { canSee, occurrences } from '../events/eventUtils.js';
 import { isLive } from '../feed/utils.js';
+import { useCommunityWrite } from './useCommunity.js';
 
 const KINDS = {
   about: 'About', rules: 'Guidelines', events: 'Upcoming events', members: 'Recent members',
@@ -13,10 +14,15 @@ const KINDS = {
 
 /** Configurable home page for a group. Admins add, remove and reorder widgets. */
 export default function SpaceDashboard({ group, isAdmin }) {
-  const { dispatch } = useStore();
+  const { patch } = useCommunityWrite();
   const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
   const widgets = group.dashboard ?? [];
-  const save = (dashboard) => dispatch({ type: 'update', col: 'groups', id: group.id, patch: { dashboard } });
+  // Stored in the community's settings on the server; errors (e.g. a stale version) are toasted.
+  const save = async (dashboard) => {
+    setBusy(true);
+    try { return await patch(group, { settings: { dashboard } }); } finally { setBusy(false); }
+  };
   const move = (i, d) => {
     const next = [...widgets];
     const j = i + d;
@@ -40,9 +46,9 @@ export default function SpaceDashboard({ group, isAdmin }) {
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">{w.title || KINDS[w.kind]}</h3>
               {isAdmin && (
                 <div className="flex gap-1">
-                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, -1)} aria-label="Move widget up" disabled={i === 0}>↑</button>
-                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, 1)} aria-label="Move widget down" disabled={i === widgets.length - 1}>↓</button>
-                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => save(widgets.filter((x) => x.id !== w.id))} aria-label="Remove widget">✕</button>
+                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, -1)} aria-label="Move widget up" disabled={busy || i === 0}>↑</button>
+                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, 1)} aria-label="Move widget down" disabled={busy || i === widgets.length - 1}>↓</button>
+                  <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => save(widgets.filter((x) => x.id !== w.id))} aria-label="Remove widget" disabled={busy}>✕</button>
                 </div>
               )}
             </div>
@@ -50,7 +56,7 @@ export default function SpaceDashboard({ group, isAdmin }) {
           </section>
         ))}
       </div>
-      {adding && <AddWidget onClose={() => setAdding(false)} onAdd={(w) => { save([...widgets, { id: uid('w'), ...w }]); setAdding(false); }} />}
+      {adding && <AddWidget onClose={() => setAdding(false)} onAdd={async (w) => { if (await save([...widgets, { id: uid('w'), ...w }])) setAdding(false); }} />}
     </div>
   );
 }
@@ -106,7 +112,7 @@ function Widget({ w, group }) {
       const forums = state.forumPosts.filter((f) => f.groupId === group.id && f.status !== 'draft').length;
       return (
         <dl className="grid grid-cols-2 gap-3 text-center">
-          {[['Members', group.members.length], ['Posts', posts], ['Events', events], ['Discussions', forums]].map(([k, n]) => (
+          {[['Members', group.memberCount ?? group.members.length], ['Posts', posts], ['Events', events], ['Discussions', forums]].map(([k, n]) => (
             <div key={k} className="rounded-xl bg-white/5 p-3"><dd className="text-2xl font-extrabold text-brand-gradient">{n}</dd><dt className="text-xs text-slate-400">{k}</dt></div>
           ))}
         </dl>

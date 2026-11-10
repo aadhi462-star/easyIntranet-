@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { api } from '../../lib/api.js';
 import { useStore } from '../../lib/store.jsx';
 import { syncDirectory } from '../../lib/people.js';
+import { syncCommunities } from '../../lib/communities.js';
 
 /**
  * Keeps the app's signed-in person in step with the server session, which is the authority:
@@ -11,11 +12,18 @@ import { syncDirectory } from '../../lib/people.js';
 export default function AuthSync() {
   const { state, dispatch } = useStore();
   const localId = state.session?.userId ?? null;
+  const groupIds = useRef([]);
+  groupIds.current = state.groups.map((g) => g.id);
 
-  // Once per signed-in person: bring the directory in from the server.
+  // Tell per-person caches (e.g. "my communities" in lib/feed.js) that the signed-in person
+  // changed. AuthSync renders before the routes, so this runs before the pages refetch.
+  useEffect(() => { window.dispatchEvent(new CustomEvent('c1-session-changed', { detail: localId })); }, [localId]);
+
+  // Once per signed-in person: bring the directory and communities in from the server.
   useEffect(() => {
     if (!localId) return;
     syncDirectory(dispatch).catch(() => { /* offline: the local copy stays usable */ });
+    syncCommunities(dispatch, { me: localId, localIds: groupIds.current }).catch(() => { /* offline: keep the local groups */ });
   }, [localId, dispatch]);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { Glyph } from '../icons.jsx';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
@@ -8,7 +8,8 @@ import { CompletenessCard } from '../people/Completeness.jsx';
 import { canSeeContact } from '../people/shared.jsx';
 import { upcomingCelebrations, whenLabel } from '../../lib/celebrations.js';
 import { SentimentMeter } from './PostModals.jsx';
-import { audienceOf, canSee, isLive, sentimentCounts, trendingTags } from './utils.js';
+import { fetchFeed, onFeedEvent } from '../../lib/feed.js';
+import { canSee, isLive, sentimentCounts, trendingTags } from './utils.js';
 
 export function TrendingTags() {
   const { state, me } = useStore();
@@ -34,15 +35,25 @@ export function MandatoryPending() {
   return <MandatoryPendingCard />;
 }
 
+/** Server Mandatory Reads you haven't acknowledged yet (GET /feed?view=mandatory). */
 function MandatoryPendingCard() {
-  const { state, me } = useStore();
-  if (!me) return null;
-  const pending = state.posts.filter((p) => isLive(p) && p.mandatory && p.authorId !== me.id && !p.mandatory.acks.includes(me.id) && canSee(state, me, p)
-    && audienceOf(state, p).includes(me.id));
-  if (!pending.length) return null;
+  const { me } = useStore();
+  const meId = me?.id;
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!meId) return undefined;
+    let live = true;
+    const load = () => fetchFeed({ view: 'mandatory', limit: 50 })
+      .then(({ posts }) => live && setCount(posts.filter((p) => p.status === 'published' && p.mandatory && !p.mandatory.acked && p.author?.id !== meId).length))
+      .catch(() => { /* offline: keep the last count */ });
+    load();
+    const off = onFeedEvent((e) => { if (e.type !== 'post' || e.post.mandatory) load(); });
+    return () => { live = false; off(); };
+  }, [meId]);
+  if (!me || !count) return null;
   return (
     <Link to="/feed/mandatory" className="glass block p-4 ring-1 ring-amber-300/30 hover:ring-amber-300/60">
-      <div className="text-sm font-bold text-amber-200"><Glyph value="mandatory" tile={false} size={16} /> {pending.length} mandatory read{pending.length > 1 ? 's' : ''} pending</div>
+      <div className="text-sm font-bold text-amber-200"><Glyph value="mandatory" tile={false} size={16} /> {count} mandatory read{count > 1 ? 's' : ''} pending</div>
       <p className="mt-1 text-xs text-slate-400">Open and acknowledge them before the deadline.</p>
     </Link>
   );

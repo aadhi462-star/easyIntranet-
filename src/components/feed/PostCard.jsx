@@ -1,124 +1,94 @@
 import UserLabels from '../UserLabels.jsx';
 import { Glyph } from '../icons.jsx';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bookmarksOf, fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
-import { LANGUAGES, summarize, translate } from '../../lib/assist.js';
-import { Avatar, Modal, UserLink } from '../ui.jsx';
+import { toast } from '../../lib/toast.js';
+import {
+  acknowledge, approvePost, authorUser, deletePost, errorText, MOODS, NETWORK_ID, pinPost, publishPost, removePost, setReaction, vote,
+} from '../../lib/feed.js';
+import { Avatar, Modal } from '../ui.jsx';
 import Comments from './Comments.jsx';
 import Composer from './Composer.jsx';
-import { AckBox, MandatoryConfig, MandatoryReport } from './Mandatory.jsx';
-import { AdvocacyReport, InsightsModal, ReportModal, RepostModal } from './PostModals.jsx';
+import { AckBox } from './Mandatory.jsx';
 import RichText from './RichText.jsx';
-import { acksOf, audienceOf, canSee, followingIds, GUEST, isLive, isPublicPost, MOODS, needsApproval, publishPost, scopeLabel, SHARE_TARGETS, shareLockOf, statusOf } from './utils.js';
+import { followingIds, GUEST } from './utils.js';
 
-// Views are counted once per post per page load.
-const seen = new Set();
+/** The author's name: a profile link, or plain "Deleted member". */
+export function AuthorName({ author, className = '' }) {
+  if (!author || author.deleted) return <span className={`font-semibold text-slate-400 ${className}`}>Deleted member</span>;
+  return <Link to={`/people/${author.id}`} className={`font-semibold text-white hover:underline ${className}`}>{author.name || 'Member'}</Link>;
+}
 
-/** `readOnly` (or no signed-in user) renders a guest view without any interaction. */
+/**
+ * One server post (see src/lib/feed.js). Every action goes to the API and the card re-renders
+ * from the post the server returns. Controls follow `post.can.*`. `readOnly` (or no signed-in
+ * user) renders a guest view without any interaction.
+ */
 export default function PostCard({ post, expanded = false, embedded = false, readOnly = false }) {
-  const { state, dispatch, me: signedIn, user, can } = useStore();
+  const { state, dispatch, me: signedIn, user } = useStore();
   const guest = readOnly || !signedIn;
   const me = signedIn ?? GUEST;
   const [showComments, setShowComments] = useState(expanded);
   const [menu, setMenu] = useState(false);
   const [modal, setModal] = useState(null);
   const [more, setMore] = useState(false);
-  const [assist, setAssist] = useState(null);
-  const [lang, setLang] = useState('');
-  const ref = useRef(null);
-  const status = statusOf(post);
-  const mine = post.authorId === me.id;
-  const group = post.scope?.type === 'group' ? state.groups.find((g) => g.id === post.scope.id) : null;
-  // Same rule as the composer: group admins in groups, `mandatory.mark` on the network wall.
-  const canManageMandatory = post.scope?.type !== 'user' && (me.admin
-    || (group ? group.admins.includes(me.id) : !guest && !!state.roles?.length && can('mandatory.mark')));
-  const canInsights = mine || me.admin;
-  // A repost only shows its original to people who could see that original directly
-  // (guests: public posts only), and only while it's live.
-  const found = post.repostOf ? state.posts.find((p) => p.id === post.repostOf) : null;
-  const original = found && isLive(found) && (guest ? isPublicPost(state, found) : canSee(state, me, found)) ? found : null;
-  const inAudience = !!post.mandatory && audienceOf(state, post).includes(me.id);
-  const follows = followingIds(state, me).includes(post.authorId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const status = post.status || 'published';
+  const author = post.author ?? {};
+  const mine = !!me.id && author.id === me.id;
+  const can = post.can ?? {};
+  const follows = followingIds(state, me).includes(author.id);
+  const r = post.reactions ?? { like: 0, liked: false, moods: {}, myMood: null };
 
-  useEffect(() => {
-    if (guest || embedded || status !== 'published' || seen.has(post.id) || !ref.current) return undefined;
-    const io = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting || seen.has(post.id)) return;
-      seen.add(post.id);
-      dispatch({ type: 'update', col: 'posts', id: post.id, silent: true, patch: (p, meId) => ({ ...p, views: { ...p.views, [meId]: (p.views?.[meId] || 0) + 1 } }) });
-      io.disconnect();
-    }, { threshold: 0.5 });
-    io.observe(ref.current);
-    return () => io.disconnect();
-  }, [post.id, status, embedded, guest, dispatch]);
-
-  const patch = (p) => dispatch({ type: 'update', col: 'posts', id: post.id, patch: p });
-  const react = (mood) => patch((p, meId) => {
-    const r = { ...p.reactions };
-    if (r[meId] === mood) delete r[meId]; else r[meId] = mood;
-    return { ...p, reactions: r };
-  });
-  const like = () => {
-    dispatch({ type: 'post/like', id: post.id });
-    if (!post.likes.includes(me.id) && !mine) dispatch({ type: 'notify', silent: true, notification: { userId: post.authorId, kind: 'like', link: `/post/${post.id}`, text: `${me.name} liked your post` } });
+  // Runs one API call; the shared feed cache updates every list showing this post.
+  const run = async (fn, ok) => {
+    if (busy) return;
+    setBusy(true); setError('');
+    try { await fn(); if (ok) toast(ok); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
+  const like = () => run(() => setReaction(post.id, 'like', !r.liked));
+  const react = (k) => run(() => setReaction(post.id, k, r.myMood !== k));
   const toggleFollow = () => {
-    const f = (state.follows || []).find((x) => x.authorId === me.id && x.targetId === post.authorId);
+    const f = (state.follows || []).find((x) => x.authorId === me.id && x.targetId === author.id);
     if (f) dispatch({ type: 'remove', col: 'follows', id: f.id });
-    else dispatch({ type: 'add', col: 'follows', item: { targetId: post.authorId } });
+    else dispatch({ type: 'add', col: 'follows', item: { targetId: author.id } });
   };
-  const approve = () => {
-    publishPost(state, dispatch, post);
-    dispatch({ type: 'notify', silent: true, notification: { userId: post.authorId, kind: 'info', link: `/post/${post.id}`, text: 'Your post was approved and published' } });
+  const remove = () => {
+    const reason = prompt('Why are you removing this post? The reason is kept in the moderation log.');
+    if (reason == null) return;
+    if (!reason.trim()) { setError('Give a reason for removing this post.'); return; }
+    run(() => removePost(post.id, reason.trim()), 'Post removed');
   };
-  const reject = () => {
-    if (!confirm('Reject and delete this post?')) return;
-    dispatch({ type: 'post/delete', id: post.id });
-    dispatch({ type: 'notify', silent: true, notification: { userId: post.authorId, kind: 'moderation', link: '/feed', text: 'Your post was not approved by the moderators' } });
-  };
-  const publishNow = () => {
-    if (needsApproval(state, me, post.text)) patch({ status: 'pending', createdAt: Date.now(), publishAt: undefined });
-    else publishPost(state, dispatch, post);
-  };
-  const share = (k) => {
-    const t = SHARE_TARGETS[k];
-    window.open(t.url(post.advocacy.url, post.advocacy.tweet), '_blank', 'noopener,noreferrer');
-    patch((p, meId) => ({ ...p, advocacy: { ...p.advocacy, shares: { ...p.advocacy.shares, [k]: [...new Set([...(p.advocacy.shares?.[k] || []), meId])] } } }));
-  };
-  const doSummary = async () => { setAssist({ loading: true }); setAssist({ kind: 'summary', ...(await summarize(post.text)) }); };
-  const doTranslate = async (l) => {
-    setLang(l);
-    if (!l) { setAssist(null); return; }
-    setAssist({ loading: true });
-    const r = await translate(post.text, l);
-    setAssist({ kind: 'translation', text: r.text ?? 'Translation isn’t available in this browser. Chrome’s on-device Translator is needed.', source: r.source });
-  };
+  const del = (what = 'post') => { if (confirm(`Delete this ${what}?`)) run(() => deletePost(post.id), 'Deleted'); };
   const close = () => setModal(null);
   const item = (label, fn, cls = '') => (
     <button key={label} className={`block min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-white/5 ${cls}`} onClick={() => { setMenu(false); fn(); }}>{label}</button>
   );
 
-  const long = post.text.length > 400 && !expanded;
-  const text = long && !more ? `${post.text.slice(0, 400).trimEnd()}…` : post.text;
-  const images = (post.attachments || []).filter((a) => a.type?.startsWith('image/'));
-  const files = (post.attachments || []).filter((a) => !a.type?.startsWith('image/'));
-  const totalVotes = post.poll?.options.reduce((n, o) => n + o.votes.length, 0) ?? 0;
-  const myMood = post.reactions?.[me.id];
+  const body = post.body ?? '';
+  const long = body.length > 400 && !expanded;
+  const text = long && !more ? `${body.slice(0, 400).trimEnd()}…` : body;
+  const totalVotes = post.poll?.options.reduce((n, o) => n + (o.votes || 0), 0) ?? 0;
+  const bookmarked = !guest && bookmarksOf(state, me.id).includes(post.id);
+  const authorProfile = authorUser(author, user);
+  const where = post.community && post.communityId !== NETWORK_ID ? post.community : null;
 
   return (
-    <article ref={ref} className={`${embedded ? 'rounded-xl border border-white/10 bg-white/[.03] p-4' : 'glass p-4 sm:p-5'} ${post.pinned && !embedded ? 'ring-1 ring-brand-500/40' : ''}`} aria-label={`Post by ${user(post.authorId)?.name}`}>
+    <article className={`${embedded ? 'rounded-xl border border-white/10 bg-white/[.03] p-4' : 'glass p-4 sm:p-5'} ${post.pinned && !embedded ? 'ring-1 ring-brand-500/40' : ''}`} aria-label={`Post by ${author.deleted ? 'Deleted member' : author.name ?? 'member'}`}>
       <header className="flex flex-wrap items-start gap-3">
-        <Link to={`/people/${post.authorId}`} aria-hidden="true" tabIndex={-1}><Avatar user={user(post.authorId)} size={embedded ? 32 : 42} /></Link>
+        {author.deleted ? <Avatar user={authorProfile} size={embedded ? 32 : 42} />
+          : <Link to={`/people/${author.id}`} aria-hidden="true" tabIndex={-1}><Avatar user={authorProfile} size={embedded ? 32 : 42} /></Link>}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-1.5 text-sm">
-            <UserLink id={post.authorId} />
-            <UserLabels userId={post.authorId} context="post" max={2} small />
-            {post.scope?.type !== 'network' && <span className="text-slate-400">▸ {group ? <Link className="hover:underline" to={`/groups/${group.id}`}>{group.emoji} {group.name}</Link> : scopeLabel(state, post.scope)}</span>}
+            <AuthorName author={author} />
+            {!author.deleted && <UserLabels userId={author.id} context="post" max={2} small />}
+            {where && <span className="text-slate-400">▸ <Link className="hover:underline" to={`/groups/${where.id}`}>{where.emoji} {where.name}</Link></span>}
           </div>
           <div className="text-xs text-slate-400">
-            <Link to={`/post/${post.id}`} className="hover:underline">{status === 'scheduled' ? `Scheduled for ${fmtDate(post.publishAt)}` : timeAgo(post.createdAt)}</Link>
-            {post.editedAt && ' · edited'}{user(post.authorId)?.role && ` · ${user(post.authorId).role}`}
+            <Link to={`/post/${post.id}`} className="hover:underline">{status === 'scheduled' && post.publishAt ? `Scheduled for ${fmtDate(post.publishAt)}` : timeAgo(new Date(post.createdAt).getTime())}</Link>
+            {post.editedAt && ' · edited'}{!author.deleted && user(author.id)?.role && ` · ${user(author.id).role}`}
           </div>
         </div>
         {/* On narrow cards the badges wrap onto their own row so they never squeeze the author name. */}
@@ -126,27 +96,23 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
           {post.pinned && <span className="chip"><Glyph value="📌" tile={false} size={16} /> Pinned</span>}
           {post.type === 'announcement' && <span className="chip !bg-leaf-400/15 !text-leaf-200"><Glyph value="📢" tile={false} size={16} /> Announcement</span>}
           {post.type === 'question' && <span className="chip !bg-brand-400/15 !text-brand-200"><Glyph value="❓" tile={false} size={16} /> Question</span>}
-          {post.type === 'advocacy' && <span className="chip !bg-leaf-400/15 !text-leaf-200"><Glyph value="📣" tile={false} size={16} /> Advocacy</span>}
           {post.mandatory && <span className="chip !bg-amber-400/15 !text-amber-200"><Glyph value="mandatory" tile={false} size={16} /> Mandatory read</span>}
           {status === 'pending' && <span className="chip !bg-orange-400/15 !text-orange-200"><Glyph value="⏳" tile={false} size={16} /> Awaiting approval</span>}
           {status === 'draft' && <span className="chip !bg-white/10 !text-slate-200"><Glyph value="📝" tile={false} size={16} /> Draft</span>}
+          {status === 'removed' && <span className="chip !bg-rose-400/15 !text-rose-200">Removed</span>}
         </div>
         {!embedded && !guest && (
           <div className="relative">
             <button className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post actions" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
             {menu && (
               <div className="glass glass-strong absolute right-0 z-20 mt-1 w-60 p-1.5" onMouseLeave={() => setMenu(false)}>
-                {status === 'published' && item(bookmarksOf(state, me.id).includes(post.id) ? '🔖 Remove bookmark' : '🔖 Bookmark', () => dispatch({ type: 'bookmark', id: post.id }))}
-                {me.admin && status === 'published' && item(post.pinned ? '📌 Unpin' : '📌 Pin to top', () => patch({ pinned: !post.pinned }))}
-                {!mine && item(follows ? `👣 Unfollow ${user(post.authorId)?.name.split(' ')[0]}` : `👣 Follow ${user(post.authorId)?.name.split(' ')[0]}`, toggleFollow)}
-                {canManageMandatory && status === 'published' && item(post.mandatory ? '✅ Manage Mandatory Read' : '✅ Mark as Mandatory Read', () => setModal('mandatory'))}
-                {post.mandatory && (mine || canManageMandatory) && item('📋 View Report', () => setModal('mreport'))}
-                {post.advocacy && (mine || me.admin) && item('📈 Advocacy report', () => setModal('areport'))}
-                {canInsights && status === 'published' && item('📊 Insights', () => setModal('insights'))}
-                {status === 'published' && item('🔗 Copy link', () => navigator.clipboard?.writeText(`${location.origin}${location.pathname}#/post/${post.id}`))}
-                {mine && item('✏️ Edit', () => setModal('edit'))}
-                {(mine || me.admin) && item('🗑️ Delete', () => { if (confirm('Delete this post?')) dispatch({ type: 'post/delete', id: post.id }); }, 'text-rose-300')}
-                {!mine && status === 'published' && item('🚩 Report post', () => setModal('report'))}
+                {status === 'published' && item(bookmarked ? '🔖 Remove bookmark' : '🔖 Bookmark', () => dispatch({ type: 'bookmark', id: post.id }))}
+                {can.pin && status === 'published' && item(post.pinned ? '📌 Unpin' : '📌 Pin to top', () => run(() => pinPost(post.id, !post.pinned), post.pinned ? 'Unpinned' : 'Pinned'))}
+                {!mine && !author.deleted && item(follows ? `👣 Unfollow ${(author.name || '').split(' ')[0]}` : `👣 Follow ${(author.name || '').split(' ')[0]}`, toggleFollow)}
+                {status === 'published' && item('🔗 Copy link', () => navigator.clipboard?.writeText(`${location.origin}${location.pathname}#/post/${post.id}`).then(() => toast('Link copied'), () => {}))}
+                {can.edit && item('✏️ Edit', () => setModal('edit'))}
+                {can.moderate && !mine && status === 'published' && item('🛡️ Remove post', remove, 'text-rose-300')}
+                {can.delete && item('🗑️ Delete', () => del(), 'text-rose-300')}
               </div>
             )}
           </div>
@@ -154,48 +120,21 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
       </header>
 
       <div className="mt-3">
-        {post.advocacy?.title && <h3 className="mb-1 font-bold">{post.advocacy.title}</h3>}
-        {post.text && <RichText text={text} mentions={post.mentions} className="text-[15px] text-slate-100" />}
+        {body && <RichText text={text} mentions={post.mentions || []} className="text-[15px] text-slate-100" />}
         {long && <button className="mt-1 text-sm text-brand-400 hover:underline" onClick={() => setMore(!more)}>{more ? 'See less' : 'See more'}</button>}
-        {!embedded && post.text && status === 'published' && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            {post.text.length > 280 && <button className="min-h-8 text-brand-400 hover:underline" onClick={doSummary}><Glyph value="✨" tile={false} size={16} /> Summarize</button>}
-            <label className="flex items-center gap-1 text-slate-400"><Glyph value="globe" tile={false} size={16} />
-              <select className="min-h-8 rounded-md bg-transparent text-slate-300 hover:bg-white/5" value={lang} onChange={(e) => doTranslate(e.target.value)} aria-label="Translate post">
-                <option value="">Translate</option>{LANGUAGES.map(([c, n]) => <option key={c} value={c} className="bg-ink-850">{n}</option>)}
-              </select>
-            </label>
-          </div>
-        )}
-        {assist && (
-          <div className="mt-2 rounded-xl bg-brand-500/10 p-3 text-sm text-slate-200">
-            {assist.loading ? 'Smart Assist is working…' : <><b className="text-xs uppercase tracking-wide text-brand-400">{assist.kind === 'summary' ? 'Summary' : 'Translation'}</b><p className="mt-1">{assist.text}</p><span className="text-xs text-slate-400">Smart Assist · {assist.source}</span></>}
-          </div>
-        )}
       </div>
-
-      {images.length > 0 && (
-        <div className={`mt-3 grid gap-2 ${images.length > 1 ? 'grid-cols-2' : ''}`}>
-          {images.map((a) => <img key={a.id} src={a.dataUrl} alt={a.name} className="max-h-96 w-full rounded-xl object-cover" />)}
-        </div>
-      )}
-      {files.length > 0 && (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {files.map((a) => <li key={a.id}><a className="chip !py-1.5" href={a.dataUrl} download={a.name}><Glyph value="📎" tile={false} size={16} /> {a.name} <span className="opacity-60">{Math.ceil(a.size / 1024)} KB</span></a></li>)}
-        </ul>
-      )}
 
       {post.poll && (
         <ul className="mt-3 space-y-2" aria-label="Poll options">
           {post.poll.options.map((o) => {
-            const pct = totalVotes ? Math.round((o.votes.length / totalVotes) * 100) : 0;
-            const mineVote = o.votes.includes(me.id);
+            const pct = totalVotes ? Math.round(((o.votes || 0) / totalVotes) * 100) : 0;
+            const mineVote = post.poll.myVote === o.id;
             return (
               <li key={o.id}>
-                <button disabled={guest || status !== 'published'} onClick={() => dispatch({ type: 'post/vote', id: post.id, optionId: o.id })} aria-pressed={mineVote}
+                <button disabled={guest || status !== 'published' || busy} onClick={() => !mineVote && run(() => vote(post.id, o.id))} aria-pressed={mineVote}
                   className={`relative block min-h-11 w-full overflow-hidden rounded-xl border px-3 text-left text-sm ${mineVote ? 'border-brand-500' : 'border-white/10 hover:border-white/25'}`}>
                   <span className="absolute inset-y-0 left-0 bg-brand-500/25" style={{ width: `${pct}%` }} />
-                  <span className="relative flex justify-between py-2.5"><span>{mineVote && '✓ '}{o.text}</span><span className="text-slate-300">{pct}%</span></span>
+                  <span className="relative flex justify-between py-2.5"><span>{mineVote && '✓ '}{o.label}</span><span className="text-slate-300">{pct}%</span></span>
                 </button>
               </li>
             );
@@ -204,98 +143,66 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         </ul>
       )}
 
-      {original && <div className="mt-3"><PostCard post={original} embedded readOnly={guest} /></div>}
-      {post.repostOf && !original && <p className="mt-3 rounded-xl bg-white/5 p-3 text-sm text-slate-400">Original post isn’t available.</p>}
-
-      {post.advocacy && (
-        <div className="mt-3 rounded-xl border border-white/10 p-3">
-          <a href={post.advocacy.url} target="_blank" rel="noopener noreferrer" className="block break-all text-sm text-brand-400 underline">{post.advocacy.url}</a>
-          {status === 'published' && !embedded && !guest && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-400">Share via</span>
-              {post.advocacy.platforms.map((k) => (
-                <button key={k} className="btn btn-ghost !py-1.5 text-xs" onClick={() => share(k)} aria-label={`Share on ${SHARE_TARGETS[k].label}`}>
-                  <b>{SHARE_TARGETS[k].icon}</b> {SHARE_TARGETS[k].label} · {post.advocacy.shares?.[k]?.length || 0}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {post.mandatory && !embedded && !guest && status === 'published' && (mine || inAudience) && (
+      {post.mandatory && !embedded && !guest && status === 'published' && (
         <div className="mt-3">
           {mine ? (
-            <p className="text-xs text-amber-200">You marked this as Mandatory Read · {acksOf(state, post).length} acknowledged{post.mandatory.deadline ? ` · due ${fmtDate(post.mandatory.deadline)}` : ''}</p>
-          ) : post.mandatory.acks.includes(me.id) ? (
+            <p className="text-xs text-amber-200">You marked this as Mandatory Read{post.mandatory.ackCount != null ? ` · ${post.mandatory.ackCount} acknowledged` : ''}{post.mandatory.deadline ? ` · due ${fmtDate(post.mandatory.deadline)}` : ''}</p>
+          ) : post.mandatory.acked ? (
             <p className="rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200"><Glyph value="mandatory" tile={false} size={16} /> You acknowledged this post.</p>
           ) : (
-            <AckBox cfg={post.mandatory} onSubmit={() => dispatch({ type: 'post/ack', id: post.id })} />
+            <AckBox cfg={post.mandatory} busy={busy} onSubmit={() => run(() => acknowledge(post.id), 'Acknowledged')} />
           )}
+          {!mine && can.moderate && post.mandatory.ackCount != null && <p className="mt-1 text-xs text-slate-400">{post.mandatory.ackCount} member{post.mandatory.ackCount === 1 ? '' : 's'} acknowledged</p>}
         </div>
       )}
 
-      {!guest && status === 'pending' && me.admin && !mine && (
-        <div className="mt-3 flex gap-2"><button className="btn btn-primary" onClick={approve}>Approve</button>
-          <button className="btn btn-ghost text-rose-300" onClick={reject}>Reject</button></div>
+      {!guest && status === 'pending' && can.moderate && !mine && (
+        <div className="mt-3 flex gap-2"><button className="btn btn-primary" disabled={busy} onClick={() => run(() => approvePost(post.id), 'Post approved')}>Approve</button>
+          <button className="btn btn-ghost text-rose-300" disabled={busy} onClick={remove}>Reject</button></div>
       )}
       {status === 'pending' && mine && <p className="mt-3 text-xs text-orange-200">Your post is awaiting moderator approval and isn’t visible to others yet.</p>}
-      {!guest && (status === 'draft' || status === 'scheduled') && (
+      {status === 'removed' && post.removedReason && <p className="mt-3 text-xs text-rose-200">Removed by a moderator: {post.removedReason}</p>}
+      {!guest && mine && (status === 'draft' || status === 'scheduled') && (
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn btn-primary" onClick={publishNow}>Publish now</button>
-          <button className="btn btn-ghost" onClick={() => setModal('edit')}>Edit</button>
-          {status === 'scheduled' && <button className="btn btn-ghost" onClick={() => patch({ status: 'draft', publishAt: undefined })}>Move to drafts</button>}
-          <button className="btn btn-ghost text-rose-300" onClick={() => { if (confirm(`Delete this ${status === 'draft' ? 'draft' : 'scheduled post'}?`)) dispatch({ type: 'post/delete', id: post.id }); }}>Delete</button>
+          <button className="btn btn-primary" disabled={busy} onClick={() => run(async () => {
+            const p = await publishPost(post.id);
+            toast(p.status === 'pending' ? 'Your post is awaiting moderator approval' : 'Published');
+          })}>Publish now</button>
+          {can.edit && <button className="btn btn-ghost" onClick={() => setModal('edit')}>Edit</button>}
+          {can.delete && <button className="btn btn-ghost text-rose-300" disabled={busy} onClick={() => del(status === 'draft' ? 'draft' : 'scheduled post')}>Delete</button>}
         </div>
       )}
+
+      {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
 
       {status === 'published' && !embedded && guest && (
         <footer className="mt-3 flex flex-wrap items-center gap-4 border-t border-white/5 pt-2 text-sm text-slate-400">
-          <span>❤️ {post.likes.length}</span><span><Glyph value="💬" tile={false} size={16} /> {post.comments.length}</span>
+          <span>❤️ {r.like}</span><span><Glyph value="💬" tile={false} size={16} /> {post.commentCount ?? 0}</span>
           <Link to="/signup" className="ml-auto font-semibold text-brand-400 hover:underline">Join to react</Link>
         </footer>
       )}
       {status === 'published' && !embedded && !guest && (
         <footer className="mt-3 flex flex-wrap items-center gap-1 border-t border-white/5 pt-2 text-sm">
-          <button className={`btn btn-ghost !border-0 !bg-transparent !px-2.5 ${post.likes.includes(me.id) ? 'text-leaf-300' : 'text-slate-300'}`} onClick={like} aria-pressed={post.likes.includes(me.id)}>
-            {post.likes.includes(me.id) ? '❤️' : '🤍'} {post.likes.length || ''} <span className="sr-only">likes</span>
+          <button className={`btn btn-ghost !border-0 !bg-transparent !px-2.5 ${r.liked ? 'text-leaf-300' : 'text-slate-300'}`} onClick={like} disabled={busy} aria-pressed={r.liked}>
+            {r.liked ? '❤️' : '🤍'} {r.like || ''} <span className="sr-only">likes</span>
           </button>
           <span className="flex" role="group" aria-label="How does this make you feel?">
             {Object.entries(MOODS).map(([k, e]) => {
-              const n = Object.values(post.reactions || {}).filter((v) => v === k).length;
+              const n = r.moods?.[k] || 0;
               return (
-                <button key={k} onClick={() => react(k)} aria-pressed={myMood === k} title={k}
-                  className={`min-h-10 rounded-lg px-2 text-sm hover:bg-white/5 ${myMood === k ? 'bg-white/10' : 'opacity-80'}`}>{e}{n ? <span className="ml-0.5 text-xs">{n}</span> : null}</button>
+                <button key={k} onClick={() => react(k)} disabled={busy} aria-pressed={r.myMood === k} title={k}
+                  className={`min-h-10 rounded-lg px-2 text-sm hover:bg-white/5 ${r.myMood === k ? 'bg-white/10' : 'opacity-80'}`}>{e}{n ? <span className="ml-0.5 text-xs">{n}</span> : null}</button>
               );
             })}
           </span>
           <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-slate-300" onClick={() => setShowComments(!showComments)} aria-expanded={showComments}>
-            <Glyph value="channels" tile={false} size={16} /> {post.comments.length || ''} {post.type === 'question' ? 'Answers' : 'Comments'}
+            <Glyph value="channels" tile={false} size={16} /> {post.commentCount || ''} {post.type === 'question' ? (post.commentCount === 1 ? 'Answer' : 'Answers') : (post.commentCount === 1 ? 'Comment' : 'Comments')}
           </button>
-          <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-slate-300" onClick={() => setModal('repost')}
-            title={shareLockOf(state, post) ? `Can only be shared within ${shareLockOf(state, post).name}` : undefined}>↗ Share</button>
-          <span className="flex-1" />
-          {canInsights && <button className="min-h-10 px-2 text-xs text-slate-400 hover:text-white" onClick={() => setModal('insights')}><Glyph value="👁" tile={false} size={16} /> {Object.keys(post.views || {}).length}</button>}
         </footer>
       )}
       {status === 'published' && !embedded && !guest && showComments && <Comments post={post} />}
 
       {modal === 'edit' && <Modal title="Edit post" onClose={close} wide><Composer initial={post} onDone={close} /></Modal>}
-      {modal === 'mandatory' && (
-        <MandatoryConfig initial={post.mandatory} onClose={close}
-          onSave={(cfg) => {
-            if (!post.mandatory) {
-              audienceOf(state, post).filter((id) => id !== me.id).forEach((u) => dispatch({ type: 'notify', silent: true, notification: { userId: u, kind: 'mandatory', link: `/post/${post.id}`, text: `${me.name} marked a post as Mandatory Read` } }));
-            }
-            dispatch({ type: 'post/mandatory', id: post.id, mandatory: cfg }); close();
-          }}
-          onRemove={post.mandatory ? () => { dispatch({ type: 'post/mandatory', id: post.id, mandatory: null }); close(); } : null} />
-      )}
-      {modal === 'mreport' && <MandatoryReport post={post} onClose={close} />}
-      {modal === 'areport' && <AdvocacyReport post={post} onClose={close} />}
-      {modal === 'insights' && <InsightsModal post={post} onClose={close} />}
-      {modal === 'repost' && <RepostModal post={post} onClose={close} />}
-      {modal === 'report' && <ReportModal post={post} onClose={close} />}
     </article>
   );
 }

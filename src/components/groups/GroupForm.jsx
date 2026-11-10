@@ -2,10 +2,11 @@ import { Glyph } from '../icons.jsx';
 import { useState } from 'react';
 import { Field, Modal } from '../ui.jsx';
 import { ACCESS, APPS, GROUP_TYPES } from './helpers.js';
+import { errorText } from '../../lib/communities.js';
 
 const EMOJIS = ['👥', '🎓', '🌆', '🚀', '🤝', '🌊', '💻', '🏛️', '🎨', '⚽', '📚', '🎵'];
 
-/** Create or edit a group. `onSave(values, { createChannel })`. */
+/** Create or edit a group. `onSave(values, { createChannel })` may be async; a thrown server error shows here. */
 export default function GroupForm({ initial, onSave, onClose }) {
   const editing = !!initial;
   const [v, setV] = useState({
@@ -14,13 +15,23 @@ export default function GroupForm({ initial, onSave, onClose }) {
   });
   const [createChannel, setCreateChannel] = useState(false);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value });
   const toggleApp = (id) => setV({ ...v, apps: v.apps.includes(id) ? v.apps.filter((a) => a !== id) : [...v.apps, id] });
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!v.name.trim()) { setError('Give your group a name.'); return; }
-    onSave({ ...v, name: v.name.trim(), apps: v.apps.includes('members') ? v.apps : [...v.apps, 'members'] }, { createChannel });
+    if (busy) return;
+    if (v.name.trim().length < 2) { setError('Give your group a name of at least 2 characters.'); return; }
+    setError('');
+    setBusy(true);
+    try {
+      await onSave({ ...v, name: v.name.trim(), apps: v.apps.includes('members') ? v.apps : [...v.apps, 'members'] }, { createChannel });
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -70,7 +81,7 @@ export default function GroupForm({ initial, onSave, onClose }) {
         {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary">{editing ? 'Save' : 'Create'}</button>
+          <button className="btn btn-primary" disabled={busy}>{busy ? (editing ? 'Saving…' : 'Creating…') : editing ? 'Save' : 'Create'}</button>
         </div>
       </form>
     </Modal>

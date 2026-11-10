@@ -12,6 +12,8 @@ export const VIEWS = [
   { id: 'pinned', label: 'Pinned', icon: '📌' },
   { id: 'drafts', label: 'My Drafts', icon: '📝' },
   { id: 'scheduled', label: 'Scheduled', icon: '⏰' },
+  // Shown only to people who moderate at least one community (Feed.jsx checks).
+  { id: 'pending', label: 'Pending review', icon: '⏳' },
 ];
 
 /** Should this author's new posts wait for moderator approval? Admins are exempt. */

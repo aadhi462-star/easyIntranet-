@@ -170,6 +170,19 @@ function core(s, a) {
           joinRequests: (g.joinRequests || []).filter((x) => !a.userIds.includes(x)), optedOut: (g.optedOut || []).filter((x) => !a.userIds.includes(x)) })),
         channels: s.channels.map((c) => (c.groupId === a.id ? { ...c, members: [...new Set([...c.members, ...a.userIds])] } : c)) };
 
+    // Communities from the server (lib/communities.js): matching groups take the server's
+    // fields, new ones are added with default screens, and `drop` ids are ones you can't see.
+    case 'communities/merge': {
+      const drop = new Set(a.drop || []);
+      const byId = new Map(a.groups.map((g) => [g.id, g]));
+      const known = new Set(s.groups.map((g) => g.id));
+      const kept = s.groups.filter((g) => !drop.has(g.id)).map((g) => (byId.has(g.id) ? { ...g, ...byId.get(g.id) } : g));
+      const added = a.groups.filter((g) => !known.has(g.id) && !drop.has(g.id)).map((g) => ({
+        apps: ['dashboard', 'feed', 'forums', 'events', 'files', 'members'], dashboard: [{ id: 'w-about', kind: 'about' }, { id: 'w-members', kind: 'members' }],
+        moderators: [], joinRequests: [], createdAt: Date.now(), ...g }));
+      return { ...s, groups: [...kept, ...added] };
+    }
+
     // Events
     case 'event/create': return { ...s, events: [...s.events, { id: uid('e'), hostId: me, assistants: [], rsvps: {}, invitees: [], rsvpEnabled: true, createdAt: Date.now(), ...a.event }] };
     case 'event/rsvp': return { ...s, events: mapById(s.events, a.id, (e) => ({ ...e, rsvps: { ...e.rsvps, [me]: a.status } })) };

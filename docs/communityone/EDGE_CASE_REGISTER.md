@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 10 Nov 2026 (Phase 1, steps 1–4b). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -59,11 +59,11 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not ru
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| COM-01 | P1 | 2 | Two users create communities with the same or near-identical names. | Apply the agreed uniqueness policy; show a useful conflict message without creating duplicates. | Not run | |
+| COM-01 | P1 | 2 | Two users create communities with the same or near-identical names. | Apply the agreed uniqueness policy; show a useful conflict message without creating duplicates. | Pass | server/test/communities.test.js COM-05/COM-01 |
 | COM-02 | P1 | 2 | Community name contains prohibited terms, impersonation or misleading branding. | Reject or route for review under platform policy. | Not run | |
 | COM-03 | P1 | 2 | Description is empty, too long or contains unsafe markup. | Validate length and safely render allowed formatting only. | Not run | |
 | COM-04 | P1 | 2 | Logo or cover upload fails midway. | Do not publish a broken asset; allow retry and preserve other entered setup data. | Not run | |
-| COM-05 | P0 | 2 | User double-clicks Create or retries after a slow response. | Create one community only; return the existing result for an idempotent retry. | Not run | |
+| COM-05 | P0 | 2 | User double-clicks Create or retries after a slow response. | Create one community only; return the existing result for an idempotent retry. | Pass | server/test/communities.test.js COM-05 create idempotent |
 | COM-06 | P0 | 2 | Network drops after server creates community but before client receives confirmation. | On retry, detect the existing creation and avoid duplicates. | Not run | |
 | COM-07 | P1 | 2 | Platform Admin disables community creation while a user is in the creation wizard. | Block final submission and explain that creation is currently unavailable. | Not run | |
 | COM-08 | P0 | 2 | Creator is suspended during setup or immediately after publishing. | Prevent prohibited actions and preserve community ownership through an authorised reassignment process. | Not run | |
@@ -89,8 +89,8 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not ru
 | VIS-10 | P0 | 2 | Invitation is expired, revoked or already consumed. | Reject it and show a safe next step; do not grant membership. | Not run | |
 | VIS-11 | P0 | 2 | Community member list is configured as private but appears in previews or API responses. | Hide member details everywhere from unauthorised users. | Not run | |
 | VIS-12 | P0 | 2 | User is removed or blocked while viewing community content in another tab. | Subsequent requests must fail; cached protected content should be cleared where feasible. | Pass | server/test/communities.test.js MEM-08 / VIS-12 |
-| VIS-13 | P1 | 2 | Visibility changes while a join request is pending. | Re-evaluate the request against the new policy; do not auto-grant access unexpectedly. | Not run | |
-| VIS-14 | P1 | 2 | Community is archived but remains in Explore or recommendations. | Remove it from active discovery and clearly communicate archived state to existing members. | Not run | |
+| VIS-13 | P1 | 2 | Visibility changes while a join request is pending. | Re-evaluate the request against the new policy; do not auto-grant access unexpectedly. | Pass | server/test/communities.test.js VIS-13 |
+| VIS-14 | P1 | 2 | Community is archived but remains in Explore or recommendations. | Remove it from active discovery and clearly communicate archived state to existing members. | Pass | server/test/communities.test.js DEL-01 archive leaves discovery |
 | VIS-15 | P0 | 2 | User accesses private media through a copied CDN/file URL. | Require authorised, expiring access rather than relying on URL secrecy. | Not run | |
 
 ## 5. Membership, Invitations and Join Requests
@@ -101,7 +101,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not ru
 | MEM-02 | P1 | 2 | User requests membership and then withdraws before approval. | Mark request withdrawn; later approval must not silently restore membership. | Pass | server/test/communities.test.js MEM-02/03 |
 | MEM-03 | P1 | 2 | Admin approves a request that has already been withdrawn or rejected. | Reject stale action and refresh the request state. | Pass | server/test/communities.test.js MEM-02/03 |
 | MEM-04 | P1 | 2 | Two admins approve/reject the same request simultaneously. | Persist one valid terminal outcome and record the actor/action in audit history. | Pass | server/test/communities.test.js MEM-04 |
-| MEM-05 | P0 | 2 | User is blocked but receives a new invitation. | Block status takes precedence; invitation cannot restore access unless an authorised unblock occurs. | Not run | |
+| MEM-05 | P0 | 2 | User is blocked but receives a new invitation. | Block status takes precedence; invitation cannot restore access unless an authorised unblock occurs. | Pass | server/test/communities.test.js removed members not silently restored |
 | MEM-06 | P1 | 2 | Community reaches its membership capacity during an approval flow. | Recheck capacity at approval time; queue or reject according to policy. | Not run | |
 | MEM-07 | P1 | 2 | User is removed and immediately tries to rejoin. | Apply cooldown/rejoin policy and clearly communicate the result. | Not run | |
 | MEM-08 | P0 | 2 | User is removed from one community but still has an active session. | Revoke only that community's access immediately. | Pass | server/test/communities.test.js MEM-08 / VIS-12 |
@@ -140,7 +140,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not ru
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | CNT-01 | P1 | 2 | User submits an empty post, comment or reply. | Reject submission with a clear validation message. | Pass | server/test/communities.test.js CNT-01 |
-| CNT-02 | P0 | 2 | User double-clicks Publish or retries after timeout. | Create one content item only and return the existing result for a retry. | Pass | server/test/communities.test.js CNT-02 |
+| CNT-02 | P0 | 2 | User double-clicks Publish or retries after timeout. | Create one content item only and return the existing result for a retry. | Pass | server/test/communities.test.js CNT-02; browser 10 Nov: double-click Post → one post, double-click Send → one comment |
 | CNT-03 | P0 | 2 | User edits a post while a moderator removes it. | Resolve the race deterministically; removed content must not be republished by a stale edit. | Pass | server/test/communities.test.js CNT-03 |
 | CNT-04 | P0 | 2 | Suspended or restricted user attempts to post/comment/react. | Reject actions according to restriction scope and current account status. | Not run | |
 | CNT-05 | P1 | 2 | Post is deleted while it has comments/replies. | Apply the defined cascade/retention behaviour; avoid orphaned or inaccessible child content. | Pass | server/test/communities.test.js CNT-07 / CNT-05 |
@@ -291,7 +291,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not ru
 | --- | --- | --- | --- | --- | --- | --- |
 | SET-01 | P0 | 2 | Community Admin tries to change a setting controlled globally. | Reject the change and explain that the setting is managed at platform level. | Not run | |
 | SET-02 | P0 | 2 | Platform Admin disables a feature while a community is actively using it. | Apply documented graceful shutdown/migration behaviour; prevent new use without corrupting existing data. | Not run | |
-| SET-03 | P1 | 2 | Two admins save conflicting settings simultaneously. | Detect conflict or apply version checks; do not silently overwrite changes. | Pass | server/test/admin.test.js SET-03 version check |
+| SET-03 | P1 | 2 | Two admins save conflicting settings simultaneously. | Detect conflict or apply version checks; do not silently overwrite changes. | Pass | server/test/admin.test.js SET-03; server/test/communities.test.js community settings version check |
 | SET-04 | P2 | 2 | Admin changes community category while it is featured or recommended. | Update discovery metadata and dependent placements consistently. | Not run | |
 | SET-05 | P1 | 2 | File upload limits are reduced below existing stored file sizes. | Do not delete existing files unexpectedly; apply new limits to future uploads and document migration rules. | Not run | |
 | SET-06 | P1 | 2 | Default platform language/timezone changes after communities have configured their own values. | Preserve explicit community/user overrides; apply new defaults only where intended. | Not run | |
@@ -304,7 +304,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not ru
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| DEL-01 | P0 | 2 | Community Admin looks for a direct permanent-delete action. | Show Request Community Deletion only; no direct delete control/API permission. | Not run | |
+| DEL-01 | P0 | 2 | Community Admin looks for a direct permanent-delete action. | Show Request Community Deletion only; no direct delete control/API permission. | Pass | server/test/communities.test.js DEL-01 / TC-03; browser 10 Nov: Delete only for platform staff, Archive for admins |
 | DEL-02 | P1 | 2 | Admin submits the same deletion request repeatedly. | Deduplicate or link requests; do not create conflicting active requests. | Not run | |
 | DEL-03 | P1 | 2 | Email to Platform Admin fails after request submission. | Keep the request in the in-platform queue and flag failed delivery. | Not run | |
 | DEL-04 | P1 | 2 | Platform Admin rejects a request without a reason. | Require a reason and notify the requester. | Not run | |

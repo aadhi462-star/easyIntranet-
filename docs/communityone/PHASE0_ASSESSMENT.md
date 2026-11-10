@@ -349,4 +349,19 @@ Tested: 91 server tests (all pass). Not yet visible in the web app — the Feed 
 
 Found while building: a PostgreSQL type-inference error when one parameter is used twice (fixed with explicit casts); test-order leakage after an ownership transfer (tests corrected). Open question for later: the old "All Hands" group (g0) now duplicates the AlumniZone community's membership — candidates to merge.
 
-Next: step 4b, web app (Feed and Groups use the API).
+### Phase 1 — step 4b, web app (10 Nov 2026)
+
+Built:
+- **Server additions:** create community (idempotent, near-duplicate names refused), versioned edit with a settings allow-list, admin add-members (rule-based adds never re-add people who left), archive/restore, platform-only delete (community admins get "archive" instead, DEL-01), restricted/removed members listed for moderators, archived communities listed for their members, pending requests re-evaluated on visibility change.
+- **Groups & Spaces** (`src/lib/communities.js`, groups components): every action goes to the API — create, edit, settings, dashboard, join/request/cancel, leave, approve/decline, add members, roles, restrict/remove, transfer ownership (new), archive/restore; platform-staff delete with typed-name confirmation. Labels now read Public / Private / Closed. Communities sync after sign-in; groups you can't see are dropped locally.
+- **Feed** (`src/lib/feed.js`, feed components): every view reads the server; composer posts to your communities (announcements, pins and Mandatory Read only where you're admin); likes, moods, votes, acknowledgements, comments, replies, edit, pin, approve, remove, delete via the API.
+- Features the server doesn't support yet are hidden rather than faked: attachments (note shown), reposts/sharing to a community, social advocacy, Smart Assist (parked), post insights, report post, answer upvotes/best answer, editing a Mandatory Read after posting and its report/reminders.
+- `canSeeGroupItem` now matches the server (Private and Closed are members-only; platform admins use administrative mode).
+
+Tested: 99 server tests; browser: feed from server, post to AlumniZone (double click → one post), like + mood + comment (double click → one comment) persisting after reload, Groups: closed group not found, join public, request private, owner approves, new member sees content; phone width across 12 screens.
+
+Bugs found and fixed: the "my communities" cache survived switching accounts in the same tab (next person saw the previous person's communities); "1 Comments" wording.
+
+Still on local data (next steps): Dashboard widgets, search index, Admin → Moderation queue, the old scheduled-post and scheduler runners, signed-out Explore. Sync makes one request per community at sign-in and probes remembered ids (harmless 404s); to be simplified now that archived communities are listed.
+
+Next: step 4c (events foundation and member dashboard on the server).

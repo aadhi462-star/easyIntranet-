@@ -2,16 +2,30 @@ import { useState } from 'react';
 import { useStore } from '../../lib/store.jsx';
 import { Avatar, Modal } from '../ui.jsx';
 import { isActiveUser } from '../people/shared.jsx';
+import { toast } from '../../lib/toast.js';
+import { communityApi } from '../../lib/communities.js';
+import { useChannelSync, useCommunityWrite } from './useCommunity.js';
 
 export default function AddMembers({ group, onClose }) {
   const { state, dispatch, me } = useStore();
+  const { run } = useCommunityWrite();
+  const channels = useChannelSync();
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState([]);
+  const [busy, setBusy] = useState(false);
   const candidates = state.users.filter((u) => isActiveUser(u) && !group.members.includes(u.id) && `${u.name} ${u.city} ${u.batch}`.toLowerCase().includes(q.toLowerCase()));
 
-  const add = () => {
-    dispatch({ type: 'group/addMembers', id: group.id, userIds: picked });
-    picked.forEach((userId) => dispatch({ type: 'notify', silent: true, notification: { userId, kind: 'group', text: `${me.name} added you to ${group.name}`, link: `/groups/${group.id}` } }));
+  const add = async () => {
+    setBusy(true);
+    const res = await run(group.id, () => communityApi.addMembers(group.id, picked));
+    setBusy(false);
+    if (!res) return;
+    const added = res.added || [];
+    // The server skips people it can't add (inactive accounts, or removed/blocked from here).
+    const skipped = picked.length - added.length;
+    toast(added.length ? `Added ${added.length} ${added.length === 1 ? 'member' : 'members'}${skipped ? `. ${skipped} couldn’t be added.` : ''}` : 'Nobody could be added.', added.length ? 'ok' : 'error');
+    channels.add(group.id, added);
+    added.forEach((userId) => dispatch({ type: 'notify', silent: true, notification: { userId, kind: 'group', text: `${me.name} added you to ${group.name}`, link: `/groups/${group.id}` } }));
     onClose();
   };
 
@@ -33,7 +47,7 @@ export default function AddMembers({ group, onClose }) {
       </ul>
       <div className="mt-4 flex justify-end gap-2">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" disabled={!picked.length} onClick={add}>Add {picked.length || ''}</button>
+        <button className="btn btn-primary" disabled={!picked.length || busy} onClick={add}>Add {picked.length || ''}</button>
       </div>
     </Modal>
   );

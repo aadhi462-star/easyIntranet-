@@ -43,7 +43,8 @@ export default async function communityRoutes(app, { ctx }) {
     const { rows } = await db.query(
       `select c.*, m.role, m.state as member_state, ${countMembers} as member_count
          from communities c left join memberships m on m.community_id = c.id and m.user_id = $1
-        where c.status = 'active'
+        -- Archived communities stay listed for their own members (not for discovery).
+        where (c.status = 'active' or (c.status = 'archived' and m.state in ('active', 'restricted')))
           and (c.visibility <> 'closed' or m.state in ('active', 'restricted'))
           and coalesce(m.state, '') <> 'blocked'
           and ($2 = '' or lower(c.name || ' ' || coalesce(c.description, '') || ' ' || coalesce(c.category, '')) like '%' || $2 || '%')
@@ -64,9 +65,12 @@ export default async function communityRoutes(app, { ctx }) {
 
   app.get('/communities/:id/members', async (req) => {
     const a = requireView(await access(db, req, req.params.id));
+    // Restricted members are members (they can read), so they're listed with their state;
+    // moderators also see removed and blocked people so those decisions can be reversed.
+    const states = a.canModerate ? ['active', 'restricted', 'removed', 'blocked'] : ['active', 'restricted'];
     const { rows } = await db.query(
-      `select m.user_id as id, u.name, m.role, m.joined_at from memberships m join users u on u.id = m.user_id
-        where m.community_id = $1 and m.state = 'active' and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id]);
+      `select m.user_id as id, u.name, m.role, m.state, m.joined_at from memberships m join users u on u.id = m.user_id
+        where m.community_id = $1 and m.state = any($2) and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id, states]);
     return { members: rows };
   });
 
@@ -241,7 +245,8 @@ export default async function communityRoutes(app, { ctx }) {
 
   // Admins add people directly (active platform members only). Existing members are left alone;
   // removed or blocked people need their state changed explicitly first (MEM-05).
-  app.post('/communities/:id/members', { schema: { body: { type: 'object', required: ['userIds'], properties: { userIds: { type: 'array', items: { type: 'string' }, maxItems: 200 } } } } },
+  // `source: 'rule'` (automatic membership rules) never re-adds people who left on their own.
+  app.post('/communities/:id/members', { schema: { body: { type: 'object', required: ['userIds'], additionalProperties: false, properties: { userIds: { type: 'array', items: { type: 'string' }, maxItems: 200 }, source: { type: 'string', enum: ['admin', 'rule'] } } } } },
     async (req) => {
       const a = await access(db, req, req.params.id);
       if (!a.canAdmin) throw forbidden('Only community admins can add members.');
@@ -250,8 +255,8 @@ export default async function communityRoutes(app, { ctx }) {
         `insert into memberships (community_id, user_id, role, state, joined_at)
          select $1, u.id, 'member', 'active', now() from users u where u.id = any($2) and u.status = 'active'
          on conflict (community_id, user_id) do update set state = 'active', joined_at = now(), updated_at = now()
-           where memberships.state in ('pending', 'left', 'invited')
-         returning user_id`, [a.community.id, req.body.userIds]);
+           where memberships.state = any($3)
+         returning user_id`, [a.community.id, req.body.userIds, req.body.source === 'rule' ? ['pending', 'invited'] : ['pending', 'left', 'invited']]);
       await audit(db, { actorId: req.user.id, action: 'community.add_members', targetType: 'community', targetId: a.community.id, context: { added: rows.map((r) => r.user_id), adminMode: a.adminMode }, ip: req.ip });
       return { added: rows.map((r) => r.user_id) };
     });

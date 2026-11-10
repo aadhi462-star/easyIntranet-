@@ -64,18 +64,19 @@ export function Select({ value, onChange, options, label, className = '' }) {
 const inGroupRole = (g, uid) => !!g && [g.members, g.admins, g.moderators].some((l) => l?.includes(uid));
 
 /**
- * Can `me` read a group-scoped item (forum post, idea, manual, file…)? Network items are
- * open; group items follow the group page: public/restricted groups are browsable by all,
- * private ones only by their members (and network admins). Authors always see their own.
+ * Can `me` read a group-scoped item (forum post, idea, manual, file…)? Same rule as the server's
+ * community access: Public communities are readable by everyone; Private ("restricted") and
+ * Closed ("private") ones only by their members. Platform admins follow it too — they reach
+ * other communities through administrative mode on the server. Authors always see their own.
  */
 export function canSeeGroupItem(state, me, x) {
-  if (!x?.groupId || me?.admin || (x.authorId && x.authorId === me?.id)) return true;
+  if (!x?.groupId || (x.authorId && x.authorId === me?.id)) return true;
   const g = (state.groups ?? []).find((y) => y.id === x.groupId);
-  return !!g && (g.accessType !== 'private' || inGroupRole(g, me?.id));
+  return !!g && (g.accessType === 'public' || inGroupRole(g, me?.id));
 }
 
-/** Groups `me` may create group-scoped items in: ones they belong to (network admins: all). `keep` is an already-chosen id to keep listed. */
-export const myGroups = (state, me, keep) => (state.groups ?? []).filter((g) => me?.admin || g.id === keep || inGroupRole(g, me?.id));
+/** Groups `me` may create group-scoped items in: ones they belong to. `keep` is an already-chosen id to keep listed. */
+export const myGroups = (state, me, keep) => (state.groups ?? []).filter((g) => g.id === keep || inGroupRole(g, me?.id));
 
 const parseOptions = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
 

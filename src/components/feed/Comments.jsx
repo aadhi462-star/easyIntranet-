@@ -1,86 +1,95 @@
-import { Glyph } from '../icons.jsx';
-import { useState } from 'react';
-import { timeAgo, uid, useStore } from '../../lib/store.jsx';
-import { summarize } from '../../lib/assist.js';
-import { Avatar, UserLink } from '../ui.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { timeAgo, useStore } from '../../lib/store.jsx';
+import { newKey } from '../../lib/api.js';
+import { addComment, authorUser, deleteComment, errorText, loadComments } from '../../lib/feed.js';
+import { Avatar } from '../ui.jsx';
 import RichText from './RichText.jsx';
+import { AuthorName } from './PostCard.jsx';
 
-/** Threaded comments. On questions they act as answers with upvotes and a best answer. */
+const MAX = 2000;
+
+/**
+ * Threaded comments from the server (one level of replies). On questions they read as answers.
+ * Deleted comments stay as placeholders so their replies keep their thread.
+ */
 export default function Comments({ post }) {
-  const { dispatch, me, user } = useStore();
+  const { user } = useStore();
   const isQ = post.type === 'question';
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [reply, setReply] = useState('');
-  const [summary, setSummary] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  // One idempotency key per comment being written; a new one after each successful send.
+  const keys = useRef({ top: newKey(), reply: newKey() });
+  const comments = post.comments;
 
-  const top = post.comments.filter((c) => !c.parentId);
-  const sorted = isQ
-    ? [...top].sort((a, b) => (b.id === post.bestAnswerId) - (a.id === post.bestAnswerId) || (b.upvotes?.length || 0) - (a.upvotes?.length || 0))
-    : top;
-  const childrenOf = (id) => post.comments.filter((c) => c.parentId === id);
+  const load = () => { setLoadError(''); loadComments(post.id).catch((e) => setLoadError(errorText(e))); };
+  useEffect(() => { if (!comments) load(); }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const patch = (fn) => dispatch({ type: 'update', col: 'posts', id: post.id, patch: fn });
-  const upvote = (cid) => patch((p, meId) => ({ ...p, comments: p.comments.map((c) => (c.id === cid
-    ? { ...c, upvotes: (c.upvotes || []).includes(meId) ? c.upvotes.filter((x) => x !== meId) : [...(c.upvotes || []), meId] } : c)) }));
-  const markBest = (c) => {
-    patch({ bestAnswerId: post.bestAnswerId === c.id ? null : c.id });
-    if (post.bestAnswerId !== c.id && c.authorId !== me.id) {
-      dispatch({ type: 'notify', notification: { userId: c.authorId, kind: 'like', link: `/post/${post.id}`, text: `${me.name} marked your answer as the best answer` } });
-    }
-  };
-  const notifyAuthor = (verb) => post.authorId !== me.id && dispatch({ type: 'notify',
-    notification: { userId: post.authorId, kind: 'comment', link: `/post/${post.id}`, text: `${me.name} ${verb} your post` } });
-
-  const send = (e) => {
+  const send = async (e, parentId = null) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    dispatch({ type: 'post/comment', id: post.id, text: text.trim() });
-    notifyAuthor(isQ ? 'answered' : 'commented on');
-    setText('');
+    const body = (parentId ? reply : text).trim();
+    if (!body || busy) return;
+    if (body.length > MAX) { setError(`Comments can be up to ${MAX} characters.`); return; }
+    setBusy(true); setError('');
+    const slot = parentId ? 'reply' : 'top';
+    try {
+      await addComment(post.id, { body, parentId }, keys.current[slot]);
+      keys.current[slot] = newKey();
+      if (parentId) { setReply(''); setReplyTo(null); } else setText('');
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
-  const sendReply = (e, parent) => {
-    e.preventDefault();
-    if (!reply.trim()) return;
-    const c = { id: uid('c'), authorId: me.id, text: reply.trim(), createdAt: Date.now(), parentId: parent.id, upvotes: [] };
-    patch((p) => ({ ...p, comments: [...p.comments, c] }));
-    if (parent.authorId !== me.id) dispatch({ type: 'notify', notification: { userId: parent.authorId, kind: 'comment', link: `/post/${post.id}`, text: `${me.name} replied to your comment` } });
-    setReply(''); setReplyTo(null);
+  const remove = async (c) => {
+    if (busy || !confirm('Delete this comment?')) return;
+    setBusy(true); setError('');
+    try { await deleteComment(post.id, c.id); } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
-  const summarizeThread = async () => {
-    setSummary({ loading: true });
-    setSummary(await summarize([post.text, ...post.comments.map((c) => c.text)].join('\n')));
-  };
+
+  if (!comments) {
+    return (
+      <div className="mt-3 border-t border-white/5 pt-2 text-sm text-slate-400">
+        {loadError ? <p role="alert" className="text-rose-300">{loadError} <button className="text-brand-400 underline" onClick={load}>Try again</button></p> : 'Loading comments…'}
+      </div>
+    );
+  }
+
+  const top = comments.filter((c) => !c.parentId);
+  const childrenOf = (id) => comments.filter((c) => c.parentId === id);
 
   // Plain render function (not a component) so the reply input keeps focus across renders.
   const item = (c, depth = 0) => {
-    const best = isQ && c.id === post.bestAnswerId;
+    const kids = childrenOf(c.id);
+    if (c.deleted) {
+      return (
+        <li key={c.id} className={depth ? 'ml-10 mt-2' : 'mt-3'}>
+          <p className="rounded-xl bg-white/[.03] px-3 py-2 text-xs italic text-slate-500">Comment deleted</p>
+          {kids.length > 0 && <ul>{kids.map((r) => item(r, 1))}</ul>}
+        </li>
+      );
+    }
     return (
       <li key={c.id} className={depth ? 'ml-10 mt-2' : 'mt-3'}>
         <div className="flex gap-2.5">
-          <Avatar user={user(c.authorId)} size={depth ? 28 : 32} />
+          <Avatar user={authorUser(c.author, user)} size={depth ? 28 : 32} />
           <div className="min-w-0 flex-1">
-            <div className={`rounded-xl px-3 py-2 ${best ? 'bg-emerald-500/10 ring-1 ring-emerald-400/40' : 'bg-white/5'}`}>
+            <div className="rounded-xl bg-white/5 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <UserLink id={c.authorId} /><span className="text-slate-500">{timeAgo(c.createdAt)}</span>
-                {best && <span className="chip !bg-emerald-500/20 !text-emerald-200">✔ Best answer</span>}
+                <AuthorName author={c.author} /><span className="text-slate-500">{timeAgo(new Date(c.createdAt).getTime())}</span>
+                {c.editedAt && <span className="text-slate-500">· edited</span>}
               </div>
-              <RichText text={c.text} className="mt-1 text-sm text-slate-200" />
+              <RichText text={c.body} className="mt-1 text-sm text-slate-200" />
             </div>
             <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-400">
-              <button className="min-h-8 rounded px-2 hover:bg-white/5" onClick={() => upvote(c.id)} aria-pressed={(c.upvotes || []).includes(me.id)}>
-                ▲ {isQ ? 'Upvote' : 'Like'} {c.upvotes?.length || ''}
-              </button>
               {!depth && <button className="min-h-8 rounded px-2 hover:bg-white/5" onClick={() => { setReplyTo(c.id); setReply(''); }}>Reply</button>}
-              {isQ && !depth && post.authorId === me.id && (
-                <button className="min-h-8 rounded px-2 hover:bg-white/5" onClick={() => markBest(c)}>{best ? 'Unmark best' : 'Mark as best answer'}</button>
-              )}
+              {c.can?.delete && <button className="min-h-8 rounded px-2 text-rose-300 hover:bg-white/5" disabled={busy} onClick={() => remove(c)}>Delete</button>}
             </div>
-            {childrenOf(c.id).length > 0 && <ul>{childrenOf(c.id).map((r) => item(r, 1))}</ul>}
+            {kids.length > 0 && <ul>{kids.map((r) => item(r, 1))}</ul>}
             {replyTo === c.id && (
-              <form onSubmit={(e) => sendReply(e, c)} className="ml-0 mt-2 flex gap-2">
-                <input autoFocus className="input !py-2 text-sm" placeholder={`Reply to ${user(c.authorId)?.name}…`} value={reply} onChange={(e) => setReply(e.target.value)} />
-                <button className="btn btn-primary">Reply</button>
+              <form onSubmit={(e) => send(e, c.id)} className="ml-0 mt-2 flex gap-2">
+                <input autoFocus className="input !py-2 text-sm" maxLength={MAX} placeholder={`Reply to ${c.author?.deleted ? 'Deleted member' : c.author?.name ?? 'member'}…`} value={reply} onChange={(e) => setReply(e.target.value)} />
+                <button className="btn btn-primary" disabled={busy || !reply.trim()}>Reply</button>
               </form>
             )}
           </div>
@@ -91,16 +100,12 @@ export default function Comments({ post }) {
 
   return (
     <div className="mt-3 border-t border-white/5 pt-2">
-      {post.comments.length >= 3 && (
-        <div className="mb-1">
-          <button className="text-xs text-brand-400 hover:underline" onClick={summarizeThread}><Glyph value="✨" tile={false} size={16} /> Summarize this thread</button>
-          {summary && <p className="mt-2 rounded-xl bg-brand-500/10 p-3 text-sm text-slate-200">{summary.loading ? 'Smart Assist is reading the thread…' : <>{summary.text} <span className="text-xs text-slate-400">({summary.source})</span></>}</p>}
-        </div>
-      )}
-      <ul>{sorted.map((c) => item(c))}</ul>
+      {top.length === 0 && <p className="mt-2 text-xs text-slate-400">{isQ ? 'No answers yet.' : 'No comments yet.'}</p>}
+      <ul>{top.map((c) => item(c))}</ul>
+      {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
       <form onSubmit={send} className="mt-3 flex gap-2">
-        <input className="input !py-2 text-sm" placeholder={isQ ? 'Write an answer…' : 'Write a comment…'} value={text} onChange={(e) => setText(e.target.value)} aria-label={isQ ? 'Answer' : 'Comment'} />
-        <button className="btn btn-primary" disabled={!text.trim()}>{isQ ? 'Answer' : 'Send'}</button>
+        <input className="input !py-2 text-sm" maxLength={MAX} placeholder={isQ ? 'Write an answer…' : 'Write a comment…'} value={text} onChange={(e) => setText(e.target.value)} aria-label={isQ ? 'Answer' : 'Comment'} />
+        <button className="btn btn-primary" disabled={busy || !text.trim()}>{isQ ? 'Answer' : 'Send'}</button>
       </form>
     </div>
   );

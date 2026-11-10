@@ -1,42 +1,52 @@
 import { Glyph } from '../icons.jsx';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 import { Field } from '../ui.jsx';
 import { ACCESS, APPS, RULE_FIELDS, matchesRule } from './helpers.js';
+import { errorText, visibilityOf } from '../../lib/communities.js';
+import { useCommunityLifecycle, useCommunityWrite } from './useCommunity.js';
 
 export default function Settings({ group }) {
-  const { state, dispatch } = useStore();
-  const nav = useNavigate();
+  const { state, me } = useStore();
+  const { patch } = useCommunityWrite();
+  const lifecycle = useCommunityLifecycle();
+  const archived = group.status === 'archived';
   const fromGroup = () => ({ name: group.name, description: group.description, guidelines: group.guidelines || '', accessType: group.accessType, apps: group.apps, announceOnly: !!group.announceOnly });
   const [v, setV] = useState(fromGroup);
   const [rule, setRule] = useState(group.dynamicRule ?? { field: 'batch', op: 'eq', value: '' });
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   // Re-sync when the group changes elsewhere (e.g. the Edit group modal) so a later save doesn't revert it.
   const sig = JSON.stringify([group.name, group.description, group.guidelines, group.accessType, group.apps, group.announceOnly, group.dynamicRule]);
   useEffect(() => {
     setV(fromGroup());
     setRule(group.dynamicRule ?? { field: 'batch', op: 'eq', value: '' });
   }, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
-  const set = (k) => (e) => { setSaved(false); setV({ ...v, [k]: e.target.value }); };
+  const set = (k) => (e) => { setSaved(false); setError(''); setV({ ...v, [k]: e.target.value }); };
   const ruleValue = String(rule.value ?? '').trim();
   const preview = ruleValue ? state.users.filter((u) => matchesRule(u, rule)) : [];
 
-  const save = (e) => {
+  // Saved on the server; pending requests are re-evaluated there when the access type changes.
+  const save = async (e) => {
     e.preventDefault();
-    dispatch({ type: 'update', col: 'groups', id: group.id, patch: (g) => ({
-      ...g, ...v, name: v.name.trim() || group.name,
-      dynamicRule: ruleValue ? { ...rule, value: ruleValue } : undefined,
-      // Pending requests only make sense for restricted groups.
-      joinRequests: v.accessType === 'restricted' ? (g.joinRequests || []) : [],
-    }) });
-    setSaved(true);
-  };
-  const del = () => {
-    if (!confirm(`Delete ${group.name}? Its content will no longer be reachable.`)) return;
-    for (const c of state.channels.filter((c) => c.groupId === group.id)) dispatch({ type: 'remove', col: 'channels', id: c.id });
-    dispatch({ type: 'remove', col: 'groups', id: group.id });
-    nav('/groups');
+    if (busy) return;
+    setBusy(true); setError(''); setSaved(false);
+    try {
+      await patch(group, {
+        name: v.name.trim() || group.name, description: v.description || null, visibility: visibilityOf(v.accessType),
+        settings: {
+          guidelines: v.guidelines, apps: v.apps.includes('members') ? v.apps : [...v.apps, 'members'],
+          announceOnly: v.announceOnly, whoCanPost: v.announceOnly ? 'admins' : 'members',
+          dynamicRule: ruleValue ? { ...rule, value: ruleValue } : null,
+        },
+      }, { inline: true });
+      setSaved(true);
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -79,7 +89,7 @@ export default function Settings({ group }) {
 
       <section className="glass space-y-3 p-5">
         <h3 className="font-bold">Dynamic membership</h3>
-        <p className="text-sm text-slate-400">People whose profile matches this rule are added automatically, now and when they join later.</p>
+        <p className="text-sm text-slate-400">People whose profile matches this rule are added automatically, now and when they join later. For now this runs while an admin of this group has CommunityOne open.</p>
         <div className="grid gap-2 sm:grid-cols-3">
           <select className="input" value={rule.field} onChange={(e) => setRule({ ...rule, field: e.target.value })} aria-label="Profile field">
             {RULE_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -93,10 +103,16 @@ export default function Settings({ group }) {
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button type="button" className="btn btn-ghost text-rose-300" onClick={del} disabled={group.allHands}>Delete group</button>
+        <div className="flex flex-wrap gap-2">
+          {archived
+            ? <button type="button" className="btn btn-ghost" onClick={() => lifecycle.archive(group, false)}>Restore community</button>
+            : <button type="button" className="btn btn-ghost text-rose-300" onClick={() => lifecycle.archive(group, true)} disabled={group.allHands}>Archive community</button>}
+          {me.admin && <button type="button" className="btn btn-ghost text-rose-300" onClick={() => lifecycle.remove(group)} disabled={group.allHands}>Delete community</button>}
+        </div>
         <div className="flex items-center gap-3">
+          {error && <span role="alert" className="text-sm text-rose-300">{error}</span>}
           {saved && <span role="status" className="text-sm text-emerald-300">Saved</span>}
-          <button className="btn btn-primary">Save settings</button>
+          <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save settings'}</button>
         </div>
       </div>
     </form>
