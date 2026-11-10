@@ -78,7 +78,7 @@ export default function Invite() {
         <form onSubmit={submit} className="p-7 sm:p-8" noValidate>
           <h2 className="text-2xl font-bold">You’re invited</h2>
           <p className="mt-2 text-sm text-slate-300">
-            {user(invite.invitedBy)?.name ?? 'A member'} invited you to join {state.settings.networkName}. {approval ? 'An admin will approve your membership after you sign up.' : 'An invitation is a quick way in: confirm your email and you’re in.'}
+            {user(invite.invitedBy)?.name ?? 'A member'} invited you to join CommunityOne. {approval ? 'An admin will approve your membership after you sign up.' : 'An invitation is a quick way in: confirm your email and you’re in.'}
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="col-span-2"><Field label="Full name"><input className="input" value={form.name} onChange={set('name')} autoComplete="name" /></Field></div>

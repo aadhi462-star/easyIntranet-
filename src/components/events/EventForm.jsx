@@ -108,7 +108,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
     if (Number.isNaN(start) || Number.isNaN(end)) return setError('Choose a start and end time.');
     if (end < start) return setError('The event can’t end before it starts.');
     if (!communityId) return setError('Choose where to share this event.');
-    if (f.share === 'network' && !editing && !canNetwork) return setError('Only AlumniZone admins can create company events. Choose a group or invite people instead.');
+    if (f.share === 'network' && !editing && !canNetwork) return setError('Only AlumniZone admins can create events open to all of AlumniZone. Choose a group or invite people instead.');
     const until = f.freq !== 'none' && f.until ? fromInput(f.until) + DAY - 1 : null;
     if (until != null && until < start) return setError('“Repeat until” can’t be before the start date.');
     const capacity = f.capacity.trim() ? Number(f.capacity) : null;
@@ -168,7 +168,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
   };
 
   const shareOptions = [
-    ['network', 'Network wall (company event)', !canNetwork],
+    ['network', 'All of AlumniZone', !canNetwork],
     ['group', 'A group', groups.length === 0],
     ['private', 'Invited members only', !communities?.length],
   ];
@@ -232,7 +232,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
                 </label>
               ))}
             </div>
-            {communities && !canNetwork && <p className="mt-1 text-xs text-slate-500">Only AlumniZone admins can create company events.</p>}
+            {communities && !canNetwork && <p className="mt-1 text-xs text-slate-500">Only AlumniZone admins can create events open to all of AlumniZone.</p>}
             {f.share === 'group' && (
               <select className="input mt-2" value={f.groupId} onChange={(e) => set('groupId', e.target.value)} aria-label="Group">
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}

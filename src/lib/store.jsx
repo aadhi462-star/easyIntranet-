@@ -81,7 +81,7 @@ function core(s, a) {
         status: s.settings?.registration?.requireApproval ? 'pending' : 'active', ...a.user };
       // Callers may pre-approve (e.g. an invitation), so decide from the final status.
       const pending = user.status === 'pending';
-      const welcome = { id: uid('n'), userId: id, createdAt: Date.now(), read: false, kind: 'welcome', text: `Welcome to ${s.settings?.networkName ?? 'AlumniZone'}! Complete your profile so classmates can find you.`, link: `/people/${id}` };
+      const welcome = { id: uid('n'), userId: id, createdAt: Date.now(), read: false, kind: 'welcome', text: `Welcome to CommunityOne! Complete your profile so classmates can find you.`, link: `/people/${id}` };
       const adminNote = pending ? [{ id: uid('n'), createdAt: Date.now(), read: false, kind: 'member', adminOnly: true, ref: id, text: `${user.name} is waiting for membership approval`, link: '/admin/members' }] : [];
       return { ...s, users: [...s.users, user], session: pending ? null : { userId: id }, notifications: [welcome, ...adminNote, ...s.notifications] };
     }

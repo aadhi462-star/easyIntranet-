@@ -2,7 +2,6 @@ import { lazy, Suspense, Component } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useStore } from './lib/store.jsx';
 import { MODULES, EXTRA_ROUTES } from './lib/modules.js';
-import { GlassFilters } from './components/ui.jsx';
 import Layout from './components/Layout.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
@@ -55,7 +54,7 @@ class Boundary extends Component {
     if (error && /dynamically imported module|Importing a module script failed|error loading dynamically/i.test(error.message)) {
       return (
         <div className="glass p-8">
-          <p className="font-semibold">AlumniZone was updated.</p>
+          <p className="font-semibold">CommunityOne was updated.</p>
           <p className="mt-1 text-sm text-slate-400">This page is from the new version. Reload to open it.</p>
           <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Reload</button>
         </div>
@@ -89,13 +88,12 @@ export default function App() {
   ];
   return (
     <HashRouter>
-      <GlassFilters />
       <AuthSync />
       {runners.map((R, i) => <R key={i} />)}
       <Routes>
-        <Route path="/" element={me ? <Navigate to={state.settings.landing || '/feed'} replace /> : <Landing />} />
-        <Route path="/login" element={me ? <Navigate to="/feed" replace /> : <Login />} />
-        <Route path="/signup" element={me ? <Navigate to="/feed" replace /> : <Signup />} />
+        <Route path="/" element={me ? <Navigate to={state.settings.landing || '/dashboard'} replace /> : <Landing />} />
+        <Route path="/login" element={me ? <Navigate to="/dashboard" replace /> : <Login />} />
+        <Route path="/signup" element={me ? <Navigate to="/dashboard" replace /> : <Signup />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/invite/:code" element={<Invite />} />
         <Route path="/verify" element={<VerifyEmail />} />

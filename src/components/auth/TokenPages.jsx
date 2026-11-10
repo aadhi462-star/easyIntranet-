@@ -35,7 +35,7 @@ export function VerifyEmail() {
       .then(({ user, message }) => {
         if (user.status === 'active') {
           dispatch({ type: 'session/adopt', user, profile: takeProfile(user.email) });
-          nav('/feed', { replace: true });
+          nav('/dashboard', { replace: true });
         } else setState({ phase: 'pending', message });
       })
       .catch((err) => setState({ phase: 'error', message: err.message }));

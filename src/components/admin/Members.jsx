@@ -51,7 +51,7 @@ export default function Members() {
                 <button className="btn btn-primary h-10 text-xs" onClick={() => {
                   dispatch({ type: 'member/approve', id: u.id });
                   clearApprovalNotes(u);
-                  dispatch({ type: 'notify', silent: true, notification: { userId: u.id, kind: 'info', link: '/feed', text: `Welcome! Your ${state.settings.networkName} membership was approved.` } });
+                  dispatch({ type: 'notify', silent: true, notification: { userId: u.id, kind: 'info', link: '/feed', text: `Welcome! Your CommunityOne account was approved.` } });
                 }}>Approve</button>
                 <button className="btn btn-ghost h-10 text-xs" onClick={() => { if (!confirm(`Decline ${u.name}’s request? Their account will be removed.`)) return; clearApprovalNotes(u); dispatch({ type: 'remove', col: 'users', id: u.id }); }}>Decline</button>
               </li>

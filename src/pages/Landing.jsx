@@ -102,7 +102,7 @@ export default function Landing() {
       <footer className="relative z-10 border-t border-white/5">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:px-6">
           <Logo size={28} />
-          <p>© {new Date().getFullYear()} AlumniZone. A demo rebuild with fictional data.</p>
+          <p>© {new Date().getFullYear()} CommunityOne. One Platform. Every Community.</p>
         </div>
       </footer>
     </div>

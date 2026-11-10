@@ -72,7 +72,7 @@ function EventsHome() {
 
       <Tabs value={section} onChange={(v) => setParam('section', v === 'all' ? null : v)}
         tabs={[{ id: 'all', label: 'All Events', count: count('all') }, { id: 'private', label: 'Private', count: count('private') },
-          { id: 'company', label: 'Company', count: count('company') }, { id: 'group', label: 'Group', count: count('group') }]} />
+          { id: 'company', label: 'AlumniZone', count: count('company') }, { id: 'group', label: 'Other communities', count: count('group') }]} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {view === 'list' ? <h2 className="text-lg font-bold">Upcoming</h2> : <RangeNav mode={view} cursor={cursor} onChange={setCursor} />}

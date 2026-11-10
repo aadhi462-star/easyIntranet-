@@ -35,7 +35,7 @@ export default function GroupForm({ initial, onSave, onClose }) {
   };
 
   return (
-    <Modal title={editing ? 'Edit group' : 'Create a group or space'} onClose={onClose} wide>
+    <Modal title={editing ? 'Edit community' : 'Create a community'} onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
           <Field label="Icon">

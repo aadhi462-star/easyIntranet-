@@ -4,21 +4,15 @@ import { useStore } from '../lib/store.jsx';
 import { useTheme } from '../lib/theme.js';
 import { Glyph, Icon } from './icons.jsx';
 
-/** SVG filter referenced by the `.glass::before` CSS rule for the refraction wobble. */
-// Kept as a no-op so existing <GlassFilters /> mounts keep working; the SVG distortion
-// filter it used to define is no longer used (see .glass in index.css).
-export function GlassFilters() {
-  return null;
-}
-
+/** The CommunityOne mark (lime tile, "C1") and wordmark. AlumniZone is a community, not the logo. */
 export function Logo({ size = 40, withText = true }) {
   return (
-    <span className="inline-flex items-center gap-3">
-      <span className="bg-accent-fill grid place-items-center rounded-xl font-display font-extrabold shadow-lg shadow-brand-500/20"
-        style={{ width: size, height: size, fontSize: size * 0.42 }}>
-        AZ
+    <span className="inline-flex items-center gap-2.5">
+      <span aria-hidden="true" className="bg-accent-fill grid place-items-center font-extrabold"
+        style={{ width: size, height: size, fontSize: size * 0.4, borderRadius: size * 0.26 }}>
+        C1
       </span>
-      {withText && <span className="font-display text-lg font-semibold tracking-tight">Alumni<span className="text-brand-gradient">Zone</span></span>}
+      {withText && <span className="text-[17px] font-bold tracking-tight text-white">CommunityOne</span>}
     </span>
   );
 }

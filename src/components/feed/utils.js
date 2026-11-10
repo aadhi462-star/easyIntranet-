@@ -3,7 +3,7 @@ import { sentiment } from '../../lib/assist.js';
 
 export const VIEWS = [
   { id: 'my', label: 'My Feed', icon: 'myfeed' },
-  { id: 'wall', label: 'Company Wall', icon: '🏛️' },
+  { id: 'wall', label: 'AlumniZone', icon: '🏛️' },
   { id: 'announcements', label: 'Announcements', icon: '📢' },
   { id: 'mandatory', label: 'Mandatory Reads', icon: '✅' },
   { id: 'questions', label: 'Questions', icon: '❓' },

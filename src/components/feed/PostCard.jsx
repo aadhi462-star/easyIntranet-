@@ -1,6 +1,7 @@
 import UserLabels from '../UserLabels.jsx';
 import { Glyph } from '../icons.jsx';
 import { useState } from 'react';
+import { communityPath } from '../../lib/communities.js';
 import { Link } from 'react-router-dom';
 import { bookmarksOf, fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
@@ -84,7 +85,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
           <div className="flex flex-wrap items-center gap-x-1.5 text-sm">
             <AuthorName author={author} />
             {!author.deleted && <UserLabels userId={author.id} context="post" max={2} small />}
-            {where && <span className="text-slate-400">▸ <Link className="hover:underline" to={`/groups/${where.id}`}>{where.emoji} {where.name}</Link></span>}
+            {where && <span className="text-slate-400">▸ <Link className="hover:underline" to={communityPath(where.id)}>{where.emoji} {where.name}</Link></span>}
           </div>
           <div className="text-xs text-slate-400">
             <Link to={`/post/${post.id}`} className="hover:underline">{status === 'scheduled' && post.publishAt ? `Scheduled for ${fmtDate(post.publishAt)}` : timeAgo(new Date(post.createdAt).getTime())}</Link>

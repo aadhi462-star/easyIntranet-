@@ -1,10 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
 import { Field, Logo, Modal, ThemeToggle } from '../components/ui.jsx';
-import { useTheme } from '../lib/theme.js';
-import LiquidGlassStage from '../components/LiquidGlassStage.jsx';
 
 // Line icons (24px grid, stroke) instead of emoji so they render the same everywhere.
 const ICONS = {
@@ -22,12 +20,11 @@ function Icon({ name, className = 'h-5 w-5' }) {
 }
 
 const perks = [
-  ['megaphone', 'Share updates and celebrate wins'],
-  ['people', 'Groups for your batch, city or interests'],
-  ['calendar', 'Find and host reunions and meet-ups'],
-  ['cap', 'A profile that grows with your career'],
+  ['megaphone', 'Join discussions and share updates'],
+  ['people', 'Communities for alumni, interests and teams'],
+  ['calendar', 'Find and host events and meet-ups'],
+  ['cap', 'Learn together inside your communities'],
 ];
-const stats = [['8,400+', 'Alumni'], ['120', 'Groups'], ['340', 'Events a year']];
 
 export const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
@@ -48,10 +45,8 @@ export function takeProfile(email) {
 /** Where to go after signing in: the page the visitor was trying to reach, if it's internal. */
 export function nextPath(search) {
   const next = new URLSearchParams(search).get('next');
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/feed';
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
 }
-
-const GLASS = { cornerRadius: 24, refraction: 0.8, chromAberration: 0.08, edgeHighlight: 0.45, specular: 0.6, fresnel: 1, blurAmount: 0.7, tintStrength: 0.25, brightness: -0.12, shadowOpacity: 0.55, zRadius: 34 };
 
 /** Sign in / Join switch shown at the top of the auth card. */
 function AuthTabs({ mode }) {
@@ -69,60 +64,47 @@ function AuthTabs({ mode }) {
   );
 }
 
-/**
- * Auth layout after the HooBank hero (gradient display type, stats row) set inside a
- * LiquidGlass-style full-bleed scene, with the card floating on real WebGL glass.
- */
+/** Sign-in and sign-up layout: CommunityOne's pitch on the left, the form card on the right. */
 export function AuthShell({ children, mode }) {
-  const [, theme] = useTheme();
-  // LiquidGlass captures the backdrop once at init, so remount the stage when the theme changes.
+  useEffect(() => { document.title = mode === 'signup' ? 'Join · CommunityOne' : 'Sign in · CommunityOne'; }, [mode]);
   return (
-    <LiquidGlassStage key={theme} className="min-h-full" config={GLASS}
-      background={<img src={theme === 'light' ? '/scene-light.svg' : '/scene.svg'} alt="" className="absolute inset-0 h-full w-full object-cover" />}>
-      <div className="mx-auto flex min-h-full max-w-6xl flex-col px-4 sm:px-6">
+    <div className="relative min-h-full overflow-hidden bg-[var(--color-ink-950)]">
+      <div aria-hidden="true" className="auth-grid pointer-events-none absolute inset-0" />
+      <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 sm:px-6">
         <header className="flex items-center justify-between gap-3 py-5">
-          <Link to="/" aria-label="AlumniZone home"><Logo size={40} /></Link>
+          <Link to="/" aria-label="CommunityOne home"><Logo size={34} /></Link>
           <div className="flex gap-2">
             <ThemeToggle />
-            <Link to="/explore" className="btn btn-ghost">Explore</Link>
+            <Link to="/explore" className="btn btn-ghost">Explore Communities</Link>
           </div>
         </header>
 
         <main className="grid flex-1 items-center gap-10 pb-12 pt-4 lg:grid-cols-[1fr_440px] lg:gap-16">
           <section>
-            <span className="chip">Open alumni community · free to join</span>
-            <h1 className="mt-5 text-[40px] font-semibold leading-[1.12] tracking-tight text-white sm:text-[56px]">
-              Your alumni community, <span className="text-brand-gradient">in one place.</span>
+            <span className="chip">One platform. Every community.</span>
+            <h1 className="mt-5 text-[40px] font-bold leading-[1.08] tracking-tight text-white sm:text-[56px]">
+              Find your people. Build your community.
             </h1>
             <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-dim">
-              Catch up on the wall, join groups, go to events and keep your story up to date. Open to every alumnus, so join in a minute and find your people.
+              Discover communities, connect with people, share knowledge, join conversations and learn together. One account for every community you belong to.
             </p>
             <ul className="mt-8 hidden max-w-xl gap-3 sm:grid sm:grid-cols-2">
               {perks.map(([icon, text]) => (
-                <li key={text} className="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-3 text-sm font-medium text-slate-200 ring-1 ring-white/10">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-400/10 text-brand-300"><Icon name={icon} /></span>
+                <li key={text} className="flex items-center gap-3 rounded-xl border border-[var(--az-hairline)] bg-[var(--az-surface)] p-3 text-sm font-medium text-slate-200">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-400/10 text-brand-300"><Icon name={icon} /></span>
                   {text}
                 </li>
               ))}
             </ul>
-            <dl className="mt-10 hidden max-w-xl grid-cols-3 gap-6 sm:grid">
-              {stats.map(([n, label]) => (
-                <div key={label}>
-                  <dt className="sr-only">{label}</dt>
-                  <dd className="font-display text-3xl font-semibold text-white">{n}</dd>
-                  <dd className="mt-1 text-xs uppercase tracking-[0.18em] text-brand-300/80">{label}</dd>
-                </div>
-              ))}
-            </dl>
           </section>
 
-          <div data-glass-target className="w-full rounded-[24px] bg-ink-950/45 ring-1 ring-white/15">
+          <div className="w-full rounded-2xl border border-[var(--az-hairline)] bg-[var(--az-surface)]">
             {mode && <AuthTabs mode={mode} />}
             {children}
           </div>
         </main>
       </div>
-    </LiquidGlassStage>
+    </div>
   );
 }
 
@@ -174,7 +156,7 @@ export default function Login() {
     <AuthShell mode="login">
       <form onSubmit={submit} className="p-7 sm:p-8" noValidate>
         <h2 className="text-2xl font-semibold">Welcome back</h2>
-        <p className="mt-2 text-sm text-slate-300">Sign in to your alumni community.</p>
+        <p className="mt-2 text-sm text-slate-300">Sign in to CommunityOne.</p>
         <div className="mt-6 space-y-4">
           <Field label="Email">
             <input className="input" type="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setError(''); }} />

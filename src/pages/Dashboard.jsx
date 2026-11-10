@@ -1,5 +1,6 @@
 import { Glyph } from '../components/icons.jsx';
 import { useCallback, useEffect, useState } from 'react';
+import { communityPath } from '../lib/communities.js';
 import { Link } from 'react-router-dom';
 import { fmtDate, timeAgo, uid, useStore } from '../lib/store.jsx';
 import { leaderboard } from '../lib/gamify.js';
@@ -87,7 +88,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title={`Good to see you, ${me.name.split(' ')[0]}`} subtitle={state.settings.tagline}
+      <PageHeader title={`Good to see you, ${me.name.split(' ')[0]}`} subtitle="Here’s what’s happening across your communities."
         actions={<>
           <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Add widget</button>
           <button className="btn btn-ghost" onClick={() => confirm('Reset your dashboard to the default widgets?') && seedDefaults()}>Reset</button>
@@ -143,7 +144,7 @@ function WidgetBody({ w, d, onAcked }) {
         <div className="grid gap-3 *:min-w-0 sm:grid-cols-[1fr_2fr]">
           <div className="brand-gradient rounded-xl p-4">
             <div className="text-sm text-white/80">Welcome to</div>
-            <div className="text-xl font-extrabold">{state.settings.networkName}</div>
+            <div className="text-xl font-extrabold">CommunityOne</div>
             <div className="mt-2 text-xs text-white/80">You’re in {d.communities.length} {d.communities.length === 1 ? 'community' : 'communities'}</div>
             {d.connectionRequests > 0 && (
               <Link to="/people" className="mt-3 inline-block rounded-lg bg-black/20 px-2.5 py-1 text-xs font-semibold text-white hover:bg-black/30">
@@ -152,7 +153,7 @@ function WidgetBody({ w, d, onAcked }) {
             )}
             {shown.length > 0 && (
               <ul className="mt-3 space-y-1 text-xs">{shown.map((c) => (
-                <li key={c.id}><Link to={`/groups/${c.id}`} className="flex items-center gap-1.5 text-white/90 hover:underline">
+                <li key={c.id}><Link to={communityPath(c.id)} className="flex items-center gap-1.5 text-white/90 hover:underline">
                   <span aria-hidden="true">{c.emoji || '👥'}</span><span className="flex-1 truncate">{c.name}</span>
                   <span className="text-white/70">{c.memberCount}{['owner', 'admin'].includes(c.role) ? ` · ${c.role}` : ''}{c.status === 'archived' ? ' · archived' : ''}</span>
                 </Link></li>

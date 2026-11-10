@@ -69,7 +69,7 @@ export async function encryptJson(obj, password) {
 }
 export async function decryptJson(text, password) {
   const f = JSON.parse(text);
-  if (f.format !== 'azenc') throw new Error('Not an AlumniZone encrypted export.');
+  if (f.format !== 'azenc') throw new Error('Not a CommunityOne encrypted export.');
   const key = await deriveKey(password, unb64(f.salt));
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(f.iv) }, key, unb64(f.data));
   return JSON.parse(new TextDecoder().decode(plain));
@@ -205,7 +205,7 @@ export function Security() {
           <option value="">Choose…</option><option>Okta</option><option>Azure AD / Entra ID</option><option>Google Workspace</option><option>OneLogin</option><option>Custom SAML 2.0</option></select></Field>
         <Field label="Entity ID / Issuer"><input className="input" value={sec.sso.entityId} onChange={(e) => setSso({ entityId: e.target.value })} placeholder="https://idp.example.edu/metadata" /></Field>
         <Field label="SSO login URL"><input className="input" value={sec.sso.ssoUrl} onChange={(e) => setSso({ ssoUrl: e.target.value })} placeholder="https://idp.example.edu/sso/saml" /></Field>
-        <p className="text-xs text-slate-500">Settings are saved, but sign-in still uses AlumniZone accounts in this demo.</p>
+        <p className="text-xs text-slate-500">Settings are saved, but sign-in still uses CommunityOne accounts in this demo.</p>
       </section>
       <section className="glass space-y-3 p-5">
         <div className="flex flex-wrap items-center gap-2"><h3 className="flex-1 font-bold">Directory, domain & mobile</h3><DemoBadge /></div>

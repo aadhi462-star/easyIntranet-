@@ -402,3 +402,29 @@ Known gaps:
 Process note: the previous session's preview server was still running on its preview database when I migrated and seeded that database (it wasn't listed in this session's previews, and I didn't check the port first). I couldn't stop it from this session, so I left that database alone and tested on a fresh copy. The old database's integrity is unconfirmed: stop that server, then check it or re-seed with `--reset`. Rule reinforced: check `lsof -i :<port>` before migrating any preview database.
 
 Next: Phase 1 step 5 (platform administration UI on the API).
+
+### Hosting, email and the redesign brief (10–11 Nov 2026)
+
+- **Hosting:** live on Catalyst AppSail (one service: API + web app). `npm run build:appsail` makes the upload zip with a ready-made database template; production refuses the published demo passwords (`SEED_PASSWORD`), requires `APP_ORIGIN` for email links, and never logs email bodies. Details and limits: HANDOFF.md › Hosting.
+- **Email (D5):** Catalyst Mail via `MAIL_TRANSPORT=catalyst`; a confirmation email was received on the live site.
+- **Found on the live site:** each redeploy starts with an empty database (the app folder isn't persistent), so a managed PostgreSQL is needed before real members.
+- **Redesign brief** saved as `REDESIGN_BRIEF.md`; Stage 0 review (inventory, IA, journeys, design system, wireframes) approved with decisions R1–R8.
+
+### Redesign Stage 1 — foundation (11 Nov 2026)
+
+Built:
+- **Tokens (R1, R2):** Inter only (Poppins dropped); solid surfaces with hairline borders instead of glass and blur; flat lime primary action with near-black text in both themes; no aurora glow or gradient type. The shared classes (`.glass`, `.btn`, `.input`) keep their names, so every screen restyled at once. The WebGL glass library, the "reduce effects" mode and the menu-visibility toggle are removed.
+- **Icons (R3):** `Glyph` draws single outline icons in the text colour (no duotone tiles); new compass, create and plus icons.
+- **App shell (R6):** desktop sidebar (Home, Explore, My Communities, Events, Create Community; your communities from the server; More: Feed, People, Calendar until they're re-homed; Platform Admin for staff; profile), top bar (search, Create menu: Event / Community / Post, notifications, account menu with theme), phone bottom bar (Home, Explore, Communities, Events, Profile). Home is now the default after sign-in.
+- **Branding:** CommunityOne logo, page titles ("Home · CommunityOne"), metadata and platform-level copy; AlumniZone stays as the community's name ("Company Wall" → AlumniZone, "Company events" → AlumniZone events; Groups & Spaces → Communities wording).
+- **Sign-in page:** no glass; the brief's headline; the invented statistics ("8,400+ alumni…") removed.
+
+Tested: 125 server tests (all pass); browser: Home, Explore (opens Discover), Create menu → create-community form (Escape closes and clears the URL), Events sections, sign out → sign-in page; phone width 375 px on five screens (bottom bar, no sideways scroll); light mode.
+
+Bugs found and fixed while testing:
+- the sidebar's AlumniZone link (and the dashboard's, since 4c) led to "Group not found": AlumniZone isn't in the local group list, so its links now open its posts (`/feed/wall`) until Stage 3 gives every community a page;
+- the current sidebar item was hard to tell apart from hover;
+- single-word community names got one letter ("A" instead of "AZ").
+
+Kept on purpose until later stages: notifications (still in-browser data), the old Explore page for signed-out visitors (Stage 2), group cover gradients and emoji community logos (Stage 3), admin "module order" settings (Stage 7).
+

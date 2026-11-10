@@ -1,6 +1,6 @@
 import { Glyph } from '../components/icons.jsx';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { toast } from '../lib/toast.js';
 import { AvatarStack, Empty, PageHeader, Tabs } from '../components/ui.jsx';
@@ -40,18 +40,22 @@ function useCreateGroup() {
       const name = (g?.name ?? values.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       dispatch({ type: 'channel/create', channel: { name, description: `Linked to the ${g?.name ?? values.name} group`, groupId: community.id } });
     }
-    toast('Group created');
+    toast('Community created');
     nav(`/groups/${community.id}`);
   };
 }
 
 function Directory() {
   const { state, me, can } = useStore();
-  const [tab, setTab] = useState('mine');
+  // ?tab=discover (Explore) and ?new=1 (Create Community) come from the platform navigation.
+  const [params, setParams] = useSearchParams();
+  const tab = ['mine', 'discover', 'requests'].includes(params.get('tab')) ? params.get('tab') : 'mine';
+  const setTab = (t) => setParams(t === 'mine' ? {} : { tab: t });
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
   const [access, setAccess] = useState('');
-  const [creating, setCreating] = useState(false);
+  const creating = params.get('new') === '1' && can('group.create');
+  const setCreating = (on) => setParams(on ? { ...Object.fromEntries(params), new: '1' } : (({ new: _n, ...rest }) => rest)(Object.fromEntries(params)));
   const create = useCreateGroup();
 
   const managed = state.groups.filter((g) => permsOf(g, me.id).canAdmin && (g.joinRequests || []).length);
@@ -63,10 +67,10 @@ function Directory() {
 
   return (
     <div>
-      <PageHeader title="Groups & Spaces" subtitle="Spaces for your batch, city, department and interests."
-        actions={can('group.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>＋ New group</button>} />
+      <PageHeader title={tab === 'discover' ? 'Explore communities' : 'My Communities'} subtitle="Communities for your institution, batch, city, profession and interests."
+        actions={can('group.create') && <button className="btn btn-primary" onClick={() => setCreating(true)}>Create community</button>} />
       <Tabs value={tab} onChange={setTab} tabs={[
-        { id: 'mine', label: 'My groups', count: state.groups.filter((g) => g.members.includes(me.id)).length },
+        { id: 'mine', label: 'My communities', count: state.groups.filter((g) => g.members.includes(me.id)).length },
         { id: 'discover', label: 'Discover' },
         ...(managed.length || tab === 'requests' ? [{ id: 'requests', label: 'Requests I manage', count: managed.reduce((n, g) => n + g.joinRequests.length, 0) }] : []),
       ]} />
@@ -80,7 +84,7 @@ function Directory() {
         </select>
       </div>
       {list.length === 0
-        ? <Empty icon="👥" title={tab === 'mine' ? 'You haven’t joined any groups that match.' : 'No groups match.'}>Try another filter or Discover new groups.</Empty>
+        ? <Empty icon="👥" title={tab === 'mine' ? 'You haven’t joined any communities that match.' : 'No communities match.'}>Try another filter, or discover new communities.</Empty>
         : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{list.map((g) => <GroupCard key={g.id} g={g} />)}</div>}
       {creating && <GroupForm onClose={() => setCreating(false)} onSave={(v, opts) => create(v, opts)} />}
     </div>

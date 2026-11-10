@@ -44,7 +44,7 @@ export default function Admin() {
 
   return (
     <>
-      <PageHeader title="Admin" subtitle={`Manage ${state.settings.networkName}`} />
+      <PageHeader title="Platform Admin" subtitle="Manage CommunityOne" />
       <div className="ext-grid grid gap-5 lg:grid-cols-[13rem_1fr]">
         <nav aria-label="Admin sections" className="ext-menu glass flex gap-1 overflow-x-auto p-2 lg:sticky lg:top-24 lg:h-fit lg:flex-col lg:overflow-visible scroll-thin">
           {visible.map((t) => (

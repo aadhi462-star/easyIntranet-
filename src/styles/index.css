@@ -2,7 +2,8 @@
 @import "./light-invert.css";
 
 /*
- * Graphite · lime theme, dark by default with a light mode on
+ * CommunityOne design tokens (docs/communityone/REDESIGN_BRIEF.md, Stage 1): graphite · lime,
+ * dark by default with a light mode on
  * :root[data-theme="light"] (set by lib/theme.js).
  *
  * Scales follow one rule so module code works in both modes without changes: the low
@@ -14,7 +15,7 @@
  */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Poppins", "Inter", ui-sans-serif, sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
 
   --color-ink-950: #0a0b0a;
   --color-ink-900: #101211;
@@ -52,24 +53,23 @@
 :root {
   color-scheme: dark;
   --az-text: #f3f5f2;
-  --az-surface: rgba(24, 27, 25, 0.6);
-  --az-surface-strong: rgba(15, 17, 16, 0.88);
-  --az-hairline: rgba(255, 255, 255, 0.09);
-  --az-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.7);
-  --az-field: rgba(8, 9, 8, 0.6);
+  /* Solid surfaces with hairline borders (no glass, decision R2). */
+  --az-surface: #111312;
+  --az-surface-strong: #131514;
+  --az-hairline: #262a27;
+  --az-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+  --az-field: #0b0c0b;
   --az-placeholder: #868d88;
   --az-focus: #a3e635;
-  /* Bright fill with dark text (primary button, logo, active tab). */
-  --az-fill: linear-gradient(150deg, #e4fbb0 -20%, #bef264 40%, #84cc16 100%);
-  --az-on-fill: #142004;
-  --az-fill-glow: rgba(163, 230, 53, 0.4);
-  /* Deep fill with white text (banners, CTA panels, progress). */
-  --az-deep: linear-gradient(135deg, #3f6212 0%, #2c302d 55%, #1d201e 100%);
-  /* Display gradient: lime → white → steel. */
-  --az-display: linear-gradient(90deg, #bef264 0%, #f7fee7 50%, #b3b9b5 100%);
-  --az-aurora-a: #84cc16;
-  --az-aurora-b: #64748b;
-  --az-aurora-opacity: 0.15;
+  /* Lime fill with near-black text (primary actions, logo, active tab): 13:1. */
+  --az-fill: linear-gradient(#a3e635, #a3e635);
+  --az-fill-hover: #bef264;
+  --az-on-fill: #0a0b0a;
+  /* Deep fill (banners, CTA panels, progress). */
+  --az-deep: linear-gradient(#1a2e05, #1a2e05);
+  /* "Display" text is plain text now: no gradient type. */
+  --az-display: linear-gradient(#f3f5f2, #f3f5f2);
+  --az-sidebar: #0e100f;
 }
 
 :root[data-theme="light"] {
@@ -105,22 +105,20 @@
   --color-dim: rgba(20, 22, 20, 0.74);
 
   --az-text: #141614;
-  --az-surface: rgba(255, 255, 255, 0.74);
-  --az-surface-strong: rgba(255, 255, 255, 0.93);
-  --az-hairline: rgba(20, 24, 21, 0.1);
-  --az-shadow: 0 10px 30px -14px rgba(20, 24, 21, 0.25);
+  --az-surface: #ffffff;
+  --az-surface-strong: #ffffff;
+  --az-hairline: #e3e6e2;
+  --az-shadow: 0 16px 40px -14px rgba(20, 24, 21, 0.22);
   --az-field: #ffffff;
   --az-placeholder: #737a75;
   --az-focus: #4d7c0f;
-  /* Light mode: graphite button with a lime-white label, the dark half of the pair. */
-  --az-fill: linear-gradient(150deg, #3a3f3c -10%, #1f2220 55%, #141614 100%);
-  --az-on-fill: #ecfccb;
-  --az-fill-glow: rgba(20, 22, 20, 0.3);
-  --az-deep: linear-gradient(135deg, #ecfccb 0%, #f7fee7 50%, #eff1ee 100%);
-  --az-display: linear-gradient(90deg, #141614 0%, #3f6212 50%, #65a30d 100%);
-  --az-aurora-a: #a3e635;
-  --az-aurora-b: #94a3b8;
-  --az-aurora-opacity: 0.16;
+  /* The same lime action colour in both modes, always with near-black text. */
+  --az-fill: linear-gradient(#a3e635, #a3e635);
+  --az-fill-hover: #96d82c;
+  --az-on-fill: #0a0b0a;
+  --az-deep: linear-gradient(#f7fee7, #f7fee7);
+  --az-display: linear-gradient(#141614, #141614);
+  --az-sidebar: #f2f4f1;
 }
 
 html, body, #root { height: 100%; }
@@ -154,37 +152,14 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   }
 
   /*
-   * Soft glows behind the app shell. Radial gradients rather than blurred blobs: a 90px
-   * blur filter on a 60vmax layer is expensive to raster, and every glass pane above it
-   * re-samples that layer while scrolling.
-   */
-  .aurora {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: var(--az-aurora-opacity);
-    background:
-      radial-gradient(circle at 8% 4%, var(--az-aurora-a) 0, transparent 42vmax),
-      radial-gradient(circle at 96% 100%, var(--az-aurora-b) 0, transparent 44vmax);
-  }
-
-  /*
-   * CSS glass: backdrop blur with a specular rim. The real WebGL liquid glass from
-   * @ybouane/liquidglass is reserved for the auth card. (An SVG displacement filter used to
-   * run on every pane; it re-rendered on each scroll frame and made laptops lag.)
+   * Panels. The class keeps its historical name so every screen restyles at once, but it is
+   * a solid surface with a hairline border now: no blur, no rim light (decision R2).
    */
   .glass {
     position: relative;
-    isolation: isolate;
     background: var(--az-surface);
     border: 1px solid var(--az-hairline);
-    border-radius: 1rem;
-    box-shadow: var(--az-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    backdrop-filter: blur(14px) saturate(140%);
-  }
-  /* A pane inside a pane would blur an already-blurred backdrop: pay for one layer only. */
-  .glass .glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .glass::after {
-    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    background: linear-gradient(135deg, rgba(255,255,255,.10), transparent 35%, transparent 70%, rgba(255,255,255,.04));
+    border-radius: 12px;
   }
   .glass-strong { background: var(--az-surface-strong); }
 
@@ -192,8 +167,8 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
     width: 100%;
     background: var(--az-field);
     border: 1px solid var(--az-hairline);
-    border-radius: 0.75rem;
-    padding: 0.7rem 0.9rem;
+    border-radius: 8px;
+    padding: 0.62rem 0.85rem;
     color: var(--az-text);
     font-size: 0.95rem;
     outline: none;
@@ -204,14 +179,13 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
 
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-    border-radius: 0.75rem; padding: 0.6rem 1rem; font-weight: 600; font-size: .9rem;
-    transition: transform .1s, filter .15s, background-color .15s;
+    border-radius: 8px; padding: 0.55rem 1rem; font-weight: 600; font-size: .9rem; min-height: 2.5rem;
+    transition: background-color .15s, border-color .15s, color .15s;
     cursor: pointer;
   }
-  .btn:active { transform: translateY(1px); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-primary { background-image: var(--az-fill); color: var(--az-on-fill); box-shadow: 0 8px 28px -10px var(--az-fill-glow); }
-  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary { background-image: var(--az-fill); color: var(--az-on-fill); }
+  .btn-primary:hover { background-image: none; background-color: var(--az-fill-hover); }
   .btn-ghost { background: color-mix(in srgb, var(--az-text) 5%, transparent); color: var(--az-text); border: 1px solid var(--az-hairline); }
   .btn-ghost:hover { background: color-mix(in srgb, var(--az-text) 9%, transparent); }
 
@@ -226,11 +200,8 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
    * Each tone sets the outline (currentColor), --ill-fill, and the tile gradient.
    */
   .ill { display: inline-grid; place-items: center; flex-shrink: 0; color: var(--ill-ink); }
-  .ill-tile {
-    border-radius: 30%;
-    background: linear-gradient(150deg, var(--ill-bg-a), var(--ill-bg-b));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 0 0 1px var(--ill-ring), 0 3px 8px -4px var(--ill-shadow);
-  }
+  /* Icon tiles are plain now (outline icons, decision R3): a quiet square, no gradient. */
+  .ill-tile { border-radius: 8px; background: color-mix(in srgb, var(--az-text) 5%, transparent); box-shadow: inset 0 0 0 1px var(--az-hairline); }
   /* Tone names are kept for the data model: saffron = lime, leaf = graphite, gold = gold. */
   .ill-saffron { --ill-ink: #c6f36b; --ill-fill: rgba(163, 230, 53, 0.3); --ill-bg-a: rgba(163, 230, 53, 0.22); --ill-bg-b: rgba(77, 124, 15, 0.1); --ill-ring: rgba(198, 243, 107, 0.2); --ill-shadow: rgba(132, 204, 22, 0.45); }
   .ill-leaf { --ill-ink: #d3d7d4; --ill-fill: rgba(211, 215, 212, 0.2); --ill-bg-a: rgba(179, 185, 181, 0.18); --ill-bg-b: rgba(74, 80, 76, 0.12); --ill-ring: rgba(211, 215, 212, 0.16); --ill-shadow: rgba(0, 0, 0, 0.5); }
@@ -247,38 +218,21 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   }
   .ulabel-sm { font-size: .65rem; padding: .2rem .42rem; }
 
+  /* Subtle grid behind the public and auth pages (the brand's grid pattern, no glow). */
+  .auth-grid { background-image: linear-gradient(var(--az-hairline) 1px, transparent 1px), linear-gradient(90deg, var(--az-hairline) 1px, transparent 1px);
+    background-size: 56px 56px; opacity: .45; mask-image: radial-gradient(ellipse at 30% 20%, #000 20%, transparent 75%); }
+
   .toast-in { animation: toast-in .18s ease-out; }
   @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
   /* Visible only when focused by keyboard: jump past the sidebar and header. */
-  .skip-link { position: fixed; left: 1rem; top: -4rem; z-index: 60; padding: .6rem 1rem; border-radius: .75rem;
+  .skip-link { position: fixed; left: 1rem; top: -4rem; z-index: 60; padding: .6rem 1rem; border-radius: 8px;
     background-image: var(--az-fill); color: var(--az-on-fill); font-weight: 600; transition: top .15s; }
   .skip-link:focus { top: 1rem; }
 
   .scroll-thin::-webkit-scrollbar { width: 8px; }
   .scroll-thin::-webkit-scrollbar-thumb { background: var(--az-hairline); border-radius: 8px; }
 }
-
-/*
- * Menu layout prefs (lib/menus.js). Desktop only: on small screens the main menu is
- * already a drawer and extended menus collapse into horizontal strips.
- */
-@media (min-width: 1024px) {
-  :root[data-ext-menu="hidden"] .ext-menu { display: none !important; }
-  :root[data-ext-menu="hidden"] .ext-grid { grid-template-columns: minmax(0, 1fr) !important; }
-}
-@media (min-width: 1280px) {
-  :root[data-ext-menu="hidden"] .ext-grid-feed { grid-template-columns: minmax(0, 1fr) 250px !important; }
-}
-
-/*
- * Reduced effects (lib/effects.js sets html[data-effects="lite"]): no backdrop blur and
- * solid panes. Chosen automatically on low-memory devices, data saver or "reduce
- * transparency", and available as a toggle in the account menu.
- */
-:root[data-effects="lite"] .glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--az-surface-strong); }
-:root[data-effects="lite"] .glass::after { display: none; }
-:root[data-effects="lite"] .aurora { opacity: calc(var(--az-aurora-opacity) * 0.6); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }

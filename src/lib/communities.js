@@ -6,6 +6,8 @@ import { api, ApiError } from './api.js';
 
 /** The network-wide community (the main wall). It isn't listed as a group. */
 export const NETWORK_COMMUNITY = 'alumnizone';
+/** Where a community opens. AlumniZone's page is the Feed's wall until Stage 3 gives every community one. */
+export const communityPath = (id) => (id === NETWORK_COMMUNITY ? '/feed/wall' : `/groups/${id}`);
 
 // Server visibility ↔ the store's access types.
 const TO_ACCESS = { public: 'public', private: 'restricted', closed: 'private' };

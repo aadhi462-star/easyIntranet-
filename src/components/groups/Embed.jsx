@@ -22,7 +22,7 @@ export const APP_COMPONENTS = {
 
 export default function Embed({ app, group }) {
   const C = resolve(APP_COMPONENTS[app]);
-  if (!C) return <div className="glass p-8 text-center text-sm text-slate-400">This app’s module is still loading into AlumniZone.</div>;
+  if (!C) return <div className="glass p-8 text-center text-sm text-slate-400">This app’s module is still loading into CommunityOne.</div>;
   const props = app === 'feed' ? { scope: { type: 'group', id: group.id }, groupId: group.id, readOnly: group.announceOnly } : { groupId: group.id };
   return <Suspense fallback={<div className="glass h-40 animate-pulse" />}><C {...props} /></Suspense>;
 }

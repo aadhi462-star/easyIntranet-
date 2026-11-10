@@ -1,7 +1,5 @@
-// Illustrated icon set (24px grid, rounded strokes). Shapes follow the design reference;
-// `<Glyph>` renders them illustrated: a tinted tile with duotone artwork (closed shapes get a
-// soft fill, outlines a deep tone) in the theme's saffron / leaf / gold tones. Colours come
-// from CSS (.ill-* in index.css), so they adapt to light and dark mode.
+// Outline icon set (24px grid, rounded 1.75px strokes) in the surrounding text colour.
+// `<Icon illustrated>` (user label chips only) adds a soft fill from the chip's tone (.ill-*).
 //
 // Entries are SVG path strings (a path ending in "z" is a closed shape and gets the fill),
 // { c: [cx, cy, r] } circles, { r: [x, y, w, h, rx] } rects, and { dots: 'M…' } paths drawn
@@ -9,6 +7,9 @@
 
 const ICONS = {
   home: ['M3 10.5 12 3l9 7.5', 'M5 9v11.5h14V9', 'M10 20.5V15h4v5.5z'],
+  explore: [{ c: [12, 12, 9] }, 'm15.5 8.5-2 5-5 2 2-5z'],
+  create: [{ r: [3, 3, 18, 18, 4] }, 'M12 8v8M8 12h8'],
+  plus: ['M12 5v14M5 12h14'],
   feeds: [{ r: [3, 5, 15, 14, 2] }, 'M18 8.5h2a1 1 0 0 1 1 1V17a2 2 0 0 1-2 2H5', { r: [6, 8, 5, 4, 0.5] }, 'M13.5 9h2M13.5 12h2M6 15.5h9.5'],
   groups: [{ c: [9, 8, 3.2] }, 'M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6z', { c: [17, 8.5, 2.6] }, 'M16.2 14.1c2.7.4 4.8 2.7 4.8 5.9'],
   events: [{ r: [3, 5, 18, 16, 2] }, 'M8 3v4M16 3v4M3 10h18', { dots: 'M7.5 14h0M12 14h0M16.5 14h0M7.5 17.5h0M12 17.5h0' }],
@@ -94,12 +95,6 @@ const ICONS = {
   cap: ['M22 9 12 4 2 9l10 5z', 'M6 11.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5', 'M22 9v5'],
 };
 
-/** Tone per icon; anything unlisted is saffron. */
-const LEAF = ['groups', 'people', 'structure', 'forums', 'channels', 'questions', 'surveys', 'tasks', 'files', 'manuals', 'apps', 'webtabs',
-  'following', 'bookmarks', 'drafts', 'sprout', 'globe', 'user', 'idcard', 'list', 'link', 'inbox'];
-const GOLD = ['admin', 'trophy', 'medal', 'star', 'shield', 'lock', 'palette', 'bolt', 'chart', 'poll', 'clock', 'download', 'code', 'flag', 'label', 'sparkle'];
-const toneOf = (name) => (LEAF.includes(name) ? 'leaf' : GOLD.includes(name) ? 'gold' : 'saffron');
-
 /**
  * Interface emoji → icon. Modules defined their icons as emoji; rendering them through
  * <Glyph> swaps in the illustrated icon. Emoji that are content (reactions, badges, a group's
@@ -127,7 +122,7 @@ export function Icon({ name, size = 20, className = '', illustrated = false, lab
   if (!parts) return null;
   const fill = illustrated ? 'var(--ill-fill)' : 'none';
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8"
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.75"
       strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 ${className}`}
       role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : 'true'}>
       {parts.map((p, i) => {
@@ -141,15 +136,17 @@ export function Icon({ name, size = 20, className = '', illustrated = false, lab
 }
 
 /**
- * Illustrated icon on a tinted tile. `value` is an icon name or a mapped interface emoji;
- * anything else (e.g. a group's own emoji) is rendered as-is so content isn't lost.
+ * Interface icon. `value` is an icon name or a mapped interface emoji; anything else (e.g. a
+ * group's own emoji) is rendered as-is so content isn't lost. Since the CommunityOne redesign
+ * (decision R3) every icon is a single outline in the surrounding text colour; `tile` puts it on
+ * a quiet square for list rows and headers.
  */
 export function Glyph({ value, size = 28, className = '', tile = true }) {
   const name = iconFor(value);
   if (!name) return value ? <span aria-hidden="true" className={className}>{value}</span> : null;
-  const art = <Icon name={name} size={Math.round(size * (tile ? 0.66 : 1))} illustrated />;
+  const art = <Icon name={name} size={Math.round(size * (tile ? 0.64 : 1))} />;
   return (
-    <span aria-hidden="true" className={`ill ill-${toneOf(name)} ${tile ? 'ill-tile' : ''} ${className}`}
+    <span aria-hidden="true" className={`ill ${tile ? 'ill-tile' : ''} ${className}`}
       style={tile ? { width: size, height: size } : undefined}>
       {art}
     </span>

@@ -53,17 +53,15 @@ One AppSail service serves the API and the built web app (no Slate; keeps the sa
 
 ## Client (src/) bridge pattern
 
-Server is the authority; legacy screens still read the local store. `lib/api.js` (CSRF, idempotency, 401 → `c1-signed-out`), `components/auth/AuthSync.jsx` (session check, `syncDirectory`, `syncCommunities`, fires `c1-session-changed`), `lib/people.js` (`users/merge`), `lib/communities.js` (`communities/merge`), `lib/feed.js`, `lib/events.js` (events + dashboard; `fromServer` keeps the old ms/`scope` shape; `useEvents` hook). Already on the server: auth pages, People/profiles/directory/connections/blocks, Groups & Spaces, Feed, Events/Calendar/reminders, Dashboard.
+Server is the authority; legacy screens still read the local store. `lib/api.js` (CSRF, idempotency, 401 → `c1-signed-out`), `components/auth/AuthSync.jsx` (session check, `syncDirectory`, `syncCommunities`, fires `c1-session-changed`), `lib/people.js` (`users/merge`), `lib/communities.js` (`communities/merge`), `lib/feed.js`, `lib/events.js` (events + dashboard; `fromServer` keeps the old ms/`scope` shape; `useEvents` hook). Shell: `components/Layout.jsx` (platform sidebar / top bar / phone bottom bar). `lib/communities.js` `communityPath(id)` is the one place that says where a community opens. Already on the server: auth pages, People/profiles/directory/connections/blocks, Groups & Spaces, Feed, Events/Calendar/reminders, Dashboard.
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — redesign Stage 0 review (waiting for approval)
+## Where we stopped — redesign Stage 1 done (committed, not pushed)
 
-Phase 1 step 4c is done (§14). Hosting is live on AppSail (see Hosting). The user then gave the redesign brief and said "let's build it"; per the brief's working rules, the Stage 0 review was prepared first: https://claude.ai/artifact/1HEFyv7gXgWW2sHfqbc5rw (screen inventory, IA, journeys, decisions R1–R8, stage plan, design system, wireframes for landing desktop/phone, app shell desktop/phone, AlumniZone community page, role dashboards). **Nothing in the app has changed for the redesign yet.**
+Stage 0 review approved (R1–R8, canvas: https://claude.ai/artifact/1HEFyv7gXgWW2sHfqbc5rw). Stage 1 (tokens, outline icons, app shell, branding) is built and browser-checked; see §14.
 
-Decisions awaiting approval: R1 Inter only · R2 remove liquid glass · R3 outline SVG icons · R4 merge All Hands into AlumniZone (reversible migration) · R5 auto-join AlumniZone on email confirmation · R6 only working features in navigation · R7 public discovery endpoint · R8 do redesign Stages 1–3 before Platform Admin UI (step 5).
-
-Next once approved: redesign Stage 1 (tokens, components, icons, app shell), then Stage 2 (public site + R5/R7 on the server).
+Next: **redesign Stage 2 — public website**: landing page and public Explore on real data, About / How it works, auth and onboarding screens per the brief. Server work in it: R7 public discovery endpoint (Public + Private only, no members or content) and R5 auto-join AlumniZone on email confirmation. Then Stage 3 (Home, Explore, My Communities, community pages incl. AlumniZone at `/c/:slug` with redirects, Profile, search) and R4 (merge All Hands into AlumniZone, reversible).
 
 ## Working style that's been effective
 

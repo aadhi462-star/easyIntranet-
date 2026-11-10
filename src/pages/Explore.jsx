@@ -21,7 +21,7 @@ export default function Explore() {
     <div className="relative min-h-full">
       <div className="aurora" />
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-6">
-        <Link to="/" aria-label="AlumniZone home"><Logo /></Link>
+        <Link to="/" aria-label="CommunityOne home"><Logo /></Link>
         {me ? <nav className="flex gap-2"><ThemeToggle /><Link to="/feed" className="btn btn-primary">Open my feed</Link></nav> : (
           <nav className="flex gap-2">
             <ThemeToggle />
