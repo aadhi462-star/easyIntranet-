@@ -257,3 +257,27 @@ describe('session check', () => {
     assert.equal((await c.get('/api/auth/session')).body.user.id, 'u_sess');
   });
 });
+
+describe('static files', () => {
+  test('a missing asset is a 404, not index.html; page paths still get the app', async () => {
+    const { mkdtemp, writeFile, mkdir } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const path = await import('node:path');
+    const { buildApp } = await import('../app.js');
+    const dir = await mkdtemp(path.join(tmpdir(), 'c1-static-'));
+    await mkdir(path.join(dir, 'assets'));
+    await writeFile(path.join(dir, 'index.html'), '<!doctype html><title>app</title>');
+    await writeFile(path.join(dir, 'assets', 'real.js'), 'export {}');
+    const app = await buildApp({ db: env.db, staticDir: dir });
+    try {
+      assert.equal((await app.inject('/assets/gone-123.js')).statusCode, 404);
+      assert.equal((await app.inject('/assets/real.js')).statusCode, 200);
+      // A file added after startup (a new deploy) is served without a restart.
+      await writeFile(path.join(dir, 'assets', 'later.js'), 'export {}');
+      assert.equal((await app.inject('/assets/later.js')).statusCode, 200);
+      const page = await app.inject('/some/page');
+      assert.equal(page.statusCode, 200);
+      assert.match(page.body, /<title>app<\/title>/);
+    } finally { await app.close(); }
+  });
+});

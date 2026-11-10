@@ -3,7 +3,7 @@
 *One Platform. Every Community.*
 
 Status: **Decisions D1–D4, D6 (default) and D7 (PGlite) approved.** D5 open (email provider).
-**Phase 1 progress (10 Nov 2026):** step 1 (server foundation) and step 2 (authentication and account lifecycle) done and tested; see §14.
+**Phase 1 progress (10 Nov 2026):** steps 1–3 done and tested (server foundation, accounts, profiles and directory); see §14.
 Inputs: the three reference documents (Consolidated requirements, Edge-case register, Revamp roadmap), the Master Development Prompt, and a code-level inspection of the current AlumniZone app (`src/`, ~14,100 lines, 27 pages).
 
 ---
@@ -308,4 +308,16 @@ Security notes:
 - `@fastify/static` is pinned to 10.1.9 (6 days old) instead of a 2-week-old release, because it fixes a moderate advisory (glob/minimatch).
 - `react-router-dom` 6.x has a moderate advisory (open redirect via backslash in `<Link>`/`navigate`) fixed only in 7.x. The app builds its own internal links and validates `?next=` to internal paths; the upgrade is scheduled with the client data-layer work (step 6).
 
-Next: step 3 (profiles, institutions/batches and the alumni directory on the server).
+### Phase 1 — step 3 (10 Nov 2026)
+
+Built:
+- **Alumni structure** (migration 002): institutions → departments, education rows with graduation year (the batch), one primary education per member; experience; profiles with skills, birthday (month/day only), LinkedIn, mentoring, custom fields, contact visibility and directory visibility.
+- **API:** directory search with filters (institution, department, batch, city, company, skill) and pagination; facets; profile view with privacy (contact details hidden unless shared; suspended/hidden members not found for members; deleted members resolve to a placeholder); versioned profile edits with plain-text cleaning and field allow-list; personal data export (password re-entry); institution and department admin with duplicate protection.
+- **Migration:** prototype profiles moved into the new tables (34 profiles, 34 education records, 35 career entries, 5 departments under "The Institute"); blank profiles for accounts without one.
+- **Web app:** People directory searches and pages on the server; profiles refresh from the server; Edit profile saves through the API with department chosen from the institution's list, sends only changed fields, and on a conflict loads the newer copy while keeping the member's edits; the whole directory syncs after sign-in so names and details match across the app.
+
+Tested: 51 server tests (all pass); browser: directory (35 members, 24 per page, department filter), edit with validation, two-tab conflict keeping both changes, phone width.
+
+Bugs found and fixed while testing: unknown fields were silently dropped instead of rejected (framework default); a retried edit after a conflict overwrote the other tab's change (twice: resending unchanged fields, then a baseline captured too late); missing build files were answered with index.html (blank page instead of the reload recovery); new build files weren't served until a restart.
+
+Next: step 4 (connections, home feed, announcements, events foundation, member dashboard).

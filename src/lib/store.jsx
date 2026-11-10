@@ -49,6 +49,14 @@ function core(s, a) {
     case 'login': return { ...s, session: { userId: a.userId } };
     // The server signed this person in. Until profiles move to the API (Phase 1, step 3), the
     // local directory needs a matching record, so add one for accounts created on the server.
+    // Server profiles (lib/people.js) replace the matching local fields; unknown people are added.
+    case 'users/merge': {
+      const byId = new Map(a.users.map((u) => [u.id, u]));
+      const merged = s.users.map((u) => (byId.has(u.id) ? { ...u, ...byId.get(u.id) } : u));
+      const known = new Set(s.users.map((u) => u.id));
+      const added = a.users.filter((u) => !known.has(u.id)).map((u) => ({ joinedAt: Date.now(), skills: [], career: [], ...u }));
+      return { ...s, users: [...merged, ...added] };
+    }
     case 'profile/sync-email': return { ...s, users: mapById(s.users, a.id, (u) => ({ ...u, email: a.email })) };
     case 'session/adopt': {
       const known = s.users.find((u) => u.id === a.user.id);

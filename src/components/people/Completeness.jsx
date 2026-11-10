@@ -1,3 +1,5 @@
+import { api } from '../../lib/api.js';
+import { toLocal } from '../../lib/people.js';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 
@@ -83,7 +85,12 @@ export function CompletenessCard() {
       <div className="flex items-start justify-between gap-2">
         <h2 id="completeness-card-h" className="text-sm font-bold">Your profile is {c.pct}% complete</h2>
         <button type="button" className="btn btn-ghost -mr-1 -mt-1 h-9 w-9 shrink-0 !p-0 text-xs" aria-label="Dismiss profile completeness reminder"
-          onClick={() => dispatch({ type: 'profile/update', silent: true, patch: { completenessDismissed: true } })}>✕</button>
+          onClick={() => {
+            dispatch({ type: 'profile/update', silent: true, patch: { completenessDismissed: true } });
+            // Saved on the server too, so it stays dismissed on other devices.
+            api('/profiles/me', { method: 'PATCH', body: { version: me.profileVersion, completenessDismissed: true } })
+              .then(({ profile }) => dispatch({ type: 'users/merge', users: [toLocal(profile)] })).catch(() => {});
+          }}>✕</button>
       </div>
       <div className="mt-2"><Bar pct={c.pct} label="Profile completeness" /></div>
       <ul className="mt-2 space-y-0.5">

@@ -11,9 +11,15 @@ import { createMailer } from './lib/mailer.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import devRoutes from './routes/dev.js';
+import profileRoutes from './routes/profiles.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
-  const app = Fastify({ logger, trustProxy: true, bodyLimit: 1024 * 1024 });
+  const app = Fastify({
+    logger, trustProxy: true, bodyLimit: 1024 * 1024,
+    // Reject unknown fields instead of silently dropping them, so a request that tries to set
+    // something it shouldn't (status, roles…) fails loudly (SET-08).
+    ajv: { customOptions: { removeAdditional: false, coerceTypes: false, allErrors: false } },
+  });
   const ctx = { db, mailer: mailer ?? createMailer({ db, log: app.log }), secure: secureCookies, appOrigin, rateLimits };
   app.decorate('ctx', ctx);
 
@@ -52,14 +58,22 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   app.get('/api/health', async () => ({ ok: true, db: db.kind }));
   await app.register(authRoutes, { prefix: '/api', ctx });
   await app.register(adminRoutes, { prefix: '/api/admin', ctx });
+  await app.register(profileRoutes, { prefix: '/api', ctx });
   if (process.env.NODE_ENV !== 'production') await app.register(devRoutes, { prefix: '/api/dev', ctx });
 
   if (staticDir) {
-    await app.register(fastifyStatic, { root: staticDir, wildcard: false });
-    // The web app uses hash routing, so every non-API path serves index.html.
-    app.setNotFoundHandler((req, reply) => (req.url.startsWith('/api/')
-      ? reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found.' } })
-      : reply.sendFile('index.html')));
+    // `wildcard` looks files up per request, so a new build is served without a restart
+    // (with wildcard: false the file list is fixed at startup and fresh chunks would 404).
+    await app.register(fastifyStatic, { root: staticDir, wildcard: true });
+    // The web app uses hash routing, so page paths serve index.html. A missing *file* (an old
+    // build's chunk, a typo'd asset) must be a real 404: answering with index.html would make the
+    // browser run HTML as a script, a blank page instead of the app's reload-on-new-build recovery.
+    app.setNotFoundHandler((req, reply) => {
+      const path = req.url.split('?')[0];
+      if (path.startsWith('/api/')) return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found.' } });
+      if (path.startsWith('/assets/') || /\.[a-z0-9]{1,8}$/i.test(path)) return reply.status(404).type('text/plain').send('Not found');
+      return reply.header('cache-control', 'no-cache').sendFile('index.html');
+    });
   }
   return app;
 }

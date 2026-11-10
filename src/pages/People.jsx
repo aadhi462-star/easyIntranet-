@@ -1,8 +1,11 @@
 import UserLabels from '../components/UserLabels.jsx';
 import { Glyph } from '../components/icons.jsx';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore, timeAgo } from '../lib/store.jsx';
+import { api } from '../lib/api.js';
+import { loadProfile, toLocal, useInstitutions } from '../lib/people.js';
+import { toast } from '../lib/toast.js';
 import { statsFor, BADGES } from '../lib/gamify.js';
 import { Avatar, Empty, Field, Modal, PageHeader, Tabs } from '../components/ui.jsx';
 import { CompletenessMeter, completeness } from '../components/people/Completeness.jsx';
@@ -20,8 +23,10 @@ export default function People() {
 
 const uniq = (xs) => [...new Set(xs.filter(Boolean))].sort();
 
+const PAGE_SIZE = 24;
+
 function Directory() {
-  const { state, me } = useStore();
+  const { state, me, dispatch } = useStore();
   const nav = useNavigate();
   const openDm = useOpenDm();
   const [q, setQ] = useState('');
@@ -29,23 +34,37 @@ function Directory() {
   const [view, setView] = useState('grid');
   const [praiseFor, setPraiseFor] = useState(null);
 
-  const opts = useMemo(() => ({
-    batch: uniq(state.users.map((u) => u.batch)).reverse(),
-    dept: uniq(state.users.map((u) => u.dept)),
-    city: uniq(state.users.map((u) => u.city)),
-    company: uniq(state.users.map((u) => u.company)),
-    skill: uniq(state.users.flatMap((u) => u.skills || [])),
-  }), [state.users]);
+  // Search, filters and paging run on the server (only active, listed members come back).
+  const [opts, setOpts] = useState({ batch: [], dept: [], city: [], company: [], skill: [] });
+  const [result, setResult] = useState({ people: [], total: 0, loading: true, error: '' });
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  useEffect(() => {
+    api('/directory/facets').then((r) => setOpts({ batch: r.batches.map(String), dept: r.departments, city: r.cities, company: r.companies, skill: r.skills })).catch(() => {});
+  }, []);
+  useEffect(() => { setLimit(PAGE_SIZE); }, [q, f.batch, f.dept, f.city, f.company, f.skill]);
+  useEffect(() => {
+    let live = true;
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (q.trim()) params.set('q', q.trim());
+    if (f.batch) params.set('batch', f.batch);
+    if (f.dept) params.set('department', f.dept);
+    if (f.city) params.set('city', f.city);
+    if (f.company) params.set('company', f.company);
+    if (f.skill) params.set('skill', f.skill);
+    setResult((r) => ({ ...r, loading: true, error: '' }));
+    const t = setTimeout(() => {
+      api(`/directory?${params}`)
+        .then((r) => { if (live) { setResult({ people: r.people.map(toLocal), total: r.total, loading: false, error: '' }); dispatch({ type: 'users/merge', users: r.people.map(toLocal) }); } })
+        .catch((err) => { if (live) setResult((r) => ({ ...r, loading: false, error: err.message })); });
+    }, q ? 250 : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [q, f.batch, f.dept, f.city, f.company, f.skill, limit, dispatch]);
 
   const { blocked } = useBlocks();
-  const people = state.users.filter((u) => isActiveUser(u) && !blocked.has(u.id));
-  const list = people.filter((u) => {
-    const text = `${u.name} ${u.role} ${u.company} ${u.city} ${u.dept} ${(u.skills || []).join(' ')}`.toLowerCase();
-    return (!q || text.includes(q.toLowerCase()))
-      && (!f.batch || String(u.batch) === f.batch) && (!f.dept || u.dept === f.dept) && (!f.city || u.city === f.city)
-      && (!f.company || u.company === f.company) && (!f.skill || (u.skills || []).includes(f.skill))
-      && (!f.label || (state.userLabels || []).find((l) => l.id === f.label)?.members.includes(u.id));
-  });
+  // Blocks and user labels still live in the app; they're applied to the server's results.
+  const list = result.people.filter((u) => !blocked.has(u.id)
+    && (!f.label || (state.userLabels || []).find((l) => l.id === f.label)?.members.includes(u.id)));
+  const people = { length: result.total };
   const active = Object.values(f).some(Boolean) || q;
 
   return (
@@ -66,7 +85,7 @@ function Directory() {
         {[['batch', 'Batch'], ['dept', 'Department'], ['city', 'City'], ['company', 'Company'], ['skill', 'Skill']].map(([k, label]) => (
           <select key={k} className="input" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} aria-label={label}>
             <option value="">All {label.toLowerCase()}s</option>
-            {opts[k].map((o) => <option key={o} value={o}>{o}</option>)}
+            {opts[k].map((o) => (typeof o === 'object' ? <option key={o.id} value={o.id}>{o.name}</option> : <option key={o} value={o}>{o}</option>))}
           </select>
         ))}
         <select className="input" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} aria-label="Label">
@@ -76,7 +95,9 @@ function Directory() {
         {active && <button className="btn btn-ghost min-h-11 sm:col-span-3 lg:col-span-7" onClick={() => { setQ(''); setF({ batch: '', dept: '', city: '', company: '', label: '', skill: '' }); }}>Clear filters · {list.length} result{list.length === 1 ? '' : 's'}</button>}
       </div>
 
-      {!list.length ? <Empty icon="🔍" title="No one matches those filters">Try removing a filter.</Empty> : view === 'grid' ? (
+      {result.error && <p role="alert" className="mb-4 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">Couldn’t load the directory: {result.error}</p>}
+      {result.loading && !list.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="glass h-40 animate-pulse" />)}</div>
+        : !list.length ? <Empty icon="🔍" title="No one matches those filters">Try removing a filter.</Empty> : view === 'grid' ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((u) => (
             <article key={u.id} className="glass flex flex-col p-5">
@@ -117,6 +138,11 @@ function Directory() {
           ))}
         </div>
       )}
+      {result.total > result.people.length && (
+        <button className="btn btn-ghost mt-5 w-full" disabled={result.loading} onClick={() => setLimit(limit + PAGE_SIZE)}>
+          {result.loading ? 'Loading…' : `Show more · ${result.people.length} of ${result.total}`}
+        </button>
+      )}
       {praiseFor && <PraiseModal toId={praiseFor} onClose={() => setPraiseFor(null)} />}
     </div>
   );
@@ -129,10 +155,16 @@ const ACTIVITY_LABEL = {
 };
 
 function Profile({ id }) {
-  const { state, me, user } = useStore();
+  const { state, me, user, dispatch } = useStore();
   const nav = useNavigate();
   const openDm = useOpenDm();
-  const u = user(id);
+  // The server decides who can be seen (suspended or hidden accounts come back as not found).
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    setMissing(false);
+    loadProfile(id, dispatch).catch((err) => { if (err.status === 404) setMissing(true); });
+  }, [id, dispatch]);
+  const u = missing ? null : user(id);
   const [tab, setTab] = useState('about');
   // false, or the Edit profile field to focus ('1' = none in particular).
   const [editing, setEditing] = useState(false);
@@ -338,11 +370,25 @@ function UserPosts({ userId }) {
 
 function EditProfile({ onClose, focus }) {
   const { state, me, dispatch } = useStore();
+  const institutions = useInstitutions();
+  const primaryEdu = (me.education || []).find((e) => e.isPrimary) ?? me.education?.[0];
+  const [edu, setEdu] = useState({ institutionId: primaryEdu?.institutionId ?? '', departmentId: primaryEdu?.departmentId ?? '' });
+  const baseEdu = useRef(edu);
+  useEffect(() => { if (institutions?.length && !edu.institutionId) setEdu((x) => ({ ...x, institutionId: institutions[0].id })); }, [institutions]); // eslint-disable-line react-hooks/exhaustive-deps
+  const departments = institutions?.find((i) => i.id === edu.institutionId)?.departments ?? [];
+  const [busy, setBusy] = useState(false);
   const hasCareer = (me.career || []).some((c) => c.title?.trim() && c.org?.trim());
-  const [d, setD] = useState(() => ({ name: me.name, title: me.title || '', role: me.role || '', company: me.company || '', city: me.city || '', batch: me.batch, dept: me.dept || '', bio: me.bio || '',
-    privacy: { contact: me.privacy?.contact ?? 'everyone' }, skills: [...(me.skills || [])], career: [...(focus === 'career' && !hasCareer ? [{ title: '', org: '', from: new Date().getFullYear(), to: null }] : []), ...(me.career || []).map((c) => ({ ...c }))],
-    customFields: { ...(me.customFields || {}) } }));
-  const [bday, setBday] = useState(() => { const [m = '', dd = ''] = isValidBirthday(me.birthday) ? me.birthday.split('-') : []; return { m, d: dd }; });
+  const formOf = (u, extraCareer = []) => ({ name: u.name, title: u.title || '', role: u.role || '', company: u.company || '', city: u.city || '', batch: u.batch, dept: u.dept || '', bio: u.bio || '',
+    privacy: { contact: u.privacy?.contact ?? 'everyone' }, skills: [...(u.skills || [])], career: [...extraCareer, ...(u.career || []).map((c) => ({ ...c }))],
+    customFields: { ...(u.customFields || {}) } });
+  const bdayOf = (u) => { const [m = '', dd = ''] = isValidBirthday(u.birthday) ? u.birthday.split('-') : []; return { m, d: dd }; };
+  const [d, setD] = useState(() => formOf(me, focus === 'career' && !hasCareer ? [{ title: '', org: '', from: new Date().getFullYear(), to: null }] : []));
+  const [bday, setBday] = useState(() => bdayOf(me));
+  // What the form started from. Only fields that differ from it are sent, so saving can't
+  // overwrite changes made elsewhere to fields this edit didn't touch (USR-10).
+  const base = useRef(null);
+  if (!base.current) base.current = { d, bday, edu: null };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   // Runs after the Modal's own autofocus, so the field the member asked to fill wins.
   useEffect(() => {
     const id = focus === 'career' ? 'ep-career-0-title' : `ep-${focus}`;
@@ -385,9 +431,57 @@ function EditProfile({ onClose, focus }) {
       setTimeout(() => document.querySelector('[aria-invalid="true"]')?.focus(), 0);
       return;
     }
-    dispatch({ type: 'profile/update', patch: { ...d, name, birthday, batch: blank(d.batch) ? null : Number(d.batch),
-      career: career.map((c) => ({ ...c, title: c.title.trim(), org: c.org.trim(), from: blank(c.from) ? null : Number(c.from), to: blank(c.to) ? null : Number(c.to) })) } });
-    onClose();
+    const { linkedin, mentor, ...otherFields } = d.customFields;
+    const b0 = base.current.d;
+    const changed = (k) => !same(d[k], b0[k]);
+    const body = { version: me.profileVersion };
+    if (changed('name')) body.name = name;
+    if (changed('title')) body.headline = d.title;
+    if (changed('role')) body.jobTitle = d.role;
+    if (changed('company')) body.company = d.company;
+    if (changed('city')) body.city = d.city;
+    if (changed('bio')) body.bio = d.bio;
+    if (changed('skills')) body.skills = d.skills;
+    if (!same(bday, base.current.bday)) body.birthday = birthday;
+    if (changed('customFields')) {
+      body.linkedin = linkedin || null;
+      body.mentorOpen = mentor === 'Yes';
+      body.customFields = Object.fromEntries(Object.entries(otherFields).filter(([, v]) => v != null && v !== ''));
+    }
+    if (changed('privacy')) body.contactVisibility = d.privacy.contact === 'following' ? 'connections' : d.privacy.contact;
+    if (changed('batch') || !same(edu, baseEdu.current)) {
+      body.education = edu.institutionId && (!blank(d.batch) || edu.departmentId)
+        ? [{ institutionId: edu.institutionId, departmentId: edu.departmentId || null, gradYear: blank(d.batch) ? null : Number(d.batch), isPrimary: true }] : [];
+    }
+    if (changed('career')) body.experience = career.map((c) => ({ title: c.title.trim(), org: c.org.trim(), fromYear: blank(c.from) ? null : Number(c.from), toYear: blank(c.to) ? null : Number(c.to) }));
+    if (Object.keys(body).length === 1) { onClose(); return; } // nothing changed
+    setBusy(true);
+    api('/profiles/me', { method: 'PATCH', body })
+      .then(({ profile }) => { dispatch({ type: 'users/merge', users: [toLocal(profile)] }); toast('Profile saved'); onClose(); })
+      .catch((err) => {
+        if (err.code === 'STALE_VERSION') {
+          // Pull in the newer copy: fields this edit didn't touch take the fresh values, the
+          // member's own changes are kept, and the next save sends only those changes.
+          loadProfile(me.id, dispatch).then((fresh) => {
+            const f = toLocal(fresh);
+            const fd = formOf(f); const fb = bdayOf(f);
+            const fe = { institutionId: (f.education.find((x) => x.isPrimary) ?? f.education[0])?.institutionId ?? edu.institutionId, departmentId: (f.education.find((x) => x.isPrimary) ?? f.education[0])?.departmentId ?? '' };
+            // Capture the old baseline first: the updaters below run at the next render, after
+            // base.current has already been replaced with the fresh copy.
+            const old = base.current; const oldEdu = baseEdu.current;
+            setD((cur) => Object.fromEntries(Object.keys(cur).map((k) => [k, same(cur[k], old.d[k]) ? fd[k] : cur[k]])));
+            setBday((cur) => (same(cur, old.bday) ? fb : cur));
+            setEdu((cur) => (same(cur, oldEdu) ? fe : cur));
+            base.current = { d: fd, bday: fb };
+            baseEdu.current = fe;
+          }).catch(() => {});
+        }
+        const field = err.extra?.field;
+        const key = field === 'jobTitle' ? 'role' : field === 'headline' ? 'title' : field?.startsWith('experience') ? 'career0' : field === 'education' ? 'batch' : field;
+        setErrors({ ...(key ? { [key]: err.message } : {}), form: err.code === 'STALE_VERSION' ? 'Your profile was changed somewhere else. We’ve loaded the latest version and kept your edits — check them and save again.' : err.message });
+        setTimeout(() => document.querySelector('[aria-invalid="true"]')?.focus(), 0);
+      })
+      .finally(() => setBusy(false));
   };
   const errText = (k) => errors[k] && <span role="alert" className="mt-1 block text-xs text-rose-300">{errors[k]}</span>;
   return (
@@ -400,7 +494,19 @@ function EditProfile({ onClose, focus }) {
           <Field label="Company"><input id="ep-company" className="input" value={d.company} onChange={set('company')} /></Field>
           <Field label="City"><input id="ep-city" className="input" value={d.city} onChange={set('city')} /></Field>
           <Field label="Batch"><input id="ep-batch" className="input" type="number" min="1950" max={maxYear} value={d.batch ?? ''} onChange={set('batch')} aria-invalid={!!errors.batch} />{errText('batch')}</Field>
-          <div className="sm:col-span-2"><Field label="Department"><input id="ep-dept" className="input" value={d.dept} onChange={set('dept')} /></Field></div>
+          {(institutions?.length ?? 0) > 1 && (
+            <div className="sm:col-span-2"><Field label="Institution">
+              <select id="ep-institution" className="input" value={edu.institutionId} onChange={(e) => setEdu({ institutionId: e.target.value, departmentId: '' })}>
+                {institutions.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </Field></div>
+          )}
+          <div className="sm:col-span-2"><Field label="Department">
+            <select id="ep-dept" className="input" value={edu.departmentId} onChange={(e) => setEdu({ ...edu, departmentId: e.target.value })} disabled={!institutions}>
+              <option value="">{institutions ? 'Not set' : 'Loading…'}</option>
+              {departments.map((dep) => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
+            </select>
+          </Field></div>
         </div>
         <Field label="About" hint={`${d.bio.trim().length} characters${d.bio.trim().length < 40 ? ' · 40+ makes your profile complete' : ''}`}><textarea id="ep-bio" className="input min-h-24" value={d.bio} onChange={set('bio')} /></Field>
         <fieldset>
@@ -457,7 +563,8 @@ function EditProfile({ onClose, focus }) {
             ))}
           </div>
         )}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className="btn btn-ghost min-h-11" onClick={onClose}>Cancel</button><button className="btn btn-primary min-h-11">Save profile</button></div>
+        {errors.form && <p role="alert" className="text-sm text-rose-300">{errors.form}</p>}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className="btn btn-ghost min-h-11" onClick={onClose}>Cancel</button><button className="btn btn-primary min-h-11" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button></div>
       </form>
     </Modal>
   );

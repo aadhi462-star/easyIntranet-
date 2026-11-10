@@ -24,14 +24,17 @@ if (process.argv.includes('--reset')) {
 
 const db = await createDb({ dataDir });
 await migrate(db, { log: console.log });
+const proto = JSON.parse(await readFile(path.join(root, 'server', 'seed', 'prototype.json'), 'utf8'));
 const existing = (await db.query(`select count(*)::int as n from users`)).rows[0].n;
 if (existing) {
-  console.log(`database already has ${existing} accounts — nothing seeded (use --reset to start over)`);
-  await db.close();
-  process.exit(0);
+  console.log(`database already has ${existing} accounts — accounts not re-seeded (use --reset to start over)`);
+} else {
+  await seedAccounts();
 }
+await seedProfiles();
+await db.close();
 
-const proto = JSON.parse(await readFile(path.join(root, 'server', 'seed', 'prototype.json'), 'utf8'));
+async function seedAccounts() {
 const statusOf = (u) => (u.deactivated || u.status === 'deactivated' ? 'deactivated' : u.status === 'pending' ? 'pending_approval' : 'active');
 
 await db.tx(async (t) => {
@@ -52,4 +55,42 @@ await db.tx(async (t) => {
 const counts = (await db.query(`select status, count(*)::int as n from users group by status order by status`)).rows;
 const roles = (await db.query(`select role, count(*)::int as n from platform_roles group by role order by role`)).rows;
 console.log('seeded users', counts, 'roles', roles);
-await db.close();
+}
+
+// Moves prototype profiles into profiles / education / experience. Runs once (when no
+// institution exists yet); afterwards it only gives any account without a profile a blank one.
+async function seedProfiles() {
+  const hasInstitution = (await db.query(`select count(*)::int as n from institutions`)).rows[0].n > 0;
+  if (!hasInstitution) {
+    await db.tx(async (t) => {
+      await t.query(`insert into institutions (id, name, short_name, city, country) values ('ins_main', 'The Institute', 'TI', 'Bengaluru', 'India')`);
+      const depts = [...new Set(proto.users.map((u) => u.dept).filter(Boolean))].sort();
+      const deptId = Object.fromEntries(depts.map((d, i) => [d, `dep_${String(i + 1).padStart(2, '0')}`]));
+      for (const d of depts) await t.query(`insert into departments (id, institution_id, name) values ($1, 'ins_main', $2)`, [deptId[d], d]);
+      const ids = new Set((await t.query(`select id from users`)).rows.map((r) => r.id));
+      for (const u of proto.users) {
+        if (!ids.has(u.id)) continue;
+        const cf = { ...(u.customFields || {}) };
+        const linkedin = cf.linkedin || null; const mentor = cf.mentor === 'Yes';
+        delete cf.linkedin; delete cf.mentor;
+        await t.query(
+          `insert into profiles (user_id, headline, bio, city, company, job_title, skills, birthday, linkedin, mentor_open, custom_fields, avatar_hue, contact_visibility)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) on conflict (user_id) do nothing`,
+          [u.id, u.title || null, u.bio || null, u.city || null, u.company || null, u.role || null, u.skills || [], u.birthday || null,
+            linkedin, mentor, JSON.stringify(cf), u.hue ?? 200, u.privacy?.contact === 'nobody' ? 'nobody' : u.privacy?.contact === 'following' ? 'connections' : 'everyone']);
+        if (u.batch || u.dept) {
+          await t.query(`insert into education (user_id, institution_id, department_id, grad_year, is_primary) values ($1, 'ins_main', $2, $3, true)`,
+            [u.id, deptId[u.dept] ?? null, u.batch ?? null]);
+        }
+        for (const [i, c] of (u.career || []).entries()) {
+          if (!c.title || !c.org) continue;
+          await t.query(`insert into experience (user_id, title, org, from_year, to_year, position) values ($1, $2, $3, $4, $5, $6)`, [u.id, c.title, c.org, c.from ?? null, c.to ?? null, i]);
+        }
+      }
+    });
+  }
+  const filled = await db.query(`insert into profiles (user_id) select id from users u where not exists (select 1 from profiles p where p.user_id = u.id) returning user_id`);
+  const n = (q) => db.query(q).then((r) => r.rows[0].n);
+  console.log('profiles', { profiles: await n(`select count(*)::int as n from profiles`), education: await n(`select count(*)::int as n from education`),
+    experience: await n(`select count(*)::int as n from experience`), departments: await n(`select count(*)::int as n from departments`), blankProfilesAdded: filled.rows.length });
+}

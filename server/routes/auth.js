@@ -77,6 +77,7 @@ export default async function authRoutes(app, { ctx }) {
     try {
       const token = await db.tx(async (t) => {
         await t.query(`insert into users (id, email, name, password_hash) values ($1, $2, $3, $4)`, [id, email, name, passwordHash]);
+        await t.query(`insert into profiles (user_id, avatar_hue) values ($1, $2)`, [id, Math.floor(Math.random() * 360)]);
         return issueToken(t, id, 'verify_email');
       });
       await mailer.send(email, 'verify_email', { name, link: link(req, 'verify', token) });

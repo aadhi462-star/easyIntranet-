@@ -29,6 +29,7 @@ export function client(app) {
     get: (url, headers) => call('GET', url, undefined, headers),
     post: (url, body = {}, headers) => call('POST', url, body, headers),
     put: (url, body = {}, headers) => call('PUT', url, body, headers),
+    patch: (url, body = {}, headers) => call('PATCH', url, body, headers),
   };
 }
 

@@ -5,8 +5,8 @@ channels, tasks and boards, files, manuals, people directory, recognition and an
 console — built with React, Vite and Tailwind CSS. Everything is free to use; there are no
 paid tiers or external integrations.
 
-All data is demo data kept in the browser (localStorage). People, places and organisations
-in it are fictional.
+Accounts, sessions and profiles live on the CommunityOne server; other features are still
+moving there from the browser prototype. All demo data is fictional.
 
 ## Run it
 

@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Last updated 10 Nov 2026 (Phase 1, steps 1–2). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 10 Nov 2026 (Phase 1, steps 1–3). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -44,16 +44,16 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–2). Status values: **Not run**, **P
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| USR-01 | P1 | 1 | User submits a blank name or required profile field. | Reject invalid required fields and identify what must be completed. | Not run | |
-| USR-02 | P0 | 1 | Profile contains very long text, unsupported characters or script/HTML payloads. | Enforce limits and safely encode/sanitise displayed content. | Not run | |
-| USR-03 | P1 | 1 | User uploads an unsupported, oversized or corrupted avatar/cover image. | Reject the file with a clear explanation; retain the previous image. | Not run | |
-| USR-04 | P1 | 1 | User removes a profile photo while cached copies remain. | Use the default image and ensure private media is not exposed through stale URLs. | Not run | |
-| USR-05 | P2 | 1 | User changes display name while posts and comments exist. | Update profile references consistently without breaking attribution or audit records. | Not run | |
+| USR-01 | P1 | 1 | User submits a blank name or required profile field. | Reject invalid required fields and identify what must be completed. | Pass | server/test/profiles.test.js USR-01; browser 10 Nov: blank name caught in Edit profile |
+| USR-02 | P0 | 1 | Profile contains very long text, unsupported characters or script/HTML payloads. | Enforce limits and safely encode/sanitise displayed content. | Pass | server/test/profiles.test.js USR-02 (stored as text, escaped on display; control chars dropped; length limits) |
+| USR-03 | P1 | 1 | User uploads an unsupported, oversized or corrupted avatar/cover image. | Reject the file with a clear explanation; retain the previous image. | Blocked | Avatars are generated initials; image upload arrives with secure file storage (Phase 2) |
+| USR-04 | P1 | 1 | User removes a profile photo while cached copies remain. | Use the default image and ensure private media is not exposed through stale URLs. | Blocked | Same as USR-03 |
+| USR-05 | P2 | 1 | User changes display name while posts and comments exist. | Update profile references consistently without breaking attribution or audit records. | Pass | server/test/profiles.test.js USR-05 (directory reflects new name) |
 | USR-06 | P0 | 1 | Platform Admin suspends or reactivates a user while they are actively using the platform. | Apply the status consistently across sessions, communities, events and LMS actions. | Pass | server/test/admin.test.js REG-13/USR-06 |
-| USR-07 | P0 | 1 | User is removed from one community but remains a member of others. | Revoke only the relevant community access; preserve other memberships. | Not run | |
-| USR-08 | P1 | 1 | User requests personal data export or account deletion. | Verify identity, apply retention/legal rules and report completion/failure clearly. | Not run | |
-| USR-09 | P1 | 1 | User is deleted but their content is retained under a retention policy. | Anonymise or attribute content according to policy; do not leave broken profile links. | Pass | server/test/auth.test.js USR-09 (anonymised, sessions ended) |
-| USR-10 | P1 | 1 | Two administrators edit the same user record simultaneously. | Prevent silent overwrites; show latest state or resolve conflicts with audit history. | Not run | |
+| USR-07 | P0 | 1 | User is removed from one community but remains a member of others. | Revoke only the relevant community access; preserve other memberships. | Blocked | Community memberships arrive in Phase 2 |
+| USR-08 | P1 | 1 | User requests personal data export or account deletion. | Verify identity, apply retention/legal rules and report completion/failure clearly. | Pass | server/test/profiles.test.js USR-08 (password re-entry; export of account, profile, sessions, activity) |
+| USR-09 | P1 | 1 | User is deleted but their content is retained under a retention policy. | Anonymise or attribute content according to policy; do not leave broken profile links. | Pass | server/test/auth.test.js USR-09; server/test/profiles.test.js USR-09 placeholder profile |
+| USR-10 | P1 | 1 | Two administrators edit the same user record simultaneously. | Prevent silent overwrites; show latest state or resolve conflicts with audit history. | Pass | server/test/profiles.test.js USR-10 version check; browser 10 Nov: two-tab edit keeps both changes |
 
 ## 3. Community Creation and Setup
 
@@ -337,7 +337,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–2). Status values: **Not run**, **P
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| SYS-01 | P1 | 4 | Large community feed or member list is loaded without pagination. | Use pagination/limits and prevent memory/performance degradation. | Not run | |
+| SYS-01 | P1 | 4 | Large community feed or member list is loaded without pagination. | Use pagination/limits and prevent memory/performance degradation. | Pass | server/test/profiles.test.js pagination with total; browser 10 Nov: directory shows 24 of 35 + Show more |
 | SYS-02 | P1 | 4 | High-volume posting or notification activity occurs suddenly. | Apply rate limits, queues and back-pressure without losing accepted records. | Not run | |
 | SYS-03 | P0 | 1 | Database/service is unavailable during a write. | Do not show success unless committed; allow safe retry and preserve consistency. | Not run | |
 | SYS-04 | P0 | 1 | Background job runs twice after retry or worker restart. | Make jobs idempotent and prevent duplicate emails, certificates or deletion actions. | Not run | |

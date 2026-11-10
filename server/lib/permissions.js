@@ -8,10 +8,10 @@ import { forbidden, unauthorized } from './errors.js';
 const ROLE_PERMISSIONS = {
   super_admin: ['*'],
   platform_admin: [
-    'users.view', 'users.manage', 'users.suspend', 'users.approve', 'roles.assign.staff',
+    'users.view', 'users.manage', 'users.suspend', 'users.approve', 'roles.assign.staff', 'institutions.manage',
     'communities.*', 'learning.*', 'moderation.*', 'settings.platform', 'analytics.platform', 'audit.view',
   ],
-  user_manager: ['users.view', 'users.manage', 'users.suspend', 'users.approve'],
+  user_manager: ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'institutions.manage'],
   community_manager: ['communities.*'],
   lms_manager: ['learning.*'],
   trust_safety: ['moderation.*', 'users.view', 'users.suspend'],

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { api } from '../../lib/api.js';
 import { useStore } from '../../lib/store.jsx';
+import { syncDirectory } from '../../lib/people.js';
 
 /**
  * Keeps the app's signed-in person in step with the server session, which is the authority:
@@ -10,6 +11,12 @@ import { useStore } from '../../lib/store.jsx';
 export default function AuthSync() {
   const { state, dispatch } = useStore();
   const localId = state.session?.userId ?? null;
+
+  // Once per signed-in person: bring the directory in from the server.
+  useEffect(() => {
+    if (!localId) return;
+    syncDirectory(dispatch).catch(() => { /* offline: the local copy stays usable */ });
+  }, [localId, dispatch]);
 
   useEffect(() => {
     let cancelled = false;
