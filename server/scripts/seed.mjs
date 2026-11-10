@@ -33,6 +33,7 @@ if (existing) {
 }
 await seedProfiles();
 await seedConnections();
+await seedCommunities();
 await db.close();
 
 async function seedAccounts() {
@@ -114,4 +115,70 @@ async function seedConnections() {
     }
   });
   console.log('connections', { fromFollows: made });
+}
+
+// Groups → communities (same ids; public→public, restricted→private, private→closed), plus the
+// default "AlumniZone" community for network-wide content (decision D3). Posts, comments,
+// likes, moods, polls and Mandatory Read acknowledgements come across. Runs once.
+async function seedCommunities() {
+  if ((await db.query(`select count(*)::int as n from communities`)).rows[0].n) return;
+  const active = new Set((await db.query(`select id from users where status = 'active'`)).rows.map((r) => r.id));
+  const VIS = { public: 'public', restricted: 'private', private: 'closed' };
+  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+  const counts = { communities: 0, memberships: 0, posts: 0, comments: 0, reactions: 0, votes: 0, acks: 0 };
+  await db.tx(async (t) => {
+    const add = async (c, members) => {
+      await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [c.id, slug(c.name), c.name, c.description || null, c.category || null, c.emoji || null, c.visibility, c.owner, JSON.stringify(c.settings || {})]);
+      counts.communities += 1;
+      for (const [uid, role] of members) {
+        if (!active.has(uid)) continue;
+        await t.query(`insert into memberships (community_id, user_id, role, state, joined_at) values ($1, $2, $3, 'active', now()) on conflict do nothing`, [c.id, uid, role]);
+        counts.memberships += 1;
+      }
+    };
+    const net = proto.settings?.networkName || 'AlumniZone';
+    await add({ id: 'alumnizone', name: net, description: proto.settings?.tagline || 'The alumni community.', category: 'Alumni', emoji: '🎓', visibility: 'public', owner: 'u7' },
+      [...active].map((uid) => [uid, uid === 'u7' ? 'owner' : proto.users.find((u) => u.id === uid)?.admin ? 'admin' : 'member']));
+    for (const g of proto.groups || []) {
+      const owner = (g.admins || []).find((x) => active.has(x)) ?? g.members.find((x) => active.has(x));
+      const role = (uid) => (uid === owner ? 'owner' : (g.admins || []).includes(uid) ? 'admin' : (g.moderators || []).includes(uid) ? 'moderator' : 'member');
+      await add({ id: g.id, name: g.name, description: g.description, category: g.type, emoji: g.emoji, visibility: VIS[g.accessType] || 'public', owner },
+        [...new Set(g.members)].map((uid) => [uid, role(uid)]));
+      for (const uid of g.joinRequests || []) {
+        if (active.has(uid)) await t.query(`insert into memberships (community_id, user_id, state) values ($1, $2, 'pending') on conflict do nothing`, [g.id, uid]);
+      }
+    }
+    const ids = new Set((await t.query(`select id from communities`)).rows.map((r) => r.id));
+    for (const p of proto.posts || []) {
+      const cid = p.scope?.type === 'network' ? 'alumnizone' : p.scope?.type === 'group' ? p.scope.id : null;
+      if (!cid || !ids.has(cid) || !active.has(p.authorId) || !String(p.text || '').trim()) continue;
+      const status = ['draft', 'scheduled', 'pending'].includes(p.status) ? p.status : 'published';
+      const type = ['post', 'announcement', 'question', 'poll'].includes(p.type) ? p.type : 'post';
+      const at = new Date(p.createdAt || Date.now());
+      const mandatory = p.mandatory ? { message: p.mandatory.message, button: p.mandatory.button, deadline: p.mandatory.deadline ? new Date(p.mandatory.deadline).toISOString() : null } : null;
+      await t.query(`insert into posts (id, community_id, author_id, type, body, status, publish_at, pinned, mentions, mandatory, created_at, published_at)
+        values ($1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, $11::timestamptz, case when $6::text = 'published' then $11::timestamptz end)`,
+        [p.id, cid, p.authorId, type, String(p.text).slice(0, 5000), status, p.publishAt ? new Date(p.publishAt) : null, !!p.pinned,
+          (p.mentions || []).filter((m) => active.has(m)), mandatory ? JSON.stringify(mandatory) : null, at]);
+      counts.posts += 1;
+      for (const c of p.comments || []) {
+        if (!active.has(c.authorId) || !String(c.text || '').trim()) continue;
+        await t.query(`insert into comments (id, post_id, author_id, body, created_at) values ($1, $2, $3, $4, $5)`, [c.id, p.id, c.authorId, String(c.text).slice(0, 2000), new Date(c.createdAt || at)]);
+        counts.comments += 1;
+      }
+      for (const uid of p.likes || []) if (active.has(uid)) { await t.query(`insert into reactions (post_id, user_id, kind) values ($1, $2, 'like') on conflict do nothing`, [p.id, uid]); counts.reactions += 1; }
+      for (const [uid, mood] of Object.entries(p.reactions || {})) {
+        if (active.has(uid) && ['happy', 'neutral', 'sad'].includes(mood)) { await t.query(`insert into reactions (post_id, user_id, kind) values ($1, $2, $3) on conflict do nothing`, [p.id, uid, mood]); counts.reactions += 1; }
+      }
+      if (type === 'poll') {
+        for (const [i, o] of (p.poll?.options || []).entries()) {
+          await t.query(`insert into poll_options (id, post_id, label, position) values ($1, $2, $3, $4)`, [o.id, p.id, String(o.text).slice(0, 120), i]);
+          for (const uid of o.votes || []) if (active.has(uid)) { await t.query(`insert into poll_votes (post_id, user_id, option_id) values ($1, $2, $3) on conflict do nothing`, [p.id, uid, o.id]); counts.votes += 1; }
+        }
+      }
+      for (const uid of p.mandatory?.acks || []) if (active.has(uid)) { await t.query(`insert into post_acks (post_id, user_id) values ($1, $2) on conflict do nothing`, [p.id, uid]); counts.acks += 1; }
+    }
+  });
+  console.log('communities', counts);
 }

@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 10 Nov 2026 (Phase 1, steps 1–4b server). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -35,7 +35,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **
 | REG-12 | P0 | 1 | User changes password while other sessions are active. | Apply the defined session-revocation policy; invalidate compromised sessions/tokens where required. | Pass | server/test/auth.test.js REG-11/12, REG-12 change; browser 10 Nov: reset signs out everywhere |
 | REG-13 | P0 | 1 | Account is suspended while user is logged in on another device. | Revoke or block protected actions across sessions and APIs promptly. | Pass | server/test/admin.test.js REG-13/USR-06; browser 10 Nov: revoked session signs the tab out on focus |
 | REG-14 | P1 | 1 | Deactivated user attempts to log in or register again with the same identity. | Apply the account reactivation/deletion policy; do not create an unintended duplicate identity. | Pass | server/test/auth.test.js REG-14 |
-| REG-15 | P0 | 1 | User deletes their account while they own a community or teach courses. | Require ownership/course transfer or a managed handover before deletion completes. | Blocked | Super Admin handover enforced (server/test/auth.test.js REG-15); community ownership and courses arrive in Phases 2–3 |
+| REG-15 | P0 | 1 | User deletes their account while they own a community or teach courses. | Require ownership/course transfer or a managed handover before deletion completes. | Pass | server/test/auth.test.js (Super Admin) + server/test/communities.test.js REG-15 / COM-09 (community ownership); courses join in Phase 3 |
 | REG-16 | P1 | 1 | User has multiple tabs submitting registration or profile changes. | Prevent duplicate creation and resolve conflicting updates predictably. | Pass | server/test/auth.test.js idempotent retry; browser 10 Nov: double click → one account, one email |
 | REG-17 | P0 | 1 | Login attempts exceed allowed limits or originate from suspicious patterns. | Apply rate limits, throttling or additional verification without exposing security details. | Pass | server/test/auth.test.js REG-17 lockout + rate limiting |
 | REG-18 | P0 | 1 | User attempts to use a revoked session, API token or refresh token. | Reject the request and require fresh authentication. | Pass | server/test/auth.test.js REG-18 |
@@ -50,7 +50,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **
 | USR-04 | P1 | 1 | User removes a profile photo while cached copies remain. | Use the default image and ensure private media is not exposed through stale URLs. | Blocked | Same as USR-03 |
 | USR-05 | P2 | 1 | User changes display name while posts and comments exist. | Update profile references consistently without breaking attribution or audit records. | Pass | server/test/profiles.test.js USR-05 (directory reflects new name) |
 | USR-06 | P0 | 1 | Platform Admin suspends or reactivates a user while they are actively using the platform. | Apply the status consistently across sessions, communities, events and LMS actions. | Pass | server/test/admin.test.js REG-13/USR-06 |
-| USR-07 | P0 | 1 | User is removed from one community but remains a member of others. | Revoke only the relevant community access; preserve other memberships. | Blocked | Community memberships arrive in Phase 2 |
+| USR-07 | P0 | 1 | User is removed from one community but remains a member of others. | Revoke only the relevant community access; preserve other memberships. | Pass | server/test/communities.test.js MEM-08 (other memberships unaffected) |
 | USR-08 | P1 | 1 | User requests personal data export or account deletion. | Verify identity, apply retention/legal rules and report completion/failure clearly. | Pass | server/test/profiles.test.js USR-08 (password re-entry; export of account, profile, sessions, activity) |
 | USR-09 | P1 | 1 | User is deleted but their content is retained under a retention policy. | Anonymise or attribute content according to policy; do not leave broken profile links. | Pass | server/test/auth.test.js USR-09; server/test/profiles.test.js USR-09 placeholder profile |
 | USR-10 | P1 | 1 | Two administrators edit the same user record simultaneously. | Prevent silent overwrites; show latest state or resolve conflicts with audit history. | Pass | server/test/profiles.test.js USR-10 version check; browser 10 Nov: two-tab edit keeps both changes |
@@ -67,7 +67,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **
 | COM-06 | P0 | 2 | Network drops after server creates community but before client receives confirmation. | On retry, detect the existing creation and avoid duplicates. | Not run | |
 | COM-07 | P1 | 2 | Platform Admin disables community creation while a user is in the creation wizard. | Block final submission and explain that creation is currently unavailable. | Not run | |
 | COM-08 | P0 | 2 | Creator is suspended during setup or immediately after publishing. | Prevent prohibited actions and preserve community ownership through an authorised reassignment process. | Not run | |
-| COM-09 | P0 | 2 | Creator account is deleted or becomes inaccessible. | Trigger ownership transfer/recovery; do not orphan the community. | Not run | |
+| COM-09 | P0 | 2 | Creator account is deleted or becomes inaccessible. | Trigger ownership transfer/recovery; do not orphan the community. | Pass | server/test/communities.test.js REG-15 / COM-09 |
 | COM-10 | P1 | 2 | Required category, rules or other mandatory field is missing. | Prevent publication and identify missing fields. | Not run | |
 | COM-11 | P1 | 2 | Community requires approval before publication but user expects instant creation. | Show Pending Approval state and prevent premature public discovery. | Not run | |
 | COM-12 | P2 | 2 | User opens multiple creation wizards and submits different drafts. | Handle independent drafts safely and prevent accidental cross-population. | Not run | |
@@ -77,18 +77,18 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| VIS-01 | P0 | 2 | Visitor opens a private community page directly by URL. | Show only permitted public metadata or an access-denied/join-request state; never expose protected content. | Not run | |
-| VIS-02 | P0 | 2 | Visitor opens a private post, file or member profile endpoint directly. | Deny access server-side; do not rely on hidden UI controls. | Not run | |
-| VIS-03 | P0 | 2 | Non-invited user opens a closed community URL. | Deny access and do not reveal protected content or member details. | Not run | |
-| VIS-04 | P0 | 2 | Closed community appears in search, recommendations, sitemap or public API. | Exclude it from all public discovery surfaces. | Not run | |
-| VIS-05 | P0 | 2 | Public community changes to Private while a visitor is viewing it. | Recheck permissions on subsequent requests and immediately protect restricted content. | Not run | |
+| VIS-01 | P0 | 2 | Visitor opens a private community page directly by URL. | Show only permitted public metadata or an access-denied/join-request state; never expose protected content. | Pass | server/test/communities.test.js VIS-01/02 |
+| VIS-02 | P0 | 2 | Visitor opens a private post, file or member profile endpoint directly. | Deny access server-side; do not rely on hidden UI controls. | Pass | server/test/communities.test.js VIS-01/02 |
+| VIS-03 | P0 | 2 | Non-invited user opens a closed community URL. | Deny access and do not reveal protected content or member details. | Pass | server/test/communities.test.js VIS-03 |
+| VIS-04 | P0 | 2 | Closed community appears in search, recommendations, sitemap or public API. | Exclude it from all public discovery surfaces. | Pass | server/test/communities.test.js VIS-04 |
+| VIS-05 | P0 | 2 | Public community changes to Private while a visitor is viewing it. | Recheck permissions on subsequent requests and immediately protect restricted content. | Pass | server/test/communities.test.js VIS-05 |
 | VIS-06 | P0 | 2 | Private community changes to Closed. | Remove it from discovery and require a valid invitation for new access. | Not run | |
 | VIS-07 | P1 | 2 | Closed community changes to Public. | Apply public visibility consistently while preserving role and membership rules. | Not run | |
 | VIS-08 | P0 | 2 | Search engine or application cache contains content after visibility is restricted. | Purge/invalidate protected cached data; stale caches must not reveal content. | Not run | |
 | VIS-09 | P0 | 2 | A previously valid invitation is forwarded to another person. | Apply invitation binding/eligibility rules; forwarded access must not bypass intended restrictions. | Not run | |
 | VIS-10 | P0 | 2 | Invitation is expired, revoked or already consumed. | Reject it and show a safe next step; do not grant membership. | Not run | |
 | VIS-11 | P0 | 2 | Community member list is configured as private but appears in previews or API responses. | Hide member details everywhere from unauthorised users. | Not run | |
-| VIS-12 | P0 | 2 | User is removed or blocked while viewing community content in another tab. | Subsequent requests must fail; cached protected content should be cleared where feasible. | Not run | |
+| VIS-12 | P0 | 2 | User is removed or blocked while viewing community content in another tab. | Subsequent requests must fail; cached protected content should be cleared where feasible. | Pass | server/test/communities.test.js MEM-08 / VIS-12 |
 | VIS-13 | P1 | 2 | Visibility changes while a join request is pending. | Re-evaluate the request against the new policy; do not auto-grant access unexpectedly. | Not run | |
 | VIS-14 | P1 | 2 | Community is archived but remains in Explore or recommendations. | Remove it from active discovery and clearly communicate archived state to existing members. | Not run | |
 | VIS-15 | P0 | 2 | User accesses private media through a copied CDN/file URL. | Require authorised, expiring access rather than relying on URL secrecy. | Not run | |
@@ -97,64 +97,64 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| MEM-01 | P0 | 2 | Member clicks Join repeatedly or submits concurrent requests. | Create one membership/request record only. | Not run | |
-| MEM-02 | P1 | 2 | User requests membership and then withdraws before approval. | Mark request withdrawn; later approval must not silently restore membership. | Not run | |
-| MEM-03 | P1 | 2 | Admin approves a request that has already been withdrawn or rejected. | Reject stale action and refresh the request state. | Not run | |
-| MEM-04 | P1 | 2 | Two admins approve/reject the same request simultaneously. | Persist one valid terminal outcome and record the actor/action in audit history. | Not run | |
+| MEM-01 | P0 | 2 | Member clicks Join repeatedly or submits concurrent requests. | Create one membership/request record only. | Pass | server/test/communities.test.js MEM-01 |
+| MEM-02 | P1 | 2 | User requests membership and then withdraws before approval. | Mark request withdrawn; later approval must not silently restore membership. | Pass | server/test/communities.test.js MEM-02/03 |
+| MEM-03 | P1 | 2 | Admin approves a request that has already been withdrawn or rejected. | Reject stale action and refresh the request state. | Pass | server/test/communities.test.js MEM-02/03 |
+| MEM-04 | P1 | 2 | Two admins approve/reject the same request simultaneously. | Persist one valid terminal outcome and record the actor/action in audit history. | Pass | server/test/communities.test.js MEM-04 |
 | MEM-05 | P0 | 2 | User is blocked but receives a new invitation. | Block status takes precedence; invitation cannot restore access unless an authorised unblock occurs. | Not run | |
 | MEM-06 | P1 | 2 | Community reaches its membership capacity during an approval flow. | Recheck capacity at approval time; queue or reject according to policy. | Not run | |
 | MEM-07 | P1 | 2 | User is removed and immediately tries to rejoin. | Apply cooldown/rejoin policy and clearly communicate the result. | Not run | |
-| MEM-08 | P0 | 2 | User is removed from one community but still has an active session. | Revoke only that community's access immediately. | Not run | |
-| MEM-09 | P0 | 2 | Owner attempts to leave without transferring ownership. | Require transfer to an eligible member or prevent leaving. | Not run | |
-| MEM-10 | P0 | 2 | Last Admin leaves, is suspended or is deleted. | Require another authorised Admin/Owner or trigger recovery workflow. | Not run | |
+| MEM-08 | P0 | 2 | User is removed from one community but still has an active session. | Revoke only that community's access immediately. | Pass | server/test/communities.test.js MEM-08 / VIS-12 |
+| MEM-09 | P0 | 2 | Owner attempts to leave without transferring ownership. | Require transfer to an eligible member or prevent leaving. | Pass | server/test/communities.test.js MEM-09 / MEM-10 |
+| MEM-10 | P0 | 2 | Last Admin leaves, is suspended or is deleted. | Require another authorised Admin/Owner or trigger recovery workflow. | Pass | server/test/communities.test.js MEM-09 / MEM-10 |
 | MEM-11 | P0 | 2 | Invitation is accepted after the inviter loses permission to invite. | Revalidate inviter authority at acceptance; reject invalid invitation. | Not run | |
 | MEM-12 | P1 | 2 | Invitation is resent multiple times or to a changed email address. | Invalidate old tokens as appropriate and bind invitation to intended recipient/policy. | Not run | |
 | MEM-13 | P1 | 2 | User has a pending request and receives an invitation to the same community. | Resolve to one coherent membership path; avoid duplicate membership records. | Not run | |
 | MEM-14 | P0 | 2 | Community becomes full or Closed after an invitation is issued. | Recheck policy at acceptance and deny or queue according to configured rules. | Not run | |
 | MEM-15 | P2 | 2 | Membership approval notification is delayed or delivered twice. | Membership state remains authoritative; notifications are deduplicated and do not repeat actions. | Not run | |
-| MEM-16 | P0 | 2 | Member is restricted from posting but can still read. | Enforce separate read and participation permissions consistently. | Not run | |
+| MEM-16 | P0 | 2 | Member is restricted from posting but can still read. | Enforce separate read and participation permissions consistently. | Pass | server/test/communities.test.js MEM-16 |
 
 ## 6. Roles, Permissions and Administrative Override
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| PER-01 | P0 | 2 | User is Owner in one community and Member in another. | Resolve permissions using the active community context; never apply the highest role globally. | Not run | |
+| PER-01 | P0 | 2 | User is Owner in one community and Member in another. | Resolve permissions using the active community context; never apply the highest role globally. | Pass | server/test/communities.test.js PER-02 / PER-01 |
 | PER-02 | P0 | 2 | Moderator attempts to assign themselves Admin/Owner. | Deny unless an explicitly authorised role-granting workflow permits it. | Pass | server/test/admin.test.js role assignment (no self-grant; Platform Admin needs Super Admin) |
-| PER-03 | P0 | 2 | Admin removes or demotes the only Owner. | Prevent invalid ownership state and require transfer or another eligible Owner. | Not run | |
+| PER-03 | P0 | 2 | Admin removes or demotes the only Owner. | Prevent invalid ownership state and require transfer or another eligible Owner. | Pass | server/test/communities.test.js PER-03 |
 | PER-04 | P1 | 2 | Admin removes their own admin role while performing a management action. | Complete or reject atomically; avoid partially applied changes and stale privileged UI. | Not run | |
 | PER-05 | P0 | 2 | Role is revoked while user has an open admin page. | Recheck every protected action server-side; hide/disable stale controls after refresh. | Pass | server/test/admin.test.js role changes apply on next request |
 | PER-06 | P1 | 2 | Custom role is deleted while assigned to users. | Require reassignment or map affected users to a safe fallback before deletion. | Not run | |
 | PER-07 | P0 | 2 | Community Admin attempts to change platform-wide settings. | Deny the action and record suspicious/unauthorised attempts where appropriate. | Pass | server/test/admin.test.js SET-10/PER-07 (denied + audited) |
-| PER-08 | P0 | 2 | Platform Admin accesses a Private or Closed community without joining. | Allow access in clearly indicated administrative mode; do not create membership or alter counts. | Not run | |
-| PER-09 | P1 | 2 | Platform Admin performs an action while in normal participation mode. | Apply ordinary membership/role rules and attribute contributions normally. | Not run | |
-| PER-10 | P0 | 2 | Platform Admin performs an action in administrative mode. | Allow permitted global override and record admin identity, target, action, timestamp and context. | Not run | |
+| PER-08 | P0 | 2 | Platform Admin accesses a Private or Closed community without joining. | Allow access in clearly indicated administrative mode; do not create membership or alter counts. | Pass | server/test/communities.test.js PER-08/10/15 |
+| PER-09 | P1 | 2 | Platform Admin performs an action while in normal participation mode. | Apply ordinary membership/role rules and attribute contributions normally. | Pass | server/test/communities.test.js PER-08/10/15 (normal mode) |
+| PER-10 | P0 | 2 | Platform Admin performs an action in administrative mode. | Allow permitted global override and record admin identity, target, action, timestamp and context. | Pass | server/test/communities.test.js PER-08/10/15 (audit) |
 | PER-11 | P0 | 2 | Community blocks a Platform Admin account at community level. | Community-level block must not override platform authority; account authentication/security status still applies. | Pass | server/test/connections.test.js PER-11 (blocking staff doesn’t limit staff authority) |
 | PER-12 | P0 | 2 | Platform Admin account is suspended, compromised or loses authentication. | Do not allow global override without valid authenticated authority; revoke sessions and tokens as required. | Not run | |
 | PER-13 | P1 | 2 | Two Platform Admins change the same community settings concurrently. | Prevent silent overwrite and retain a complete change history. | Not run | |
 | PER-14 | P0 | 2 | Platform Admin attempts a critical action such as deleting a community or granting admin privileges. | Apply additional confirmation/reauthentication or approval safeguards if configured; audit the action. | Not run | |
-| PER-15 | P0 | 2 | Platform Admin is accidentally counted as a community member after admin-mode access. | Do not create membership or alter membership analytics. | Not run | |
+| PER-15 | P0 | 2 | Platform Admin is accidentally counted as a community member after admin-mode access. | Do not create membership or alter membership analytics. | Pass | server/test/communities.test.js PER-08/10/15 |
 | PER-16 | P0 | 2 | Specialist staff member accesses a module outside assigned scope. | Deny access at API and UI layers; log unauthorised attempts. | Pass | server/test/admin.test.js PER-16 staff scope |
 
 ## 7. Posts, Discussions, Comments and Reactions
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| CNT-01 | P1 | 2 | User submits an empty post, comment or reply. | Reject submission with a clear validation message. | Not run | |
-| CNT-02 | P0 | 2 | User double-clicks Publish or retries after timeout. | Create one content item only and return the existing result for a retry. | Not run | |
-| CNT-03 | P0 | 2 | User edits a post while a moderator removes it. | Resolve the race deterministically; removed content must not be republished by a stale edit. | Not run | |
+| CNT-01 | P1 | 2 | User submits an empty post, comment or reply. | Reject submission with a clear validation message. | Pass | server/test/communities.test.js CNT-01 |
+| CNT-02 | P0 | 2 | User double-clicks Publish or retries after timeout. | Create one content item only and return the existing result for a retry. | Pass | server/test/communities.test.js CNT-02 |
+| CNT-03 | P0 | 2 | User edits a post while a moderator removes it. | Resolve the race deterministically; removed content must not be republished by a stale edit. | Pass | server/test/communities.test.js CNT-03 |
 | CNT-04 | P0 | 2 | Suspended or restricted user attempts to post/comment/react. | Reject actions according to restriction scope and current account status. | Not run | |
-| CNT-05 | P1 | 2 | Post is deleted while it has comments/replies. | Apply the defined cascade/retention behaviour; avoid orphaned or inaccessible child content. | Not run | |
+| CNT-05 | P1 | 2 | Post is deleted while it has comments/replies. | Apply the defined cascade/retention behaviour; avoid orphaned or inaccessible child content. | Pass | server/test/communities.test.js CNT-07 / CNT-05 |
 | CNT-06 | P1 | 2 | Comment author account is deleted. | Retain, anonymise or remove content according to policy; preserve thread integrity. | Not run | |
-| CNT-07 | P1 | 2 | User replies to a comment that was deleted moments earlier. | Reject or attach reply to a clearly marked deleted-comment placeholder according to product rules. | Not run | |
+| CNT-07 | P1 | 2 | User replies to a comment that was deleted moments earlier. | Reject or attach reply to a clearly marked deleted-comment placeholder according to product rules. | Pass | server/test/communities.test.js CNT-07 / CNT-05 |
 | CNT-08 | P2 | 2 | User reports the same content repeatedly. | Deduplicate or group reports while preserving report history and reporter identity. | Not run | |
-| CNT-09 | P0 | 2 | User attempts to edit/delete another user's content. | Deny unless the user's role explicitly grants moderation authority. | Not run | |
+| CNT-09 | P0 | 2 | User attempts to edit/delete another user's content. | Deny unless the user's role explicitly grants moderation authority. | Pass | server/test/communities.test.js CNT-09 |
 | CNT-10 | P0 | 2 | Post includes script, malicious HTML, unsafe link or embedded payload. | Sanitise/encode output and apply link/file safety checks. | Not run | |
 | CNT-11 | P0 | 2 | Attachment exceeds size/type limit or scanning fails. | Reject/quarantine the attachment; do not publish a downloadable unsafe file. | Not run | |
 | CNT-12 | P1 | 2 | Post exceeds character or attachment count limits. | Validate consistently on client and server and preserve draft text where possible. | Not run | |
 | CNT-13 | P1 | 2 | Network fails during post submission. | Show uncertain/pending state and allow safe retry without duplicate content. | Not run | |
-| CNT-14 | P0 | 2 | Pinned or announced content is edited/deleted by a user without permission. | Deny the change and preserve the content state. | Not run | |
+| CNT-14 | P0 | 2 | Pinned or announced content is edited/deleted by a user without permission. | Deny the change and preserve the content state. | Pass | server/test/communities.test.js announcements, pins (CNT-14) |
 | CNT-15 | P0 | 2 | A private discussion is quoted in a public notification preview. | Do not leak protected content in notifications, emails or push previews. | Not run | |
-| CNT-16 | P2 | 2 | Reaction is toggled repeatedly or from multiple devices. | Keep one reaction per user/content/type if that is the defined rule; counts remain consistent. | Not run | |
+| CNT-16 | P2 | 2 | Reaction is toggled repeatedly or from multiple devices. | Keep one reaction per user/content/type if that is the defined rule; counts remain consistent. | Pass | server/test/communities.test.js CNT-16 |
 
 ## 8. Moderation, Reports and Safety
 
@@ -340,7 +340,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4a). Status values: **Not run**, **
 | SYS-01 | P1 | 4 | Large community feed or member list is loaded without pagination. | Use pagination/limits and prevent memory/performance degradation. | Pass | server/test/profiles.test.js pagination with total; browser 10 Nov: directory shows 24 of 35 + Show more |
 | SYS-02 | P1 | 4 | High-volume posting or notification activity occurs suddenly. | Apply rate limits, queues and back-pressure without losing accepted records. | Not run | |
 | SYS-03 | P0 | 1 | Database/service is unavailable during a write. | Do not show success unless committed; allow safe retry and preserve consistency. | Not run | |
-| SYS-04 | P0 | 1 | Background job runs twice after retry or worker restart. | Make jobs idempotent and prevent duplicate emails, certificates or deletion actions. | Not run | |
+| SYS-04 | P0 | 1 | Background job runs twice after retry or worker restart. | Make jobs idempotent and prevent duplicate emails, certificates or deletion actions. | Pass | server/test/communities.test.js SYS-04 scheduled publish |
 | SYS-05 | P0 | 1 | Cache contains stale membership or permission data. | Invalidate or recheck critical permissions before serving protected data/actions. | Not run | |
 | SYS-06 | P0 | 4 | Backup restore produces mismatched users, memberships or files. | Run integrity checks and reconcile references before reopening the platform. | Not run | |
 | SYS-07 | P1 | 4 | Maintenance begins during a quiz, upload or deletion workflow. | Preserve state or communicate interruption and recovery rules; do not corrupt partial work. | Not run | |

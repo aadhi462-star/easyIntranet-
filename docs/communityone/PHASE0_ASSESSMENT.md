@@ -332,4 +332,21 @@ Bugs found and fixed: the connections list was always empty (two columns named `
 
 Process note: I ran a migration against the preview database while believing its server was still running. The server had in fact been stopped; integrity checked (all rows and migrations intact). Rule from now on: stop the server before migrating a PGlite database.
 
-Next: step 4b (community foundation, home feed, announcements).
+### Phase 1 — step 4b, server side (10 Nov 2026)
+
+4b is split again: **server** (this entry) and **web app** (next: Feed and Groups screens switch to the API). The prototype feed has polls, moods, Mandatory Read, drafts and scheduling, so the server supports all of them first to avoid taking features away.
+
+Built (migration 004):
+- **Communities** (Public / Private / Closed, active / archived / suspended, settings), **memberships** with roles (Owner, Admin, Moderator, Instructor, Teaching Assistant, Member) and states (active, pending, invited, restricted, removed, blocked, left); at most one active owner, enforced by the database.
+- **One access function** for every community/post route: account → community status → visibility → membership state → role → settings.
+- **Administrative mode**: platform staff with community authority can open any community (including Closed) only when they ask for it (`x-admin-mode: 1`); no membership is created, counts are unchanged, every use is audited.
+- **Membership API**: discover (Closed hidden from outsiders), join (Public instant, Private request, Closed invitation-only), leave/withdraw, approve/decline (state-checked, one outcome), role and state changes within your rank, atomic ownership transfer, owner/last-admin protection.
+- **Content API**: home and community feed with cursor paging; posts (post/announcement/question/poll), drafts, scheduling (+ idempotent publish job), approval queues, author-only edits with version check, removal with reason, pin, soft delete; comments with reply threads and deleted placeholders; one like + one mood per member; polls with one changeable vote; Mandatory Read acknowledgements; blocked authors hidden.
+- **Account deletion** now also requires transferring community ownership (REG-15).
+- **Migration**: groups → communities (same ids; public→Public, restricted→Private, private→Closed) with roles and pending requests; network content → a public "AlumniZone" community (34 members, owner Sara); 9 posts, 5 comments, 24 reactions, 3 poll votes, 2 acknowledgements.
+
+Tested: 91 server tests (all pass). Not yet visible in the web app — the Feed and Groups screens still read the browser data until the next step.
+
+Found while building: a PostgreSQL type-inference error when one parameter is used twice (fixed with explicit casts); test-order leakage after an ownership transfer (tests corrected). Open question for later: the old "All Hands" group (g0) now duplicates the AlumniZone community's membership — candidates to merge.
+
+Next: step 4b, web app (Feed and Groups use the API).

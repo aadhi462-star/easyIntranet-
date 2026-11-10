@@ -303,11 +303,14 @@ export default async function authRoutes(app, { ctx }) {
 
   app.post('/account/delete', { ...authLimit(5) }, async (req, reply) => {
     const u = await requirePassword(req);
-    // Things that must be handed over first (REG-15). Community ownership and teaching are
-    // added to this list in Phase 2 / Phase 3 as those tables arrive.
+    // Things that must be handed over first (REG-15): Super Admin duty and community ownership.
+    // Courses taught join this list with the Learning module (Phase 3).
     const blockers = [];
     const supers = await db.query(`select user_id from platform_roles where role = 'super_admin'`);
     if (supers.rows.length === 1 && supers.rows[0].user_id === u.id) blockers.push('You are the only Super Admin. Assign another Super Admin first.');
+    const owned = (await db.query(`select c.name from memberships m join communities c on c.id = m.community_id
+      where m.user_id = $1 and m.role = 'owner' and m.state = 'active' and c.status <> 'archived' order by c.name`, [u.id])).rows.map((r) => r.name);
+    if (owned.length) blockers.push(`Transfer ownership of ${owned.join(', ')} before deleting your account.`);
     if (blockers.length) throw conflict('HANDOVER_REQUIRED', blockers[0], { blockers });
     await db.tx(async (t) => {
       // Personal data is removed; the row stays (anonymised) so existing content and audit
