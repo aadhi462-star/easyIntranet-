@@ -18,6 +18,10 @@ await migrate(db, { log: (m) => console.log(m) });
 // header, which a client controls (reset-link poisoning). Required in production.
 const appOrigin = process.env.APP_ORIGIN?.replace(/\/+$/, '') || undefined;
 if (process.env.NODE_ENV === 'production' && !appOrigin) throw new Error('Set APP_ORIGIN (e.g. https://communityone-123.development.catalystappsail.in) in production.');
+if (process.env.NODE_ENV === 'production') {
+  if (!/^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(appOrigin)) throw new Error(`APP_ORIGIN must be just the site address, like https://name.catalystappsail.in (got "${String(appOrigin).slice(0, 60)}").`);
+  if (process.env.MAIL_TRANSPORT !== 'catalyst') console.warn('MAIL_TRANSPORT is not "catalyst": emails will not be sent.');
+}
 const app = await buildApp({ db, appOrigin, staticDir: process.env.STATIC_DIR || path.join(root, 'dist'), logger: { level: process.env.LOG_LEVEL || 'info' } });
 // Background job: publish scheduled posts each minute (idempotent, so a double run is harmless).
 setInterval(() => { publishDuePosts(db).catch((err) => app.log.error(err)); }, 60e3).unref();

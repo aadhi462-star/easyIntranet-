@@ -67,7 +67,13 @@ export function createMailer({ db, transport = defaultTransport(), log = console
   };
 }
 
+// Development only shows the body (it holds sign-in and reset links). In production the log is
+// readable by anyone with console access, so a misconfigured host logs only that a mail was skipped.
 function logTransport({ to, subject, body }, log) {
+  if (process.env.NODE_ENV === 'production') {
+    log.warn?.({ to, subject }, 'email not sent: no mail transport configured (set MAIL_TRANSPORT=catalyst and MAIL_FROM)');
+    throw new Error('No mail transport configured.');
+  }
   log.info?.({ to, subject }, 'email (development transport)');
   if (process.env.NODE_ENV !== 'test') console.log(`\n✉️  To: ${to}\n   ${subject}\n   ${body.replace(/\n/g, '\n   ')}\n`);
 }

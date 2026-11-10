@@ -43,6 +43,21 @@ describe('mailer', () => {
     assert.match((await env.db.query(`select last_error from email_outbox where to_email = 'c@example.com'`)).rows[0].last_error, /incoming request/);
   });
 
+  test('in production without a mail transport, nothing with a link reaches the log', async () => {
+    const lines = [];
+    const spy = { info: (...a) => lines.push(JSON.stringify(a)), warn: (...a) => lines.push(JSON.stringify(a)) };
+    const origLog = console.log; const prev = process.env.NODE_ENV;
+    console.log = (...a) => lines.push(a.join(' '));
+    process.env.NODE_ENV = 'production';
+    try {
+      await createMailer({ db: env.db, log: spy, transport: defaultTransport({}) })
+        .send('d@example.com', 'reset_password', { name: 'D', link: 'https://c1.example/#/reset?token=SECRET-TOKEN' });
+    } finally { process.env.NODE_ENV = prev; console.log = origLog; }
+    assert.ok(lines.length > 0, 'the skipped mail is still mentioned');
+    assert.ok(!lines.join('\n').includes('SECRET-TOKEN'), 'the reset link is never logged');
+    assert.equal((await env.db.query(`select status from email_outbox where to_email = 'd@example.com'`)).rows[0].status, 'failed');
+  });
+
   test('email HTML escapes content and keeps links and line breaks', () => {
     assert.equal(toHtml('Hi <b>&\nhttps://x.io/a'), 'Hi &lt;b&gt;&amp;<br><a href="https://x.io/a">https://x.io/a</a>');
   });
