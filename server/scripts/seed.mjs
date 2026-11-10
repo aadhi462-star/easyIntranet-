@@ -11,6 +11,15 @@ import { migrate } from '../db/migrate.js';
 import { hashPassword } from '../lib/crypto.js';
 
 export const DEV_PASSWORD = 'Community-Demo-2026';
+// The demo passwords are published in DEMO_ACCOUNTS.md, so a production seed must never use them:
+// there every seeded account gets SEED_PASSWORD (a secret set in the host's environment), and
+// without one the seed does nothing.
+const production = process.env.NODE_ENV === 'production';
+const SEED_PASSWORD = process.env.SEED_PASSWORD;
+if (production && (!SEED_PASSWORD || SEED_PASSWORD.length < 12)) {
+  console.log('production: SEED_PASSWORD (12+ characters) is not set — demo data not seeded');
+  process.exit(0);
+}
 const SUPER_ADMIN = 'u7'; // decision D6 default: the alumni office account
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -42,7 +51,7 @@ const statusOf = (u) => (u.deactivated || u.status === 'deactivated' ? 'deactiva
 
 await db.tx(async (t) => {
   for (const u of proto.users) {
-    const hash = await hashPassword(u.password || DEV_PASSWORD);
+    const hash = await hashPassword(production ? SEED_PASSWORD : u.password || DEV_PASSWORD);
     await t.query(
       `insert into users (id, email, name, password_hash, status, email_verified_at, created_at)
        values ($1, $2, $3, $4, $5, now(), to_timestamp($6 / 1000.0))`,
