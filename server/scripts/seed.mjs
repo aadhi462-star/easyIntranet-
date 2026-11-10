@@ -49,9 +49,12 @@ await db.close();
 async function seedAccounts() {
 const statusOf = (u) => (u.deactivated || u.status === 'deactivated' ? 'deactivated' : u.status === 'pending' ? 'pending_approval' : 'active');
 
+// In production everyone shares SEED_PASSWORD, so hash it once: 34 scrypt hashes take long
+// enough to miss the host's startup deadline.
+const sharedHash = production ? await hashPassword(SEED_PASSWORD) : null;
 await db.tx(async (t) => {
   for (const u of proto.users) {
-    const hash = await hashPassword(production ? SEED_PASSWORD : u.password || DEV_PASSWORD);
+    const hash = sharedHash ?? await hashPassword(u.password || DEV_PASSWORD);
     await t.query(
       `insert into users (id, email, name, password_hash, status, email_verified_at, created_at)
        values ($1, $2, $3, $4, $5, now(), to_timestamp($6 / 1000.0))`,
