@@ -65,7 +65,7 @@ Server is the authority; legacy screens still read the local store. `lib/api.js`
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — refined design system, step 3 (committed, not pushed)
+## Where we stopped — Stage 4 built (committed, not pushed)
 
 Stages 1–3 are built and browser-checked (§14). Stage 3: community pages `src/pages/Community.jsx` (`/c/:slug`, tabs; old `/groups/:id` and `/feed/wall` redirect), `src/pages/Groups.jsx` (My Communities / Explore from `GET /communities`), `src/pages/Search.jsx` + `server/routes/search.js`, `src/pages/Welcome.jsx` (onboarding; gate in `App.jsx` `Protected`), profile in `src/pages/People.jsx`. R4: migration `006_core.sql`, `server/lib/merge.js`, `server/scripts/undo-merge.mjs`; the seed merges All Hands (g0) once.
 
@@ -83,7 +83,7 @@ Feed, People and Calendar are on the refined system (shared `PageHeader`/`Tabs` 
 
 Stage 4 (engagement) is built: Resources, Discussions with topics and attachments, Notifications, Saved, the event waitlist, Members search and filters. See PHASE0_ASSESSMENT.md for the open items.
 
-Next: Stage 5 (learning), after its layouts are approved; the six Stage 4 decisions need the user's answers before Stage 4 is built. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
+Next: Stage 5 (learning), after its layouts are approved. Open from Stage 4: no automatic retry for failed emails (NTF-03), no event reminders (NTF-04), a removed member's seat is released to the waitlist only on the next RSVP change; waitlist buttons and phone sizes of the new tabs not yet seen in the browser.
 
 ## Working style that's been effective
 
