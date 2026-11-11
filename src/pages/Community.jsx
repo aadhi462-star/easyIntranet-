@@ -29,6 +29,7 @@ import Discussions from '../components/groups/Discussions.jsx';
 import Catalogue from '../components/learning/Catalogue.jsx';
 import CoursePage from '../components/learning/CoursePage.jsx';
 import Builder from '../components/learning/Builder.jsx';
+import Grading from '../components/learning/Grading.jsx';
 
 const DAY = 864e5;
 const TABS = [
@@ -171,7 +172,7 @@ function CommunityView({ g, tab, sub, mode, keyInUrl, admin }) {
 
       {current === 'overview' && (perms.canView ? <Overview g={g} perms={perms} /> : <MembersOnly g={g} />)}
       {current === 'discussions' && <Discussions g={g} perms={perms} />}
-      {current === 'learning' && (!sub ? <Catalogue key={g.id} g={g} />
+      {current === 'learning' && (!sub ? <Catalogue key={g.id} g={g} /> : sub === 'grading' ? <Grading key={g.id} g={g} />
         : mode === 'edit' ? <Builder key={sub} g={g} id={sub} /> : <CoursePage key={sub} g={g} perms={perms} id={sub} />)}
       {current === 'events' && <EventList groupId={g.id} member={!!role && !archived} />}
       {current === 'resources' && <Resources g={g} />}

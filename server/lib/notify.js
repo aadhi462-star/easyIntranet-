@@ -17,6 +17,7 @@ export const CATEGORIES = {
   events: { label: 'Events you’re going to', email: true },
   announcements: { label: 'New announcements', email: false },
   moderation: { label: 'Your posts in review', email: true },
+  learning: { label: 'Your courses: grades and certificates', email: true },
 };
 
 export const TYPES = {
@@ -33,6 +34,8 @@ export const TYPES = {
   announcement: { cat: 'announcements', line: (x) => `${x.actor} posted an announcement in ${x.community}` },
   post_approved: { cat: 'moderation', line: (x) => `Your post in ${x.community} was approved` },
   post_removed: { cat: 'moderation', line: (x) => `A moderator removed your post in ${x.community}` },
+  submission_returned: { cat: 'learning', line: (x) => `${x.actor} returned your work in ${x.community} with a grade` },
+  certificate_issued: { cat: 'learning', line: (x) => `You earned a certificate in ${x.community}` },
 };
 
 const origin = (ctx, req) => ctx.appOrigin || (req ? `${req.protocol}://${req.headers.host}` : '');

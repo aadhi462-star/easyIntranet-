@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { errorText } from '../../lib/communities.js';
-import { coursePath, durationText, lessonPath, lessonsText, nextLesson, standing, useCatalogue, useCourse } from '../../lib/learning.js';
+import { coursePath, durationText, gradingPath, lessonPath, lessonsText, nextLesson, standing, useCatalogue, useCourse } from '../../lib/learning.js';
 import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
@@ -93,6 +93,12 @@ export default function Catalogue({ g }) {
         )}
       </div>
       <aside className="flex min-w-0 flex-col gap-6">
+        {cat.canGrade && (
+          <Link to={gradingPath(g)} className="band flex items-center gap-3 p-4 hover:bg-white/[.03]">
+            <span className="min-w-0 flex-1"><span className="t-h3 block text-white">Work to grade</span><span className="t-small">{cat.toGrade ? `${cat.toGrade} waiting` : 'You’re all caught up'}</span></span>
+            {cat.toGrade > 0 && <span className="rounded-full bg-brand-400 px-2 text-xs font-bold text-ink-950">{cat.toGrade}</span>}
+          </Link>
+        )}
         <section aria-labelledby="you-h" className="flex flex-col">
           <h2 id="you-h" className="t-h3 pb-2 text-white">Your learning here</h2>
           {[['Enrolled', count((c) => c.enrollment?.status === 'active' && !c.enrollment.completedAt)], ['Completed', count((c) => !!c.enrollment?.completedAt)], ['On a waitlist', count((c) => c.enrollment?.status === 'waitlist')]].map(([k, n]) => (

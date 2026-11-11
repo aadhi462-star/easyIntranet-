@@ -100,6 +100,11 @@ export default function App() {
         <Route path="/login" element={me ? <Navigate to="/dashboard" replace /> : <Login />} />
         <Route path="/signup" element={me ? <Navigate to="/dashboard" replace /> : <Signup />} />
         <Route path="/explore" element={<Explore />} />
+        {/* Certificate checks are public (Stage 5b, D8): no sign-in needed. */}
+        {['/verify', '/verify/:code'].map((path) => {
+          const Page = page('Verify');
+          return <Route key={path} path={path} element={<Suspense fallback={null}><Page /></Suspense>} />;
+        })}
         {['About', 'Help', 'Privacy', 'Terms', 'Contact'].map((name) => {
           const Page = page(name);
           return <Route key={name} path={`/${name.toLowerCase()}`} element={<Suspense fallback={null}><Page /></Suspense>} />;

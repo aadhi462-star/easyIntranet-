@@ -11,6 +11,8 @@ import { toast } from '../lib/toast.js';
 import { Empty, Modal } from '../components/ui.jsx';
 import { Icon } from '../components/icons.jsx';
 import { KindBadge, LessonText, Progress } from '../components/learning/bits.jsx';
+import Quiz from '../components/learning/Quiz.jsx';
+import Assignment from '../components/learning/Assignment.jsx';
 
 const MB = 1024 * 1024;
 const sizeText = (n) => (n >= MB ? `${(n / MB).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -46,6 +48,8 @@ export default function Lesson() {
   const learner = course.enrollment?.status === 'active';
   const done = flat[index]?.done;
   const back = coursePath(community, course.id);
+  // Quizzes and assignments complete when they're passed, never by hand (Stage 5b).
+  const assessed = lesson.kind === 'quiz' || lesson.kind === 'assignment';
 
   // Marks this lesson (one row however often it's sent, LMS-05) and moves on.
   const complete = async () => {
@@ -58,9 +62,10 @@ export default function Lesson() {
       else nav(back);
     } catch (err) { toast(errorText(err), 'error'); } finally { setBusy(false); }
   };
-  const primary = learner && !done && course.status !== 'archived'
+  const primary = learner && !done && !assessed && course.status !== 'archived'
     ? <button className="btn btn-primary flex-1 sm:flex-none" disabled={busy} onClick={complete}>{busy ? 'Saving…' : lesson.nextId ? 'Mark complete and continue' : 'Mark complete'}</button>
-    : lesson.nextId ? <Link to={lessonPath(lesson.nextId)} className="btn btn-primary flex-1 sm:flex-none">Next lesson</Link>
+    // An open quiz or assignment keeps the one main action in its own panel; moving on is secondary.
+    : lesson.nextId ? <Link to={lessonPath(lesson.nextId)} className={`btn ${assessed && !done ? 'btn-ghost' : 'btn-primary'} flex-1 sm:flex-none`}>Next lesson</Link>
       : <Link to={back} className="btn btn-primary flex-1 sm:flex-none">Back to the course</Link>;
 
   return (
@@ -110,6 +115,11 @@ export default function Lesson() {
             </ul>
             {lesson.files.length > 0 && learner && <p className="t-small">A lesson isn’t marked complete on its own. Mark it yourself when you’re done, even if a file didn’t load.</p>}
           </section>
+        )}
+
+        {lesson.kind === 'quiz' && l.quiz && <Quiz key={lesson.id} lesson={lesson} quiz={l.quiz} nextId={lesson.nextId} onChanged={l.reload} />}
+        {lesson.kind === 'assignment' && l.assignment && (
+          <Assignment key={lesson.id} lesson={lesson} assignment={l.assignment} communityId={community.id} learner={learner} nextId={lesson.nextId} onChanged={l.reload} />
         )}
 
         {!learner && <p className="band p-4 text-sm text-slate-300">You’re viewing this lesson as one of the course’s managers, so your progress isn’t tracked.</p>}

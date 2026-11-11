@@ -693,3 +693,42 @@ Built to the approved boards (design canvas page "Stage 5 — Learning") and dec
   - The Instructor frame in RolePanel (optional).
   - Drag to reorder: only Move up and Move down.
 - **Not checked in the browser:** LMS-04 and LMS-09 (both covered by server tests), and the builder's phone message as an admin.
+
+### Redesign Stage 5b — assessment (12 Nov 2026)
+
+Built to the approved boards (S5Quiz, S5Grading, S5Certificate) and decisions D7–D8.
+
+- **Server** (`010_assessment.sql`, `routes/assessment.js`, 20 tests):
+  - Quizzes and assignments are two new lesson kinds, so they appear in the outline and count towards completion like any lesson.
+  - Their progress row is written only when they're passed, and "Mark complete" refuses them.
+  - The certificate is issued in the same step that completes the course.
+  - **Quizzes:** attempts keep their own copy of the questions; there's one open attempt at a time, and starting again resumes it; the limit is counted under a lock; the deadline is checked on the server; submitting is idempotent; right answers are revealed only after a pass or with no attempts left.
+  - **Assignments:** text and/or up to 5 files; late work is marked late. Grading takes a 30-minute lock, with Save draft and Return to learner.
+  - **Certificates:** codes avoid 0/O and 1/I; names are copied in; a public `GET /certificates/:code` returns only name, course, community, date and code.
+  - **Notifications:** new "Your courses" category, with work returned and certificate earned.
+  - Courses completed in 5a get their certificates from the migration.
+- **Client:**
+  - `components/learning/Quiz.jsx`: summary, attempt with question navigation and save-as-you-go, result and review.
+  - `Assignment.jsx`: send work, see the grade and feedback.
+  - `Grading.jsx` (`/c/:slug/learning/grading`): queue with lock states, plus a "Work to grade" card in the catalogue.
+  - Builder: Quiz and Assignment kinds, their settings, and a question editor.
+  - `pages/Verify.jsx` (`/verify/:code`): public, prints as PDF.
+  - My Learning: a Certificates section.
+- **Browser, 1280 and 375 px:**
+  - **Sara:** built a quiz in the builder (a question without a right answer was caught) and graded Priya's work (the row and panel showed "You're grading"; the queue emptied).
+  - **Priya:** answered, reloaded, and the attempt resumed with the answer kept; failed (0 of 2, answers hidden); passed on attempt 2 (review shows right answers); sent the assignment; saw "8 of 10 · Passed" with the feedback; finished the course; got the certificate and both notifications.
+  - **Signed out at 375 px:** the verify page showed the certificate, with no sideways scroll; a made-up code was refused.
+  - **Ishita:** her 5a completion got a backfilled certificate.
+- **Fixed while checking:**
+  - The return route used the grader's id before it was set (a 500, caught by the tests).
+  - The lesson type buttons overflowed in the builder.
+  - "Next lesson" competed with Start quiz as a second main button.
+  - Backfilled codes could contain 0 or 1.
+- **Not built, or limits:**
+  - No certificate revoke action (the page can show "withdrawn").
+  - No rubrics.
+  - No grace period on quiz deadlines.
+  - "Download PDF" is the browser's print.
+  - A published course can gain an empty quiz; publish checks only at publish time, and learners see "no questions yet".
+  - The grading lock between two instructors is covered by tests, not checked in the browser.
+- **Seen, not changed:** signing in through `/login?next=…` while already signed in goes to Home, not to `next`.

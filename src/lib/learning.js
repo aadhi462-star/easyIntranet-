@@ -11,6 +11,7 @@ const enc = encodeURIComponent;
 export const coursePath = (community, courseId, edit = false) =>
   `${communityPath(community, 'learning')}${courseId ? `/${enc(courseId)}${edit ? '/edit' : ''}` : ''}`;
 export const lessonPath = (id) => `/lessons/${enc(id)}`;
+export const gradingPath = (community) => `${communityPath(community, 'learning')}/grading`;
 
 export const durationText = (min) => {
   if (!min) return null;
@@ -19,7 +20,11 @@ export const durationText = (min) => {
   return min % 60 ? `${h} h ${min % 60} min` : `${h} h`;
 };
 export const lessonsText = (n) => `${n} ${n === 1 ? 'lesson' : 'lessons'}`;
-export const KIND_BADGE = { text: 'TXT', file: 'FILE', link: 'LINK' };
+export const KIND_BADGE = { text: 'TXT', file: 'FILE', link: 'LINK', quiz: 'QUIZ', assignment: 'TASK' };
+
+// <input type="datetime-local"> works in local time without a zone; the server stores UTC.
+export const toLocalInput = (iso) => (iso ? new Date(new Date(iso).getTime() - new Date(iso).getTimezoneOffset() * 60e3).toISOString().slice(0, 16) : '');
+export const fromLocalInput = (v) => (v ? new Date(v).toISOString() : null);
 
 /** One course with its outline (or null while loading). `set` takes a fresh copy from a write. */
 export function useCourse(id) {

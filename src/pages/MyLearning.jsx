@@ -2,7 +2,7 @@
 // across their communities. No admin tools here: courses are built in a community's Learning tab.
 // Each course carries its community's tile and colour; progress bars stay lime (CommunityOne's).
 // Leaving a community hides its courses; progress comes back on rejoining (LMS-09, server side).
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { accentOf, errorText } from '../lib/communities.js';
@@ -15,6 +15,7 @@ import { Pill, Progress } from '../components/learning/bits.jsx';
 
 export default function MyLearning() {
   const my = useMyLearning();
+  const certs = useCertificates();
   const [community, setCommunity] = useState('');
   useEffect(() => { document.title = 'My Learning · CommunityOne'; }, []);
   const communities = [...new Map(my.courses.map((c) => [c.community.id, c.community])).values()];
@@ -41,7 +42,7 @@ export default function MyLearning() {
         )} />
       {my.status === 'loading' && !my.courses.length ? <div aria-busy="true" aria-label="Loading your courses" className="raised h-48 animate-pulse" />
         : my.status === 'error' ? <div role="alert" className="glass p-5 text-sm"><p className="text-rose-300">{my.message}</p><button className="btn btn-ghost mt-3" onClick={my.reload}>Try again</button></div>
-          : my.courses.length === 0 ? (
+          : my.courses.length === 0 && !certs.list.length ? (
             <section className="raised flex flex-col items-center gap-3 p-8 text-center">
               <Icon name="cap" size={28} />
               <h2 className="t-h2 text-white">No courses yet</h2>
@@ -58,6 +59,7 @@ export default function MyLearning() {
               <Section title="Completed" n={completed.length} empty="No completed courses yet.">
                 {completed.map((c) => <Row key={c.id} c={c} done action={<Pill tone="done"><Icon name="check" size={14} className="mr-1" />Completed</Pill>} />)}
               </Section>
+              {certs.list.length > 0 && <Certificates list={certs.list.filter((x) => !community || x.communityRef?.id === community)} />}
               {waiting.length > 0 && (
                 <Section title="On a waitlist" n={waiting.length}>
                   {waiting.map((c) => <Row key={c.id} c={c} waiting action={<button className="btn btn-ghost" onClick={() => leave(c)}>Leave</button>} />)}
@@ -67,6 +69,41 @@ export default function MyLearning() {
             </div>
           )}
     </div>
+  );
+}
+
+/** Certificates stay listed after leaving a community or a course being removed (ASM-11). */
+function useCertificates() {
+  const [list, setList] = useState([]);
+  const load = useCallback(() => api('/me/certificates').then((d) => setList(d.certificates)).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+  return { list, reload: load };
+}
+
+function Certificates({ list }) {
+  const copy = async (code) => {
+    try { await navigator.clipboard.writeText(`${location.origin}${location.pathname}#/verify/${code}`); toast('Verification link copied'); } catch { toast('Couldn’t copy the link.', 'error'); }
+  };
+  return (
+    <section aria-labelledby="cert-h">
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <h2 id="cert-h" className="t-h2 text-white">Certificates</h2>
+        <span className="t-small">{list.length}</span>
+      </div>
+      <ul className="list-rows border-t border-[var(--az-divider)]">
+        {list.map((x) => (
+          <li key={x.code} className={`cm-${accentOf(x.communityRef ?? { id: x.community })} flex flex-wrap items-center gap-3 py-3`}>
+            <CommunityTile c={x.communityRef ?? { id: x.community, name: x.community }} size={40} />
+            <span className="min-w-0 flex-[1_1_200px]">
+              <span className="block truncate font-semibold text-white">{x.course}</span>
+              <span className="t-small">{x.community} · {new Date(x.issuedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · <span className="font-mono">{x.code}</span></span>
+            </span>
+            <Link to={`/verify/${x.code}`} className="btn btn-ghost">View</Link>
+            <button className="btn btn-ghost" onClick={() => copy(x.code)}>Copy link</button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -11,6 +11,7 @@ import { access } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { idempotent } from '../lib/session.js';
+import assessmentRoutes, { ASSESSMENT_FIELDS } from './assessment.js';
 
 const STATUSES_LISTED = ['published'];
 const isHttp = (u) => { try { return ['http:', 'https:'].includes(new URL(u).protocol); } catch { return false; } };
@@ -23,6 +24,7 @@ const text = (v, max, field, { required = false } = {}) => {
 
 export default async function learningRoutes(app, { ctx }) {
   const { db } = ctx;
+  let assess; // Stage 5b helpers, set up at the end once the course helpers exist
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
 
   /** A course and what the caller may do with it. Hidden from people who can't see it. */
@@ -108,11 +110,14 @@ export default async function learningRoutes(app, { ctx }) {
                or exists (select 1 from course_instructors i where i.course_id = c.id and i.user_id = $2))
         order by c.status = 'published' desc, c.published_at desc nulls last, c.created_at desc`, [a.community.id, uid, STATUSES_LISTED, !!a.canAdmin]);
     const out = [];
+    const managed = [];
     for (const c of rows) {
       const r = await loadCourse(req, c.id).catch(() => null);
       if (r) out.push(await present(req, c, r));
+      if (r?.manage) managed.push(c.id);
     }
-    return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active' };
+    const { rows: [{ n: toGrade }] } = await db.query(`select count(*)::int as n from submissions where course_id = any($1) and status = 'submitted'`, [managed]);
+    return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active', canGrade: managed.length > 0, toGrade };
   });
 
   const COURSE_FIELDS = { title: { type: 'string' }, description: { type: ['string', 'null'] }, objectives: { type: 'array', items: { type: 'string' }, maxItems: 12 },
@@ -173,6 +178,8 @@ export default async function learningRoutes(app, { ctx }) {
       if (action === 'publish') {
         const { rows: [{ n }] } = await db.query(`select count(*)::int as n from lessons where course_id = $1`, [r.c.id]);
         if (!n) throw conflict('NO_LESSONS', 'Add at least one lesson before publishing.');
+        const problem = await assess.publishProblem(r.c.id);
+        if (problem) throw problem;
       }
       await db.query(`update courses set status = $2, version = version + 1, updated_at = now(), published_at = case when $2 = 'published' then coalesce(published_at, now()) else published_at end where id = $1`, [r.c.id, to]);
       await audit(db, { actorId: req.user.id, action: `course.${action}`, targetType: 'course', targetId: r.c.id, ip: req.ip });
@@ -248,7 +255,7 @@ export default async function learningRoutes(app, { ctx }) {
     return fresh(req, m.course_id);
   });
 
-  const LESSON = { title: { type: 'string' }, kind: { type: 'string', enum: ['text', 'file', 'link'] }, body: { type: ['string', 'null'] }, url: { type: ['string', 'null'] },
+  const LESSON = { title: { type: 'string' }, kind: { type: 'string', enum: ['text', 'file', 'link', 'quiz', 'assignment'] }, ...ASSESSMENT_FIELDS, body: { type: ['string', 'null'] }, url: { type: ['string', 'null'] },
     fileIds: { type: 'array', items: { type: 'string' }, maxItems: 10 }, durationMin: { type: ['integer', 'null'] }, required: { type: 'boolean' } };
   async function lessonValues(b, prev, courseId, communityId, uid) {
     const v = {
@@ -284,6 +291,8 @@ export default async function learningRoutes(app, { ctx }) {
     const id = newId('les');
     await db.query(`insert into lessons (id, course_id, module_id, title, kind, body, url, file_ids, duration_min, required, position) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [id, m.course_id, m.id, v.title, v.kind, v.body, v.url, v.fileIds, v.durationMin, v.required, n]);
+    // A quiz's or assignment's settings; a lesson whose settings are refused isn't kept.
+    try { await assess.saveConfig(id, v.kind, req.body, null); } catch (err) { await db.query(`delete from lessons where id = $1`, [id]); throw err; }
     return { lessonId: id, ...(await fresh(req, m.course_id)) };
   });
 
@@ -292,6 +301,7 @@ export default async function learningRoutes(app, { ctx }) {
     if (!l) throw notFound('That lesson doesn’t exist.');
     const r = await managed(req, l.course_id);
     const v = await lessonValues(req.body, l, l.course_id, r.c.community_id, req.user.id);
+    await assess.saveConfig(l.id, v.kind, req.body, l.kind);
     await db.query(`update lessons set title = $2, kind = $3, body = $4, url = $5, file_ids = $6, duration_min = $7, required = $8 where id = $1`,
       [l.id, v.title, v.kind, v.body, v.url, v.fileIds, v.durationMin, v.required]);
     return fresh(req, l.course_id);
@@ -400,6 +410,7 @@ export default async function learningRoutes(app, { ctx }) {
         prevId: order[i - 1] ?? null, nextId: order[i + 1] ?? null },
       course,
       community: co,
+      ...(await assess.lessonExtras(req, l, r)),
     };
   });
 
@@ -412,13 +423,10 @@ export default async function learningRoutes(app, { ctx }) {
     const r = await loadCourse(req, l.course_id);
     if (!r.learner) throw forbidden('Enrol in this course to track your progress.', 'NOT_ENROLLED');
     if (r.c.status === 'archived') throw conflict('ARCHIVED', 'This course is archived and read-only.');
+    // Quizzes and assignments complete only when they're passed (D8, ASM-09).
+    if (l.kind === 'quiz' || l.kind === 'assignment') throw conflict('NEEDS_PASS', l.kind === 'quiz' ? 'Pass the quiz to complete this lesson.' : 'This lesson completes when your work is graded as passed.');
     await db.query(`insert into lesson_progress (lesson_id, user_id, course_id) values ($1, $2, $3) on conflict do nothing`, [l.id, uid, l.course_id]);
-    const mods = await outline(l.course_id);
-    const counted = countedFor(mods.flatMap((m) => m.lessons), r.enrollment);
-    const done = await progressOf(l.course_id, uid);
-    if (counted.length && counted.every((x) => done.has(x.id))) {
-      await db.query(`update enrollments set completed_at = now(), updated_at = now() where course_id = $1 and user_id = $2 and completed_at is null`, [l.course_id, uid]);
-    }
+    await assess.finish(req, l.course_id, uid);
     return fresh(req, l.course_id);
   });
 
@@ -437,4 +445,6 @@ export default async function learningRoutes(app, { ctx }) {
     }
     return { courses: out };
   });
+
+  assess = assessmentRoutes(app, { ctx, loadCourse, outline, countedFor, progressOf, fresh });
 }

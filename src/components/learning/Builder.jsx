@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, uploadFile } from '../../lib/api.js';
 import { errorText } from '../../lib/communities.js';
-import { coursePath, lessonsText, useCourse } from '../../lib/learning.js';
+import { coursePath, fromLocalInput, lessonsText, toLocalInput, useCourse } from '../../lib/learning.js';
 import { useStore } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
 import { Empty, Field } from '../ui.jsx';
@@ -188,12 +188,17 @@ function AddModule({ courseId, write, busy }) {
   );
 }
 
-const KINDS = [['text', 'Text'], ['file', 'File'], ['link', 'Link']];
+const KINDS = [['text', 'Text'], ['file', 'File'], ['link', 'Link'], ['quiz', 'Quiz'], ['assignment', 'Assignment']];
+const BODY_LABEL = { text: 'Text', quiz: 'Introduction', assignment: 'Instructions' };
 
 /** Edit a lesson (its text, link and files come from GET /lessons/:id), or write a new one. */
 function LessonEditor({ course, target, write, onCreated, onClose }) {
   const isNew = !target.lessonId;
-  const [v, setV] = useState(isNew ? { title: '', kind: 'text', body: '', url: '', durationMin: '', required: true, files: [] } : null);
+  const blank = { title: '', kind: 'text', body: '', url: '', durationMin: '', required: true, files: [],
+    quiz: { passPercent: 70, maxAttempts: 3, dueAt: '' }, assignment: { points: 10, passPoints: 6, dueAt: '' } };
+  const [v, setV] = useState(isNew ? blank : null);
+  const [questions, setQuestions] = useState(null); // a quiz's questions, once it's saved
+  const [savedKind, setSavedKind] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -203,13 +208,20 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
   useEffect(() => {
     if (isNew) return;
     api(`/lessons/${target.lessonId}`)
-      .then(({ lesson: l }) => setV({ title: l.title, kind: l.kind, body: l.body ?? '', url: l.url ?? '', durationMin: l.durationMin ?? '', required: l.required, files: l.files }))
+      .then(({ lesson: l, quiz, assignment }) => {
+        setV({ ...blank, title: l.title, kind: l.kind, body: l.body ?? '', url: l.url ?? '', durationMin: l.durationMin ?? '', required: l.required, files: l.files,
+          ...(quiz ? { quiz: { passPercent: quiz.passPercent, maxAttempts: quiz.maxAttempts, dueAt: toLocalInput(quiz.dueAt) } } : {}),
+          ...(assignment ? { assignment: { points: assignment.points, passPoints: assignment.passPoints, dueAt: toLocalInput(assignment.dueAt) } } : {}) });
+        setSavedKind(l.kind);
+        if (quiz) setQuestions(quiz.questions ?? []);
+      })
       .catch((e) => setLoadError(errorText(e)));
-  }, [isNew, target.lessonId]);
+  }, [isNew, target.lessonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loadError) return <section role="alert" className="band p-5 text-sm text-rose-300">{loadError}</section>;
   if (!v) return <section aria-busy="true" aria-label="Loading lesson" className="band h-72 animate-pulse" />;
   const set = (k) => (e) => setV({ ...v, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const setIn = (group, k) => (e) => setV({ ...v, [group]: { ...v[group], [k]: e.target.value } });
   const moduleTitle = course.modules.find((m) => m.id === (target.newIn ?? course.modules.find((x) => x.lessons.some((l) => l.id === target.lessonId))?.id))?.title;
 
   const pick = async (e) => {
@@ -225,12 +237,16 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
     e.preventDefault();
     setBusy(true); setError('');
     const body = { title: v.title, kind: v.kind, body: v.body || null, url: v.kind === 'link' ? v.url : null,
-      fileIds: v.kind === 'file' ? v.files.map((f) => f.id) : [], durationMin: v.durationMin === '' ? null : Number(v.durationMin), required: v.required };
+      fileIds: v.kind === 'file' ? v.files.map((f) => f.id) : [], durationMin: v.durationMin === '' ? null : Number(v.durationMin), required: v.required,
+      ...(v.kind === 'quiz' ? { quiz: { passPercent: Number(v.quiz.passPercent), maxAttempts: Number(v.quiz.maxAttempts), dueAt: fromLocalInput(v.quiz.dueAt) } } : {}),
+      ...(v.kind === 'assignment' ? { assignment: { points: Number(v.assignment.points), passPoints: Number(v.assignment.passPoints), dueAt: fromLocalInput(v.assignment.dueAt) } } : {}) };
     try {
       const d = isNew ? await api(`/modules/${target.newIn}/lessons`, { method: 'POST', body }) : await api(`/lessons/${target.lessonId}`, { method: 'PATCH', body });
       await write(async () => d);
       setSavedAt(new Date());
-      if (isNew) { toast('Lesson added'); onCreated(d.lessonId); }
+      setSavedKind(v.kind);
+      if (v.kind === 'quiz' && !questions) setQuestions([]);
+      if (isNew) { toast(v.kind === 'quiz' ? 'Quiz added. Now add its questions.' : 'Lesson added'); onCreated(d.lessonId); }
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   const remove = async () => {
@@ -248,15 +264,15 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
         <Field label="Title"><input className="input" required maxLength={160} value={v.title} onChange={set('title')} /></Field>
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1.5 text-xs font-semibold text-slate-300">Type</legend>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {KINDS.map(([k, label]) => (
-              <label key={k} className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border text-sm ${v.kind === k ? 'border-brand-400 bg-brand-400/10 font-semibold text-white' : 'border-[var(--az-hairline)] text-slate-300'}`}>
+              <label key={k} className={`flex min-h-11 min-w-[92px] flex-1 cursor-pointer px-3 items-center justify-center rounded-lg border text-sm ${v.kind === k ? 'border-brand-400 bg-brand-400/10 font-semibold text-white' : 'border-[var(--az-hairline)] text-slate-300'}`}>
                 <input type="radio" name="kind" value={k} checked={v.kind === k} onChange={set('kind')} className="sr-only" />{label}
               </label>
             ))}
           </div>
         </fieldset>
-        <Field label={v.kind === 'text' ? 'Text' : 'Introduction'} hint="Leave a blank line between paragraphs. Start a line with ## for a heading, or - for a list. Links become clickable.">
+        <Field label={BODY_LABEL[v.kind] ?? 'Introduction'} hint="Leave a blank line between paragraphs. Start a line with ## for a heading, or - for a list. Links become clickable.">
           <textarea className="input min-h-40 font-[inherit]" maxLength={20000} required={v.kind === 'text'} value={v.body} onChange={set('body')} />
         </Field>
         {v.kind === 'link' && (
@@ -282,6 +298,20 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
             <span className="t-small">PDF, slides, documents or images, up to 10 MB each. Files aren’t scanned for viruses.</span>
           </div>
         )}
+        {v.kind === 'quiz' && (
+          <div className="flex flex-wrap items-end gap-4">
+            <Field label="Pass mark (%)"><input className="input !w-28" type="number" min={1} max={100} required value={v.quiz.passPercent} onChange={setIn('quiz', 'passPercent')} /></Field>
+            <Field label="Attempts"><input className="input !w-24" type="number" min={1} max={20} required value={v.quiz.maxAttempts} onChange={setIn('quiz', 'maxAttempts')} /></Field>
+            <Field label="Due (optional)"><input className="input" type="datetime-local" value={v.quiz.dueAt} onChange={setIn('quiz', 'dueAt')} /></Field>
+          </div>
+        )}
+        {v.kind === 'assignment' && (
+          <div className="flex flex-wrap items-end gap-4">
+            <Field label="Points"><input className="input !w-28" type="number" min={1} max={1000} required value={v.assignment.points} onChange={setIn('assignment', 'points')} /></Field>
+            <Field label="Pass mark"><input className="input !w-28" type="number" min={0} max={v.assignment.points || 1000} required value={v.assignment.passPoints} onChange={setIn('assignment', 'passPoints')} /></Field>
+            <Field label="Due (optional)" hint="Late work is still accepted, marked late."><input className="input" type="datetime-local" value={v.assignment.dueAt} onChange={setIn('assignment', 'dueAt')} /></Field>
+          </div>
+        )}
         <div className="flex flex-wrap items-end gap-4">
           <Field label="Duration (minutes)"><input className="input !w-32" type="number" min={1} max={600} value={v.durationMin} onChange={set('durationMin')} /></Field>
           <label className="flex min-h-11 items-center gap-2 text-sm text-slate-200"><input type="checkbox" checked={v.required} onChange={set('required')} className="h-4 w-4 accent-[var(--color-brand-400)]" />Required to complete the course</label>
@@ -293,6 +323,72 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
           {!isNew && <button type="button" className="btn btn-ghost ml-auto text-rose-300" onClick={remove}>Delete lesson</button>}
         </div>
       </form>
+      {!isNew && savedKind === 'quiz' && questions && <Questions lessonId={target.lessonId} initial={questions} write={write} />}
+    </section>
+  );
+}
+
+const emptyQuestion = () => ({ key: crypto.randomUUID(), prompt: '', choices: ['', ''], answer: null });
+
+/**
+ * A quiz's questions, saved together. The server checks each one (2–6 different choices and a
+ * right answer, ASM-13); changing them doesn't affect attempts already started (ASM-04).
+ */
+function Questions({ lessonId, initial, write }) {
+  const [list, setList] = useState(() => (initial.length ? initial.map((q) => ({ ...q, key: q.id })) : [emptyQuestion()]));
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(!initial.length);
+  const change = (i, patch) => { setList(list.map((q, n) => (n === i ? { ...q, ...patch } : q))); setDirty(true); };
+  const save = async () => {
+    setError('');
+    const missing = list.findIndex((q) => q.answer == null);
+    if (missing >= 0) { setError(`Pick the right answer for question ${missing + 1}.`); return; }
+    setBusy(true);
+    try {
+      const d = await api(`/lessons/${lessonId}/questions`, { method: 'PUT', body: { questions: list.map((q) => ({ prompt: q.prompt, choices: q.choices, answer: q.answer })) } });
+      await write(async () => d, 'Questions saved');
+      setDirty(false);
+    } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
+  };
+  return (
+    <section aria-labelledby="qs-h" className="flex flex-col gap-4 border-t border-[var(--az-divider)] pt-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h4 id="qs-h" className="t-h3 text-white">Questions</h4>
+        <span className="t-small">{list.length} · multiple choice, one right answer</span>
+      </div>
+      <ol className="flex flex-col gap-4">
+        {list.map((q, i) => (
+          <li key={q.key} className="sunken flex flex-col gap-3 p-3">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1"><Field label={`Question ${i + 1}`}><textarea className="input min-h-16" maxLength={1000} value={q.prompt} onChange={(e) => change(i, { prompt: e.target.value })} /></Field></div>
+              {list.length > 1 && <IconButton icon="x" label={`Remove question ${i + 1}`} onClick={() => { setList(list.filter((_, n) => n !== i)); setDirty(true); }} />}
+            </div>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-xs font-semibold text-slate-300">Choices · mark the right one</legend>
+              {q.choices.map((ch, k) => (
+                <div key={k} className="flex items-center gap-2">
+                  <label className="flex min-h-11 items-center gap-2 text-xs text-slate-300">
+                    <input type="radio" name={`right-${q.key}`} checked={q.answer === k} onChange={() => change(i, { answer: k })} className="h-4 w-4 accent-[var(--color-brand-400)]" />
+                    <span className="sr-only">Choice {k + 1} is the right answer</span>
+                  </label>
+                  <input className="input flex-1" aria-label={`Question ${i + 1}, choice ${k + 1}`} maxLength={300} value={ch}
+                    onChange={(e) => change(i, { choices: q.choices.map((c, n) => (n === k ? e.target.value : c)) })} />
+                  {q.choices.length > 2 && <IconButton icon="x" label={`Remove choice ${k + 1}`} onClick={() => change(i, {
+                    choices: q.choices.filter((_, n) => n !== k), answer: q.answer === k ? null : q.answer > k ? q.answer - 1 : q.answer })} />}
+                </div>
+              ))}
+              {q.choices.length < 6 && <button type="button" className="btn btn-ghost self-start" onClick={() => change(i, { choices: [...q.choices, ''] })}><Icon name="plus" size={16} />Add choice</button>}
+            </fieldset>
+          </li>
+        ))}
+      </ol>
+      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-ghost" disabled={list.length >= 50} onClick={() => { setList([...list, emptyQuestion()]); setDirty(true); }}><Icon name="plus" size={16} />Add question</button>
+        <button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : dirty ? 'Save questions' : 'Questions saved'}</button>
+      </div>
+      <p className="t-small">Learners who already started an attempt keep the questions they started with.</p>
     </section>
   );
 }

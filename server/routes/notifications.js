@@ -42,6 +42,18 @@ export default async function notificationRoutes(app, { ctx }) {
       if (!a?.canView) return null;
       return { title: r.title, href: `/c/${a.community.slug || a.community.id}/resources`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
     }
+    // Stage 5b: graded work points at its lesson (the lesson page checks enrolment), and a
+    // certificate at its verification page, for its owner only.
+    if (type === 'lesson') {
+      const { rows: [l] } = await db.query(`select l.id, l.title, c.community_id from lessons l join courses c on c.id = l.course_id where l.id = $1`, [id]);
+      const a = l && await accessOf(req, l.community_id, cache);
+      if (!a?.canView) return null;
+      return { title: l.title, href: `/lessons/${l.id}`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
+    }
+    if (type === 'certificate') {
+      const { rows: [c] } = await db.query(`select code, course_title from certificates where code = $1 and user_id = $2 and revoked_at is null`, [id, uid]);
+      return c ? { title: c.course_title, href: `/verify/${c.code}` } : null;
+    }
     return null;
   }
 
