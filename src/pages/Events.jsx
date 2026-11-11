@@ -9,6 +9,7 @@ import { Avatar, AvatarStack, Empty, Field, Modal, PageHeader, Tabs, UserLink } 
 import CalendarGrid, { RangeNav, viewRange } from '../components/events/CalendarGrid.jsx';
 import EventCard, { RsvpButtons } from '../components/events/EventCard.jsx';
 import EventForm from '../components/events/EventForm.jsx';
+import SaveButton from '../components/SaveButton.jsx';
 import {
   EVENT_TYPES, TYPE_COLORS, downloadIcs, isUrl, lastOccurrence, nextOccurrence, occurrences,
   recurrenceText, scopeLabel, sectionOf, whenText,
@@ -248,6 +249,7 @@ function EventDetail({ id }) {
             <div className="ml-auto flex flex-wrap gap-2">
               {!cancelled && <button className="btn btn-ghost" onClick={() => downloadIcs(e)}>📥 Add to calendar</button>}
               <button className="btn btn-ghost" onClick={copy}>{copied ? '✓ Copied' : '🔗 Copy link'}</button>
+              <SaveButton type="event" id={e.id} label={e.title} />
               {e.can.edit && <button className="btn btn-ghost" onClick={() => setEditing(true)}><Glyph value="✏️" tile={false} size={16} /> Edit</button>}
               {e.can.cancel && <button className="btn btn-ghost !text-amber-200" onClick={() => setCancelling(true)}>🚫 Cancel event</button>}
               {e.can.delete && <button className="btn btn-ghost !text-rose-300" onClick={remove}>🗑 Delete</button>}

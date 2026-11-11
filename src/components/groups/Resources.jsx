@@ -8,6 +8,7 @@ import { fmtDate } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
+import SaveButton from '../SaveButton.jsx';
 
 const MB = 1024 * 1024;
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.xlsx,.pptx,.txt,.csv,.md';
@@ -128,7 +129,7 @@ function Row({ x, onEdit, onDelete }) {
       <td className="text-2 whitespace-nowrap px-4 py-3 tabular-nums">{x.kind === 'link' ? host(x.url) : sizeText(x.file.size)}</td>
       <td className="text-2 whitespace-nowrap px-4 py-3">{fmtDate(Date.parse(x.createdAt), { day: 'numeric', month: 'short' })}</td>
       <td className="whitespace-nowrap px-4 py-3 text-right">
-        <span className="inline-flex gap-2"><Open x={x} />{x.canEdit && <Manage x={x} onEdit={onEdit} onDelete={onDelete} />}</span>
+        <span className="inline-flex gap-2"><Open x={x} /><SaveButton type="resource" id={x.id} label={x.title} />{x.canEdit && <Manage x={x} onEdit={onEdit} onDelete={onDelete} />}</span>
       </td>
     </tr>
   );
@@ -141,6 +142,7 @@ function MobileRow({ x, onEdit, onDelete }) {
       <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-white">{x.title}</span>
         <span className="t-small">{[x.category, x.kind === 'link' ? host(x.url) : sizeText(x.file.size), x.addedBy.name].filter(Boolean).join(' · ')}</span></span>
       <Open x={x} className="!px-3" />
+      <SaveButton type="resource" id={x.id} label={x.title} className="!px-3" />
       {x.canEdit && <Manage x={x} onEdit={onEdit} onDelete={onDelete} />}
     </li>
   );

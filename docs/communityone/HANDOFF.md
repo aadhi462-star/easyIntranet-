@@ -83,7 +83,7 @@ Feed, People and Calendar are on the refined system (shared `PageHeader`/`Tabs` 
 
 Stage 4 (engagement) is built: Resources, Discussions with topics and attachments, Notifications, Saved, the event waitlist, Members search and filters. See PHASE0_ASSESSMENT.md for the open items.
 
-Next: Stage 5 (learning), after its layouts are approved. Open from Stage 4: no automatic retry for failed emails (NTF-03), no event reminders (NTF-04), a removed member's seat is released to the waitlist only on the next RSVP change; waitlist buttons and phone sizes of the new tabs not yet seen in the browser.
+Next: Stage 5 (learning), after its layouts are approved. Open from Stage 4: no automatic retry for failed emails (NTF-03), no event reminders (NTF-04), a removed member's seat is released to the waitlist only on the next RSVP change.
 
 ## Working style that's been effective
 

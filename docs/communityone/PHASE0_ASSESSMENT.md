@@ -650,3 +650,13 @@ The boards (refined style) were approved, along with decisions S4-1 to S4-6. Mig
   - No reminders before events (NTF-04).
   - A removed member's place isn't released to the waitlist until the next RSVP change.
 
+### Stage 4 checks: waitlist and phone sizes (11 Nov 2026)
+
+- **Waitlist, end to end in the browser:**
+  - Neha took the only place at a 1-seat event. Ishita saw "Join waitlist" with "This event is full".
+  - After joining, she saw "You're number 1 on the waitlist…" and "Leave waitlist".
+  - When Neha gave up her place, Ishita became Going and got "A place opened up…" linking to the event.
+- **Phone (375 px), no horizontal scroll:** Discussions (filter and topic chips scroll sideways), Resources (list rows with Download and Save), Members (search and role filter stack), Notifications (list and email settings), Saved, and the event page.
+- **Bug found and fixed:** going from one community straight to a different community on a different tab drew the old community's data under the new address for a moment. Its address fix-up then sent you back to the old community. The page now keeps track of which address its data belongs to, and shows the loading state until the new community arrives.
+- **Gap found and fixed:** Saved said "Use Save on a post, event or resource", but only posts had Save. Events (next to Copy link) and resources (each row) now have a Save / ✓ Saved button. Both were checked in the browser.
+

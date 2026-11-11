@@ -49,16 +49,16 @@ function useCommunityPage(key, admin) {
   const load = useCallback(async () => {
     try {
       const r = await loadCommunity(key, me.id);
-      if (!r) setS({ status: 'missing' });
-      else if (r.merged) setS({ status: 'merged', to: r.merged });
+      if (!r) setS({ status: 'missing', key });
+      else if (r.merged) setS({ status: 'merged', to: r.merged, key });
       else {
         if (r.members.length) dispatch({ type: 'users/merge', users: r.members.map((m) => ({ id: m.id, name: m.name })), silent: true });
         current.current = r.group.id;
-        setS({ status: 'ready', group: r.group });
+        setS({ status: 'ready', group: r.group, key });
       }
     } catch (err) {
       // Keep showing the last good copy if a background reload fails.
-      setS((prev) => (prev.group ? prev : { status: 'error', message: errorText(err) }));
+      setS((prev) => (prev.group && prev.key === key ? prev : { status: 'error', message: errorText(err), key }));
     }
   }, [key, admin, me.id, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setS({ status: 'loading' }); load(); }, [load]);
@@ -81,7 +81,9 @@ export default function Community() {
   if (admin) setAdminScope([key, ...ids.current]);
   const tab = TAB_FOR_APP[rawTab] ?? rawTab ?? 'overview';
 
-  if (page.status === 'loading') return <div className="space-y-4" aria-busy="true" aria-label="Loading community"><div className="glass h-44 animate-pulse" /><div className="glass h-64 animate-pulse" /></div>;
+  // Until this address's community has loaded, never draw the previous one under it: its
+  // address fix-up would send you back there.
+  if (page.status === 'loading' || page.key !== key) return <div className="space-y-4" aria-busy="true" aria-label="Loading community"><div className="glass h-44 animate-pulse" /><div className="glass h-64 animate-pulse" /></div>;
   if (page.status === 'merged') return <Navigate to={communityPath(page.to.slug || page.to.id, tab)} replace />;
   if (page.status === 'missing') {
     return <Empty icon="search" title="Community not found">It may have been deleted, or it’s Closed and you’re not a member. <Link to="/groups?tab=discover" className="text-brand-400 underline">Explore communities</Link></Empty>;
