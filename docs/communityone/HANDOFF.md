@@ -100,19 +100,15 @@ Stage 4 (engagement) is built: Resources, Discussions with topics and attachment
 
 Stage 4 leftovers done (`5d975aa`): `server/lib/jobs.js` runs each minute from `server/index.js`. It handles scheduled posts, event reminders (NTF-04), email retries up to 3 attempts (NTF-03), and a waitlist sweep that gives a removed member's place to the next person. The tests call `sendReminders` / `retryEmails` / `sweepWaitlists` directly.
 
-Pushed up to `5932a8e`. Not pushed: `af9b246` (Stage 5 decisions recorded above) and `5d975aa`.
+Pushed up to `5932a8e`. Not pushed: `af9b246` (Stage 5 decisions), `5d975aa`, `7e9d06f` (handoff) and `b049167` (Stage 5a server).
 
-### Stage 5a: what's on disk, uncommitted, not working yet
-The user approved the Stage 5 boards (design canvas page "Stage 5 — Learning") and decisions D1–D8, and asked to build. Work so far, none of it committed:
+### Stage 5a: server done (`b049167`), client not started
+The user approved the Stage 5 boards (design canvas page "Stage 5 — Learning") and decisions D1–D8, and asked to build. Committed, not pushed:
 - `server/migrations/009_learning.sql`: courses, course_instructors, course_modules, lessons, enrollments, lesson_progress.
 - `server/routes/learning.js`: catalogue, course CRUD, publish/unpublish/archive/delete, instructors, modules, lessons, `PUT /courses/:id/order`, enrol and leave with waitlist, `GET /lessons/:id`, `POST /lessons/:id/complete`, `GET /me/learning`. It's registered in `server/app.js`.
-- `server/test/learning.test.js`: tests named LMS-01 to LMS-15 (most of them).
-
-**The test run hangs (it was killed). Fix this first.** The likely cause: PGlite has one connection, so a `db.query` made while a `db.tx` is open waits forever.
-- In `POST /courses/:id/enroll`, `loadCourse(req, id, { lock: t })` calls `access(db, …)` and `db.query(...)` inside the transaction.
-- Fix: load and check the course (`loadCourse`) before `db.tx`, then inside the transaction only lock the course with `t.query('select … for update')` and re-check status and capacity using `t`.
-- Check `promote()` and any other `db.tx` the same way: every query inside a transaction must use `t`.
-- Then run `NODE_ENV=test node --test --test-concurrency=1 server/test/learning.test.js` in the background, fix any failures, run `npm run test:server`, and commit.
+- `server/test/learning.test.js`: 13 tests (LMS-01–09, 12, 14, 15). `npm run test:server`: 190 pass.
+- The earlier hang was enrol calling `loadCourse` (which uses `db`) inside `db.tx`; PGlite's single connection deadlocked. Rule: check permissions before the transaction, and use only `t` inside it.
+- Draft courses return 404 to anyone who can't manage them, Instructors of another course included.
 
 **Still to build for 5a after the server passes** (per the boards):
 - Client: the Learning tab in `src/pages/Community.jsx` TABS (between Discussions and Events), with the catalogue, "Continue where you left off" and New course for admins.
