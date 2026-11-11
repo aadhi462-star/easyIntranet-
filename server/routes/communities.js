@@ -76,9 +76,15 @@ export default async function communityRoutes(app, { ctx }) {
     // Restricted members are members (they can read), so they're listed with their state;
     // moderators also see removed and blocked people so those decisions can be reversed.
     const states = a.canModerate ? ['active', 'restricted', 'removed', 'blocked'] : ['active', 'restricted'];
+    // Moderators also see when each person last took part here (Stage 6 Members management).
     const { rows } = await db.query(
-      `select m.user_id as id, u.name, m.role, m.state, m.joined_at from memberships m join users u on u.id = m.user_id
-        where m.community_id = $1 and m.state = any($2) and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id, states]);
+      `select m.user_id as id, u.name, m.role, m.state, m.joined_at,
+              case when $3 then greatest(
+                (select max(p.published_at) from posts p where p.community_id = $1 and p.author_id = m.user_id and p.status = 'published'),
+                (select max(c.created_at) from comments c join posts p on p.id = c.post_id where p.community_id = $1 and c.author_id = m.user_id)) end as last_active,
+              case when $3 and m.state = 'restricted' then (select max(s.until) from sanctions s where s.community_id = $1 and s.user_id = m.user_id and s.kind = 'restrict' and s.lifted_at is null) end as restricted_until
+         from memberships m join users u on u.id = m.user_id
+        where m.community_id = $1 and m.state = any($2) and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id, states, a.canModerate]);
     return { members: rows };
   });
 
@@ -91,7 +97,11 @@ export default async function communityRoutes(app, { ctx }) {
     if (c.status !== 'active') throw conflict('ARCHIVED', 'This community isn’t accepting new members.');
     if (a.state === 'active' || a.state === 'restricted') return { membership: { state: a.state, role: a.role } };
     if (a.state === 'pending') return { membership: { state: 'pending' } };
-    if (a.state === 'removed') throw forbidden('You were removed from this community. Ask its admins to let you back in.', 'REMOVED');
+    // Removed members can ask again after 7 days (Stage 6, MEM-07); until then, say when.
+    if (a.state === 'removed') {
+      const { rows: [m] } = await db.query(`select updated_at + interval '7 days' as again from memberships where community_id = $1 and user_id = $2`, [c.id, uid]);
+      if (new Date(m.again) > new Date()) throw conflict('REMOVED', `You were removed from this community. You can ask to join again from ${new Date(m.again).toUTCString().slice(0, 16)}.`, { again: m.again });
+    }
     if (c.visibility === 'closed') throw forbidden('This community is invitation-only.', 'INVITE_ONLY');
     const state = c.visibility === 'public' ? 'active' : 'pending';
     const message = String(req.body?.message ?? '').trim().slice(0, 500) || null;
@@ -99,7 +109,7 @@ export default async function communityRoutes(app, { ctx }) {
       `insert into memberships (community_id, user_id, role, state, request_message, joined_at) values ($1, $2, 'member', $3, $4, case when $3 = 'active' then now() end)
        on conflict (community_id, user_id) do update set state = excluded.state, request_message = excluded.request_message,
          joined_at = excluded.joined_at, role = 'member', updated_at = now()
-       where memberships.state in ('left', 'invited')`, [c.id, uid, state, message]);
+       where memberships.state in ('left', 'invited') or (memberships.state = 'removed' and memberships.updated_at <= now() - interval '7 days')`, [c.id, uid, state, message]);
     await audit(db, { actorId: uid, action: state === 'active' ? 'community.join' : 'community.request', targetType: 'community', targetId: c.id, ip: req.ip });
     const now = (await db.query(`select state, role, updated_at from memberships where community_id = $1 and user_id = $2`, [c.id, uid])).rows[0];
     // A new request tells the community's admins (once per request).

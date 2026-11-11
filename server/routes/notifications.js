@@ -50,6 +50,19 @@ export default async function notificationRoutes(app, { ctx }) {
       if (!a?.canView) return null;
       return { title: l.title, href: `/lessons/${l.id}`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
     }
+    // Stage 6: a case links reviewers to the queue and the person it's about to their notice.
+    if (type === 'case') {
+      const { rows: [c] } = await db.query(`select c.id, c.community_id, c.subject_id, c.audience, co.slug from moderation_cases c join communities co on co.id = c.community_id where c.id = $1`, [id]);
+      if (!c) return null;
+      if (c.subject_id === uid) return { title: 'A moderation decision', href: `/notices/${c.id}` };
+      const a = await accessOf(req, c.community_id, cache);
+      const reviewer = a && ((c.audience === 'moderators' && a.canModerate) || (c.audience === 'owners' && a.isOwner));
+      return reviewer ? { title: 'A report', href: `/c/${c.slug || c.community_id}/manage/queue?case=${c.id}` } : null;
+    }
+    if (type === 'community') {
+      const a = await accessOf(req, id, cache);
+      return a?.canView ? { title: a.community.name, href: `/c/${a.community.slug || a.community.id}` } : null;
+    }
     if (type === 'certificate') {
       const { rows: [c] } = await db.query(`select code, course_title from certificates where code = $1 and user_id = $2 and revoked_at is null`, [id, uid]);
       return c ? { title: c.course_title, href: `/verify/${c.code}` } : null;
@@ -79,6 +92,8 @@ export default async function notificationRoutes(app, { ctx }) {
         available = !!a && (n.kind !== 'join_request' || a.canAdmin);
         target = available ? { href: `/c/${n.community_slug || n.community_id}${n.kind === 'join_request' ? '/members' : ''}` } : null;
       }
+      // A sanction notice is for its subject even when they can't open the community any more.
+      if (n.kind === 'member_sanction' && !available) { available = true; target = { href: null }; }
       const actor = n.actor_status === 'deleted' ? 'Deleted member' : n.actor_name ?? 'Someone';
       out.push({
         id: n.id, kind: n.kind, category: t.cat, createdAt: n.created_at, read: !!n.read_at,

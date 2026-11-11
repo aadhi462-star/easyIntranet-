@@ -16,7 +16,7 @@ export const CATEGORIES = {
   joins: { label: 'Join requests and decisions', email: true },
   events: { label: 'Events you’re going to', email: true },
   announcements: { label: 'New announcements', email: false },
-  moderation: { label: 'Your posts in review', email: true },
+  moderation: { label: 'Moderation: your posts, reports and appeals', email: true },
   learning: { label: 'Your courses: grades and certificates', email: true },
 };
 
@@ -34,6 +34,13 @@ export const TYPES = {
   announcement: { cat: 'announcements', line: (x) => `${x.actor} posted an announcement in ${x.community}` },
   post_approved: { cat: 'moderation', line: (x) => `Your post in ${x.community} was approved` },
   post_removed: { cat: 'moderation', line: (x) => `A moderator removed your post in ${x.community}` },
+  // Stage 6: reports, decisions and appeals. The person affected always sees their own notice.
+  report_new: { cat: 'moderation', line: (x) => `Something was reported in ${x.community}` },
+  report_actioned: { cat: 'moderation', line: (x) => `Action was taken on something you reported in ${x.community}` },
+  moderation_action: { cat: 'moderation', own: true, line: (x) => `A moderator took action on your content or membership in ${x.community}` },
+  member_sanction: { cat: 'moderation', own: true, line: (x) => `A moderator took action on your membership of ${x.community}` },
+  appeal_new: { cat: 'moderation', line: (x) => `${x.actor} appealed a moderation decision in ${x.community}` },
+  appeal_decided: { cat: 'moderation', own: true, line: (x) => `An appeal was decided in ${x.community}` },
   submission_returned: { cat: 'learning', line: (x) => `${x.actor} returned your work in ${x.community} with a grade` },
   certificate_issued: { cat: 'learning', line: (x) => `You earned a certificate in ${x.community}` },
 };
@@ -53,9 +60,9 @@ export async function notify(ctx, req, { to, type, actorId = null, communityId =
     `select u.id, u.email, u.name from users u
       where u.id = any($1) and u.status = 'active'
         and ($2::text is null or not exists (select 1 from blocks b where (b.blocker_id = u.id and b.blocked_id = $2) or (b.blocker_id = $2 and b.blocked_id = u.id)))
-        and ($3::text is null or $4::boolean or exists (select 1 from memberships m join communities c on c.id = m.community_id
+        and ($3::text is null or $4::boolean or $5::boolean or exists (select 1 from memberships m join communities c on c.id = m.community_id
               where m.community_id = $3 and m.user_id = u.id and m.state in ('active', 'restricted') and c.merged_into is null))`,
-    [ids, actorId, communityId, !!t.outsider]);
+    [ids, actorId, communityId, !!t.outsider, !!t.own]);
   const notified = [];
   for (const u of eligible) {
     const { rows } = await db.query(

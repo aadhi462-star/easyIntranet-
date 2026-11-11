@@ -116,7 +116,7 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 5b — assessment"); ASM-01–1
 - Limits: no revoke action, no rubrics, no deadline grace, PDF = browser print.
 
 ### Stages 6 and 7: layouts drawn, waiting for approval (12 Nov 2026)
-On the design canvas, pages "Stage 6 — Management" (S6Plan, S6Manage, S6Moderation, S6Members, S6Settings, S6Analytics, S6Mobile) and "Stage 7 — Platform administration" (S7Plan, S7Users, S7Communities, S7Moderation, S7Settings, S7Activity). Each plan board lists decisions D1–D8 marked "Proposed · not yet approved". Build nothing for either stage until the user approves them.
+On the design canvas, pages "Stage 6 — Management" (S6Plan, S6Manage, S6Moderation, S6Members, S6Settings, S6Analytics, S6Mobile) and "Stage 7 — Platform administration" (S7Plan, S7Users, S7Communities, S7Moderation, S7Settings, S7Activity). **Stage 6 decisions D1–D8 approved by the user on 12 Nov 2026** ("Approve, build 6"), as written on S6Plan. Stage 7's D1–D8 are still waiting: build nothing for Stage 7 until approved.
 - Stage 6 needs new server tables: reports, cases (snapshot + history), sanctions, appeals, deletion_requests, daily community_stats. There is no reporting at all yet.
 - Stage 7 replaces the old local-data admin screens (Members, Moderation, Analytics) and adds the deletion job (30-day restore), announcements, sessions and fresh-password checks.
 

@@ -4,10 +4,12 @@
 //     are still going and still members when it's sent (NTF-04)
 //   - failed emails: retried up to 3 attempts in total within a day, then left recorded (NTF-03)
 //   - waitlists: places freed because someone left or was removed go to the next in line
+//   - restrictions: time-limited restrictions lift on their own when they end (Stage 6)
 import { nextOccurrence } from '../../shared/recurrence.js';
 import { COUNTED, promoteWaitlist, timing } from '../routes/events.js';
 import { publishDuePosts } from '../routes/posts.js';
 import { notify } from './notify.js';
+import { liftExpiredRestrictions } from '../routes/moderation.js';
 
 const MIN = 60e3;
 const LATE = 15 * MIN; // a reminder that's more than 15 minutes overdue (server was down) is skipped
@@ -58,7 +60,7 @@ export async function sweepWaitlists(ctx) {
 }
 
 export async function runJobs(ctx, log = console) {
-  for (const [name, job] of [['posts', () => publishDuePosts(ctx.db)], ['reminders', () => sendReminders(ctx)], ['emails', () => retryEmails(ctx)], ['waitlists', () => sweepWaitlists(ctx)]]) {
+  for (const [name, job] of [['posts', () => publishDuePosts(ctx.db)], ['reminders', () => sendReminders(ctx)], ['emails', () => retryEmails(ctx)], ['waitlists', () => sweepWaitlists(ctx)], ['restrictions', () => liftExpiredRestrictions(ctx.db)]]) {
     try { await job(); } catch (err) { log.error?.({ err: String(err.message || err) }, `job ${name} failed`); }
   }
 }
