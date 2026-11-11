@@ -511,3 +511,24 @@ The user approved the refined designs (canvas page "Refined designs": system, La
   - Home at 1280 (dark and light), 768 and 375 px. Join from You might join added Mentorship to the sidebar and its events to Coming up.
   - Not seen in the browser: the replies version of the featured item (covered by tests).
 
+### Refined design system — step 3: community Overview and Platform Admin (11 Nov 2026)
+
+- **Community Overview:**
+  - Members who joined in the last 30 days and haven't posted yet see a welcome block in the community's colour, with the composer inside it. Everyone else sees the plain composer. The composer is held back until posts have loaded, so it doesn't flicker.
+  - The pinned post or Mandatory Read is a band, and discussions are a list with avatars.
+  - The next event is the one raised item, with RSVP buttons and the next two events after it. It sits beside discussions on desktop and above them on phones and tablets.
+  - The People line says "Run by <owner> with <admins>".
+  - The community colour now covers the whole page.
+  - The community detail response gains `membership.joinedAt`.
+- **RSVP buttons:** moved onto the refined system everywhere. Going is lime, your other choice is white, and the rest are secondary. They're 44 px tall.
+- **Platform Admin:**
+  - A new Overview tab, shown first, with live totals (accounts by status, communities by visibility, events, published posts), "Needs attention" (pending accounts, suspended communities), and recent audit activity for staff with `audit.view`.
+  - A communities table with a text filter and a visibility filter. Rows become a list on phones. A Closed community the admin isn't in shows "Members only" instead of a link that would lead to "not found".
+  - It's served by `GET /admin/overview`, which requires `analytics.platform` and leaves out merged communities.
+  - The admin navigation uses the system's active style.
+- **Tests:** 149 pass. A new test covers that a member gets 403, a User Manager gets 403, totals match SQL, a merged community isn't listed, and `canOpen` is right for Public and Closed communities.
+- **Browser:**
+  - Overview as Ishita at 1280 and 375 px: the welcome block, and RSVP Maybe then Going.
+  - Admin as Neha at 1280 and 375 px: 36 accounts, 8 communities, 9 events, 7 posts. The Closed filter shows the two Closed communities, and there's no horizontal scroll.
+- **Not built:** an Administrative Mode entry point in the client. The server supports it.
+

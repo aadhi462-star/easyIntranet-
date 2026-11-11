@@ -121,6 +121,47 @@ export default async function adminRoutes(app, { ctx }) {
     return { key, value };
   });
 
+  // Platform Admin overview (refined designs, board R1Admin): live totals, what's waiting, recent
+  // activity and every community. Merged communities (R4) aren't counted or listed. Each part is
+  // only returned to staff whose role grants it.
+  app.get('/overview', async (req) => {
+    authorize(req.user, 'analytics.platform');
+    const [users, communities, events, posts, list] = await Promise.all([
+      db.query(`select status, count(*)::int as n from users group by status`),
+      db.query(`select visibility, status, count(*)::int as n from communities where merged_into is null group by visibility, status`),
+      db.query(`select count(*)::int as n from events e join communities c on c.id = e.community_id where e.deleted_at is null and c.merged_into is null`),
+      db.query(`select count(*)::int as n from posts p join communities c on c.id = p.community_id where p.status = 'published' and p.deleted_at is null and c.merged_into is null`),
+      db.query(`select c.id, c.slug, c.name, c.accent, c.visibility, c.status, c.created_at,
+          (select count(*)::int from memberships m join users u on u.id = m.user_id
+            where m.community_id = c.id and m.state in ('active', 'restricted') and u.status = 'active') as member_count,
+          (select u.name from memberships m join users u on u.id = m.user_id where m.community_id = c.id and m.role = 'owner' and m.state = 'active' limit 1) as owner,
+          exists (select 1 from memberships m where m.community_id = c.id and m.user_id = $1 and m.state in ('active', 'restricted')) as is_member
+        from communities c where c.merged_into is null order by member_count desc, c.name`, [req.user.id]),
+    ]);
+    const byStatus = Object.fromEntries(users.rows.map((r) => [r.status, r.n]));
+    const vis = { public: 0, private: 0, closed: 0 };
+    let archived = 0; let suspended = 0;
+    for (const r of communities.rows) { vis[r.visibility] += r.n; if (r.status === 'archived') archived += r.n; if (r.status === 'suspended') suspended += r.n; }
+    const out = {
+      totals: {
+        accounts: { total: Object.values(byStatus).reduce((a, b) => a + b, 0), byStatus },
+        communities: { total: vis.public + vis.private + vis.closed, ...vis, archived, suspended },
+        events: events.rows[0].n,
+        posts: posts.rows[0].n,
+      },
+      communities: list.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility, status: c.status, memberCount: c.member_count, owner: c.owner,
+        // Whether its page opens for you without Administrative Mode (Closed ones are members only).
+        canOpen: c.status !== 'suspended' && (c.visibility !== 'closed' || c.is_member) })),
+    };
+    if (can(req.user, 'users.approve')) out.pendingAccounts = byStatus.pending ?? 0;
+    if (can(req.user, 'audit.view')) {
+      out.activity = (await db.query(`select a.id, a.action, a.target_type, a.target_id, a.at, u.name as actor_name
+          from audit_log a left join users u on u.id = a.actor_id order by a.at desc, a.id desc limit 6`)).rows
+        .map((r) => ({ id: r.id, action: r.action, targetType: r.target_type, targetId: r.target_id, at: r.at, actor: r.actor_name }));
+    }
+    return out;
+  });
+
   app.get('/audit', async (req) => {
     authorize(req.user, 'audit.view');
     const limit = Math.min(Number(req.query.limit) || 100, 500);

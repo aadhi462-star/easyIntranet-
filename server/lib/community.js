@@ -19,7 +19,7 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   const user = req.user;
   if (!user) throw unauthorized();
   const { rows } = await db.query(
-    `select c.*, m.role, m.state as member_state, t.slug as merged_slug from communities c
+    `select c.*, m.role, m.state as member_state, m.joined_at as member_joined_at, t.slug as merged_slug from communities c
        left join memberships m on m.community_id = c.id and m.user_id = $2
        left join communities t on t.id = c.merged_into where c.id = $1`, [communityId, user.id]);
   const c = rows[0];
@@ -41,7 +41,7 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   const writable = c.status === 'active';
   const whoCanPost = c.settings?.whoCanPost ?? 'members';
   return {
-    community: c, state, role, adminMode, member, canView,
+    community: c, state, role, adminMode, member, canView, joinedAt: member ? c.member_joined_at : null,
     // Restricted members can read but not take part (MEM-16).
     canParticipate: writable && state === 'active' && (whoCanPost === 'members' || atLeast(role, 'admin')),
     canComment: writable && state === 'active',

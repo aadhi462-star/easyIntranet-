@@ -232,3 +232,30 @@ describe('Home dashboard (refined design): replies, what’s new, communities to
     finally { await q(`delete from memberships where community_id = 'pub' and user_id = 'cy'`); }
   });
 });
+
+describe('Platform Admin overview (refined design)', () => {
+  test('only staff with analytics see it; totals match the database and leave out merged communities', async () => {
+    await makeUser(env.db, { id: 'padm', email: 'padm@example.com', name: 'Plat Admin', roles: ['platform_admin'] });
+    await makeUser(env.db, { id: 'umgr', email: 'umgr@example.com', name: 'User Manager', roles: ['user_manager'] });
+    const padm = await signIn(env.app, { email: 'padm@example.com', password: 'correct-horse-battery' });
+    const umgr = await signIn(env.app, { email: 'umgr@example.com', password: 'correct-horse-battery' });
+    await q(`insert into communities (id, slug, name, visibility, created_by) values ('tmpm', 'harbour-temp', 'Harbour Temp', 'public', 'own')`);
+    await mergeCommunity(env.db, { from: 'tmpm', to: 'alumnizone', actorId: 'own' });
+    assert.equal((await ana.get('/api/admin/overview')).status, 403);
+    assert.equal((await umgr.get('/api/admin/overview')).status, 403, 'a User Manager has no analytics');
+    const r = await padm.get('/api/admin/overview');
+    assert.equal(r.status, 200);
+    const one = async (sql) => (await q(sql)).rows[0].n;
+    assert.equal(r.body.totals.accounts.total, await one(`select count(*)::int as n from users`));
+    assert.equal(r.body.totals.communities.total, await one(`select count(*)::int as n from communities where merged_into is null`));
+    assert.equal(r.body.totals.posts, await one(`select count(*)::int as n from posts p join communities c on c.id = p.community_id where p.status = 'published' and p.deleted_at is null and c.merged_into is null`));
+    assert.equal(r.body.communities.length, r.body.totals.communities.total);
+    assert.ok(!r.body.communities.some((c) => c.id === 'tmpm'), 'a merged community isn’t listed');
+    const pub = r.body.communities.find((c) => c.id === 'pub');
+    assert.equal(pub.owner, 'Owner Person');
+    assert.equal(pub.canOpen, true);
+    assert.equal(r.body.communities.find((c) => c.id === 'clo').canOpen, false, 'a Closed community the admin isn’t in doesn’t open without Administrative Mode');
+    assert.ok(Array.isArray(r.body.activity));
+    assert.equal(typeof r.body.pendingAccounts, 'number');
+  });
+});

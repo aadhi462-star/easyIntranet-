@@ -23,7 +23,7 @@ export function RsvpButtons({ event, compact = false }) {
       {opts.map(([v, l]) => (
         <button key={v} aria-pressed={mine === v} disabled={!!pending || (v === 'going' && event.can.full && mine !== 'going')}
           onClick={(e) => { e.preventDefault(); choose(v); }}
-          className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${mine === v ? (v === 'going' ? 'bg-emerald-500 text-white' : v === 'maybe' ? 'bg-amber-500 text-black' : 'bg-rose-500/80 text-white') : 'bg-white/5 text-slate-300 hover:bg-white/10'} ${compact ? '' : 'sm:min-h-10 sm:px-4 sm:text-sm'}`}>
+          className={`rounded-lg px-3 font-semibold transition ${mine === v ? (v === 'going' ? 'bg-accent-fill' : 'bg-[var(--az-text)] text-[var(--color-ink-950)]') : 'text-2 border border-[var(--az-hairline)] hover:text-white'} ${compact ? 'min-h-9 text-xs' : 'min-h-11 px-4 text-sm'}`}>
           {v === 'going' && event.can.full && mine !== 'going' ? 'Full' : l}
         </button>
       ))}

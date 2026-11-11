@@ -8,9 +8,10 @@ import { useStore } from '../lib/store.jsx';
 import { accentOf, communityPath, errorText, loadCommunity, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
 import { useServerFeed } from '../lib/feed.js';
 import { useEvents } from '../lib/events.js';
-import { occurrences, whenText } from '../components/events/eventUtils.js';
+import { isUrl, occurrences, whenText } from '../components/events/eventUtils.js';
+import { RsvpButtons } from '../components/events/EventCard.jsx';
 import { Icon } from '../components/icons.jsx';
-import { AvatarStack, Empty } from '../components/ui.jsx';
+import { Avatar, AvatarStack, Empty } from '../components/ui.jsx';
 import { CommunityTile, VisibilityBadge } from '../components/public/CommunityCards.jsx';
 import { ACCESS, permsOf, roleOf } from '../components/groups/helpers.js';
 import { useCommunityLifecycle, useCommunityWrite } from '../components/groups/useCommunity.js';
@@ -99,8 +100,8 @@ function CommunityView({ g, tab, keyInUrl }) {
   useEffect(() => { document.title = `${g.name} · CommunityOne`; }, [g.name]);
 
   return (
-    <div className="space-y-5">
-      <header className={`glass overflow-hidden cm-${accentOf(g)}`}>
+    <div className={`space-y-6 cm-${accentOf(g)}`}>
+      <header className="glass overflow-hidden">
         <div aria-hidden="true" className="cm-cover h-20 sm:h-24" />
         <div className="-mt-9 flex flex-wrap items-end gap-4 px-5 pb-5 sm:px-6">
           <span className="rounded-[18px] border-4 border-[var(--az-surface)]"><CommunityTile c={g} size={72} /></span>
@@ -223,86 +224,131 @@ const excerpt = (body, n = 140) => (body.length > n ? `${body.slice(0, n).trimEn
 const TYPE_LABEL = { announcement: 'announcement', question: 'question', poll: 'poll', post: 'post' };
 
 function Overview({ g, perms }) {
+  const { me, user } = useStore();
   const feed = useServerFeed({ view: 'all', community: g.id, enabled: true, keep: (p) => p.status === 'published' });
   const [now] = useState(Date.now);
   const { events, loading: eventsLoading } = useEvents({ community: g.id, from: now, to: now + 120 * DAY });
   const published = feed.posts.filter((p) => p.status === 'published');
   const pinned = published.find((p) => p.pinned);
-  const recent = published.filter((p) => p !== pinned).slice(0, 3);
-  const upcoming = events.flatMap((e) => occurrences(e, now, now + 120 * DAY).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
-  const admins = g.admins.filter((id) => id !== g.ownerId).length;
-  const { user } = useStore();
+  const recent = published.filter((p) => p !== pinned).slice(0, 4);
+  const upcoming = events.flatMap((e) => occurrences(e, now, now + 120 * DAY).slice(0, 1)).sort((a, b) => a.occStart - b.occStart);
+  const [next, ...later] = upcoming;
+  const owner = g.ownerId && user(g.ownerId)?.name;
+  const admins = g.admins.filter((id) => id !== g.ownerId).map((id) => user(id)?.name).filter(Boolean);
+  // New members (first 30 days, nothing posted yet) get a welcome in place of the plain composer.
+  const joined = g.myMembership?.joinedAt ? Date.parse(g.myMembership.joinedAt) : null;
+  const canPost = perms.canParticipate && !g.announceOnly;
+  const loadingFeed = feed.status === 'loading' && !published.length;
+  const isNew = canPost && joined && now - joined < 30 * DAY && !loadingFeed && !published.some((p) => p.author?.id === me.id);
+  // The next event is the screen's one featured item: beside the discussions on wide screens,
+  // above them on phones and tablets.
+  const nextEvent = (where) => (
+        <section aria-labelledby={`next-${where}`} className={next ? 'raised flex flex-col gap-4 p-5' : ''}>
+          <span id={`next-${where}`} className={next ? 't-label' : 't-h2 text-white'}>{next ? 'Next event' : 'Events'}</span>
+          {eventsLoading && !events.length ? <p className="text-3 text-sm">Loading…</p>
+            : !next ? <p className="text-3 mt-2 text-sm">No upcoming events. <Link to={communityPath(g, 'events')} className="text-brand-300 hover:underline">See past events</Link></p>
+              : (
+                <>
+                  <Link to={`/events/${next.id}`} className="flex items-center gap-3 hover:underline">
+                    <DateTile at={next.occStart} />
+                    <span className="min-w-0"><span className="t-h3 block text-white">{next.title}</span><span className="t-small block">{whenText(next)}{next.location ? ` · ${isUrl(next.location) ? 'Map link' : next.location}` : ''}</span></span>
+                  </Link>
+                  <RsvpButtons event={next} />
+                  {later.length > 0 && (
+                    <ul className="list-rows border-t border-[var(--az-divider)] text-sm">
+                      {later.slice(0, 2).map((e) => (
+                        <li key={`${e.id}-${e.occStart}`}><Link to={`/events/${e.id}`} className="flex justify-between gap-3 py-2.5 hover:underline">
+                          <span className="truncate text-white">{e.title}</span><span className="t-small shrink-0">{new Date(e.occStart).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+                        </Link></li>
+                      ))}
+                    </ul>
+                  )}
+                  <Link to={communityPath(g, 'events')} className="text-sm text-brand-300 hover:underline">All events</Link>
+                </>
+              )}
+        </section>
+  );
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex min-w-0 flex-col gap-5">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <div className="lg:hidden">{nextEvent('main')}</div>
+        {loadingFeed ? null : isNew ? (
+          <section aria-labelledby="welcome-h" className={`cm-${accentOf(g)} flex flex-col gap-3 rounded-2xl border border-[var(--cm-line)] bg-[var(--cm-tint)] p-5 sm:p-6`}>
+            <span className="t-label cm-ink">Welcome to {g.name}</span>
+            <h2 id="welcome-h" className="t-h2 text-white">Introduce yourself</h2>
+            <p className="text-2 text-sm">Say who you are, what you’re working on and what you’d like help with. Introductions are a good way to meet people here.</p>
+            <Composer compact communityId={g.id} />
+          </section>
+        ) : canPost && <Composer compact communityId={g.id} />}
         {pinned && (
-          <Card title="Pinned">
-            <Link to={`/post/${pinned.id}`} className="block rounded-lg hover:bg-white/[.03]">
-              <p className="text-xs text-slate-400">{pinned.author?.name} · {TYPE_LABEL[pinned.type]}</p>
-              <p className="mt-1 text-sm leading-relaxed text-slate-200">{excerpt(pinned.body, 280)}</p>
-              {pinned.mandatory && <p className="mt-2 text-xs font-semibold text-amber-200">{pinned.mandatory.acked ? 'Mandatory read · you’ve acknowledged it' : 'Mandatory read · open it to acknowledge'}</p>}
+          <section aria-labelledby="pin-h" className="band p-5">
+            <span id="pin-h" className="t-label">Pinned{pinned.mandatory ? ' · Mandatory Read' : ''}</span>
+            <Link to={`/post/${pinned.id}`} className="mt-2 block hover:underline">
+              <p className="t-body text-white">{excerpt(pinned.body, 280)}</p>
             </Link>
-          </Card>
+            <p className="t-small mt-2">{pinned.author?.name}{pinned.mandatory ? (pinned.mandatory.acked ? ' · You’ve acknowledged this' : ' · Open it to acknowledge') : ''}</p>
+          </section>
         )}
-        {perms.canParticipate && !g.announceOnly && <Composer compact communityId={g.id} />}
-        <Card title="Recent discussions" action={<Link to={communityPath(g, 'discussions')} className="text-sm text-brand-400 hover:underline">All discussions</Link>}>
-          {feed.status === 'loading' && !published.length ? <p className="text-sm text-slate-400">Loading…</p>
+        <section aria-labelledby="disc-h">
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <h2 id="disc-h" className="t-h2 text-white">Recent discussions</h2>
+            <Link to={communityPath(g, 'discussions')} className="text-sm text-brand-300 hover:underline">All discussions</Link>
+          </div>
+          {feed.status === 'loading' && !published.length ? <p className="text-3 text-sm">Loading…</p>
             : feed.status === 'error' ? <p className="text-sm text-rose-300">{feed.error} <button className="underline" onClick={feed.reload}>Try again</button></p>
-              : recent.length === 0 ? <p className="text-sm text-slate-400">{pinned ? 'Nothing else yet.' : 'No discussions yet.'} {perms.canParticipate && !g.announceOnly ? 'Start one above.' : ''}</p>
+              : recent.length === 0 ? <p className="text-3 border-t border-[var(--az-divider)] py-4 text-sm">{pinned ? 'Nothing else yet.' : 'No discussions yet.'} {canPost ? 'Start one above.' : ''}</p>
                 : (
-                  <ul className="divide-y divide-[var(--az-hairline)]">
+                  <ul className="list-rows border-t border-[var(--az-divider)]">
                     {recent.map((p) => (
                       <li key={p.id}>
-                        <Link to={`/post/${p.id}`} className="block py-3 first:pt-0 hover:bg-white/[.03]">
-                          <p className="text-xs text-slate-400">{p.author?.name} · {TYPE_LABEL[p.type]}</p>
-                          <p className="mt-0.5 text-sm text-slate-200">{excerpt(p.body)}</p>
-                          <p className="mt-1 text-xs text-slate-500">{plural(p.commentCount, 'reply', 'replies')}</p>
+                        <Link to={`/post/${p.id}`} className="flex gap-3 py-4 hover:bg-white/[.02]">
+                          {p.author?.id ? <Avatar user={user(p.author.id) ?? p.author} size={36} /> : <span className="h-9 w-9 shrink-0 rounded-full bg-[var(--az-sunken)]" />}
+                          <span className="min-w-0">
+                            <span className="block text-sm"><b className="text-white">{p.author?.name}</b> <span className="text-3">· {TYPE_LABEL[p.type]} · {plural(p.commentCount, 'reply', 'replies')}</span></span>
+                            <span className="text-2 mt-0.5 line-clamp-2 block text-[15px] leading-6">{excerpt(p.body)}</span>
+                          </span>
                         </Link>
                       </li>
                     ))}
                   </ul>
                 )}
-        </Card>
+        </section>
       </div>
-      <div className="flex min-w-0 flex-col gap-5">
-        <Card title="Upcoming events" action={<Link to={communityPath(g, 'events')} className="text-sm text-brand-400 hover:underline">All</Link>}>
-          {eventsLoading && !events.length ? <p className="text-sm text-slate-400">Loading…</p>
-            : upcoming.length === 0 ? <p className="text-sm text-slate-400">No upcoming events.</p>
-              : (
-                <ul className="space-y-3">
-                  {upcoming.map((e) => {
-                    const d = new Date(e.occStart);
-                    return (
-                      <li key={`${e.id}-${e.occStart}`}>
-                        <Link to={`/events/${e.id}`} className="flex items-center gap-3 rounded-lg hover:bg-white/[.03]">
-                          <span className="grid w-11 shrink-0 place-items-center rounded-lg border border-[var(--az-hairline)] py-1 text-center leading-tight">
-                            <span className="text-[10px] font-semibold uppercase text-brand-300">{d.toLocaleDateString(undefined, { month: 'short' })}</span>
-                            <span className="text-base font-bold text-white">{d.getDate()}</span>
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-white">{e.title}</span>
-                            <span className="block truncate text-xs text-slate-400">{whenText(e)}{e.location ? ` · ${e.location}` : ''}</span>
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-        </Card>
-        <Card title="Members" action={<Link to={communityPath(g, 'members')} className="text-sm text-brand-400 hover:underline">Directory</Link>}>
+      <aside className="flex min-w-0 flex-col gap-8">
+        <div className="hidden lg:block">{nextEvent('side')}</div>
+        <section aria-labelledby="ppl-h">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 id="ppl-h" className="t-h2 text-white">People</h2>
+            <Link to={communityPath(g, 'members')} className="text-sm text-brand-300 hover:underline">Directory</Link>
+          </div>
           <div className="flex items-center gap-3">
             <AvatarStack ids={g.members} max={5} size={32} />
-            <span className="text-sm text-slate-300">{plural(g.memberCount, 'member')}</span>
+            <span className="text-2 text-sm">{plural(g.memberCount, 'member')}</span>
           </div>
-          {g.ownerId && <p className="text-xs text-slate-400">Owner: {user(g.ownerId)?.name ?? 'unknown'}{admins ? ` · ${plural(admins, 'admin')}` : ''}</p>}
-        </Card>
-        <Card title="About" action={<Link to={communityPath(g, 'about')} className="text-sm text-brand-400 hover:underline">More</Link>}>
+          {owner && <p className="text-2 mt-3 text-sm leading-6">Run by {owner}{admins.length ? ` with ${listText(admins)}` : ''}.</p>}
+        </section>
+        <section aria-labelledby="about-h">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 id="about-h" className="t-h2 text-white">About</h2>
+            <Link to={communityPath(g, 'about')} className="text-sm text-brand-300 hover:underline">{g.guidelines ? 'Guidelines' : 'More'}</Link>
+          </div>
           <AboutText g={g} short />
-        </Card>
-      </div>
+        </section>
+      </aside>
     </div>
+  );
+}
+
+const listText = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
+
+function DateTile({ at }) {
+  const d = new Date(at);
+  return (
+    <span className="grid w-14 shrink-0 place-items-center rounded-xl border border-[var(--cm-line,var(--az-hairline))] py-1.5 text-center">
+      <span className="cm-ink text-[11px] font-bold uppercase">{d.toLocaleDateString(undefined, { month: 'short' })}</span>
+      <span className="text-xl font-bold leading-7 text-white">{d.getDate()}</span>
+    </span>
   );
 }
 
