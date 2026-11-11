@@ -94,6 +94,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         </div>
         {/* On narrow cards the badges wrap onto their own row so they never squeeze the author name. */}
         <div className="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto sm:justify-end">
+          {post.topic && <span className="chip !bg-white/5 !text-[var(--az-text-2)]">{post.topic.name}</span>}
           {post.pinned && <span className="chip"><Glyph value="📌" tile={false} size={16} /> Pinned</span>}
           {post.type === 'announcement' && <span className="chip !bg-leaf-400/15 !text-leaf-200"><Glyph value="📢" tile={false} size={16} /> Announcement</span>}
           {post.type === 'question' && <span className="chip !bg-brand-400/15 !text-brand-200"><Glyph value="❓" tile={false} size={16} /> Question</span>}
@@ -124,6 +125,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         {body && <RichText text={text} mentions={post.mentions || []} className="text-[15px] text-[var(--az-text)]" />}
         {long && <button className="mt-1 text-sm text-brand-400 hover:underline" onClick={() => setMore(!more)}>{more ? 'See less' : 'See more'}</button>}
       </div>
+      {post.attachments?.length > 0 && <Attachments list={post.attachments} />}
 
       {post.poll && (
         <ul className="mt-3 space-y-2" aria-label="Poll options">
@@ -207,3 +209,32 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
     </article>
   );
 }
+
+/** A post's images (shown inline, opened full size) and PDFs (download rows). */
+function Attachments({ list }) {
+  const images = list.filter((f) => f.kind === 'image');
+  const docs = list.filter((f) => f.kind !== 'image');
+  const mb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  return (
+    <div className="mt-3 space-y-2">
+      {images.length > 0 && (
+        <div className={`grid gap-2 ${images.length > 1 ? 'grid-cols-2' : ''}`}>
+          {images.map((f) => (
+            <a key={f.id} href={`/api/files/${f.id}?inline=1`} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-[var(--az-divider)] bg-[var(--az-sunken)]">
+              <img src={`/api/files/${f.id}?inline=1`} alt={f.name} loading="lazy" className={`w-full object-cover ${images.length > 1 ? 'aspect-square' : 'max-h-96'}`} />
+            </a>
+          ))}
+        </div>
+      )}
+      {docs.map((f) => (
+        <a key={f.id} href={`/api/files/${f.id}`} download className="sunken flex items-center gap-3 p-3 text-sm hover:border-[var(--az-hairline)]">
+          <span className="grid h-9 w-9 place-items-center rounded-md border border-[var(--az-hairline)] text-[10px] font-bold text-white">PDF</span>
+          <span className="min-w-0 flex-1 truncate font-semibold text-white">{f.name}</span>
+          <span className="text-3 shrink-0">{mb(f.size)}</span>
+          <span className="shrink-0 text-brand-300">Download</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+

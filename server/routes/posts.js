@@ -38,7 +38,7 @@ export default async function postRoutes(app, { ctx }) {
     if (!posts.length) return [];
     const ids = posts.map((p) => p.id);
     const uid = req.user.id;
-    const [authors, reacts, opts, votes, acks, counts, communities] = await Promise.all([
+    const [authors, reacts, opts, votes, acks, counts, communities, topics, files] = await Promise.all([
       db.query(`select id, name, status from users where id = any($1)`, [[...new Set(posts.map((p) => p.author_id))]]),
       db.query(`select post_id, kind, count(*)::int as n, bool_or(user_id = $2) as mine from reactions where post_id = any($1) group by post_id, kind`, [ids, uid]),
       db.query(`select o.*, (select count(*)::int from poll_votes v where v.option_id = o.id) as votes from poll_options o where o.post_id = any($1) order by o.position`, [ids]),
@@ -46,8 +46,13 @@ export default async function postRoutes(app, { ctx }) {
       db.query(`select post_id, count(*)::int as n, bool_or(user_id = $2) as mine from post_acks where post_id = any($1) group by post_id`, [ids, uid]),
       db.query(`select post_id, count(*)::int as n from comments where post_id = any($1) and deleted_at is null group by post_id`, [ids]),
       db.query(`select id, slug, name, emoji, accent, visibility from communities where id = any($1)`, [[...new Set(posts.map((p) => p.community_id))]]),
+      db.query(`select id, name from topics where id = any($1)`, [[...new Set(posts.map((p) => p.topic_id).filter(Boolean))]]),
+      db.query(`select a.post_id, f.id, f.name, f.mime, f.kind, f.size from post_attachments a join files f on f.id = a.file_id
+         where a.post_id = any($1) and f.deleted_at is null order by a.post_id, a.position`, [ids]),
     ]);
     const by = (rows, key) => rows.reduce((m, r) => (m[r[key]] ??= []).push(r) && m, {});
+    const T = Object.fromEntries(topics.rows.map((x) => [x.id, x]));
+    const F = by(files.rows, 'post_id');
     const author = Object.fromEntries(authors.rows.map((u) => [u.id, u]));
     const community = Object.fromEntries(communities.rows.map((c) => [c.id, c]));
     const R = by(reacts.rows, 'post_id'); const O = by(opts.rows, 'post_id');
@@ -70,9 +75,32 @@ export default async function postRoutes(app, { ctx }) {
         poll: p.type === 'poll' ? { options: (O[p.id] || []).map((o) => ({ id: o.id, label: o.label, votes: o.votes })), myVote: V[p.id] ?? null } : null,
         mandatory: p.mandatory ? { ...p.mandatory, acked: !!A[p.id]?.mine, ackCount: a?.canModerate || p.author_id === req.user.id ? A[p.id]?.n ?? 0 : undefined } : null,
         reactions, commentCount: C[p.id] ?? 0,
+        topic: p.topic_id && T[p.topic_id] ? { id: p.topic_id, name: T[p.topic_id].name } : null,
+        attachments: (F[p.id] || []).map((f) => ({ id: f.id, name: f.name, mime: f.mime, kind: f.kind, size: f.size })),
         can: { edit: p.author_id === req.user.id && p.status !== 'removed', delete: p.author_id === req.user.id || !!a?.canModerate, moderate: !!a?.canModerate, pin: !!a?.canAdmin },
       };
     });
+  }
+
+  // A post's topic must be one of its community's (S4-2).
+  async function checkTopic(communityId, topicId) {
+    if (!topicId) return null;
+    const { rows } = await db.query(`select id from topics where id = $1 and community_id = $2`, [topicId, communityId]);
+    if (!rows.length) throw badRequest('INVALID_TOPIC', 'That topic isn’t one of this community’s.', { field: 'topicId' });
+    return topicId;
+  }
+
+  // Attachments (S4-3): images and PDFs, up to 4, that the author uploaded to this community and
+  // hasn't used anywhere else (CNT-12).
+  async function checkAttachments(communityId, userId, ids = []) {
+    const list = [...new Set(ids)];
+    if (!list.length) return [];
+    if (list.length > 4) throw badRequest('TOO_MANY_ATTACHMENTS', 'A post can have up to 4 attachments.', { field: 'attachments' });
+    const { rows } = await db.query(`select id, kind from files f where f.id = any($1) and f.community_id = $2 and f.uploaded_by = $3 and f.deleted_at is null
+        and not exists (select 1 from post_attachments pa where pa.file_id = f.id) and not exists (select 1 from resources r where r.file_id = f.id)`, [list, communityId, userId]);
+    if (rows.length !== list.length) throw badRequest('INVALID_FILE', 'One of the attachments isn’t available. Upload it again.', { field: 'attachments' });
+    if (rows.some((f) => !['image', 'pdf'].includes(f.kind))) throw badRequest('ATTACHMENT_TYPE', 'Posts can carry images and PDFs. Share other files in Resources.', { field: 'attachments' });
+    return list;
   }
 
   // ---- Feed ---------------------------------------------------------------------------------
@@ -83,6 +111,10 @@ export default async function postRoutes(app, { ctx }) {
     const limit = Math.min(Math.max(Number(req.query.limit) || 15, 1), 50);
     const before = req.query.before ? new Date(String(req.query.before)) : null;
     const view = String(req.query.view ?? 'all');
+    // Inside one community (Stage 4 Discussions): a topic, words in the post, most active first.
+    const topic = req.query.community && req.query.topic ? String(req.query.topic) : null;
+    const q = String(req.query.q ?? '').trim().toLowerCase().slice(0, 80).replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    const active = !!req.query.community && req.query.sort === 'active';
     let communityIds; const accessById = {};
     if (req.query.community) {
       const a = requireView(await access(db, req, String(req.query.community)));
@@ -104,14 +136,19 @@ export default async function postRoutes(app, { ctx }) {
           and ($5 = 'all' or ($5 = 'announcements' and p.type = 'announcement') or ($5 = 'questions' and p.type = 'question')
                or ($5 = 'mine' and p.author_id = $2) or ($5 = 'drafts' and p.author_id = $2 and p.status = 'draft')
                or ($5 = 'scheduled' and p.author_id = $2 and p.status = 'scheduled') or ($5 = 'mandatory' and p.mandatory is not null)
-               or ($5 = 'pending' and p.status = 'pending'))
+               or ($5 = 'pending' and p.status = 'pending') or ($5 = 'polls' and p.type = 'poll'))
+          and ($7::text is null or p.topic_id = $7)
+          and ($8 = '' or lower(p.body) like '%' || $8 || '%')
           and ${notBlockedSql('p.author_id', '$2')}
-        order by ${req.query.community ? 'p.pinned desc,' : ''} coalesce(p.published_at, p.created_at) desc, p.id desc
-        limit $6`, [communityIds, uid, moderated, before, view, limit + 1]);
-    const page = rows.slice(0, limit);
+        order by ${req.query.community ? 'p.pinned desc,' : ''} ${active ? `greatest(coalesce(p.published_at, p.created_at),
+          coalesce((select max(k.created_at) from comments k where k.post_id = p.id and k.deleted_at is null), p.created_at)) desc,` : ''}
+          coalesce(p.published_at, p.created_at) desc, p.id desc
+        limit $6`, [communityIds, uid, moderated, active ? null : before, view, active ? 50 : limit + 1, topic, q]);
+    const page = active ? rows : rows.slice(0, limit);
     return {
       posts: await present(req, page, accessById),
-      nextBefore: rows.length > limit ? (page.at(-1).published_at ?? page.at(-1).created_at) : null,
+      // "Most active" is one page of the 50 liveliest; newest-first pages with a cursor.
+      nextBefore: !active && rows.length > limit ? (page.at(-1).published_at ?? page.at(-1).created_at) : null,
     };
   });
 
@@ -137,7 +174,8 @@ export default async function postRoutes(app, { ctx }) {
       status: { type: 'string', enum: ['published', 'draft', 'scheduled'] }, publishAt: { type: ['string', 'null'] },
       mentions: { type: 'array', items: { type: 'string' }, maxItems: 50 }, pinned: { type: 'boolean' },
       poll: { type: 'object', properties: { options: { type: 'array', items: { type: 'string' } } } },
-      mandatory: { type: ['object', 'null'], additionalProperties: false, properties: { message: { type: 'string' }, button: { type: 'string' }, deadline: { type: ['string', 'null'] } } } } } },
+      mandatory: { type: ['object', 'null'], additionalProperties: false, properties: { message: { type: 'string' }, button: { type: 'string' }, deadline: { type: ['string', 'null'] } } },
+      topicId: { type: ['string', 'null'] }, attachments: { type: 'array', items: { type: 'string' }, maxItems: 20 } } } },
   }, async (req, reply) => idempotent(db, req, reply, async () => {
     const a = await access(db, req, req.params.id);
     if (!a.canParticipate) throw forbidden(a.state === 'restricted' ? 'You’ve been restricted from posting here.' : 'Join this community to post in it.', 'CANNOT_POST');
@@ -162,11 +200,14 @@ export default async function postRoutes(app, { ctx }) {
     if (status === 'published' && a.community.settings?.requireApproval && !a.canModerate) status = 'pending';
     const mandatory = b.mandatory ? { message: clean(b.mandatory.message || 'I have read this post.', 200, 'mandatory'), button: clean(b.mandatory.button || 'Acknowledge', 40, 'mandatory'), deadline: b.mandatory.deadline || null } : null;
     const members = b.mentions?.length ? (await db.query(`select user_id from memberships where community_id = $1 and user_id = any($2) and state = 'active'`, [a.community.id, b.mentions])).rows.map((r) => r.user_id) : [];
+    const topicId = await checkTopic(a.community.id, b.topicId);
+    const fileIds = await checkAttachments(a.community.id, req.user.id, b.attachments);
     const id = newId('pst');
     await db.tx(async (t) => {
-      await t.query(`insert into posts (id, community_id, author_id, type, body, status, publish_at, pinned, mentions, mandatory, published_at)
-        values ($1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, case when $6::text = 'published' then now() end)`,
-      [id, a.community.id, req.user.id, type, body, status, publishAt, !!b.pinned, members, mandatory ? JSON.stringify(mandatory) : null]);
+      await t.query(`insert into posts (id, community_id, author_id, type, body, status, publish_at, pinned, mentions, mandatory, published_at, topic_id)
+        values ($1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, case when $6::text = 'published' then now() end, $11)`,
+      [id, a.community.id, req.user.id, type, body, status, publishAt, !!b.pinned, members, mandatory ? JSON.stringify(mandatory) : null, topicId]);
+      for (const [i, f] of fileIds.entries()) await t.query(`insert into post_attachments (post_id, file_id, position) values ($1, $2, $3)`, [id, f, i]);
       for (const [i, label] of options.entries()) await t.query(`insert into poll_options (id, post_id, label, position) values ($1, $2, $3, $4)`, [newId('opt'), id, label, i]);
     });
     await audit(db, { actorId: req.user.id, action: 'post.create', targetType: 'post', targetId: id, context: { communityId: a.community.id, type, status }, ip: req.ip });
@@ -178,14 +219,15 @@ export default async function postRoutes(app, { ctx }) {
   // Edit by the author only, from the latest version. A post a moderator removed can't be
   // brought back by a stale edit (CNT-03).
   app.patch('/posts/:id', {
-    schema: { body: { type: 'object', required: ['version'], additionalProperties: false, properties: { version: { type: 'integer' }, body: { type: 'string' }, mentions: { type: 'array', items: { type: 'string' } } } } },
+    schema: { body: { type: 'object', required: ['version'], additionalProperties: false, properties: { version: { type: 'integer' }, body: { type: 'string' }, mentions: { type: 'array', items: { type: 'string' } }, topicId: { type: ['string', 'null'] } } } },
   }, async (req) => {
     const { p, a, own } = await loadPost(req, req.params.id, { forWrite: true });
     if (!own) throw forbidden('Only the author can edit this post.'); // CNT-09
     const body = 'body' in req.body ? clean(req.body.body, 5000, 'body') : p.body;
+    const topicId = 'topicId' in req.body ? await checkTopic(p.community_id, req.body.topicId) : p.topic_id;
     const { rows } = await db.query(
-      `update posts set body = $3, mentions = coalesce($4, mentions), edited_at = now(), version = version + 1
-        where id = $1 and version = $2 and status <> 'removed' and deleted_at is null returning *`, [p.id, req.body.version, body, req.body.mentions ?? null]);
+      `update posts set body = $3, mentions = coalesce($4, mentions), topic_id = $5, edited_at = now(), version = version + 1
+        where id = $1 and version = $2 and status <> 'removed' and deleted_at is null returning *`, [p.id, req.body.version, body, req.body.mentions ?? null, topicId]);
     if (!rows.length) {
       const now = (await db.query(`select status, deleted_at from posts where id = $1`, [p.id])).rows[0];
       if (now?.status === 'removed') throw conflict('REMOVED', 'A moderator removed this post, so it can’t be edited.');

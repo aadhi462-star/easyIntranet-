@@ -20,9 +20,11 @@ const emit = (e) => listeners.forEach((fn) => fn(e));
 const changed = (post) => { emit({ type: 'post', post }); return post; };
 
 // ---- Reads ------------------------------------------------------------------------------------
-export async function fetchFeed({ view = 'all', community, before, limit = PAGE } = {}) {
+export async function fetchFeed({ view = 'all', community, before, limit = PAGE, filters } = {}) {
   const q = new URLSearchParams({ view, limit: String(limit) });
   if (community) q.set('community', community);
+  // Inside one community: { topic, q, sort: 'newest' | 'active' } (Stage 4 Discussions).
+  for (const [k, v] of Object.entries(filters || {})) if (v) q.set(k, v);
   if (before) q.set('before', before);
   return api(`/feed?${q}`);
 }
@@ -134,7 +136,7 @@ export function authorUser(author, lookup) {
  * A paged server feed. `keep(post)` decides whether a changed post still belongs in this list
  * (e.g. a published draft leaves My Drafts). Client-side filters (Following, Pinned, tags) are the caller's.
  */
-export function useServerFeed({ view = 'all', community, keep, enabled = true } = {}) {
+export function useServerFeed({ view = 'all', community, keep, enabled = true, filters } = {}) {
   const [posts, setPosts] = useState([]);
   const [nextBefore, setNextBefore] = useState(null);
   const [status, setStatus] = useState(enabled ? 'loading' : 'idle'); // loading | ready | error | idle
@@ -142,6 +144,7 @@ export function useServerFeed({ view = 'all', community, keep, enabled = true } 
   const [more, setMore] = useState(false);
   const keepRef = useRef(keep);
   keepRef.current = keep;
+  const fkey = JSON.stringify(filters || {});
   const gen = useRef(0);
 
   const reload = useCallback(async () => {
@@ -149,14 +152,14 @@ export function useServerFeed({ view = 'all', community, keep, enabled = true } 
     const g = ++gen.current;
     setStatus((s) => (s === 'ready' ? s : 'loading'));
     try {
-      const r = await fetchFeed({ view, community });
+      const r = await fetchFeed({ view, community, filters });
       if (g !== gen.current) return;
       setPosts(r.posts); setNextBefore(r.nextBefore); setStatus('ready'); setError('');
     } catch (e) {
       if (g !== gen.current) return;
       setError(errorText(e)); setStatus('error');
     }
-  }, [view, community, enabled]);
+  }, [view, community, enabled, fkey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -164,7 +167,7 @@ export function useServerFeed({ view = 'all', community, keep, enabled = true } 
     if (!nextBefore || more) return;
     setMore(true);
     try {
-      const r = await fetchFeed({ view, community, before: nextBefore });
+      const r = await fetchFeed({ view, community, before: nextBefore, filters });
       setPosts((list) => [...list, ...r.posts.filter((p) => !list.some((x) => x.id === p.id))]);
       setNextBefore(r.nextBefore); setError('');
     } catch (e) {

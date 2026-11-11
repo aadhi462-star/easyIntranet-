@@ -17,7 +17,6 @@ import { CommunityTile, VisibilityBadge } from '../components/public/CommunityCa
 import { ACCESS, permsOf, roleOf } from '../components/groups/helpers.js';
 import { useCommunityLifecycle, useCommunityWrite } from '../components/groups/useCommunity.js';
 import JoinButton, { useLeaveGroup } from '../components/groups/JoinButton.jsx';
-import FeedList from '../components/feed/FeedList.jsx';
 import Composer from '../components/feed/Composer.jsx';
 import EventList from '../components/events/EventList.jsx';
 import Members from '../components/groups/Members.jsx';
@@ -26,6 +25,7 @@ import GroupForm from '../components/groups/GroupForm.jsx';
 import AddMembers from '../components/groups/AddMembers.jsx';
 import RolePanel from '../components/groups/RolePanel.jsx';
 import Resources from '../components/groups/Resources.jsx';
+import Discussions from '../components/groups/Discussions.jsx';
 
 const DAY = 864e5;
 const TABS = [
@@ -162,7 +162,7 @@ function CommunityView({ g, tab, keyInUrl, admin }) {
       )}
 
       {current === 'overview' && (perms.canView ? <Overview g={g} perms={perms} /> : <MembersOnly g={g} />)}
-      {current === 'discussions' && <FeedList scope={{ type: 'group', id: g.id }} groupId={g.id} readOnly={g.announceOnly} />}
+      {current === 'discussions' && <Discussions g={g} perms={perms} />}
       {current === 'events' && <EventList groupId={g.id} member={!!role && !archived} />}
       {current === 'resources' && <Resources g={g} />}
       {current === 'members' && <Members group={g} perms={perms} />}

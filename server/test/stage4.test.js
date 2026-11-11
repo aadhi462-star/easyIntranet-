@@ -128,3 +128,55 @@ describe('resources', () => {
     assert.equal((await c.mem.get('/api/communities/pri/resources')).status, 200);
   });
 });
+
+describe('discussions: topics, attachments, search and sort', () => {
+  let topic;
+  test('admins keep up to 12 topics with unique names; members can’t', async () => {
+    assert.equal((await c.mem.post('/api/communities/pub/topics', { name: 'Careers' })).status, 403);
+    const r = await c.own.post('/api/communities/pub/topics', { name: 'Careers' });
+    assert.equal(r.status, 201);
+    topic = r.body.topics[0];
+    assert.equal((await c.own.post('/api/communities/pub/topics', { name: ' careers ' })).body.error.code, 'DUPLICATE_TOPIC');
+    for (let i = 1; i < 12; i++) await c.own.post('/api/communities/pub/topics', { name: `Topic ${i}` });
+    assert.equal((await c.own.post('/api/communities/pub/topics', { name: 'Thirteen' })).body.error.code, 'TOO_MANY_TOPICS');
+  });
+
+  test('a post carries one of its community’s topics; Discussions filter by it', async () => {
+    const other = (await c.own.post('/api/communities/pri/topics', { name: 'Elsewhere' })).body.topics[0];
+    assert.equal((await c.mem.post('/api/communities/pub/posts', { body: 'wrong topic', topicId: other.id })).body.error.code, 'INVALID_TOPIC');
+    const p = await c.mem.post('/api/communities/pub/posts', { body: 'Hiring a data engineer in Pune', topicId: topic.id });
+    assert.equal(p.body.post.topic.name, 'Careers');
+    await c.mem.post('/api/communities/pub/posts', { body: 'Untagged chat' });
+    const list = await c.mem.get(`/api/feed?community=pub&topic=${topic.id}`);
+    assert.deepEqual(list.body.posts.map((x) => x.body), ['Hiring a data engineer in Pune']);
+  });
+
+  test('CNT-12 images and PDFs only, up to 4, uploaded by the author to this community, used once', async () => {
+    const files = [];
+    for (let i = 0; i < 5; i++) files.push((await upload('mem', 'pub', `p${i}.png`, PNG)).body.file.id);
+    assert.equal((await c.mem.post('/api/communities/pub/posts', { body: 'five', attachments: files })).body.error.code, 'TOO_MANY_ATTACHMENTS');
+    const txt = (await upload('mem', 'pub', 'notes.txt', Buffer.from('plain'))).body.file.id;
+    assert.equal((await c.mem.post('/api/communities/pub/posts', { body: 'txt', attachments: [txt] })).body.error.code, 'ATTACHMENT_TYPE');
+    const others = (await upload('own', 'pub', 'theirs.png', PNG)).body.file.id;
+    assert.equal((await c.mem.post('/api/communities/pub/posts', { body: 'not mine', attachments: [others] })).body.error.code, 'INVALID_FILE');
+    const pdf = (await upload('mem', 'pub', 'flyer.pdf', PDF)).body.file.id;
+    const ok = await c.mem.post('/api/communities/pub/posts', { body: 'Photos from the meet-up', attachments: [files[0], pdf] });
+    assert.equal(ok.status, 201);
+    assert.deepEqual(ok.body.post.attachments.map((a) => a.kind), ['image', 'pdf']);
+    assert.equal((await c.mem.post('/api/communities/pub/posts', { body: 'again', attachments: [pdf] })).body.error.code, 'INVALID_FILE', 'a file attaches once');
+    assert.equal((await c.out.get(`/api/files/${files[0]}`)).status, 200, 'a Public community’s attachment opens for anyone signed in');
+  });
+
+  test('search inside a community and most active first', async () => {
+    const quiet = (await c.mem.post('/api/communities/pub/posts', { body: 'Quiet newest post about ferries' })).body.post;
+    const old = (await c.mem.get('/api/feed?community=pub&q=hiring')).body.posts;
+    assert.deepEqual(old.map((x) => x.body), ['Hiring a data engineer in Pune']);
+    await c.own.post(`/api/posts/${old[0].id}/comments`, { body: 'Shared it with my team' });
+    const active = (await c.mem.get('/api/feed?community=pub&sort=active')).body;
+    assert.equal(active.posts[0].id, old[0].id, 'the post with the newest reply leads');
+    assert.equal(active.nextBefore, null);
+    assert.ok(active.posts.some((x) => x.id === quiet.id));
+    assert.deepEqual((await c.mem.get('/api/feed?community=pub&q=%25%25')).body.posts, [], 'wildcards are literal');
+    assert.ok((await c.mem.get('/api/feed?community=pub&view=polls')).body.posts.every((x) => x.type === 'poll'));
+  });
+});

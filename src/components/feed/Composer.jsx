@@ -2,7 +2,7 @@ import { Glyph } from '../icons.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { uid, useStore } from '../../lib/store.jsx';
-import { newKey } from '../../lib/api.js';
+import { api, newKey, uploadFile } from '../../lib/api.js';
 import { toast } from '../../lib/toast.js';
 import { createPost, editPost, errorText, fetchMyCommunities, isCommunityAdmin, NETWORK_ID, publishPost } from '../../lib/feed.js';
 import { Avatar } from '../ui.jsx';
@@ -37,7 +37,13 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
   const [mq, setMq] = useState(null); // active @mention query
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [attachNote, setAttachNote] = useState(false);
+  // Attachments (Stage 4, S4-3): images and PDFs, up to 4, uploaded as they're picked.
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const picker = useRef(null);
+  // Topics (S4-2) of the community being posted to, when it has any.
+  const [topics, setTopics] = useState([]);
+  const [topicId, setTopicId] = useState(initial?.topic?.id ?? '');
   // One idempotency key per composed post: a double click or network retry can't post twice.
   const submitKey = useRef(newKey());
   const ta = useRef(null);
@@ -88,7 +94,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
 
   const reset = () => {
     setText(''); setMentions([]); setOptions([blankOption(), blankOption()]); setMandatory(null); setPinned(false); setType(defaultType ?? 'post');
-    setScheduleAt(null); setShowSchedule(false); setError(''); setAttachNote(false);
+    setScheduleAt(null); setShowSchedule(false); setError(''); setFiles([]); setTopicId('');
     submitKey.current = newKey();
     if (compact) setOpen(false);
   };
@@ -113,6 +119,30 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
     return '';
   };
 
+  useEffect(() => {
+    setTopics([]); setTopicId(initial?.topic?.id ?? '');
+    if (!communityId || !open) return undefined;
+    let live = true;
+    api(`/communities/${encodeURIComponent(communityId)}/topics`).then((r) => live && setTopics(r.topics), () => {});
+    return () => { live = false; };
+  }, [communityId, open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const attach = async (e) => {
+    const picked = [...(e.target.files || [])];
+    e.target.value = '';
+    if (!picked.length || !communityId) return;
+    if (files.length + picked.length > 4) { setError('A post can have up to 4 attachments.'); return; }
+    const bad = picked.find((f) => !/^image\/(png|jpeg|gif|webp)$|^application\/pdf$/.test(f.type) || f.size > 10 * 1024 * 1024);
+    if (bad) { setError(bad.size > 10 * 1024 * 1024 ? `“${bad.name}” is over 10 MB.` : `“${bad.name}” isn’t an image or a PDF. Share other files in Resources.`); return; }
+    setUploading(true); setError('');
+    try {
+      for (const f of picked) {
+        const stored = await uploadFile(communityId, f);
+        setFiles((list) => [...list, stored]);
+      }
+    } catch (err) { setError(errorText(err)); } finally { setUploading(false); }
+  };
+
   const submit = async (mode) => {
     if (busy) return;
     const problem = validate(mode);
@@ -133,6 +163,8 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
         ...(mode === 'schedule' ? { publishAt: new Date(scheduleAt).toISOString() } : {}),
         ...(type === 'poll' ? { poll: { options: options.map((o) => o.text.trim()).filter(Boolean) } } : {}),
         ...(canAdmin && pinned && mode !== 'draft' ? { pinned: true } : {}),
+        ...(topicId ? { topicId } : {}),
+        ...(files.length ? { attachments: files.map((f) => f.id) } : {}),
         ...(canAdmin && mandatory ? { mandatory: { message: mandatory.message, button: mandatory.button, deadline: mandatory.deadline ? new Date(mandatory.deadline).toISOString() : null } } : {}),
       };
       const post = await createPost(communityId, payload, submitKey.current);
@@ -165,7 +197,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
         <div className="mb-3 flex flex-wrap gap-1" role="tablist" aria-label="Post type">
           {TYPES.map((t) => (
             <button key={t.id} role="tab" aria-selected={type === t.id} onClick={() => setType(t.id)}
-              className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${type === t.id ? 'bg-brand-500 text-white' : 'text-2 hover:bg-white/5'}`}>
+              className={`min-h-10 rounded-lg px-3 text-xs font-semibold ${type === t.id ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2 hover:bg-white/5'}`}>
               <Glyph value={t.icon} tile={false} size={16} /> {t.label}
             </button>
           ))}
@@ -225,12 +257,31 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
         </div>
       )}
 
-      {attachNote && <p className="mt-2 text-xs text-3" role="status">Attachments arrive with secure file storage.</p>}
+      {(files.length > 0 || uploading) && (
+        <ul className="mt-3 flex flex-wrap gap-2" aria-label="Attachments">
+          {files.map((f) => (
+            <li key={f.id} className="sunken flex items-center gap-2 py-1.5 pl-3 pr-1 text-xs">
+              <span className="font-bold text-white">{f.kind === 'pdf' ? 'PDF' : 'IMG'}</span>
+              <span className="text-2 max-w-40 truncate">{f.name}</span>
+              <button type="button" className="btn btn-ghost h-8 w-8 !min-h-8 !p-0" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((x) => x.id !== f.id))}>✕</button>
+            </li>
+          ))}
+          {uploading && <li className="text-3 self-center text-xs" role="status">Uploading…</li>}
+        </ul>
+      )}
       {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
         {!editing && <>
-          <button className="btn btn-ghost h-11 w-11 !p-0" title="Attachments arrive with secure file storage." aria-label="Attach files (not available yet)" onClick={() => setAttachNote(true)}><Glyph value="📎" tile={false} size={16} /></button>
+          <button className="btn btn-ghost h-11 w-11 !p-0" title="Attach images or PDFs (up to 4, 10 MB each)" aria-label="Attach images or PDFs"
+            disabled={!communityId || uploading || files.length >= 4} onClick={() => picker.current?.click()}><Glyph value="📎" tile={false} size={16} /></button>
+          <input ref={picker} type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={attach} />
+          {topics.length > 0 && (
+            <select className="input !w-auto !py-2 text-sm" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
+              <option value="">No topic</option>
+              {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          )}
           {canAdmin && (
             <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="✅" tile={false} size={16} /></button>
           )}
@@ -253,7 +304,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
           <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="⏰" tile={false} size={16} /></button>
         </>}
         {editing && ['draft', 'scheduled'].includes(initial.status) && <button className="btn btn-ghost" disabled={busy} onClick={() => submit('save')}>Save</button>}
-        <button className="btn btn-primary h-11 px-5" disabled={busy || (!editing && !communityId)} onClick={() => submit('publish')}>
+        <button className="btn btn-primary h-11 px-5" disabled={busy || uploading || (!editing && !communityId)} onClick={() => submit('publish')}>
           {busy ? 'Saving…' : editing ? (['draft', 'scheduled'].includes(initial.status) ? 'Save & publish' : 'Save') : 'Post'}
         </button>
       </div>
