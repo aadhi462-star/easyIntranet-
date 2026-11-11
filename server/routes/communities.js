@@ -128,6 +128,24 @@ export default async function communityRoutes(app, { ctx }) {
     return { requests: rows };
   });
 
+  // The owner's and admins' view of how the community is doing (refined designs, role views):
+  // live counts only, and the facts behind the setup checklist.
+  app.get('/communities/:id/health', async (req) => {
+    const a = await access(db, req, req.params.id);
+    if (!a.canAdmin) throw forbidden();
+    const id = a.community.id;
+    const one = async (sql) => (await db.query(sql, [id])).rows[0].n;
+    const [joined30, posts30, events, pinned, pending, restricted] = await Promise.all([
+      one(`select count(*)::int as n from memberships m join users u on u.id = m.user_id where m.community_id = $1 and m.state = 'active' and u.status = 'active' and m.joined_at > now() - interval '30 days'`),
+      one(`select count(*)::int as n from posts where community_id = $1 and status = 'published' and deleted_at is null and published_at > now() - interval '30 days'`),
+      one(`select count(*)::int as n from events where community_id = $1 and deleted_at is null`),
+      one(`select count(*)::int as n from posts where community_id = $1 and pinned and status = 'published' and deleted_at is null`),
+      one(`select count(*)::int as n from posts where community_id = $1 and status = 'pending' and deleted_at is null`),
+      one(`select count(*)::int as n from memberships where community_id = $1 and state = 'restricted'`),
+    ]);
+    return { joined30, posts30, events, pinned, pendingPosts: pending, restricted };
+  });
+
   // Approve / decline a request. Only a request that is still pending can be decided, so a
   // withdrawn request or a second admin's click can't flip the outcome (MEM-02/03/04).
   for (const decision of ['approve', 'decline']) {

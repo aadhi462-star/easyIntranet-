@@ -69,7 +69,9 @@ Waiting on the user: Terms of Service text and a contact address. The AppSail up
 
 Logo: the user's artwork redrawn as SVG: `LogoMark` / `Logo` (with optional `tagline`) in `src/components/ui.jsx`, and the app icon in `public/favicon.svg`.
 
-Next: the role views, restyling Feed/People/Calendar, then redrawing the Stage 4 boards; the six Stage 4 decisions need the user's answers before Stage 4 is built. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
+Role views: `src/components/groups/RolePanel.jsx` (owner health + checklist, admin decision queue, moderator review queue) on the Overview; `GET /communities/:id/health`.
+
+Next: restyling Feed/People/Calendar, then redrawing the Stage 4 boards; the six Stage 4 decisions need the user's answers before Stage 4 is built. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
 
 ## Working style that's been effective
 

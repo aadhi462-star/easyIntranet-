@@ -557,3 +557,25 @@ The user approved the refined designs (canvas page "Refined designs": system, La
   - Checked: Neha opened the Closed community Class of 2016. Without `?admin=1` it says "Community not found"; with it, the full page and the banner show. Exit returns to "not found". The activity log shows `admin_mode.access` for g1 only.
   - Not covered: opening a post from that page leaves Admin Mode, so a Closed community's post opens only for members.
 
+### Role views (11 Nov 2026)
+
+`src/components/groups/RolePanel.jsx` adds a role panel at the top of a community's Overview. Each role opens on its own first job:
+
+- **Owner:**
+  - "Your community": Members, Joined in 30 days, Posts in 30 days.
+  - A setup checklist: description, guidelines, first members, first event, pinned welcome post. Each step links to where it's done, and the checklist disappears when everything is done.
+  - The decision queue appears below it only when something is waiting.
+- **Admin:** "Waiting for a decision", with Join requests and Posts to approve as tabs. Requests show the person's message and have Approve and Decline.
+- **Moderator:**
+  - A review queue in a split view: held posts on the left, the selected post in full on the right.
+  - Remove needs a reason the author sees. "Approve and publish" is the one primary action.
+  - Reported posts join the queue in Stage 6.
+- **Instructor:** comes with Learning in Stage 5.
+- **Server:** new `GET /communities/:id/health` (community admins only), returning `joined30`, `posts30`, `events`, `pinned`, `pendingPosts` and `restricted`.
+- **Welcome block:** now shown only to plain members, not to owners, admins or moderators.
+- **Tests:** 151 pass (new: health is admins-only and its numbers match the data).
+- **Browser, using a scratch community "Preview Review Circle" in the preview copy:**
+  - Neha (owner) saw her numbers and a 1-of-5 checklist, then approved Ishita's request (members 2, checklist 2 of 5).
+  - She approved one held post (it moved to Recent discussions) and removed the other with a reason.
+  - Ishita, made a moderator, saw the review queue at 375 px with no horizontal scroll.
+

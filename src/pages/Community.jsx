@@ -24,6 +24,7 @@ import Members from '../components/groups/Members.jsx';
 import Settings from '../components/groups/Settings.jsx';
 import GroupForm from '../components/groups/GroupForm.jsx';
 import AddMembers from '../components/groups/AddMembers.jsx';
+import RolePanel from '../components/groups/RolePanel.jsx';
 
 const DAY = 864e5;
 const TABS = [
@@ -259,7 +260,7 @@ function Overview({ g, perms }) {
   const joined = g.myMembership?.joinedAt ? Date.parse(g.myMembership.joinedAt) : null;
   const canPost = perms.canParticipate && !g.announceOnly;
   const loadingFeed = feed.status === 'loading' && !published.length;
-  const isNew = canPost && joined && now - joined < 30 * DAY && !loadingFeed && !published.some((p) => p.author?.id === me.id);
+  const isNew = canPost && roleOf(g, me.id) === 'member' && joined && now - joined < 30 * DAY && !loadingFeed && !published.some((p) => p.author?.id === me.id);
   // The next event is the screen's one featured item: beside the discussions on wide screens,
   // above them on phones and tablets.
   const nextEvent = (where) => (
@@ -292,6 +293,7 @@ function Overview({ g, perms }) {
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="flex min-w-0 flex-col gap-6">
+        {!g.adminMode && <RolePanel g={g} role={roleOf(g, me.id)} />}
         <div className="lg:hidden">{nextEvent('main')}</div>
         {loadingFeed ? null : isNew ? (
           <section aria-labelledby="welcome-h" className={`cm-${accentOf(g)} flex flex-col gap-3 rounded-2xl border border-[var(--cm-line)] bg-[var(--cm-tint)] p-5 sm:p-6`}>

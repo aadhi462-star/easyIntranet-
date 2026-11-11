@@ -269,3 +269,17 @@ describe('Platform Admin overview (refined design)', () => {
     assert.equal(typeof r.body.pendingAccounts, 'number');
   });
 });
+
+describe('community role views (refined design)', () => {
+  test('health numbers are for community admins only and match the data', async () => {
+    const own = await signIn(env.app, { email: 'own@example.com', password: 'correct-horse-battery' });
+    assert.equal((await ana.get('/api/communities/pri/health')).status, 403, 'a member doesn’t see them');
+    const r = await own.get('/api/communities/pub/health');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.posts30, (await q(`select count(*)::int as n from posts where community_id = 'pub' and status = 'published' and deleted_at is null and published_at > now() - interval '30 days'`)).rows[0].n);
+    assert.equal(r.body.events, 0);
+    await q(`insert into posts (id, community_id, author_id, body, status) values ('p-held', 'pub', 'ana', 'Held for approval', 'pending')`);
+    try { assert.equal((await own.get('/api/communities/pub/health')).body.pendingPosts, 1); }
+    finally { await q(`delete from posts where id = 'p-held'`); }
+  });
+});
