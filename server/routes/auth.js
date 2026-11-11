@@ -18,7 +18,8 @@ const DUMMY_HASH = 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA==$' + Buffer.alloc(6
 
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 export const publicUser = (u, roles = []) => ({ id: u.id, name: u.name, email: u.email, status: u.status,
-  emailVerified: !!(u.email_verified_at ?? u.emailVerified), pendingEmail: u.pending_email ?? u.pendingEmail ?? null, roles });
+  emailVerified: !!(u.email_verified_at ?? u.emailVerified), pendingEmail: u.pending_email ?? u.pendingEmail ?? null,
+  onboarded: !!(u.onboarded_at ?? u.onboarded), roles });
 
 export default async function authRoutes(app, { ctx }) {
   const { db, mailer } = ctx;
@@ -293,6 +294,13 @@ export default async function authRoutes(app, { ctx }) {
     if (!(await verifyPassword(String(req.body?.password ?? ''), u.password_hash))) throw new HttpError(401, 'INVALID_CREDENTIALS', 'Your password isn’t right.');
     return u;
   };
+
+  // The welcome steps after sign-up are done (or skipped). Once set, they don't come back.
+  app.post('/account/onboarded', async (req) => {
+    if (!req.user) throw unauthorized();
+    await db.query(`update users set onboarded_at = coalesce(onboarded_at, now()) where id = $1`, [req.user.id]);
+    return { ok: true };
+  });
 
   app.post('/account/deactivate', { ...authLimit(5) }, async (req, reply) => {
     const u = await requirePassword(req);

@@ -145,7 +145,7 @@ export function publishPost(state, dispatch, post, opts) {
 }
 
 export function scopeLabel(state, scope) {
-  if (!scope || scope.type === 'network') return 'Company wall';
+  if (!scope || scope.type === 'network') return 'AlumniZone';
   if (scope.type === 'group') return state.groups.find((g) => g.id === scope.id)?.name ?? 'Group';
   if (scope.type === 'user') return `${state.users.find((u) => u.id === scope.id)?.name ?? 'Member'}'s wall`;
   return '';

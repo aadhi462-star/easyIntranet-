@@ -46,7 +46,7 @@ export async function loadSession(db, req) {
   if (!token) return;
   const hash = sha256(token);
   const { rows } = await db.query(
-    `select s.id_hash, s.last_seen_at, u.id, u.email, u.name, u.status, u.email_verified_at, u.pending_email, u.version,
+    `select s.id_hash, s.last_seen_at, u.id, u.email, u.name, u.status, u.email_verified_at, u.pending_email, u.onboarded_at, u.version,
             coalesce(array_agg(r.role) filter (where r.role is not null), '{}') as roles
        from sessions s join users u on u.id = s.user_id
        left join platform_roles r on r.user_id = u.id
@@ -63,7 +63,7 @@ export async function loadSession(db, req) {
   }
   req.sessionHash = hash;
   req.user = { id: row.id, email: row.email, name: row.name, status: row.status, emailVerified: !!row.email_verified_at,
-    pendingEmail: row.pending_email, roles: row.roles, version: row.version };
+    pendingEmail: row.pending_email, onboarded: !!row.onboarded_at, roles: row.roles, version: row.version };
   if (Date.now() - new Date(row.last_seen_at).getTime() > TOUCH_EVERY_MS) {
     await db.query(`update sessions set last_seen_at = now() where id_hash = $1`, [hash]);
   }

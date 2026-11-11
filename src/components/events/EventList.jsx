@@ -13,13 +13,14 @@ const DAY = 864e5;
  * Upcoming events list. With `groupId`, shows only that group's events (used on group pages).
  * Without it, shows every event the viewer can see.
  */
-export default function EventList({ groupId, limit, showPast = true }) {
+export default function EventList({ groupId, limit, showPast = true, member }) {
   const { state, me } = useStore();
   const [creating, setCreating] = useState(false);
   const [pastOpen, setPastOpen] = useState(false);
   // Fixed for the mount so the request range doesn't change on every render.
   const [now] = useState(Date.now);
-  const isMember = !groupId || state.groups.find((g) => g.id === groupId)?.members.includes(me.id);
+  // `member` comes from pages that know (the community page); otherwise look the group up.
+  const isMember = member ?? (!groupId || state.groups.find((g) => g.id === groupId)?.members.includes(me.id));
 
   // The server returns only events this viewer may see (EVT-08).
   const { events, loading, error } = useEvents({ community: groupId, from: now - 365 * DAY, to: now + 120 * DAY });

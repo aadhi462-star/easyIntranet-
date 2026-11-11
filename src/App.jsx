@@ -42,6 +42,8 @@ window.addEventListener('vite:preloadError', (e) => { if (claimReload()) { e.pre
 // A page that loaded cleanly means the build is current again.
 window.addEventListener('load', () => { setTimeout(() => { try { sessionStorage.removeItem(RELOAD_FLAG); } catch { /* ignore */ } }, 5000); });
 
+const Welcome = page('Welcome');
+
 function Missing({ name }) {
   return <div className="glass p-8 text-slate-300">The <b>{name}</b> module isn’t available yet.</div>;
 }
@@ -72,10 +74,13 @@ class Boundary extends Component {
 const runners = Object.values(import.meta.glob('./lib/runners/*.jsx', { eager: true })).map((m) => m.default).filter(Boolean);
 
 function Protected({ children }) {
-  const { me } = useStore();
+  const { me, state } = useStore();
   const loc = useLocation();
   // Keep where the visitor was heading so sign-in can bring them back (prompt §5).
-  return me ? children : <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  if (!me) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  // A new member does the welcome steps first, then carries on to where they were going.
+  if (state.session?.onboarded === false) return <Navigate to={`/welcome?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  return children;
 }
 
 export default function App() {
@@ -99,6 +104,7 @@ export default function App() {
           const Page = page(name);
           return <Route key={name} path={`/${name.toLowerCase()}`} element={<Suspense fallback={null}><Page /></Suspense>} />;
         })}
+        <Route path="/welcome" element={me ? <Suspense fallback={null}><Welcome /></Suspense> : <Navigate to="/login" replace />} />
         <Route path="/invite/:code" element={<Invite />} />
         <Route path="/verify" element={<VerifyEmail />} />
         <Route path="/reset" element={<ResetPassword />} />

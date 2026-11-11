@@ -46,7 +46,11 @@ export async function loadComments(id) {
 
 let communitiesCache = null;
 // A different person signing in on the same tab must never see the previous person's list.
-if (typeof window !== 'undefined') window.addEventListener('c1-session-changed', () => { communitiesCache = null; });
+if (typeof window !== 'undefined') {
+  window.addEventListener('c1-session-changed', () => { communitiesCache = null; });
+  // Registered at import, before any page's listener, so those refetch fresh data.
+  window.addEventListener('c1-community-changed', () => { communitiesCache = null; });
+}
 /** Communities you're an active member of, with your role. Cached for the page session. */
 export async function fetchMyCommunities({ fresh = false } = {}) {
   if (!communitiesCache || fresh) {

@@ -448,3 +448,30 @@ Not done / open:
 - sign-up still asks for graduation year and department (alumni fields) — to revisit with onboarding in Stage 3;
 - the account data export exists in the API but has no button yet.
 
+### Redesign Stage 3 — core application (11 Nov 2026)
+
+Built:
+- **Community pages at `/c/:slug`** for every community, AlumniZone included (approved wireframe): header with tile, description, category, visibility and member count, Join / Request to join / Leave and an actions menu; tabs Overview, Discussions, Events, Members, About and Settings (admins only). Overview has the pinned post, the composer, recent discussions, upcoming events, members and About. People outside a Private community see only Overview and About with a members-only message. The page loads the community by slug or id from the server and reloads it after every change. Old addresses redirect: `/groups/:id(/:app)` → `/c/<slug>(/<tab>)`, `/feed/wall` → AlumniZone's Discussions. An id in the address is replaced by the slug.
+- **All Hands merged into AlumniZone (R4), reversibly:** migration 006 adds `communities.merged_into` and `community_merges`. `lib/merge.js` moves posts and events, adds the source's active members who have no AlumniZone membership (never re-adding someone who left, MEM-05) and archives the source. Each merge records exactly what moved; `node server/scripts/undo-merge.mjs g0` moves back those posts and events and restores the old status (newer AlumniZone posts stay). The seed runs the merge once. A merged community is left out of every list and "my communities" loop; its address answers `404 MERGED` with the new home, and the page follows it.
+- **Global search on the server:** `GET /api/search?q=&type=` across communities, people, events and posts, each with its own screen's rules (discovery, directory and blocks, the Events page, readable communities only), plus a second access check on posts. `%` and `_` are matched literally. The search page shows grouped results, filters, empty, error and retry states, and keeps the query in the address. The old browser-only search index and its saved-search alerts were removed.
+- **My Communities and Explore** read the server's community list (AlumniZone now appears), with search, category chips, live result count and loading, error and empty states. The sidebar list and the composer's community list refresh after a join or leave.
+- **Onboarding:** sign-up asks only for name, email and password. After confirming, a new member gets two optional steps (headline, job, company and city, saved to the server profile; then choosing communities), then continues to where they were heading. Finishing or skipping sets `users.onboarded_at`; existing and seeded accounts count as onboarded.
+- **Profile** redesigned on server data only: header without the gradient cover, headline, work, education and city; Connect, Follow and Block; About, Experience, Education, Skills and Details; Posts tab. Points, levels, badges, praise, messages, reports and the activity list were stored only in one browser, so they were removed from the profile and the directory cards.
+- Member counts agree everywhere (only active accounts counted).
+
+Tested: 145 server tests (13 new in `core.test.js`: SRC-01/02/05/06, VIS-04, slugs, R4 merge and undo, onboarding, count agreement). Mutation checks: removing both post-visibility layers makes SRC-02/05 fail; removing the merged filter from the events query makes the merge test fail. Browser: `/groups/alumnizone` and `/groups/g0` land on AlumniZone; the community page matches the wireframe; Join from Explore updates the list, the tab count and the sidebar; search with results and with none; the redesigned profile; sign-up → confirm → welcome steps → join Mumbai Chapter → Finish lands on Mumbai Chapter as a member; reload keeps the member onboarded; a Private community seen from outside; phone width 375 px with no horizontal scroll.
+
+Bugs found and fixed while testing:
+- members of the merged All Hands got an error on Home, Events, the Feed and search, because "my communities" queries still included it; the test had missed it because a helper turned a failed response into an empty list (now status codes are checked);
+- merge records got an `undefined_` id;
+- member counts differed between pages (35 vs 34);
+- the welcome list re-sorted under the pointer after a join;
+- the profile link in step 1 led back to the welcome steps;
+- the check-email screen was titled "Sign in".
+
+Not done / open:
+- the search error state wasn't triggered in the browser;
+- recurring events in search show the series' first date;
+- Home keeps its Stage 4c layout (emoji in the community list);
+- Feed, People, Calendar and the older modules (forums, files, tasks…) aren't redesigned. Community pages no longer show the browser-only apps;
+- Terms of Service and a contact address are still needed from the operator.

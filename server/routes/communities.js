@@ -1,7 +1,7 @@
 // Communities and memberships (Phase 1 community foundation). MEM-*, VIS-*, PER-* cases are
 // referenced where handled.
 import { audit } from '../lib/audit.js';
-import { access, atLeast, publicCommunity, requireView } from '../lib/community.js';
+import { access, atLeast, publicCommunity, requireView, resolveCommunityId } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { can } from '../lib/permissions.js';
@@ -34,7 +34,10 @@ const slugOf = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(
 export default async function communityRoutes(app, { ctx }) {
   const { db } = ctx;
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
-  const countMembers = `(select count(*)::int from memberships mm where mm.community_id = c.id and mm.state in ('active', 'restricted'))`;
+  // Members with an active account (suspended or deactivated people aren't counted, as on the
+  // public pages and the dashboard).
+  const countMembers = `(select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
+    where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active')`;
 
   // Discovery: Public and Private communities, plus Closed ones you belong to (VIS-04: closed
   // communities never appear for anyone else). Member counts never include admin-mode visits.
@@ -45,7 +48,8 @@ export default async function communityRoutes(app, { ctx }) {
       `select c.*, m.role, m.state as member_state, ${countMembers} as member_count
          from communities c left join memberships m on m.community_id = c.id and m.user_id = $1
         -- Archived communities stay listed for their own members (not for discovery).
-        where (c.status = 'active' or (c.status = 'archived' and m.state in ('active', 'restricted')))
+        where c.merged_into is null
+          and (c.status = 'active' or (c.status = 'archived' and m.state in ('active', 'restricted')))
           and (c.visibility <> 'closed' or m.state in ('active', 'restricted'))
           and coalesce(m.state, '') <> 'blocked'
           and ($2 = '' or lower(c.name || ' ' || coalesce(c.description, '') || ' ' || coalesce(c.category, '')) like '%' || $2 || '%')
@@ -53,9 +57,11 @@ export default async function communityRoutes(app, { ctx }) {
     return { communities: rows.map((c) => publicCommunity(c, { memberCount: c.member_count, membership: c.member_state ? { state: c.member_state, role: c.role } : null })) };
   });
 
+  // Accepts the id or the slug, so /c/:slug pages can load directly.
   app.get('/communities/:id', async (req) => {
-    const a = await access(db, req, req.params.id);
-    const n = (await db.query(`select count(*)::int as n from memberships where community_id = $1 and state in ('active', 'restricted')`, [a.community.id])).rows[0].n;
+    const a = await access(db, req, await resolveCommunityId(db, req.params.id));
+    const n = (await db.query(`select count(*)::int as n from memberships m join users u on u.id = m.user_id
+      where m.community_id = $1 and m.state in ('active', 'restricted') and u.status = 'active'`, [a.community.id])).rows[0].n;
     return {
       community: publicCommunity(a.community, { memberCount: n, version: a.community.version, settings: a.canView ? a.community.settings : undefined }),
       membership: a.state ? { state: a.state, role: a.role } : null,

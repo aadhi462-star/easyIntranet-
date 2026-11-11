@@ -170,7 +170,7 @@ export async function listEvents(db, req, { from, to, communityId = null, view =
     communityIds = [a.community.id]; accessById[a.community.id] = a;
   } else {
     const { rows } = await db.query(`select community_id from memberships m join communities c on c.id = m.community_id
-      where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended'`, [uid]);
+      where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended' and c.merged_into is null`, [uid]);
     communityIds = rows.map((r) => r.community_id);
     for (const id of communityIds) accessById[id] = await access(db, req, id, { audited: false });
   }

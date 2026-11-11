@@ -15,13 +15,14 @@ export default async function dashboardRoutes(app, { ctx }) {
     const uid = req.user.id;
     const now = Date.now();
     const mine = `select m.community_id from memberships m join communities c on c.id = m.community_id
-      where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended'`;
+      where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended' and c.merged_into is null`;
 
     const [communities, events, mandatory, announcements, requests, newMembers] = await Promise.all([
-      db.query(`select c.id, c.name, c.emoji, c.visibility, c.status, m.role, m.state,
-          (select count(*)::int from memberships mm where mm.community_id = c.id and mm.state in ('active', 'restricted')) as member_count
+      db.query(`select c.id, c.slug, c.name, c.emoji, c.visibility, c.status, m.role, m.state,
+          (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
+            where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
         from memberships m join communities c on c.id = m.community_id
-        where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended'
+        where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended' and c.merged_into is null
         order by c.status = 'active' desc, c.name`, [uid]),
       listEvents(db, req, { from: new Date(now), to: new Date(now + 60 * DAY) }),
       // Mandatory Reads waiting for this member's acknowledgement (not their own posts).
@@ -51,7 +52,7 @@ export default async function dashboardRoutes(app, { ctx }) {
       .sort((a, b) => Date.parse(a.nextStart) - Date.parse(b.nextStart)).slice(0, 5);
     const excerpt = (s) => (s.length > 200 ? `${s.slice(0, 199)}…` : s);
     return {
-      communities: communities.rows.map((c) => ({ id: c.id, name: c.name, emoji: c.emoji, visibility: c.visibility, status: c.status, role: c.role, state: c.state, memberCount: c.member_count })),
+      communities: communities.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, emoji: c.emoji, visibility: c.visibility, status: c.status, role: c.role, state: c.state, memberCount: c.member_count })),
       upcomingEvents: upcoming,
       mandatoryReads: mandatory.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), button: p.mandatory.button, deadline: p.mandatory.deadline, publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author })),
       announcements: announcements.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author_status === 'deleted' ? 'Deleted member' : p.author })),

@@ -243,7 +243,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
           <select className="input !w-auto !py-2 text-sm" value={communityId} onChange={(e) => setCommunityId(e.target.value)} aria-label="Post to" disabled={!communities}>
             {!communities && <option value="">Loading communities…</option>}
             {communities?.length === 0 && <option value="">Join a community to post</option>}
-            {communities?.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.id === NETWORK_ID ? 'Company wall' : c.name}</option>)}
+            {communities?.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
           </select>
         )}
         {(onDone && editing) && <button className="btn btn-ghost" onClick={() => onDone()}>Cancel</button>}

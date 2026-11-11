@@ -27,6 +27,8 @@ export const MODULES = [
 // Routes without a nav entry.
 export const EXTRA_ROUTES = [
   { path: '/search', page: 'Search' },
+  { path: '/c/:id', page: 'Community' },
+  { path: '/c/:id/:tab', page: 'Community' },
   { path: '/notifications', page: 'Notifications' },
 ];
 

@@ -260,12 +260,12 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| SRC-01 | P0 | 2 | Closed community name appears in public search suggestions/autocomplete. | Do not return closed community names or metadata to unauthorised users. | Pass | server/test/public.test.js VIS-04 (public discovery search never returns Closed names or their categories). Signed-in search still uses browser data until Stage 3 |
-| SRC-02 | P0 | 2 | Private post content appears in search results for non-members. | Filter search results by current access permissions. | Not run | |
+| SRC-01 | P0 | 2 | Closed community name appears in public search suggestions/autocomplete. | Do not return closed community names or metadata to unauthorised users. | Pass | server/test/public.test.js VIS-04 (public discovery search never returns Closed names or their categories). + core.test.js SRC-01 (signed-in search: Closed communities only for their members) |
+| SRC-02 | P0 | 2 | Private post content appears in search results for non-members. | Filter search results by current access permissions. | Pass | server/test/core.test.js SRC-02 (posts and events from Private/Closed communities only for members; drafts and deleted posts never) |
 | SRC-03 | P1 | 2 | Community is renamed but old search result links remain. | Redirect only to the new permitted page; recheck visibility and access. | Not run | |
 | SRC-04 | P1 | 2 | Archived/suspended community remains in recommendations. | Remove or clearly label it according to platform policy. | Pass | server/test/public.test.js VIS-04 (archived and suspended excluded from public discovery) + communities.test.js DEL-01 |
-| SRC-05 | P0 | 2 | User's access changes between search and result click. | Recheck permission on destination; do not rely on search-time authorisation. | Not run | |
-| SRC-06 | P2 | 2 | Search returns no results or service is unavailable. | Show useful empty/error state and preserve query for retry. | Not run | |
+| SRC-05 | P0 | 2 | User's access changes between search and result click. | Recheck permission on destination; do not rely on search-time authorisation. | Pass | server/test/core.test.js SRC-05 (post page refuses once membership is removed; search stops listing it) |
+| SRC-06 | P2 | 2 | Search returns no results or service is unavailable. | Show useful empty/error state and preserve query for retry. | Pass | server/test/core.test.js SRC-06 (short, invalid, wildcard queries) + browser: empty state; query kept in the address for retry. The error state and Try again are built but weren’t triggered in the browser |
 | SRC-07 | P2 | 2 | Multiple communities have similar names or duplicate descriptions. | Show distinguishing metadata without exposing private details. | Not run | |
 | SRC-08 | P0 | 2 | Recommendation engine uses closed/private activity outside authorised scope. | Respect visibility, consent and data access rules in recommendation inputs and outputs. | Not run | |
 

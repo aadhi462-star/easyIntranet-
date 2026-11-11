@@ -1,16 +1,15 @@
 import UserLabels from '../components/UserLabels.jsx';
-import { Glyph } from '../components/icons.jsx';
+import { Glyph, Icon } from '../components/icons.jsx';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useStore, timeAgo } from '../lib/store.jsx';
 import { api } from '../lib/api.js';
 import { loadProfile, toLocal, useInstitutions } from '../lib/people.js';
 import { toast } from '../lib/toast.js';
-import { statsFor, BADGES } from '../lib/gamify.js';
-import { Avatar, Empty, Field, Modal, PageHeader, Tabs } from '../components/ui.jsx';
+import { Avatar, Empty, Field, Modal, PageHeader } from '../components/ui.jsx';
 import { CompletenessMeter, completeness } from '../components/people/Completeness.jsx';
 import { MONTHS, daysInMonth, formatMonthDay, isValidBirthday } from '../lib/celebrations.js';
-import { ConnectButton, FollowButton, PraiseModal, useOpenDm, praiseBadge, isActiveUser, canSeeContact, useBlocks, CONTACT_PRIVACY } from '../components/people/shared.jsx';
+import { ConnectButton, FollowButton, canSeeContact, useBlocks, CONTACT_PRIVACY } from '../components/people/shared.jsx';
 
 // Optional embed from the Feed module (built separately).
 const feedLoader = Object.values(import.meta.glob('../components/feed/FeedList.jsx'))[0];
@@ -27,12 +26,9 @@ const PAGE_SIZE = 24;
 
 function Directory() {
   const { state, me, dispatch } = useStore();
-  const nav = useNavigate();
-  const openDm = useOpenDm();
   const [q, setQ] = useState('');
   const [f, setF] = useState({ batch: '', dept: '', city: '', company: '', skill: '', label: '' });
   const [view, setView] = useState('grid');
-  const [praiseFor, setPraiseFor] = useState(null);
 
   // Search, filters and paging run on the server (only active, listed members come back).
   const [opts, setOpts] = useState({ batch: [], dept: [], city: [], company: [], skill: [] });
@@ -124,15 +120,13 @@ function Directory() {
                   <div className="truncate font-semibold">{u.name}{u.admin && <span className="chip ml-2">Admin</span>}</div>
                   <UserLabels userId={u.id} max={2} small className="my-1" />
                   <div className="truncate text-sm text-slate-400">{u.role}{u.company && ` · ${u.company}`}</div>
-                  <div className="text-xs text-slate-500">Class of {u.batch} · {u.city}</div>
+                  <div className="text-xs text-slate-500">{[u.batch && `Class of ${u.batch}`, u.city].filter(Boolean).join(' · ')}</div>
                 </div>
               </Link>
               <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).slice(0, 3).map((s) => <span key={s} className="chip">{s}</span>)}</div>
               {u.id !== me.id && (
                 <div className="mt-auto flex gap-2 pt-4">
                   <FollowButton userId={u.id} className="flex-1" />
-                  <button className="btn btn-ghost min-h-11" onClick={() => nav(openDm(u.id))} aria-label={`Message ${u.name}`}><Glyph value="💬" tile={false} size={16} /></button>
-                  <button className="btn btn-ghost min-h-11" onClick={() => setPraiseFor(u.id)} aria-label={`Give praise to ${u.name}`}>🙌</button>
                 </div>
               )}
             </article>
@@ -144,12 +138,10 @@ function Directory() {
             <div key={u.id} className="flex flex-wrap items-center gap-3 p-3">
               <Link to={`/people/${u.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                 <Avatar user={u} size={40} />
-                <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="truncate font-semibold">{u.name}</span><UserLabels userId={u.id} max={2} small /></div><div className="truncate text-xs text-slate-400">{u.role} · {u.company} · {u.city} · {u.batch}</div></div>
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="truncate font-semibold">{u.name}</span><UserLabels userId={u.id} max={2} small /></div><div className="truncate text-xs text-slate-400">{[u.role, u.company, u.city, u.batch].filter(Boolean).join(' · ')}</div></div>
               </Link>
               {u.id !== me.id && <div className="flex gap-2">
                 <FollowButton userId={u.id} />
-                <button className="btn btn-ghost min-h-11" onClick={() => nav(openDm(u.id))} aria-label={`Message ${u.name}`}><Glyph value="💬" tile={false} size={16} /></button>
-                <button className="btn btn-ghost min-h-11" onClick={() => setPraiseFor(u.id)} aria-label={`Give praise to ${u.name}`}>🙌</button>
               </div>}
             </div>
           ))}
@@ -160,21 +152,12 @@ function Directory() {
           {result.loading ? 'Loading…' : `Show more · ${result.people.length} of ${result.total}`}
         </button>
       )}
-      {praiseFor && <PraiseModal toId={praiseFor} onClose={() => setPraiseFor(null)} />}
     </div>
   );
 }
 
-const ACTIVITY_LABEL = {
-  'post/create': 'Shared a post', 'post/comment': 'Commented on a post', 'post/like': 'Liked a post', 'forum/save': 'Posted in Forums',
-  'forum/reply': 'Replied in Forums', 'event/rsvp': 'RSVPed to an event', 'event/create': 'Created an event', 'group/join': 'Joined a group',
-  'add:praise': 'Gave praise', 'add:ideas': 'Shared an idea', 'manual/article': 'Edited a manual article', 'add:surveyResponses': 'Answered a survey',
-};
-
 function Profile({ id }) {
   const { state, me, user, dispatch } = useStore();
-  const nav = useNavigate();
-  const openDm = useOpenDm();
   // The server decides who can be seen (suspended or hidden accounts come back as not found).
   const [missing, setMissing] = useState(false);
   useEffect(() => {
@@ -185,8 +168,7 @@ function Profile({ id }) {
   const [tab, setTab] = useState('about');
   // false, or the Edit profile field to focus ('1' = none in particular).
   const [editing, setEditing] = useState(false);
-  const [praise, setPraise] = useState(false);
-  const [report, setReport] = useState(false);
+  const [more, setMore] = useState(false);
   const { blocked, toggle: toggleBlock } = useBlocks();
   // ?edit=<field> (from the profile-completeness card) opens Edit profile on your own profile.
   const [params, setParams] = useSearchParams();
@@ -198,108 +180,98 @@ function Profile({ id }) {
     next.delete('edit');
     setParams(next, { replace: true });
   }, [editParam]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!u) return <Empty icon="🙈" title="Person not found"><Link className="text-brand-400 underline" to="/people">Back to People</Link></Empty>;
+  useEffect(() => { if (u?.name) document.title = `${u.name} · CommunityOne`; }, [u?.name]);
+  if (!u) return <Empty icon="search" title="Person not found"><Link className="text-brand-400 underline" to="/people">Back to People</Link></Empty>;
 
   const isMe = u.id === me.id;
   const isBlocked = blocked.has(u.id);
   const showContact = canSeeContact(state, me.id, u);
   // Contact-style custom fields follow the owner's contact privacy setting.
   const CONTACT_FIELDS = ['linkedin', 'phone', 'website'];
-  const stats = statsFor(state, u.id);
-  const followers = (state.follows || []).filter((f) => f.targetId === u.id);
-  const following = (state.follows || []).filter((f) => f.authorId === u.id);
-  const received = (state.praise || []).filter((p) => p.toId === u.id);
-  const manager = u.managerId && user(u.managerId);
-  const reports = state.users.filter((x) => x.managerId === u.id && isActiveUser(x));
-  const activity = (state.activity || []).filter((a) => a.userId === u.id && ACTIVITY_LABEL[a.type]).slice(0, 12);
   const fields = (state.customFields || []).filter((cf) => u.customFields?.[cf.id] && (showContact || !CONTACT_FIELDS.includes(cf.id)));
   const profileScore = isMe ? completeness(u, state.customFields || []) : null;
-  const pct = stats.nextLevel ? Math.round(((stats.points - stats.level.min) / (stats.nextLevel.min - stats.level.min)) * 100) : 100;
+  const work = [u.role, u.company].filter(Boolean).join(' · ');
+  const study = [u.batch && `Class of ${u.batch}`, u.dept, u.institution].filter(Boolean).join(' · ');
 
   return (
-    <div>
-      <section className="glass overflow-hidden !p-0">
-        <div className="h-32 sm:h-40" style={{ background: `linear-gradient(120deg, hsl(${u.hue} 70% 45%), #3a3f3c 60%, #a3e635)` }} />
-        <div className="-mt-12 flex flex-wrap items-end gap-4 px-5 pb-5 sm:px-6">
-          <span className="rounded-full ring-4 ring-ink-900"><Avatar user={u} size={96} /></span>
-          <div className="min-w-0 flex-1 pt-12 sm:pt-0">
-            <h1 className="text-2xl font-extrabold">{u.name}{u.admin && <span className="chip ml-2 align-middle">Network admin</span>}</h1>
-            <UserLabels userId={u.id} max={6} className="mt-1.5" />
-            <p className="text-sm text-slate-300">{u.title || u.role}{u.company && ` · ${u.company}`}</p>
-            <p className="text-xs text-slate-400">Class of {u.batch} · {u.dept} · 📍 {u.city}</p>
+    <div className="space-y-5">
+      <section className="glass">
+        <div className="flex flex-wrap items-start gap-5 p-5 sm:p-6">
+          <Avatar user={u} size={80} />
+          <div className="min-w-0 flex-1 basis-64">
+            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold tracking-tight">{u.name}
+              {u.admin && <span className="rounded-full bg-brand-400/15 px-2.5 py-0.5 text-xs font-semibold text-brand-300">Platform Admin</span>}
+            </h1>
+            {u.title && <p className="mt-1 text-sm text-slate-200">{u.title}</p>}
+            {work && <p className="mt-1 text-sm text-slate-300">{work}</p>}
+            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+              {study && <span>{study}</span>}
+              {u.city && <span className="inline-flex items-center gap-1"><Icon name="globe" size={12} />{u.city}</span>}
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {isMe ? <button className="btn btn-primary min-h-11" onClick={() => setEditing('1')}><Glyph value="✏️" tile={false} size={16} /> Edit profile</button> : <>
+          <div className="flex flex-wrap items-center gap-2">
+            {isMe ? <button className="btn btn-primary min-h-10" onClick={() => setEditing('1')}><Icon name="pen" size={16} /> Edit profile</button> : <>
               {!isBlocked && <>
                 <ConnectButton userId={u.id} initial={u.connection} onChange={() => loadProfile(u.id, dispatch).catch(() => {})} />
                 <FollowButton userId={u.id} />
-                <button className="btn btn-ghost min-h-11" onClick={() => nav(openDm(u.id))}><Glyph value="💬" tile={false} size={16} /> Message</button>
-                <button className="btn btn-ghost min-h-11" onClick={() => setPraise(true)}>🙌 Praise</button>
               </>}
-              <details className="relative">
-                <summary className="btn btn-ghost min-h-11 list-none" aria-label="More actions">⋯</summary>
-                <div className="glass glass-strong absolute right-0 z-20 mt-2 w-48 p-1 text-sm">
-                  <button className="block min-h-11 w-full rounded-lg px-3 text-left hover:bg-white/5" onClick={() => toggleBlock(u.id)}>{isBlocked ? 'Unblock member' : '🚫 Block member'}</button>
-                  <button className="block min-h-11 w-full rounded-lg px-3 text-left text-rose-300 hover:bg-white/5" onClick={() => setReport(true)}>⚑ Report member</button>
-                </div>
-              </details>
+              <div className="relative">
+                <button className="btn btn-ghost h-10 w-10 !p-0" aria-label="More actions" aria-expanded={more} aria-haspopup="menu" onClick={() => setMore(!more)}><Icon name="more" size={18} /></button>
+                {more && (
+                  <div role="menu" className="glass absolute right-0 z-20 mt-2 w-48 p-1.5 text-sm shadow-xl">
+                    <button role="menuitem" className="block min-h-10 w-full rounded-lg px-3 text-left hover:bg-white/5" onClick={() => { setMore(false); toggleBlock(u.id); }}>{isBlocked ? 'Unblock member' : 'Block member'}</button>
+                  </div>
+                )}
+              </div>
             </>}
           </div>
         </div>
-        {isBlocked && <p role="status" className="border-t border-white/5 bg-rose-500/10 px-5 py-2 text-sm text-rose-200">You blocked this member. They can’t message you and their chats are hidden.</p>}
-        <div className="grid grid-cols-2 border-t border-white/5 text-center sm:grid-cols-4">
-          {[[stats.points, 'Points'], [stats.level.name, 'Level'], [followers.length, 'Followers'], [following.length, 'Following']].map(([v, l]) => (
-            <div key={l} className="border-white/5 p-3 odd:border-r sm:border-r sm:last:border-r-0"><div className="text-lg font-bold">{v}</div><div className="text-xs text-slate-400">{l}</div></div>
-          ))}
-        </div>
+        {isBlocked && <p role="status" className="border-t border-[var(--az-hairline)] bg-rose-500/10 px-5 py-2 text-sm text-rose-200">You blocked this member. You won’t see each other’s posts or profiles.</p>}
       </section>
 
-      {isMe && profileScore.pct < 100 && <div className="mt-5"><CompletenessMeter user={u} onEdit={setEditing} /></div>}
+      {isMe && profileScore.pct < 100 && <CompletenessMeter user={u} onEdit={setEditing} />}
 
-      <div className="mt-5">
-        <Tabs value={tab} onChange={setTab} tabs={[{ id: 'about', label: 'About' }, { id: 'posts', label: 'Posts' }, { id: 'badges', label: 'Badges', count: stats.badges.length + received.length }, { id: 'activity', label: 'Activity' }]} />
-      </div>
+      <nav aria-label="Profile sections" className="flex gap-1 border-b border-[var(--az-hairline)]">
+        {[['about', 'About'], ['posts', 'Posts']].map(([t, label]) => (
+          <button key={t} type="button" aria-current={tab === t ? 'page' : undefined} onClick={() => setTab(t)}
+            className={`border-b-2 px-3.5 py-3 text-sm transition ${tab === t ? 'border-brand-400 font-semibold text-white' : 'border-transparent font-medium text-slate-400 hover:text-white'}`}>{label}</button>
+        ))}
+      </nav>
 
       {tab === 'about' && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            <section className="glass p-5"><h2 className="font-bold">About</h2><p className="mt-2 text-sm leading-relaxed text-slate-300">{u.bio || 'No bio yet.'}</p></section>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 space-y-5">
+            <section className="glass p-5"><h2 className="font-semibold">About</h2><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-300">{u.bio || (isMe ? 'Add a short bio so people know what you do and how to help.' : 'No bio yet.')}</p></section>
             <section className="glass p-5">
-              <h2 className="font-bold">Career</h2>
+              <h2 className="font-semibold">Experience</h2>
               {(u.career || []).length ? (
-                <ol className="mt-3 space-y-4 border-l border-white/10 pl-5">
-                  {u.career.map((c, i) => (
-                    <li key={i} className="relative">
-                      <span className="absolute -left-[26px] top-1 h-3 w-3 rounded-full bg-brand-500 ring-4 ring-ink-900" />
-                      <div className="font-semibold">{c.title}</div><div className="text-sm text-slate-400">{c.org} · {c.from}–{c.to ?? 'Present'}</div>
-                    </li>
-                  ))}
+                <ol className="mt-3 space-y-3">
+                  {u.career.map((c, i) => <li key={i}><div className="text-sm font-semibold">{c.title}</div><div className="text-xs text-slate-400">{[c.org, [c.from, c.to ?? (c.from ? 'Present' : null)].filter(Boolean).join('–')].filter(Boolean).join(' · ')}</div></li>)}
                 </ol>
-              ) : <p className="mt-2 text-sm text-slate-500">No career history yet.</p>}
+              ) : <p className="mt-2 text-sm text-slate-400">No experience listed.</p>}
+            </section>
+            <section className="glass p-5">
+              <h2 className="font-semibold">Education</h2>
+              {(u.education || []).length ? (
+                <ol className="mt-3 space-y-3">
+                  {u.education.map((e, i) => <li key={e.id ?? i}><div className="text-sm font-semibold">{e.institution}</div><div className="text-xs text-slate-400">{[e.programme, e.department, e.gradYear && `Class of ${e.gradYear}`].filter(Boolean).join(' · ')}</div></li>)}
+                </ol>
+              ) : <p className="mt-2 text-sm text-slate-400">No education listed.</p>}
             </section>
           </div>
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-5">
             <section className="glass p-5">
-              <h2 className="font-bold">Skills</h2>
-              <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).length ? u.skills.map((s) => <span key={s} className="chip">{s}</span>) : <span className="text-sm text-slate-500">None listed</span>}</div>
+              <h2 className="font-semibold">Skills</h2>
+              <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).length ? u.skills.map((s) => <span key={s} className="chip">{s}</span>) : <span className="text-sm text-slate-400">None listed</span>}</div>
             </section>
-            {(fields.length > 0 || u.email) && (
-              <section className="glass p-5">
-                <h2 className="font-bold">Details</h2>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div className="flex justify-between gap-3"><dt className="text-slate-400">Email</dt><dd className="truncate">{showContact ? u.email : <span className="text-slate-500"><Glyph value="🔒" tile={false} size={16} /> Hidden</span>}</dd></div>
-                  {u.birthday && showContact && isValidBirthday(u.birthday) && <div className="flex justify-between gap-3"><dt className="text-slate-400">Birthday</dt><dd>🎂 {formatMonthDay(u.birthday)}</dd></div>}
-                  {u.joinedAt && <div className="flex justify-between gap-3"><dt className="text-slate-400">Joined</dt><dd>{new Date(u.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</dd></div>}
-                  {fields.map((cf) => <div key={cf.id} className="flex justify-between gap-3"><dt className="text-slate-400">{cf.label}</dt><dd className="truncate">{u.customFields[cf.id]}</dd></div>)}
-                </dl>
-              </section>
-            )}
             <section className="glass p-5">
-              <h2 className="font-bold">In the community</h2>
-              {manager && <Link to={`/people/${manager.id}`} className="mt-3 flex items-center gap-2 text-sm"><Avatar user={manager} size={28} /> <span>Part of <b>{manager.name}</b>’s circle</span></Link>}
-              {reports.length > 0 && <p className="mt-3 text-sm text-slate-300">Leads a circle of {reports.length} member{reports.length > 1 ? 's' : ''}</p>}
-              {!manager && !reports.length && <p className="mt-3 text-sm text-slate-500">Not part of a chapter circle yet.</p>}
-              {!(state.settings?.hiddenModules || ['orgchart']).includes('orgchart') && <Link to={`/orgchart?focus=${u.id}`} className="mt-3 inline-block text-sm text-brand-400 hover:underline">View community structure →</Link>}
+              <h2 className="font-semibold">Details</h2>
+              <dl className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between gap-3"><dt className="text-slate-400">Email</dt><dd className="truncate">{showContact && u.email ? u.email : <span className="inline-flex items-center gap-1 text-slate-400"><Icon name="lock" size={13} /> Hidden</span>}</dd></div>
+                {u.birthday && showContact && isValidBirthday(u.birthday) && <div className="flex justify-between gap-3"><dt className="text-slate-400">Birthday</dt><dd>{formatMonthDay(u.birthday)}</dd></div>}
+                {u.joinedAt && <div className="flex justify-between gap-3"><dt className="text-slate-400">Joined</dt><dd>{new Date(u.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</dd></div>}
+                {fields.map((cf) => <div key={cf.id} className="flex justify-between gap-3"><dt className="text-slate-400">{cf.label}</dt><dd className="truncate">{u.customFields[cf.id]}</dd></div>)}
+              </dl>
             </section>
           </div>
         </div>
@@ -309,73 +281,8 @@ function Profile({ id }) {
         ? <Suspense fallback={<div className="glass h-40 animate-pulse" />}><FeedList scope={{ type: 'user', id: u.id }} /></Suspense>
         : <UserPosts userId={u.id} />)}
 
-      {tab === 'badges' && (
-        <div className="space-y-4">
-          <section className="glass p-5">
-            <div className="flex items-center justify-between"><h2 className="font-bold">Level: {stats.level.name}</h2><span className="text-sm text-slate-400">{stats.points} pts</span></div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="brand-gradient h-full" style={{ width: `${pct}%` }} /></div>
-            {stats.nextLevel && <p className="mt-2 text-xs text-slate-400">{stats.nextLevel.min - stats.points} points to {stats.nextLevel.name}</p>}
-          </section>
-          <section className="glass p-5">
-            <h2 className="font-bold">Achievement badges</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {BADGES.map((b) => { const got = stats.badges.includes(b.id); return (
-                <div key={b.id} className={`rounded-xl border border-white/10 p-3 text-center ${got ? '' : 'opacity-40 grayscale'}`}>
-                  <div className="text-2xl">{b.icon}</div><div className="mt-1 text-sm font-semibold">{b.name}</div><div className="text-[11px] text-slate-400">{got ? b.desc : 'Locked'}</div>
-                </div>); })}
-            </div>
-          </section>
-          <section className="glass p-5">
-            <h2 className="font-bold">Praise received</h2>
-            {received.length ? <ul className="mt-3 space-y-3">{received.map((p) => { const b = praiseBadge(p.badge); return (
-              <li key={p.id} className="flex gap-3 text-sm"><span className="text-xl">{b.icon}</span><div><b>{b.name}</b> from <Link className="underline" to={`/people/${p.fromId}`}>{user(p.fromId)?.name}</Link> · <span className="text-slate-500">{timeAgo(p.createdAt)}</span><p className="text-slate-300">{p.message}</p></div></li>); })}</ul>
-              : <p className="mt-2 text-sm text-slate-500">No praise yet.</p>}
-          </section>
-        </div>
-      )}
-
-      {tab === 'activity' && (activity.length ? (
-        <ul className="glass divide-y divide-white/5">{activity.map((a) => <li key={a.id} className="flex justify-between gap-3 p-4 text-sm"><span>{ACTIVITY_LABEL[a.type]}</span><span className="text-slate-500">{timeAgo(a.at)}{a.points ? ` · +${a.points}` : ''}</span></li>)}</ul>
-      ) : <Empty icon="🌱" title="No recent activity" />)}
-
       {editing && <EditProfile focus={editing} onClose={() => setEditing(false)} />}
-      {praise && <PraiseModal toId={u.id} onClose={() => setPraise(false)} />}
-      {report && <ReportMember user={u} onClose={() => setReport(false)} />}
     </div>
-  );
-}
-
-const REPORT_REASONS = ['Spam or scam', 'Harassment or bullying', 'Fake profile / impersonation', 'Inappropriate content', 'Other'];
-
-function ReportMember({ user: target, onClose }) {
-  const { dispatch } = useStore();
-  const { blocked, toggle } = useBlocks();
-  const [reason, setReason] = useState(REPORT_REASONS[0]);
-  const [details, setDetails] = useState('');
-  const [alsoBlock, setAlsoBlock] = useState(true);
-  const [done, setDone] = useState(false);
-  const submit = (e) => {
-    e.preventDefault();
-    dispatch({ type: 'add', col: 'flags', item: { kind: 'user', refId: target.id, reason: details.trim() ? `${reason}: ${details.trim()}` : reason, status: 'open' } });
-    if (alsoBlock && !blocked.has(target.id)) toggle(target.id);
-    setDone(true);
-  };
-  return (
-    <Modal title={`Report ${target.name}`} onClose={onClose}>
-      {done ? (
-        <div className="space-y-4 text-sm"><p>Thanks. Community moderators will review your report. The member isn’t told who reported them.</p><button className="btn btn-primary min-h-11 w-full" onClick={onClose}>Done</button></div>
-      ) : (
-        <form onSubmit={submit} className="space-y-4">
-          <fieldset className="space-y-1">
-            <legend className="mb-1.5 text-xs font-semibold text-slate-300">Reason</legend>
-            {REPORT_REASONS.map((r) => <label key={r} className="flex min-h-11 items-center gap-3 rounded-lg px-2 text-sm hover:bg-white/5"><input type="radio" name="reason" checked={reason === r} onChange={() => setReason(r)} /> {r}</label>)}
-          </fieldset>
-          <Field label="Details (optional)"><textarea className="input min-h-20" value={details} onChange={(e) => setDetails(e.target.value)} /></Field>
-          <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={alsoBlock} onChange={(e) => setAlsoBlock(e.target.checked)} /> Also block this member</label>
-          <button className="btn min-h-11 w-full bg-rose-600 text-white">Submit report</button>
-        </form>
-      )}
-    </Modal>
   );
 }
 

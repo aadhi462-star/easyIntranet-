@@ -57,13 +57,15 @@ Server is the authority; legacy screens still read the local store. `lib/api.js`
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — redesign Stage 2 done (committed, not pushed)
+## Where we stopped — redesign Stage 3 done (committed, not pushed)
 
-Stages 1–2 are built and browser-checked (§14). Public site: `src/components/public/*`, `src/pages/{Landing,Explore,About,Help,Privacy,Terms,Contact}.jsx`, `src/lib/public.js`; server `routes/public.js`; default-community join in `lib/community.js` (`joinDefaultCommunity`, called from email verify and admin approve).
+Stages 1–3 are built and browser-checked (§14). Stage 3: community pages `src/pages/Community.jsx` (`/c/:slug`, tabs; old `/groups/:id` and `/feed/wall` redirect), `src/pages/Groups.jsx` (My Communities / Explore from `GET /communities`), `src/pages/Search.jsx` + `server/routes/search.js`, `src/pages/Welcome.jsx` (onboarding; gate in `App.jsx` `Protected`), profile in `src/pages/People.jsx`. R4: migration `006_core.sql`, `server/lib/merge.js`, `server/scripts/undo-merge.mjs`; the seed merges All Hands (g0) once.
 
-Waiting on the user: Terms of Service text and a contact address (the pages say they aren't published yet).
+Rules to keep: a merged community keeps its memberships (for undo), so every "my communities" query must have `c.merged_into is null`. AlumniZone is deliberately not in `state.groups` (older screens treat those as optional groups); community pages read the server directly and listen for `c1-community-changed` (fired by `refreshCommunity`).
 
-Next: **redesign Stage 3 — core application**: Home, Explore and My Communities in the new layout; community pages for every community incl. AlumniZone at `/c/:slug` (old `/groups/:id` and `/feed/wall` redirect; change `communityPath`); community header/tabs per the wireframe; Profile; global search on the server (SRC-01/02/05); R4 (merge All Hands into AlumniZone, reversible); onboarding after sign-up (profile basics, choose communities).
+Waiting on the user: Terms of Service text and a contact address. The AppSail upload happens once, after the last stage.
+
+Next: **redesign Stage 4 — engagement**: Discussions, Members, Events, Resources, Notifications, Saved (needs approval of layouts first). Open from Stage 3: Home still has its Stage 4c layout; recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
 
 ## Working style that's been effective
 

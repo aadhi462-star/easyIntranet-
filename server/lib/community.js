@@ -3,7 +3,7 @@
 // state → community role → community settings. Every community/post route calls `access()`.
 import { audit } from './audit.js';
 import { can } from './permissions.js';
-import { forbidden, notFound, unauthorized } from './errors.js';
+import { forbidden, HttpError, notFound, unauthorized } from './errors.js';
 
 const RANK = { member: 0, teaching_assistant: 1, instructor: 1, moderator: 2, admin: 3, owner: 4 };
 export const atLeast = (role, min) => (RANK[role] ?? -1) >= RANK[min];
@@ -19,8 +19,9 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   const user = req.user;
   if (!user) throw unauthorized();
   const { rows } = await db.query(
-    `select c.*, m.role, m.state as member_state from communities c
-       left join memberships m on m.community_id = c.id and m.user_id = $2 where c.id = $1`, [communityId, user.id]);
+    `select c.*, m.role, m.state as member_state, t.slug as merged_slug from communities c
+       left join memberships m on m.community_id = c.id and m.user_id = $2
+       left join communities t on t.id = c.merged_into where c.id = $1`, [communityId, user.id]);
   const c = rows[0];
   const adminMode = wantsAdminMode(req) && can(user, 'communities.manage');
   if (!c) throw notFound('That community doesn’t exist.');
@@ -33,6 +34,9 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   // Closed and suspended communities don't exist for anyone outside them.
   if (!adminMode && (c.status === 'suspended' || (c.visibility === 'closed' && !member))) throw notFound('That community doesn’t exist.');
   if (state === 'blocked' && !adminMode) throw notFound('That community doesn’t exist.');
+  // A merged community (R4) has moved: say where, so old links can follow it. Only its new
+  // home's address is given, and that page checks access again on its own.
+  if (c.merged_into && !adminMode) throw new HttpError(404, 'MERGED', 'This community is now part of another one.', { mergedInto: { id: c.merged_into, slug: c.merged_slug } });
   const canView = adminMode || member || c.visibility === 'public';
   const writable = c.status === 'active';
   const whoCanPost = c.settings?.whoCanPost ?? 'members';
@@ -58,6 +62,15 @@ export async function joinDefaultCommunity(q, userId) {
   await q.query(`insert into memberships (community_id, user_id, role, state, joined_at)
     select $1, $2, 'member', 'active', now() where exists (select 1 from communities where id = $1 and status = 'active')
     on conflict (community_id, user_id) do nothing`, [DEFAULT_COMMUNITY, userId]);
+}
+
+/**
+ * Community id for an address that may hold the id or the slug (/c/:slug). The id wins when
+ * both match, so a community named like another's id can't take over its address.
+ */
+export async function resolveCommunityId(db, key) {
+  const { rows } = await db.query(`select id from communities where id = $1 or lower(slug) = lower($1) order by (id = $1) desc limit 1`, [String(key)]);
+  return rows[0]?.id ?? String(key);
 }
 
 export function requireView(ctx) {

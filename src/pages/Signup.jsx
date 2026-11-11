@@ -3,9 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
 import { api, newKey } from '../lib/api.js';
-import { AuthShell, EMAIL_RE, nextPath, stashNext, stashProfile } from './Login.jsx';
+import { AuthShell, EMAIL_RE, nextPath, stashNext } from './Login.jsx';
 
-const DEPTS = ['Computer Science', 'Electronics', 'Electrical', 'Mechanical', 'Civil', 'Chemical', 'Business', 'Design', 'Other'];
 
 export default function Signup() {
   const { state } = useStore();
@@ -14,7 +13,8 @@ export default function Signup() {
   const [server, setServer] = useState(null);
   useEffect(() => { api('/auth/registration').then(setServer).catch(() => setServer({ open: true })); }, []);
   const reg = { ...(state.settings.registration ?? {}), ...(server ?? {}), open: server ? server.open : true };
-  const [form, setForm] = useState({ name: '', email: '', password: '', batch: new Date().getFullYear() - 1, dept: DEPTS[0], city: '' });
+  // Only what an account needs. Profile details come after confirming, in the welcome steps.
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [sentTo, setSentTo] = useState('');
@@ -34,7 +34,6 @@ export default function Signup() {
     try {
       await api('/auth/register', { method: 'POST', idempotencyKey: keyRef.current, body: { name: form.name.trim(), email, password: form.password, acceptedGuidelines: true } });
       stashNext(email, nextPath(search));
-      stashProfile(email, { batch: Number(form.batch) || null, dept: form.dept, city: form.city.trim() });
       setSentTo(email);
     } catch (err) {
       setError(err.message);
@@ -56,7 +55,7 @@ export default function Signup() {
 
   if (sentTo) {
     return (
-      <AuthShell>
+      <AuthShell mode="signup">
         <div className="p-8" role="status">
           <h2 className="text-2xl font-bold">Check your email</h2>
           <p className="mt-2 text-sm text-slate-300">We sent a confirmation link to <b className="text-white">{sentTo}</b>. Open it to finish creating your account. The link expires in 24 hours.</p>
@@ -76,13 +75,6 @@ export default function Signup() {
           <div className="col-span-2"><Field label="Full name"><input className="input" value={form.name} onChange={set('name')} autoComplete="name" /></Field></div>
           <div className="col-span-2"><Field label="Email"><input className="input" type="email" value={form.email} onChange={set('email')} autoComplete="email" placeholder="you@example.com" /></Field></div>
           <div className="col-span-2"><Field label="Password" hint="At least 8 characters"><input className="input" type="password" value={form.password} onChange={set('password')} autoComplete="new-password" /></Field></div>
-          <Field label="Graduation year"><input className="input" type="number" min="1950" max="2100" value={form.batch} onChange={set('batch')} /></Field>
-          <Field label="City"><input className="input" value={form.city} onChange={set('city')} autoComplete="address-level2" /></Field>
-          <div className="col-span-2">
-            <Field label="Department">
-              <select className="input" value={form.dept} onChange={set('dept')}>{DEPTS.map((d) => <option key={d}>{d}</option>)}</select>
-            </Field>
-          </div>
         </div>
         <details className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-xs text-slate-300">
           <summary className="cursor-pointer font-semibold">Community guidelines</summary>

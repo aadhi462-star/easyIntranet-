@@ -18,17 +18,19 @@ import Toaster from './Toaster.jsx';
 const PRIMARY = [
   { id: 'home', label: 'Home', icon: 'home', to: '/dashboard', match: (p) => p === '/dashboard' },
   { id: 'explore', label: 'Explore', icon: 'explore', to: '/groups?tab=discover', match: (p, q) => p === '/groups' && q.get('tab') === 'discover' },
-  { id: 'communities', label: 'My Communities', short: 'Communities', icon: 'groups', to: '/groups', match: (p, q) => p.startsWith('/groups') && q.get('tab') !== 'discover' },
+  { id: 'communities', label: 'My Communities', short: 'Communities', icon: 'groups', to: '/groups', match: (p, q) => (p.startsWith('/groups') && q.get('tab') !== 'discover') || p.startsWith('/c/') },
   { id: 'events', label: 'Events', icon: 'events', to: '/events', match: (p) => p.startsWith('/events') },
 ];
 const MORE = [
-  { id: 'feed', label: 'Feed', icon: 'feeds', to: '/feed', match: (p) => (p.startsWith('/feed') && p !== '/feed/wall') || p.startsWith('/post/') },
+  { id: 'feed', label: 'Feed', icon: 'feeds', to: '/feed', match: (p) => p.startsWith('/feed') || p.startsWith('/post/') },
   { id: 'people', label: 'People', icon: 'people', to: '/people', match: (p) => p === '/people' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', to: '/calendar', match: (p) => p === '/calendar' },
 ];
 
 /** Page titles: "<section> · CommunityOne". */
-const TITLES = [['/dashboard', 'Home'], ['/groups', 'Communities'], ['/events', 'Events'], ['/feed', 'Feed'], ['/post/', 'Post'], ['/people', 'People'],
+// Community pages and the community lists name the tab themselves.
+const OWN_TITLE = ['/c/', '/groups', '/search'];
+const TITLES = [['/dashboard', 'Home'], ['/events', 'Events'], ['/feed', 'Feed'], ['/post/', 'Post'], ['/people', 'People'],
   ['/calendar', 'Calendar'], ['/notifications', 'Notifications'], ['/search', 'Search'], ['/admin', 'Platform Admin']];
 
 function useMyCommunities(me) {
@@ -37,8 +39,10 @@ function useMyCommunities(me) {
     let live = true;
     const load = () => fetchMyCommunities().then((c) => live && setList(c)).catch(() => {});
     load();
+    // Joining or leaving anywhere updates the list (the cache is cleared first in lib/feed.js).
     window.addEventListener('c1-session-changed', load);
-    return () => { live = false; window.removeEventListener('c1-session-changed', load); };
+    window.addEventListener('c1-community-changed', load);
+    return () => { live = false; window.removeEventListener('c1-session-changed', load); window.removeEventListener('c1-community-changed', load); };
   }, [me?.id]);
   return list;
 }
@@ -75,6 +79,7 @@ export default function Layout() {
   useEffect(() => {
     setMenu(false); setCreateOpen(false);
     window.scrollTo({ top: 0 });
+    if (OWN_TITLE.some((p) => loc.pathname.startsWith(p))) return;
     const t = TITLES.find(([p]) => loc.pathname.startsWith(p))?.[1];
     document.title = t ? `${t} · CommunityOne` : 'CommunityOne';
   }, [loc.pathname, loc.search]);
@@ -149,7 +154,7 @@ export default function Layout() {
             <div className="flex flex-col gap-0.5">
               <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Your communities</div>
               {communities.slice(0, 8).map((c) => {
-                const to = communityPath(c.id);
+                const to = communityPath(c);
                 const active = loc.pathname === to || loc.pathname.startsWith(`${to}/`);
                 return (
                   <Link key={c.id} to={to} aria-current={active ? 'page' : undefined}

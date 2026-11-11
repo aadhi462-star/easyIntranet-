@@ -1,6 +1,7 @@
 import { Glyph } from '../components/icons.jsx';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
+import { communityPath } from '../lib/communities.js';
 import { bookmarksOf, useStore } from '../lib/store.jsx';
 import { Avatar, Empty, UserLink } from '../components/ui.jsx';
 import Composer from '../components/feed/Composer.jsx';
@@ -39,6 +40,8 @@ const SERVER = {
 
 export default function Feed() {
   const { id, view = 'my' } = useParams();
+  // AlumniZone's wall became its community page (Stage 3).
+  if (view === 'wall') return <Navigate to={communityPath(NETWORK_ID, 'discussions')} replace />;
   // Keyed by view so paging ("Load more") starts over on each view.
   return id ? <PostDetail key={id} id={id} /> : <FeedView key={view} view={view} />;
 }

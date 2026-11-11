@@ -35,6 +35,7 @@ export function usePublicCommunities({ q = '', category = '', limit = 24 } = {})
 }
 
 export function VisibilityBadge({ visibility }) {
+  if (visibility === 'closed') return <span className="inline-flex h-6 items-center gap-1 rounded-full bg-white/10 px-2.5 text-xs font-semibold text-slate-200"><Icon name="eyeoff" size={13} />Closed</span>;
   return visibility === 'private'
     ? <span className="inline-flex h-6 items-center gap-1 rounded-full bg-sky-500/15 px-2.5 text-xs font-semibold text-sky-300"><Icon name="lock" size={13} />Private</span>
     : <span className="inline-flex h-6 items-center gap-1 rounded-full bg-brand-400/15 px-2.5 text-xs font-semibold text-brand-300"><Icon name="globe" size={13} />Public</span>;

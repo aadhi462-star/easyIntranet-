@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { createDb } from '../db/index.js';
 import { migrate } from '../db/migrate.js';
 import { hashPassword } from '../lib/crypto.js';
+import { mergeCommunity } from '../lib/merge.js';
 
 export const DEV_PASSWORD = 'Community-Demo-2026';
 // The demo passwords are published in DEMO_ACCOUNTS.md, so a production seed must never use them:
@@ -46,6 +47,7 @@ export async function runSeed(database, { log = console.log } = {}) {
   await seedConnections();
   await seedCommunities();
   await seedEvents();
+  await mergeAllHands();
   return true;
 }
 
@@ -73,8 +75,8 @@ await db.tx(async (t) => {
   for (const u of proto.users) {
     const hash = sharedHash ?? await hashPassword(u.password || DEV_PASSWORD);
     await t.query(
-      `insert into users (id, email, name, password_hash, status, email_verified_at, created_at)
-       values ($1, $2, $3, $4, $5, now(), to_timestamp($6 / 1000.0))`,
+      `insert into users (id, email, name, password_hash, status, email_verified_at, created_at, onboarded_at)
+       values ($1, $2, $3, $4, $5, now(), to_timestamp($6 / 1000.0), now())`,
       [u.id, u.email, u.name, hash, statusOf(u), u.joinedAt || Date.now()]);
     if (u.admin) await t.query(`insert into platform_roles (user_id, role) values ($1, 'platform_admin')`, [u.id]);
   }
@@ -211,6 +213,19 @@ async function seedCommunities() {
     }
   });
   console.log('communities', counts);
+}
+
+// Decision R4: the prototype's "All Hands" group (everyone, announcements) becomes part of
+// AlumniZone. Its posts and events move there; the merge is recorded so it can be undone
+// (server/scripts/undo-merge.mjs). Runs once per community: one that was merged before, even
+// if the merge was undone since, is left alone.
+async function mergeAllHands() {
+  for (const g of (proto.groups || []).filter((x) => x.allHands)) {
+    const { rows: [c] } = await db.query(`select exists (select 1 from community_merges where from_id = $1) as done from communities where id = $1`, [g.id]);
+    if (!c || c.done) continue;
+    const r = await mergeCommunity(db, { from: g.id, to: 'alumnizone' });
+    if (r) console.log(`merged ${g.name} into AlumniZone`, r);
+  }
 }
 
 // Prototype events → community events (network → AlumniZone; group → that community; private →

@@ -6,8 +6,14 @@ import { api, ApiError } from './api.js';
 
 /** The network-wide community (the main wall). It isn't listed as a group. */
 export const NETWORK_COMMUNITY = 'alumnizone';
-/** Where a community opens. AlumniZone's page is the Feed's wall until Stage 3 gives every community one. */
-export const communityPath = (id) => (id === NETWORK_COMMUNITY ? '/feed/wall' : `/groups/${id}`);
+/**
+ * Where a community opens: /c/<slug>, optionally a tab (/c/<slug>/events). Takes a community
+ * (uses its slug) or just an id (the page accepts ids too and swaps in the slug).
+ */
+export const communityPath = (c, tab) => {
+  const key = typeof c === 'string' ? c : (c.slug || c.id);
+  return `/c/${encodeURIComponent(key)}${tab && tab !== 'overview' ? `/${tab}` : ''}`;
+};
 
 // Server visibility ↔ the store's access types.
 const TO_ACCESS = { public: 'public', private: 'restricted', closed: 'private' };
@@ -28,7 +34,7 @@ const enc = encodeURIComponent;
 export function toLocalGroup(c, { members, membership = c.membership ?? null, permissions, requests, me } = {}) {
   const settings = c.settings || {};
   const out = {
-    id: c.id, name: c.name, description: c.description || '', type: c.category || 'Interest', emoji: c.emoji || '👥',
+    id: c.id, slug: c.slug || c.id, name: c.name, description: c.description || '', type: c.category || 'Interest', emoji: c.emoji || '👥',
     accessType: TO_ACCESS[c.visibility] ?? 'public',
     status: c.status, memberCount: c.memberCount ?? members?.length ?? 0,
     myMembership: membership, permissions: permissions ?? null,
@@ -67,16 +73,20 @@ export function toLocalGroup(c, { members, membership = c.membership ?? null, pe
   return out;
 }
 
-/** Full detail of one community, or null when the server says it doesn't exist for you. */
-async function loadOne(id, me) {
+/**
+ * Full detail of one community by id or slug. Null when the server says it doesn't exist for
+ * you; `{ merged: { id, slug } }` when it became part of another community (R4).
+ */
+export async function loadCommunity(id, me) {
   let detail;
   try {
     detail = await api(`/communities/${enc(id)}`);
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return null;
+    if (err instanceof ApiError && err.status === 404) return err.code === 'MERGED' && err.extra?.mergedInto ? { merged: err.extra.mergedInto } : null;
     throw err;
   }
   const { community, membership, permissions } = detail;
+  id = community.id;
   const [members, requests] = await Promise.all([
     permissions.canView ? api(`/communities/${enc(id)}/members`).then((r) => r.members) : null,
     permissions.canAdmin ? api(`/communities/${enc(id)}/requests`).then((r) => r.requests).catch(() => null) : null,
@@ -98,10 +108,10 @@ export async function syncCommunities(dispatch, { me, localIds = [] } = {}) {
   // Discovery leaves out archived communities; ones this browser already knows are checked
   // one by one so members keep seeing them.
   const extra = localIds.filter((id) => id !== NETWORK_COMMUNITY && !listed.includes(id));
-  const results = await Promise.all([...listed, ...extra].map((id) => loadOne(id, me).then((r) => [id, r])));
+  const results = await Promise.all([...listed, ...extra].map((id) => loadCommunity(id, me).then((r) => [id, r])));
   const groups = []; const drop = []; const people = [];
   for (const [id, r] of results) {
-    if (!r) { drop.push(id); continue; }
+    if (!r || r.merged) { drop.push(id); continue; }
     groups.push(r.group);
     people.push(...peopleOf(r.members));
   }
@@ -110,13 +120,32 @@ export async function syncCommunities(dispatch, { me, localIds = [] } = {}) {
   return groups.length;
 }
 
-/** Re-reads one community after a write. Returns the merged group, or null when it's gone. */
+/** Tells open community pages that community `id` changed on the server. */
+const changed = (id) => window.dispatchEvent(new CustomEvent('c1-community-changed', { detail: id }));
+export function onCommunityChange(fn) {
+  const h = (e) => fn(e.detail);
+  window.addEventListener('c1-community-changed', h);
+  return () => window.removeEventListener('c1-community-changed', h);
+}
+
+/**
+ * Re-reads one community after a write. Returns the merged group, or null when it's gone.
+ * AlumniZone isn't kept with the groups (older screens treat those as optional groups), so its
+ * page hears about the change through the event instead.
+ */
 export async function refreshCommunity(id, dispatch, { me } = {}) {
-  const r = await loadOne(id, me);
-  if (!r) { dispatch({ type: 'communities/merge', groups: [], drop: [id], silent: true }); return null; }
+  const r = await loadCommunity(id, me);
+  if (!r || r.merged) { dispatch({ type: 'communities/merge', groups: [], drop: [id], silent: true }); changed(id); return null; }
   if (r.members.length) dispatch({ type: 'users/merge', users: peopleOf(r.members), silent: true });
-  dispatch({ type: 'communities/merge', groups: [r.group], silent: true });
+  if (id !== NETWORK_COMMUNITY) dispatch({ type: 'communities/merge', groups: [r.group], silent: true });
+  changed(id);
   return r.group;
+}
+
+/** Community list from the server (discovery rules), in the group shape the cards use. */
+export async function fetchCommunityList(me) {
+  const { communities } = await api('/communities');
+  return communities.map((c) => toLocalGroup(c, { me }));
 }
 
 const dedupe = (list) => [...new Map(list.map((x) => [x.id, x])).values()];

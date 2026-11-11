@@ -64,8 +64,10 @@ function core(s, a) {
         ? s.users.map((u) => (u.id === a.user.id ? { ...u, name: a.user.name, email: a.user.email, status: 'active' } : u))
         : [...s.users, { hue: Math.floor(Math.random() * 360), skills: [], career: [], bio: '', company: '', role: '', joinedAt: Date.now(), ...a.profile, id: a.user.id, name: a.user.name, email: a.user.email, status: 'active' }];
       const admin = (a.user.roles || []).some((r) => r === 'platform_admin' || r === 'super_admin');
-      return { ...s, users: users.map((u) => (u.id === a.user.id ? { ...u, admin } : u)), session: { userId: a.user.id } };
+      // `onboarded` false sends a new member through the welcome steps first (Stage 3).
+      return { ...s, users: users.map((u) => (u.id === a.user.id ? { ...u, admin } : u)), session: { userId: a.user.id, onboarded: a.user.onboarded !== false } };
     }
+    case 'session/onboarded': return s.session ? { ...s, session: { ...s.session, onboarded: true } } : s;
     case 'logout': return { ...s, session: null };
     case 'reset': {
       // Fresh demo data, but keep whoever is signed in. Someone who joined through sign-up

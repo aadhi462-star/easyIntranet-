@@ -1,154 +1,139 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+// Global search (redesign Stage 3): communities, people, events and posts from GET /api/search.
+// The server applies each screen's own access rules, and every result opens a page that checks
+// access again (SRC-05). The query lives in the address (?q=&type=), so a failed search can be
+// retried and a search can be shared or bookmarked.
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { timeAgo, useStore } from '../lib/store.jsx';
-import { toast } from '../lib/toast.js';
-import { Empty, PageHeader } from '../components/ui.jsx';
-import { GUEST } from '../components/feed/utils.js';
-import { TYPES, buildIndex, savedSearchIds, searchIndex, termsOf, typeLabel } from '../lib/searchIndex.js';
+import { api, ApiError } from '../lib/api.js';
+import { timeAgo } from '../lib/store.jsx';
+import { communityPath, NETWORK_COMMUNITY } from '../lib/communities.js';
+import { Avatar, Empty, PageHeader } from '../components/ui.jsx';
+import { CommunityTile, eventWhen, VisibilityBadge } from '../components/public/CommunityCards.jsx';
 
-function Highlight({ text, terms, max = 180 }) {
-  if (!terms.length) return text.slice(0, max);
-  const lower = text.toLowerCase();
-  const first = Math.min(...terms.map((t) => lower.indexOf(t)).filter((i) => i >= 0), text.length);
-  const start = first > 60 ? first - 40 : 0;
-  const snippet = (start ? '…' : '') + text.slice(start, start + max) + (text.length > start + max ? '…' : '');
-  const re = new RegExp(`(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
-  return snippet.split(re).map((part, i) => (i % 2 ? <mark key={i} className="rounded bg-leaf-500/30 px-0.5 text-white">{part}</mark> : part));
+const TYPES = [['all', 'All'], ['communities', 'Communities'], ['people', 'People'], ['events', 'Events'], ['posts', 'Posts']];
+const LABEL = Object.fromEntries(TYPES);
+
+function Highlight({ text, q }) {
+  if (!q) return text;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return text;
+  return <>{text.slice(0, i)}<mark className="rounded bg-brand-400/25 px-0.5 text-white">{text.slice(i, i + q.length)}</mark>{text.slice(i + q.length)}</>;
+}
+
+/** Runs the search for (q, type); `retry` runs it again after an error. */
+function useSearch(q, type) {
+  const [s, setS] = useState({ status: 'idle' });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (q.trim().length < 2) { setS({ status: 'idle' }); return; }
+    let live = true;
+    setS((prev) => ({ ...prev, status: 'loading' }));
+    api(`/search?q=${encodeURIComponent(q.trim())}&type=${type}`)
+      .then((r) => live && setS({ status: 'ready', results: r.results }))
+      .catch((err) => live && setS({ status: 'error', message: err instanceof ApiError ? err.message : 'Search isn’t available right now.' }));
+    return () => { live = false; };
+  }, [q, type, attempt]);
+  return { ...s, retry: () => setAttempt((n) => n + 1) };
 }
 
 export default function Search() {
-  const { state, user, me: current, dispatch } = useStore();
-  const me = current ?? GUEST;
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
-  const typeParam = params.get('type') || 'all';
-  const type = typeParam === 'all' || TYPES.some(([id]) => id === typeParam) ? typeParam : 'all';
-  const setType = (t) => setParams(t === 'all' ? { q } : { q, type: t });
+  const type = TYPES.some(([id]) => id === params.get('type')) ? params.get('type') : 'all';
   const [draft, setDraft] = useState(q);
-  // Follow a new ?q= (e.g. from the header search) instead of keeping the old text.
+  // Follow a new ?q= (e.g. from the top-bar search) instead of keeping the old text.
   useEffect(() => { setDraft(q); }, [q]);
-  const index = useMemo(() => buildIndex(state, user, me), [state, user, me]);
-  const terms = termsOf(q);
-
-  const results = useMemo(() => searchIndex(index, q), [index, q]);
-
-  const counts = Object.fromEntries(TYPES.map(([id]) => [id, results.filter((r) => r.type === id).length]));
-  const shown = TYPES.filter(([id]) => (type === 'all' || type === id) && counts[id]);
-  const typeMeta = TYPES.find(([id]) => id === type);
-
-  const saved = current ? (state.savedSearches || []).filter((x) => x.userId === current.id).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)) : [];
-  const norm = (x) => String(x || '').trim().toLowerCase();
-  const alreadySaved = saved.find((x) => norm(x.q) === norm(q) && (x.type || 'all') === type);
-  const saveSearch = () => {
-    if (!current || !q.trim() || alreadySaved) return;
-    // Everything that matches right now counts as seen, so alerts only fire for new results.
-    const lastSeenIds = savedSearchIds(index, { q, type });
-    dispatch({ type: 'add', col: 'savedSearches', item: { userId: current.id, q: q.trim(), type, name: '', lastSeenIds } });
-    toast('Search saved. We’ll alert you to new results');
-  };
+  const search = useSearch(q, type);
+  const set = (next) => setParams(Object.fromEntries(Object.entries({ q, type, ...next }).filter(([k, v]) => v && !(k === 'type' && v === 'all'))));
+  const results = search.results || {};
+  const total = Object.values(results).reduce((n, list) => n + list.length, 0);
+  useEffect(() => { document.title = q ? `${q} · Search · CommunityOne` : 'Search · CommunityOne'; }, [q]);
 
   return (
-    <>
-      <PageHeader title="Search" subtitle={q ? `${results.length} result${results.length === 1 ? '' : 's'} for “${q}”` : 'Search across the whole network'}
-        actions={current && q.trim() ? (alreadySaved
-          ? <span className="chip min-h-11 !px-4" role="status">🔖 Saved · alerts on</span>
-          : <button type="button" className="btn btn-ghost min-h-11" onClick={saveSearch} aria-label={`Save this search for “${q}”${type !== 'all' ? ` in ${typeLabel(type)}` : ''} and get alerts for new results`}>🔖 Save this search</button>) : null} />
-      <form className="mb-4 flex gap-2" role="search" onSubmit={(e) => { e.preventDefault(); setParams(draft.trim() ? { q: draft.trim() } : {}); }}>
-        <input className="input min-w-0" type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Try “mentorship”, “Bengaluru” or a name" aria-label="Search query" />
-        <button className="btn btn-primary min-h-11 shrink-0">Search</button>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader title="Search" subtitle="Communities, people, events and posts you’re allowed to see." />
+      <form role="search" className="flex gap-2" onSubmit={(e) => { e.preventDefault(); set({ q: draft.trim() }); }}>
+        <input className="input flex-1" type="search" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search CommunityOne" aria-label="Search CommunityOne" autoFocus={!q} maxLength={80} />
+        <button className="btn btn-primary" type="submit">Search</button>
       </form>
-      <div className={current ? 'grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]' : ''}>
-        <div className="min-w-0">
-          {q && (
-            <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Filter by type">
-              <button onClick={() => setType('all')} aria-pressed={type === 'all'} className={`chip min-h-9 !px-3 ${type === 'all' ? '!bg-brand-500 !text-white' : ''}`}>All · {results.length}</button>
-              {TYPES.filter(([id]) => counts[id] || id === type).map(([id, label, icon]) => (
-                <button key={id} onClick={() => setType(id)} aria-pressed={type === id} className={`chip min-h-9 !px-3 ${type === id ? '!bg-brand-500 !text-white' : ''}`}>{icon} {label} · {counts[id]}</button>
-              ))}
-            </div>
-          )}
-          {!q ? <Empty icon="🔎" title="What are you looking for?">People, posts, groups, events, forums, manuals, files, ideas, messages, tasks, surveys and town halls.</Empty>
-            : results.length === 0 ? <Empty icon="🫥" title="No matches">Try fewer or different words.{current && !alreadySaved ? ' Or save this search to be alerted when something matches.' : ''}</Empty>
-            : !shown.length ? (
-              <div className="glass p-8 text-center">
-                <p className="font-semibold">No {typeMeta?.[1].toLowerCase() ?? 'results'} match “{q}”</p>
-                <button type="button" className="btn btn-ghost mt-3 min-h-11" onClick={() => setType('all')}>Show all {results.length} result{results.length === 1 ? '' : 's'}</button>
-              </div>
-            )
-            : shown.map(([id, label, icon]) => (
-              <section key={id} className="mb-6">
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">{icon} {label}</h2>
-                <ul className="glass divide-y divide-white/5">
-                  {results.filter((r) => r.type === id).slice(0, type === 'all' ? 5 : 100).map((r) => (
-                    <li key={r.id}>
-                      <Link to={r.link} className="block p-4 hover:bg-white/5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 break-words font-semibold text-white"><Highlight text={r.title} terms={terms} /></span>
-                          <span className="chip">{label}</span>
-                          {r.at && <span className="ml-auto text-xs text-slate-500">{timeAgo(r.at)}</span>}
-                        </div>
-                        {r.body && <p className="mt-1 break-words text-sm text-slate-400"><Highlight text={r.body} terms={terms} /></p>}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-                {type === 'all' && counts[id] > 5 && <button className="mt-2 min-h-9 text-sm text-brand-400 hover:underline" onClick={() => setType(id)}>See all {counts[id]} {label.toLowerCase()}</button>}
-              </section>
-            ))}
-        </div>
-        {current && <SavedSearches saved={saved} activeId={alreadySaved?.id} onRun={(x) => setParams(x.type && x.type !== 'all' ? { q: x.q, type: x.type } : { q: x.q })} />}
+      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Show">
+        {TYPES.map(([id, label]) => (
+          <button key={id} type="button" aria-pressed={type === id} onClick={() => set({ type: id })}
+            className={`min-h-9 rounded-full px-3.5 text-sm transition ${type === id ? 'bg-[var(--az-text)] font-semibold text-[var(--color-ink-950)]' : 'border border-[var(--az-hairline)] font-medium text-slate-300 hover:text-white'}`}>
+            {label}
+          </button>
+        ))}
       </div>
-    </>
+      <p className="sr-only" role="status" aria-live="polite">{search.status === 'ready' ? `${total} ${total === 1 ? 'result' : 'results'}` : ''}</p>
+
+      <div className="mt-6">
+        {search.status === 'idle' ? <p className="text-sm text-slate-400">{q ? 'Type at least 2 characters.' : 'Type a name, a place, a skill or a word from a post.'}</p>
+          : search.status === 'loading' && !search.results ? <div className="space-y-3" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="glass h-16 animate-pulse" />)}</div>
+            : search.status === 'error' ? (
+              <div role="alert" className="glass p-6 text-center text-sm">
+                <p className="text-rose-300">{search.message}</p>
+                <button className="btn btn-ghost mt-3" onClick={search.retry}>Try again</button>
+              </div>
+            ) : total === 0 ? (
+              <Empty icon="search" title={`Nothing found for “${q}”`}>Check the spelling, try fewer words, or <Link to="/groups?tab=discover" className="text-brand-400 underline">explore communities</Link>.</Empty>
+            ) : (
+              <div className="space-y-6">
+                {results.communities?.length > 0 && <Group title="Communities" kind="communities" type={type} n={results.communities.length} onMore={() => set({ type: 'communities' })}>
+                  {results.communities.map((c) => (
+                    <Row key={c.id} to={communityPath(c)} lead={<CommunityTile name={c.name} size={40} accent={c.id === NETWORK_COMMUNITY} />}
+                      title={<Highlight text={c.name} q={q} />}
+                      meta={<>{[c.category, `${c.memberCount} ${c.memberCount === 1 ? 'member' : 'members'}`, c.member && 'You’re a member', c.status === 'archived' && 'Archived'].filter(Boolean).join(' · ')}</>}
+                      trail={<VisibilityBadge visibility={c.visibility} />} />
+                  ))}
+                </Group>}
+                {results.people?.length > 0 && <Group title="People" kind="people" type={type} n={results.people.length} onMore={() => set({ type: 'people' })}>
+                  {results.people.map((p) => (
+                    <Row key={p.id} to={`/people/${p.id}`} lead={<Avatar user={{ name: p.name, hue: p.avatarHue ?? 200 }} size={40} />}
+                      title={<Highlight text={p.name} q={q} />} meta={[p.headline, p.city].filter(Boolean).join(' · ')} />
+                  ))}
+                </Group>}
+                {results.events?.length > 0 && <Group title="Events" kind="events" type={type} n={results.events.length} onMore={() => set({ type: 'events' })}>
+                  {results.events.map((e) => (
+                    <Row key={e.id} to={`/events/${e.id}`} title={<Highlight text={e.title} q={q} />}
+                      meta={[eventWhen(e), e.community?.name].filter(Boolean).join(' · ')} />
+                  ))}
+                </Group>}
+                {results.posts?.length > 0 && <Group title="Posts" kind="posts" type={type} n={results.posts.length} onMore={() => set({ type: 'posts' })}>
+                  {results.posts.map((p) => (
+                    <Row key={p.id} to={`/post/${p.id}`} title={<span className="font-normal text-slate-200"><Highlight text={p.excerpt} q={q} /></span>}
+                      meta={[p.author, p.community?.name, timeAgo(Date.parse(p.at))].filter(Boolean).join(' · ')} />
+                  ))}
+                </Group>}
+              </div>
+            )}
+      </div>
+    </div>
   );
 }
 
-function SavedSearches({ saved, activeId, onRun }) {
-  const { dispatch } = useStore();
-  const [editing, setEditing] = useState(null);
-  const [name, setName] = useState('');
-  const inputRef = useRef(null);
-  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
-  const startRename = (x) => { setEditing(x.id); setName(x.name || x.q); };
-  const commit = (x) => {
-    const n = name.trim();
-    dispatch({ type: 'update', col: 'savedSearches', id: x.id, patch: { name: n && n !== x.q ? n : '' } });
-    toast('Saved search renamed');
-    setEditing(null);
-  };
+function Group({ title, kind, type, n, onMore, children }) {
   return (
-    <aside className="glass h-fit p-4 lg:sticky lg:top-4" aria-labelledby="saved-searches-h">
-      <h2 id="saved-searches-h" className="text-sm font-bold">🔖 Saved searches</h2>
-      <p className="mt-1 text-xs text-slate-400">We’ll notify you when new results match.</p>
-      {!saved.length ? (
-        <p className="mt-3 text-sm text-slate-400">Nothing saved yet. Search for something, then choose <b className="text-slate-300">Save this search</b>.</p>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {saved.map((x) => {
-            const title = x.name || x.q;
-            return (
-              <li key={x.id} className={`rounded-xl border p-2 ${x.id === activeId ? 'border-brand-500/60 bg-brand-500/10' : 'border-white/10'}`}>
-                {editing === x.id ? (
-                  <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); commit(x); }}>
-                    <input ref={inputRef} className="input min-w-0 !py-1.5 text-sm" value={name} onChange={(e) => setName(e.target.value)} maxLength={60}
-                      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEditing(null); } }} aria-label={`New name for saved search “${title}”`} />
-                    <button className="btn btn-primary min-h-11 shrink-0 !px-3 text-sm">Save</button>
-                  </form>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <button type="button" className="min-h-11 min-w-0 flex-1 rounded-lg px-2 text-left hover:bg-white/5" onClick={() => onRun(x)}
-                      aria-label={`Run saved search “${title}”`} aria-current={x.id === activeId ? 'true' : undefined}>
-                      <span className="block truncate text-sm font-semibold">{title}</span>
-                      <span className="block truncate text-xs text-slate-400">{x.name ? `“${x.q}” · ` : ''}{typeLabel(x.type || 'all')} · saved {timeAgo(x.createdAt)}</span>
-                    </button>
-                    <button type="button" className="btn btn-ghost h-11 w-11 shrink-0 !p-0" onClick={() => startRename(x)} aria-label={`Rename saved search “${title}”`} title="Rename">✎</button>
-                    <button type="button" className="btn btn-ghost h-11 w-11 shrink-0 !p-0 text-rose-300" onClick={() => { dispatch({ type: 'remove', col: 'savedSearches', id: x.id }); toast('Saved search deleted'); }} aria-label={`Delete saved search “${title}”`} title="Delete">✕</button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </aside>
+    <section aria-label={title}>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-300">{title}</h2>
+        {type === 'all' && n >= 5 && <button className="text-sm text-brand-400 hover:underline" onClick={onMore}>All {LABEL[kind].toLowerCase()}</button>}
+      </div>
+      <ul className="glass divide-y divide-[var(--az-hairline)]">{children}</ul>
+    </section>
+  );
+}
+
+function Row({ to, lead, title, meta, trail }) {
+  return (
+    <li>
+      <Link to={to} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[.03]">
+        {lead}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-white">{title}</span>
+          {meta && <span className="block truncate text-xs text-slate-400">{meta}</span>}
+        </span>
+        {trail}
+      </Link>
+    </li>
   );
 }
