@@ -3,7 +3,8 @@
 // the community straight from the server (by slug or id) and re-reads it after every change, so
 // what it shows is what the server stored and what this person may see.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { setAdminScope } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
 import { accentOf, communityPath, errorText, loadCommunity, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
 import { useServerFeed } from '../lib/feed.js';
@@ -38,7 +39,7 @@ export const TAB_FOR_APP = { dashboard: 'overview', feed: 'discussions', events:
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Loads one community by slug or id and reloads it whenever it changes. */
-function useCommunityPage(key) {
+function useCommunityPage(key, admin) {
   const { me, dispatch } = useStore();
   const [s, setS] = useState({ status: 'loading' });
   const current = useRef(null);
@@ -56,7 +57,7 @@ function useCommunityPage(key) {
       // Keep showing the last good copy if a background reload fails.
       setS((prev) => (prev.group ? prev : { status: 'error', message: errorText(err) }));
     }
-  }, [key, me.id, dispatch]);
+  }, [key, admin, me.id, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setS({ status: 'loading' }); load(); }, [load]);
   useEffect(() => onCommunityChange((id) => { if (id === current.current) load(); }), [load]);
   return { ...s, reload: load };
@@ -64,7 +65,17 @@ function useCommunityPage(key) {
 
 export default function Community() {
   const { id: key, tab: rawTab } = useParams();
-  const page = useCommunityPage(key);
+  const { me } = useStore();
+  const [params] = useSearchParams();
+  // Administrative Mode: platform staff open /c/:slug?admin=1 to see a community they aren't in.
+  // Set during render, before any request on this page; the server decides and logs every visit.
+  const admin = params.get('admin') === '1' && !!me.admin;
+  const ids = useRef([]);
+  setAdminScope(admin ? [key, ...ids.current] : null);
+  useEffect(() => () => setAdminScope(null), []);
+  const page = useCommunityPage(key, admin);
+  if (page.group) ids.current = [page.group.id, page.group.slug];
+  if (admin) setAdminScope([key, ...ids.current]);
   const tab = TAB_FOR_APP[rawTab] ?? rawTab ?? 'overview';
 
   if (page.status === 'loading') return <div className="space-y-4" aria-busy="true" aria-label="Loading community"><div className="glass h-44 animate-pulse" /><div className="glass h-64 animate-pulse" /></div>;
@@ -80,10 +91,11 @@ export default function Community() {
       </div>
     );
   }
-  return <CommunityView g={page.group} tab={tab} keyInUrl={key} />;
+  // Re-mounted on entering or leaving Administrative Mode, so nothing loaded as staff lingers.
+  return <CommunityView key={admin ? 'admin' : 'member'} g={page.group} tab={tab} keyInUrl={key} admin={admin && page.group.adminMode} />;
 }
 
-function CommunityView({ g, tab, keyInUrl }) {
+function CommunityView({ g, tab, keyInUrl, admin }) {
   const { me } = useStore();
   const nav = useNavigate();
   const perms = permsOf(g, me.id);
@@ -94,13 +106,21 @@ function CommunityView({ g, tab, keyInUrl }) {
 
   // One address per community: an id or an old tab name in the URL becomes the slug and tab.
   const canonical = communityPath(g, current);
+  const q = admin ? '?admin=1' : '';
   useEffect(() => {
-    if (`/c/${encodeURIComponent(keyInUrl)}${tab && tab !== 'overview' ? `/${tab}` : ''}` !== canonical) nav(canonical, { replace: true });
+    if (`/c/${encodeURIComponent(keyInUrl)}${tab && tab !== 'overview' ? `/${tab}` : ''}` !== canonical) nav(canonical + q, { replace: true });
   }, [canonical]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${g.name} · CommunityOne`; }, [g.name]);
 
   return (
     <div className={`space-y-6 cm-${accentOf(g)}`}>
+      {admin && (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm">
+          <Icon name="eye" size={18} />
+          <span className="min-w-0 flex-1 text-amber-100"><b>Administrative Mode.</b> You’re viewing {g.name} as platform staff, not as a member. Every visit and change is recorded in the activity log.</span>
+          <Link to={communityPath(g, current)} className="btn btn-ghost min-h-10">Exit</Link>
+        </div>
+      )}
       <header className="glass overflow-hidden">
         <div aria-hidden="true" className="cm-cover h-20 sm:h-24" />
         <div className="-mt-9 flex flex-wrap items-end gap-4 px-5 pb-5 sm:px-6">
@@ -124,7 +144,7 @@ function CommunityView({ g, tab, keyInUrl }) {
         </div>
         <nav aria-label="Community sections" className="no-scrollbar flex overflow-x-auto border-t border-[var(--az-hairline)] px-2 sm:px-4">
           {tabs.map((t) => (
-            <Link key={t.id} to={communityPath(g, t.id)} aria-current={current === t.id ? 'page' : undefined}
+            <Link key={t.id} to={communityPath(g, t.id) + q} aria-current={current === t.id ? 'page' : undefined}
               className={`shrink-0 border-b-2 px-3.5 py-3 text-sm transition ${current === t.id ? 'border-[var(--cm)] font-semibold text-white' : 'text-2 border-transparent font-medium hover:text-white'}`}>
               {t.label}
               {t.id === 'members' && perms.canAdmin && g.joinRequests?.length > 0 && <span className="ml-1.5 rounded-full bg-brand-400 px-1.5 text-[10px] font-bold text-ink-950">{g.joinRequests.length}</span>}

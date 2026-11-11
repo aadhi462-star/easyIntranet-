@@ -2,7 +2,7 @@
 // the rest of the app (feed, events, files, forums…) still reads groups from `state.groups`, so
 // server communities are merged into it in the store's group shape. Community ids equal the old
 // group ids, so every module that links to a group keeps working.
-import { api, ApiError } from './api.js';
+import { api, ApiError, widenAdminScope } from './api.js';
 
 /** The network-wide community (the main wall). It isn't listed as a group. */
 export const NETWORK_COMMUNITY = 'alumnizone';
@@ -96,12 +96,15 @@ export async function loadCommunity(id, me) {
     throw err;
   }
   const { community, membership, permissions } = detail;
+  if (detail.adminMode) widenAdminScope(id, community.id);
   id = community.id;
   const [members, requests] = await Promise.all([
     permissions.canView ? api(`/communities/${enc(id)}/members`).then((r) => r.members) : null,
     permissions.canAdmin ? api(`/communities/${enc(id)}/requests`).then((r) => r.requests).catch(() => null) : null,
   ]);
-  return { group: toLocalGroup(community, { members, membership, permissions, requests, me }), members: members || [] };
+  const group = toLocalGroup(community, { members, membership, permissions, requests, me });
+  group.adminMode = !!detail.adminMode;
+  return { group, members: members || [] };
 }
 
 // Member names the local directory may not have yet (so avatars and links resolve).

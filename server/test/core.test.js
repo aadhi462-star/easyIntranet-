@@ -54,6 +54,16 @@ describe('global search', () => {
     for (const secret of ['budget', 'secret plan', 'draft nobody', 'deleted post']) assert.ok(!text.includes(secret), `“${secret}” must not leak`);
   });
 
+  test('a repeating event is found at its next date, not the day the series began', async () => {
+    await q(`insert into events (id, community_id, host_id, title, start_at, end_at, recurrence) values ('e-rep', 'g0', 'own', 'Harbour weekly walk', $1, $1::timestamptz + interval '1 hour', '{"freq": "weekly"}')`, [at(-20)]);
+    try {
+      const hit = (await search(ana, 'weekly walk', 'events')).body.results.events.find((e) => e.id === 'e-rep');
+      assert.ok(hit, 'the series is found');
+      assert.ok(Date.parse(hit.start) >= Date.now() - 60e3, `shown at its next date, not ${hit.start}`);
+      assert.ok(Date.parse(hit.start) < Date.now() + 8 * 864e5);
+    } finally { await q(`delete from events where id = 'e-rep'`); }
+  });
+
   test('SRC-02 events follow the Events page rules', async () => {
     assert.deepEqual(ids((await search(ben, 'harbour', 'events')).body.results.events), ['e-all']);
     assert.deepEqual(ids((await search(ana, 'harbour', 'events')).body.results.events), ['e-all', 'e-pri']);

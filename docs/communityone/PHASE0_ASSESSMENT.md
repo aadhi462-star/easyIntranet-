@@ -543,3 +543,17 @@ The user approved the refined designs (canvas page "Refined designs": system, La
 - **Favicon:** `public/favicon.svg` is now the app icon. It replaces the old "AZ" tile.
 - **Browser:** checked at 16, 32, 64 and 160 px on dark and white backgrounds. Below 32 px the C still reads, but the people don't.
 
+### Stage 3 loose ends and Administrative Mode (11 Nov 2026)
+
+- **Search:** a repeating event is listed at its next occurrence, and results are sorted by that date. A new test covers a weekly series that started 20 days ago.
+- **Seen in the browser:**
+  - Search's error state: requests to `/api/search` were made to fail in the page. The page showed "Can’t reach CommunityOne…", and Try again recovered.
+  - Home's "replies to you" featured item: Ishita replied to Neha's question, and Neha's Home showed it first with "Read and reply".
+- **Administrative Mode in the client:**
+  - Platform staff open `/c/:slug?admin=1` from the Admin → Overview table ("Admin Mode", or a row tap on phones for communities they can't otherwise open).
+  - `src/lib/api.js` sends `x-admin-mode: 1` only for that community's own paths and `community=` filters (`setAdminScope`, widened to the resolved id once the server confirms admin mode). Background refreshes of other communities never carry it.
+  - The page shows an amber banner ("You’re viewing … as platform staff… recorded in the activity log") with Exit. Tabs keep `?admin=1`.
+  - Leaving Admin Mode re-mounts the page, so nothing loaded as staff stays on screen.
+  - Checked: Neha opened the Closed community Class of 2016. Without `?admin=1` it says "Community not found"; with it, the full page and the banner show. Exit returns to "not found". The activity log shows `admin_mode.access` for g1 only.
+  - Not covered: opening a post from that page leaves Admin Mode, so a Closed community's post opens only for members.
+

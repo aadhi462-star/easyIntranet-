@@ -129,7 +129,10 @@ function CommunityTable({ list }) {
                     <td className="text-2 px-4 py-3 tabular-nums">{c.memberCount}</td>
                     <td className="text-2 px-4 py-3">{c.owner ?? <span className="text-3">No owner</span>}</td>
                     <td className="text-2 px-4 py-3 capitalize">{c.status}</td>
-                    <td className="px-4 py-3 text-right">{c.canOpen ? <Link to={communityPath(c)} className="text-brand-300 hover:underline" aria-label={`View ${c.name}`}>View</Link> : <span className="t-small">Members only</span>}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {c.canOpen && <Link to={communityPath(c)} className="text-brand-300 hover:underline" aria-label={`View ${c.name}`}>View</Link>}
+                      <Link to={`${communityPath(c)}?admin=1`} className="text-2 ml-4 hover:text-white hover:underline" aria-label={`Open ${c.name} in Administrative Mode`}>Admin Mode</Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -157,6 +160,6 @@ function Row({ c }) {
       <VisibilityBadge visibility={c.visibility} />
     </>
   );
-  return c.canOpen ? <Link to={communityPath(c)} className="flex items-center gap-3 py-3">{body}</Link> : <div className="flex items-center gap-3 py-3">{body}</div>;
+  return <Link to={c.canOpen ? communityPath(c) : `${communityPath(c)}?admin=1`} className="flex items-center gap-3 py-3">{body}</Link>;
 }
 

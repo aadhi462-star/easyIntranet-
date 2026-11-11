@@ -82,8 +82,10 @@ export default async function searchRoutes(app, { ctx }) {
       out.posts = posts.rows.filter((p) => allowed[p.community_id]).map((p) => ({ id: p.id, type: p.type, excerpt: snippet(p.body, q), community: { id: p.community_id, name: p.community }, author: p.author, at: p.at }));
     }
     if (events) {
-      out.events = events.filter((e) => `${e.title} ${e.location ?? ''} ${e.description ?? ''}`.toLowerCase().includes(q)).slice(0, n)
-        .map((e) => ({ id: e.id, title: e.title, start: e.start, allDay: e.allDay, location: e.location, community: e.community }));
+      // A repeating event is shown at its next occurrence, not the date the series began.
+      out.events = events.filter((e) => `${e.title} ${e.location ?? ''} ${e.description ?? ''}`.toLowerCase().includes(q))
+        .map((e) => ({ id: e.id, title: e.title, start: e.nextStart ?? e.start, allDay: e.allDay, location: e.location, community: e.community }))
+        .sort((a, b) => Date.parse(a.start) - Date.parse(b.start)).slice(0, n);
     }
     return { q, results: out };
   });
