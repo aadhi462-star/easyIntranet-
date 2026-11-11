@@ -593,3 +593,13 @@ The user approved the refined designs (canvas page "Refined designs": system, La
 - **Calendar:** "Task due dates" is gone, because Tasks are parked (decision D2). The view switch and filters use the system.
 - **Checked:** 151 tests pass. All three screens at 1280 and 375 px with no horizontal scroll and no console errors. The People filters open and close on a phone.
 
+### Stage 4 boards redrawn (11 Nov 2026)
+
+- **What changed:** the eight Stage 4 boards on the design canvas (page "Stage 4") now use the refined system.
+  - The layout matches the R1 boards: side navigation, breadcrumbs, AlumniZone in sky with sky tab underlines.
+  - Lists, tables and timelines replace the uniform cards, and each screen has one raised item.
+  - The six approved decisions appear as settled notes ("Approved 11 Nov 2026" on S4Plan). Attachments show "Images and PDFs, up to 4 per post, 10 MB each", and FIL-04 is noted as a known gap on Resources.
+- **Checked:** every board was screenshotted and reviewed. Corrected: the member count (34, the seeded active count) and Sara Thomas's role (Alumni Relations Lead).
+- **Still on the old mark:** the boards show the "C1" tile, not the new logo.
+- **Waiting on:** the user's approval of these boards before Stage 4 is built.
+
