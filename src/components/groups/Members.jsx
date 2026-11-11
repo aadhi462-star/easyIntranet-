@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore } from '../../lib/store.jsx';
+import { fmtDate, useStore } from '../../lib/store.jsx';
 import { Avatar, UserLink } from '../ui.jsx';
 import { RANK, roleOf } from './helpers.js';
 import { communityApi } from '../../lib/communities.js';
@@ -12,6 +12,7 @@ export default function Members({ group, perms }) {
   const { dispatch, user, me } = useStore();
   const { run } = useCommunityWrite();
   const channels = useChannelSync();
+  const [roleFilter, setRoleFilter] = useState('');
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(null);
   const [heir, setHeir] = useState('');
@@ -46,7 +47,11 @@ export default function Members({ group, perms }) {
     if (await act('transfer', () => communityApi.transfer(group.id, heir), { ok: `${user(heir)?.name} now owns ${group.name}` })) setHeir('');
   };
 
-  const members = group.members.map(user).filter((u) => u && u.name.toLowerCase().includes(q.toLowerCase()));
+  // Search by name, job, company or city; filter by role (Stage 4, board S4Members).
+  const needle = q.trim().toLowerCase();
+  const members = group.members.map(user).filter((u) => u
+    && (!needle || [u.name, u.role, u.company, u.city].filter(Boolean).join(' ').toLowerCase().includes(needle))
+    && (!roleFilter || roleOf(group, u.id) === roleFilter));
   const requests = (group.joinRequests || []).map(user).filter(Boolean);
   const order = { owner: 0, admin: 1, moderator: 2, member: 3 };
   members.sort((a, b) => order[roleOf(group, a.id)] - order[roleOf(group, b.id)] || a.name.localeCompare(b.name));
@@ -85,8 +90,13 @@ export default function Members({ group, perms }) {
       )}
       <section className="glass p-5" aria-label="Members">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold">{group.memberCount ?? group.members.length} members</h3>
-          <input className="input !w-56 !py-2" type="search" placeholder="Filter members" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter members" />
+          <h3 className="t-h3 text-white">{group.memberCount ?? group.members.length} members{(needle || roleFilter) ? <span className="text-3 font-normal"> · {members.length} shown</span> : null}</h3>
+          <div className="flex flex-wrap gap-2">
+            <input className="input !w-64" type="search" placeholder="Search by name, company or city" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />
+            <select className="input !w-36" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} aria-label="Role">
+              <option value="">Everyone</option><option value="owner">Owner</option><option value="admin">Admins</option><option value="moderator">Moderators</option><option value="member">Members</option>
+            </select>
+          </div>
         </div>
         <ul className="divide-y divide-white/5">
           {members.map((u) => {
@@ -95,7 +105,8 @@ export default function Members({ group, perms }) {
             return (
               <li key={u.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <Avatar user={u} size={36} />
-                <div className="min-w-0 flex-1 text-sm"><UserLink id={u.id} /><div className="truncate text-xs text-slate-400">{u.role}{u.company ? ` · ${u.company}` : ''}</div></div>
+                <div className="min-w-0 flex-1 text-sm"><UserLink id={u.id} /><div className="text-3 truncate text-xs">{u.role}{u.company ? ` · ${u.company}` : ''}</div></div>
+                {group.joinedAt?.[u.id] && <span className="text-3 hidden text-xs sm:inline">Joined {fmtDate(Date.parse(group.joinedAt[u.id]), { month: 'short', year: 'numeric' })}</span>}
                 <span className={`chip capitalize ${ROLE_CHIP[role] ?? ''}`}>{role}</span>
                 {manage && (
                   <>

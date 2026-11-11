@@ -12,21 +12,33 @@ export function RsvpButtons({ event, compact = false }) {
   const [pending, setPending] = useState(null);
   if (!event.rsvpEnabled || !event.can?.rsvp) return null;
   const mine = event.myRsvp;
-  const opts = [['going', 'Going'], ['maybe', 'Maybe'], ['no', 'Not going']];
+  // A full event offers its waitlist instead of "Going" (Stage 4, decision S4-4).
+  const full = event.can.full && mine !== 'going';
+  const opts = mine === 'waitlist'
+    ? [['no', 'Leave waitlist']]
+    : [full ? ['waitlist', 'Join waitlist'] : ['going', 'Going'], ['maybe', 'Maybe'], ['no', 'Not going']];
   const choose = async (v) => {
     if (pending || v === mine) return;
     setPending(v);
-    try { await setRsvp(event.id, v); toast('RSVP saved'); } catch (err) { toast(err.message, 'error'); } finally { setPending(null); }
+    try {
+      const e = await setRsvp(event.id, v);
+      toast(e.myRsvp === 'waitlist' ? `You’re number ${e.waitlistPosition} on the waitlist` : v === 'waitlist' ? 'A place was free: you’re going' : 'RSVP saved');
+    } catch (err) {
+      toast(err.extra?.waitlist ? 'It just filled up. Join the waitlist to get the next free place.' : err.message, 'error');
+    } finally { setPending(null); }
   };
   return (
-    <div role="group" aria-label="RSVP" className="flex flex-wrap gap-1.5">
-      {opts.map(([v, l]) => (
-        <button key={v} aria-pressed={mine === v} disabled={!!pending || (v === 'going' && event.can.full && mine !== 'going')}
-          onClick={(e) => { e.preventDefault(); choose(v); }}
-          className={`rounded-lg px-3 font-semibold transition ${mine === v ? (v === 'going' ? 'bg-accent-fill' : 'bg-[var(--az-text)] text-[var(--color-ink-950)]') : 'text-2 border border-[var(--az-hairline)] hover:text-white'} ${compact ? 'min-h-9 text-xs' : 'min-h-11 px-4 text-sm'}`}>
-          {v === 'going' && event.can.full && mine !== 'going' ? 'Full' : l}
-        </button>
-      ))}
+    <div className="flex flex-col gap-2">
+      {mine === 'waitlist' && <p className="text-sm text-white" role="status">You’re number {event.waitlistPosition} on the waitlist. If a place opens, you’ll be moved to Going and told.</p>}
+      <div role="group" aria-label="RSVP" className="flex flex-wrap gap-1.5">
+        {opts.map(([v, l]) => (
+          <button key={v} aria-pressed={mine === v} disabled={!!pending} onClick={(e) => { e.preventDefault(); choose(v); }}
+            className={`rounded-lg px-3 font-semibold transition ${mine === v ? (v === 'going' ? 'bg-accent-fill' : 'bg-[var(--az-text)] text-[var(--color-ink-950)]') : v === 'waitlist' ? 'border border-[var(--color-brand-400)] text-white' : 'text-2 border border-[var(--az-hairline)] hover:text-white'} ${compact ? 'min-h-9 text-xs' : 'min-h-11 px-4 text-sm'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {full && mine !== 'waitlist' && <p className="t-small">This event is full{event.counts?.waitlist ? ` · ${event.counts.waitlist} waiting` : ''}.</p>}
     </div>
   );
 }

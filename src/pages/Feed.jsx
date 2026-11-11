@@ -42,6 +42,8 @@ export default function Feed() {
   const { id, view = 'my' } = useParams();
   // AlumniZone's wall became its community page (Stage 3).
   if (view === 'wall') return <Navigate to={communityPath(NETWORK_ID, 'discussions')} replace />;
+  // Bookmarks became Saved, kept on the account (Stage 4).
+  if (view === 'bookmarks') return <Navigate to="/saved" replace />;
   // Keyed by view so paging ("Load more") starts over on each view.
   return id ? <PostDetail key={id} id={id} /> : <FeedView key={view} view={view} />;
 }

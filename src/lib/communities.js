@@ -62,6 +62,7 @@ export function toLocalGroup(c, { members, membership = c.membership ?? null, pe
     out.admins = members.filter((m) => m.role === 'owner' || m.role === 'admin').map((m) => m.id);
     out.moderators = members.filter((m) => m.role === 'moderator').map((m) => m.id);
     out.roles = Object.fromEntries(members.map((m) => [m.id, m.role]));
+    out.joinedAt = Object.fromEntries(members.map((m) => [m.id, m.joined_at ?? null]));
     out.ownerId = members.find((m) => m.role === 'owner')?.id ?? null;
   } else {
     // Can't see the list: all we know is whether you are in it.

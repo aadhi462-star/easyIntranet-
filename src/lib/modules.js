@@ -30,6 +30,7 @@ export const EXTRA_ROUTES = [
   { path: '/c/:id', page: 'Community' },
   { path: '/c/:id/:tab', page: 'Community' },
   { path: '/notifications', page: 'Notifications' },
+  { path: '/saved', page: 'Saved' },
 ];
 
 export function navFor(settings, me) {

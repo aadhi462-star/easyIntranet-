@@ -6,7 +6,7 @@
 // Stages 3–4 move them into communities; parked modules (decision D2) are reachable by URL only.
 import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { isRead, useStore } from '../lib/store.jsx';
+import { useStore } from '../lib/store.jsx';
 import { api } from '../lib/api.js';
 import { toast } from '../lib/toast.js';
 import { fetchMyCommunities } from '../lib/feed.js';
@@ -15,6 +15,7 @@ import { Avatar, Logo, ThemeToggle } from './ui.jsx';
 import { Icon } from './icons.jsx';
 import Toaster from './Toaster.jsx';
 import { CommunityTile } from './public/CommunityCards.jsx';
+import { useUnread } from '../lib/engage.js';
 
 const PRIMARY = [
   { id: 'home', label: 'Home', icon: 'home', to: '/dashboard', match: (p) => p === '/dashboard' },
@@ -26,13 +27,14 @@ const MORE = [
   { id: 'feed', label: 'Feed', icon: 'feeds', to: '/feed', match: (p) => p.startsWith('/feed') || p.startsWith('/post/') },
   { id: 'people', label: 'People', icon: 'people', to: '/people', match: (p) => p === '/people' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', to: '/calendar', match: (p) => p === '/calendar' },
+  { id: 'saved', label: 'Saved', icon: 'bookmarks', to: '/saved', match: (p) => p === '/saved' },
 ];
 
 /** Page titles: "<section> · CommunityOne". */
 // Community pages and the community lists name the tab themselves.
 const OWN_TITLE = ['/c/', '/groups', '/search'];
 const TITLES = [['/dashboard', 'Home'], ['/events', 'Events'], ['/feed', 'Feed'], ['/post/', 'Post'], ['/people', 'People'],
-  ['/calendar', 'Calendar'], ['/notifications', 'Notifications'], ['/search', 'Search'], ['/admin', 'Platform Admin']];
+  ['/calendar', 'Calendar'], ['/notifications', 'Notifications'], ['/saved', 'Saved'], ['/search', 'Search'], ['/admin', 'Platform Admin']];
 
 function useMyCommunities(me) {
   const [list, setList] = useState([]);
@@ -68,7 +70,8 @@ export default function Layout() {
   const loc = useLocation();
   const query = new URLSearchParams(loc.search);
   const communities = useMyCommunities(me);
-  const unread = state.notifications.filter((n) => !isRead(n, me.id) && (!n.userId || n.userId === me.id) && (!n.adminOnly || me.admin)).length;
+  // Notifications come from the server (Stage 4).
+  const unread = useUnread(!!me);
   const hidden = me.admin ? [] : (state.settings.hiddenModules || []);
   const more = MORE.filter((m) => !hidden.includes(m.id));
   const mainRef = useRef(null);

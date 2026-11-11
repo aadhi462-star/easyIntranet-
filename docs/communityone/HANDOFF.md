@@ -81,7 +81,9 @@ Role views: `src/components/groups/RolePanel.jsx` (owner health + checklist, adm
 
 Feed, People and Calendar are on the refined system (shared `PageHeader`/`Tabs` too).
 
-Next: redraw the Stage 4 boards in the refined style, then get them approved before building Stage 4; the six Stage 4 decisions need the user's answers before Stage 4 is built. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
+Stage 4 (engagement) is built: Resources, Discussions with topics and attachments, Notifications, Saved, the event waitlist, Members search and filters. See PHASE0_ASSESSMENT.md for the open items.
+
+Next: Stage 5 (learning), after its layouts are approved; the six Stage 4 decisions need the user's answers before Stage 4 is built. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
 
 ## Working style that's been effective
 

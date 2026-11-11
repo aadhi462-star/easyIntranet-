@@ -3,7 +3,8 @@ import { Glyph } from '../icons.jsx';
 import { useState } from 'react';
 import { accentOf, communityPath } from '../../lib/communities.js';
 import { Link } from 'react-router-dom';
-import { bookmarksOf, fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
+import { fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
+import { setSaved, useIsSaved } from '../../lib/engage.js';
 import { toast } from '../../lib/toast.js';
 import {
   acknowledge, approvePost, authorUser, deletePost, errorText, MOODS, NETWORK_ID, pinPost, publishPost, removePost, setReaction, vote,
@@ -72,7 +73,8 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
   const long = body.length > 400 && !expanded;
   const text = long && !more ? `${body.slice(0, 400).trimEnd()}…` : body;
   const totalVotes = post.poll?.options.reduce((n, o) => n + (o.votes || 0), 0) ?? 0;
-  const bookmarked = !guest && bookmarksOf(state, me.id).includes(post.id);
+  // Saved lives on the account (Stage 4).
+  const bookmarked = useIsSaved('post', post.id) && !guest;
   const authorProfile = authorUser(author, user);
   const where = post.community && post.communityId !== NETWORK_ID ? post.community : null;
 
@@ -108,7 +110,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
             <button className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post actions" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
             {menu && (
               <div className="glass glass-strong absolute right-0 z-20 mt-1 w-60 p-1.5" onMouseLeave={() => setMenu(false)}>
-                {status === 'published' && item(bookmarked ? '🔖 Remove bookmark' : '🔖 Bookmark', () => dispatch({ type: 'bookmark', id: post.id }))}
+                {status === 'published' && item(bookmarked ? '🔖 Remove from Saved' : '🔖 Save', () => run(() => setSaved('post', post.id, !bookmarked), bookmarked ? 'Removed from Saved' : 'Saved'))}
                 {can.pin && status === 'published' && item(post.pinned ? '📌 Unpin' : '📌 Pin to top', () => run(() => pinPost(post.id, !post.pinned), post.pinned ? 'Unpinned' : 'Pinned'))}
                 {!mine && !author.deleted && item(follows ? `👣 Unfollow ${(author.name || '').split(' ')[0]}` : `👣 Follow ${(author.name || '').split(' ')[0]}`, toggleFollow)}
                 {status === 'published' && item('🔗 Copy link', () => navigator.clipboard?.writeText(`${location.origin}${location.pathname}#/post/${post.id}`).then(() => toast('Link copied'), () => {}))}

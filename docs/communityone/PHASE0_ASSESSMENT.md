@@ -603,3 +603,50 @@ The user approved the refined designs (canvas page "Refined designs": system, La
 - **Still on the old mark:** the boards show the "C1" tile, not the new logo.
 - **Waiting on:** the user's approval of these boards before Stage 4 is built.
 
+### Redesign Stage 4 — engagement (11 Nov 2026)
+
+The boards (refined style) were approved, along with decisions S4-1 to S4-6. Migration `008_engagement.sql` holds all of Stage 4's tables.
+
+- **Files** (`server/lib/files.js`, `server/routes/resources.js`):
+  - Stored in the database, up to 10 MB each.
+  - The type is decided from the bytes, and only safe types are accepted (PDF, PNG/JPEG/GIF/WebP, docx/xlsx/pptx, plain text). SVG and HTML are refused.
+  - Uploads are idempotent.
+  - Every download re-checks community access and is served as an attachment with `nosniff` and a sandbox CSP.
+- **Resources tab** (`src/components/groups/Resources.jsx`):
+  - Links and files with search, categories and sort.
+  - Admins add resources, or members do when the community setting `membersAddResources` is on.
+  - Edits are version-checked. Replacing a file keeps the link.
+  - Resources belong to the community, not to whoever added them.
+- **Discussions tab** (`src/components/groups/Discussions.jsx`, `server/routes/topics.js`):
+  - Filters for All, Announcements, Questions and Polls.
+  - Topics: admins keep up to 12, and members filter by them.
+  - Search inside the community, and sorting by Newest or Most active.
+  - The composer attaches images and PDFs (up to 4) and picks a topic. Posts show both.
+- **Notifications** (`server/lib/notify.js`, `server/routes/notifications.js`, `src/pages/Notifications.jsx`):
+  - Created by the server for replies, mentions, announcements, join requests and decisions, moderation, event changes and waitlist places.
+  - Once per action and person, never to the actor, blocked pairs or inactive accounts.
+  - Rebuilt on read with an access check.
+  - Email settings per category, with defaults. Emails never quote content.
+  - The bell shows the server's unread count.
+- **Saved** (`src/pages/Saved.jsx`):
+  - Posts, events and resources are saved on the account.
+  - Items you can no longer open stay listed as "No longer available".
+  - Browser-only bookmarks move to the account the first time Saved opens.
+  - Post menus say Save.
+- **Events:**
+  - A full event offers "Join waitlist" and shows your place in line. Places that open, or are added by a capacity increase, go to the first in line who still counts (EVT-09).
+  - Event changes and cancellations also create in-app notices.
+- **Members tab:** search by name, job, company or city; a role filter; join dates.
+- **Tests:** 174 pass (23 new in `server/test/stage4.test.js`). The register is updated: FIL-01 to FIL-10, NTF-01/02/06/07/09/10, CNT-12, CNT-15 and EVT-09 pass; FIL-04 is an accepted gap; NTF-03 is partial.
+- **Browser** (scratch community "Preview Review Circle" in the preview copy):
+  - Upload and download a resource.
+  - Topics and a post with an image attachment, then the topic filter and Most active.
+  - Ishita's reply showed up as Neha's notification; opening it went to the post and cleared the bell.
+  - Saving a post put it in Saved.
+  - The Members role filter showed the 3 admins with join dates.
+- **Not seen in the browser:** the waitlist buttons (covered by server tests), and phone sizes for the new tabs.
+- **Open:**
+  - No automatic retry for failed emails (NTF-03).
+  - No reminders before events (NTF-04).
+  - A removed member's place isn't released to the waitlist until the next RSVP change.
+

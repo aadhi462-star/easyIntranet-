@@ -150,10 +150,10 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | CNT-09 | P0 | 2 | User attempts to edit/delete another user's content. | Deny unless the user's role explicitly grants moderation authority. | Pass | server/test/communities.test.js CNT-09 |
 | CNT-10 | P0 | 2 | Post includes script, malicious HTML, unsafe link or embedded payload. | Sanitise/encode output and apply link/file safety checks. | Not run | |
 | CNT-11 | P0 | 2 | Attachment exceeds size/type limit or scanning fails. | Reject/quarantine the attachment; do not publish a downloadable unsafe file. | Not run | |
-| CNT-12 | P1 | 2 | Post exceeds character or attachment count limits. | Validate consistently on client and server and preserve draft text where possible. | Not run | |
+| CNT-12 | P1 | 2 | Post exceeds character or attachment count limits. | Validate consistently on client and server and preserve draft text where possible. | Pass | stage4 CNT-12: more than 4 attachments, non-image/PDF, someone else’s or reused files are refused with a clear message; the client checks the same before upload |
 | CNT-13 | P1 | 2 | Network fails during post submission. | Show uncertain/pending state and allow safe retry without duplicate content. | Not run | |
 | CNT-14 | P0 | 2 | Pinned or announced content is edited/deleted by a user without permission. | Deny the change and preserve the content state. | Pass | server/test/communities.test.js announcements, pins (CNT-14) |
-| CNT-15 | P0 | 2 | A private discussion is quoted in a public notification preview. | Do not leak protected content in notifications, emails or push previews. | Not run | |
+| CNT-15 | P0 | 2 | A private discussion is quoted in a public notification preview. | Do not leak protected content in notifications, emails or push previews. | Pass | stage4: email previews never quote content; in-app lines are rebuilt with an access check |
 | CNT-16 | P2 | 2 | Reaction is toggled repeatedly or from multiple devices. | Keep one reaction per user/content/type if that is the defined rule; counts remain consistent. | Pass | server/test/communities.test.js CNT-16 |
 
 ## 8. Moderation, Reports and Safety
@@ -184,7 +184,7 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | EVT-06 | P1 | 2 | Event creator leaves, is suspended or deleted. | Transfer event management or assign an authorised replacement. | Pass | server/test/events.test.js EVT-06 (host suspended → community admin edits and cancels). A deleted host shows as “Deleted member” and the event stays with community admins; explicit host transfer is Phase 2 |
 | EVT-07 | P1 | 2 | Registration deadline passes while a form is open. | Revalidate deadline at submission; reject late registration clearly. | Pass | server/test/events.test.js EVT-07 (deadline passes with the form open → RSVP_CLOSED on submit; “not going” still allowed) |
 | EVT-08 | P0 | 2 | Private event URL is shared with a non-member. | Enforce event visibility and eligibility on every request. | Pass | server/test/events.test.js EVT-08 (invite-only: non-invitees get 404 on detail, RSVP, comments and lists; removed invitee loses access and RSVP) + VIS-02/03 events + server/test/public.test.js EVT-08 (public listing: only open, scheduled, upcoming events of Public communities) |
-| EVT-09 | P1 | 2 | Waitlisted user is promoted after capacity changes but has already cancelled. | Do not reactivate a cancelled registration; promote the next eligible user. | Not run | |
+| EVT-09 | P1 | 2 | Waitlisted user is promoted after capacity changes but has already cancelled. | Do not reactivate a cancelled registration; promote the next eligible user. | Pass | stage4 waitlist: someone who left the waitlist isn’t put back; the next in line gets the place and is notified |
 | EVT-10 | P2 | 2 | Attendance is marked more than once or changed after event closure. | Prevent duplicate attendance records and audit corrections. | Not run | |
 
 ## 10. LMS Courses, Lessons and Enrolment
@@ -230,31 +230,31 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| FIL-01 | P0 | 2 | User uploads unsupported extension, spoofed MIME type or executable file. | Validate actual file type, quarantine unsafe files and block prohibited formats. | Not run | |
-| FIL-02 | P1 | 2 | File exceeds configured size or storage quota. | Reject before/after upload safely and explain the applicable limit. | Not run | |
-| FIL-03 | P1 | 2 | Upload is interrupted or retried. | Resume safely if supported; otherwise discard incomplete object and avoid duplicate resources. | Not run | |
-| FIL-04 | P0 | 2 | Malware scanning service is unavailable. | Keep file quarantined/unavailable until scan succeeds; do not expose unscanned files. | Not run | |
-| FIL-05 | P0 | 2 | Private resource URL is shared outside the community. | Require authenticated, authorised access and expiring links. | Not run | |
-| FIL-06 | P1 | 2 | Resource owner is removed or deleted. | Preserve community-owned resources and transfer management; do not orphan them. | Not run | |
-| FIL-07 | P2 | 2 | Resource is deleted while users are downloading it. | Handle in-flight downloads consistently and invalidate future access as policy requires. | Not run | |
-| FIL-08 | P1 | 2 | Two users upload resources with the same filename. | Use unique identifiers and display names safely; never overwrite another user's file accidentally. | Not run | |
-| FIL-09 | P1 | 2 | File is replaced while a learner or member has it open. | Version or invalidate the resource predictably and avoid serving mismatched content. | Not run | |
-| FIL-10 | P1 | 2 | Global file size/type policy changes while upload is in progress. | Revalidate at completion and reject non-compliant uploads safely. | Not run | |
+| FIL-01 | P0 | 2 | User uploads unsupported extension, spoofed MIME type or executable file. | Validate actual file type, quarantine unsafe files and block prohibited formats. | Pass | server/test/stage4.test.js FIL-01: type from the bytes; renamed executable, SVG, non-Office ZIP and binary .txt refused; a PDF named .png stored as PDF; downloads are attachments with nosniff and a sandbox CSP |
+| FIL-02 | P1 | 2 | File exceeds configured size or storage quota. | Reject before/after upload safely and explain the applicable limit. | Pass | stage4 FIL-02: over 10 MB → 413 “Files can be up to 10 MB”; empty refused; the client checks size before uploading |
+| FIL-03 | P1 | 2 | Upload is interrupted or retried. | Resume safely if supported; otherwise discard incomplete object and avoid duplicate resources. | Pass | stage4 FIL-03: one insert per upload, so an interrupted upload stores nothing; a retry with the same Idempotency-Key returns the same file |
+| FIL-04 | P0 | 2 | Malware scanning service is unavailable. | Keep file quarantined/unavailable until scan succeeds; do not expose unscanned files. | Gap (accepted) | Decision S4-6 (11 Nov 2026): no malware scanner. Mitigation: safe-type allow-list from the bytes, download-only serving. Stays open until a scanner is added |
+| FIL-05 | P0 | 2 | Private resource URL is shared outside the community. | Require authenticated, authorised access and expiring links. | Pass | stage4 FIL-05: every download re-runs the community access check; outsiders and people who left get 404; outsiders can’t upload |
+| FIL-06 | P1 | 2 | Resource owner is removed or deleted. | Preserve community-owned resources and transfer management; do not orphan them. | Pass | stage4 FIL-06: resources belong to the community; a deleted author shows as “Former member” and the file still downloads |
+| FIL-07 | P2 | 2 | Resource is deleted while users are downloading it. | Handle in-flight downloads consistently and invalidate future access as policy requires. | Pass | stage4 FIL-07: deleting a resource stops its file at once; the bytes are read in the same step that re-checks deletion |
+| FIL-08 | P1 | 2 | Two users upload resources with the same filename. | Use unique identifiers and display names safely; never overwrite another user's file accidentally. | Pass | stage4 FIL-08: files are stored under generated ids; equal names are separate files |
+| FIL-09 | P1 | 2 | File is replaced while a learner or member has it open. | Version or invalidate the resource predictably and avoid serving mismatched content. | Pass | stage4 FIL-09: replacing keeps the resource id and link, bumps the version, and the old file stops downloading; stale edits are refused |
+| FIL-10 | P1 | 2 | Global file size/type policy changes while upload is in progress. | Revalidate at completion and reject non-compliant uploads safely. | Pass (by design) | Size and type are checked after the whole file has arrived, against the limits in lib/files.js; no policy setting changes mid-upload yet |
 
 ## 13. Notifications, Email and In-app Alerts
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| NTF-01 | P1 | 2 | User disables a notification category but receives it anyway. | Respect preference and channel settings, except for explicitly defined essential security notices. | Not run | |
-| NTF-02 | P2 | 2 | One event generates duplicate notifications through retries or multiple workers. | Deduplicate using event/recipient identifiers. | Not run | |
-| NTF-03 | P1 | 2 | Email provider is unavailable or rejects delivery. | Retry with limits, record failure and retain in-app notification where applicable. | Not run | |
+| NTF-01 | P1 | 2 | User disables a notification category but receives it anyway. | Respect preference and channel settings, except for explicitly defined essential security notices. | Pass | stage4 NTF-06/NTF-01: turning off a category’s email stops the email; the notification still appears in the app |
+| NTF-02 | P2 | 2 | One event generates duplicate notifications through retries or multiple workers. | Deduplicate using event/recipient identifiers. | Pass | stage4: a retried reply notifies once (unique recipient + dedupe key) |
+| NTF-03 | P1 | 2 | Email provider is unavailable or rejects delivery. | Retry with limits, record failure and retain in-app notification where applicable. | Partial | A failed email is recorded in email_outbox and the in-app notification stays; there is no automatic retry yet |
 | NTF-04 | P0 | 2 | User is removed from a community before a scheduled reminder is sent. | Recheck recipient eligibility at send time. | Not run | |
 | NTF-05 | P1 | 2 | Invitation expires before notification is opened. | Show expired state and do not allow acceptance. | Not run | |
-| NTF-06 | P0 | 2 | Private post text appears in push/email preview for a non-member. | Use privacy-safe generic previews or omit protected content. | Not run | |
-| NTF-07 | P1 | 2 | User changes email while a message is queued. | Send only to the currently verified destination according to policy. | Not run | |
+| NTF-06 | P0 | 2 | Private post text appears in push/email preview for a non-member. | Use privacy-safe generic previews or omit protected content. | Pass | stage4: notification emails name who and where, never the post text |
+| NTF-07 | P1 | 2 | User changes email while a message is queued. | Send only to the currently verified destination according to policy. | Pass (by design) | The address is read from the account when the email is sent |
 | NTF-08 | P1 | 2 | Admin email alert for a deletion request fails. | Keep request in internal queue and surface delivery failure for retry. | Not run | |
-| NTF-09 | P1 | 2 | User receives a notification after account suspension/deletion. | Suppress non-essential messages and follow account lifecycle/privacy policy. | Not run | |
-| NTF-10 | P0 | 2 | Notification links to content whose visibility has changed. | Recheck permissions on click; never assume notification possession grants access. | Not run | |
+| NTF-09 | P1 | 2 | User receives a notification after account suspension/deletion. | Suppress non-essential messages and follow account lifecycle/privacy policy. | Pass | stage4 NTF-09: suspended accounts and blocked pairs get nothing |
+| NTF-10 | P0 | 2 | Notification links to content whose visibility has changed. | Recheck permissions on click; never assume notification possession grants access. | Pass | stage4 NTF-10: after losing access a notification reads “This is no longer available to you”, with no link, name or content; Saved items do the same |
 
 ## 14. Search, Explore and Recommendations
 
