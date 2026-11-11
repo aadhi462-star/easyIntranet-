@@ -22,7 +22,7 @@ export function client(app) {
     store(res);
     let json = null;
     try { json = res.json(); } catch { /* empty */ }
-    return { status: res.statusCode, body: json, headers: res.headers };
+    return { status: res.statusCode, body: json, headers: res.headers, raw: res.rawPayload };
   }
   return {
     jar,
