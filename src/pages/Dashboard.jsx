@@ -12,6 +12,8 @@ import { acknowledge, errorText } from '../lib/feed.js';
 import { useCommunityWrite } from '../components/groups/useCommunity.js';
 import { Avatar } from '../components/ui.jsx';
 import { CommunityTile } from '../components/public/CommunityCards.jsx';
+import { Progress } from '../components/learning/bits.jsx';
+import { coursePath, lessonPath, useMyLearning } from '../lib/learning.js';
 
 /**
  * The dashboard summary from the server: one request on mount, refreshed when the window regains
@@ -81,6 +83,7 @@ export default function Dashboard() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <WhatsNew posts={d.recentPosts} />
             <aside className="flex flex-col gap-8">
+              <Learning />
               <ComingUp events={d.upcomingEvents} />
               <MightJoin list={d.suggested} onJoined={dash.reload} />
             </aside>
@@ -226,6 +229,34 @@ function WhatsNew({ posts }) {
             ))}
           </ul>
         )}
+    </section>
+  );
+}
+
+/** Courses in progress, shown only when the person is enrolled in one (Stage 5a). */
+function Learning() {
+  const my = useMyLearning();
+  const list = my.courses.filter((c) => c.enrollment?.status === 'active' && !c.enrollment.completedAt).slice(0, 3);
+  if (!list.length) return null;
+  return (
+    <section aria-labelledby="learn-h">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 id="learn-h" className="t-h2 text-white">Learning</h2>
+        <Link to="/learning" className="text-sm text-brand-300 hover:underline">My Learning</Link>
+      </div>
+      <ul className="list-rows border-t border-[var(--az-divider)]">
+        {list.map((c) => (
+          <li key={c.id} className="flex items-center gap-3 py-3">
+            <CommunityTile c={c.community} size={36} />
+            <span className="min-w-0 flex-1">
+              <Link to={coursePath(c.community, c.id)} className="block truncate font-semibold text-white hover:underline">{c.title}</Link>
+              <span className="t-small">{c.community.name} · {c.progress.done} of {c.progress.total} lessons</span>
+              <Progress p={c.progress} label={`${c.title} progress`} className="mt-1.5" />
+            </span>
+            {c.nextLessonId && <Link to={lessonPath(c.nextLessonId)} className="btn btn-ghost shrink-0">Continue</Link>}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

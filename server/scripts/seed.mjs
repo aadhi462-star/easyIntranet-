@@ -19,6 +19,9 @@ export const DEV_PASSWORD = 'Community-Demo-2026';
 const production = process.env.NODE_ENV === 'production';
 const SEED_PASSWORD = process.env.SEED_PASSWORD;
 const SUPER_ADMIN = 'u7'; // decision D6 default: the alumni office account
+// The accents in the approved designs; any other prototype group gets the least-used one.
+// Defined up here: `npm run db:seed` runs before the rest of the module has loaded.
+const ACCENT = { alumnizone: 'sky', g2: 'amber', g4: 'violet', g7: 'teal', g3: 'rose', g5: 'orange' };
 /** Password hash of accounts in a shipped database template: matches no password (locked). */
 export const LOCKED_HASH = '!locked';
 
@@ -153,8 +156,6 @@ async function seedConnections() {
 // Groups → communities (same ids; public→public, restricted→private, private→closed), plus the
 // default "AlumniZone" community for network-wide content (decision D3). Posts, comments,
 // likes, moods, polls and Mandatory Read acknowledgements come across. Runs once.
-// The accents in the approved designs; any other prototype group gets the least-used one.
-const ACCENT = { alumnizone: 'sky', g2: 'amber', g4: 'violet', g7: 'teal', g3: 'rose', g5: 'orange' };
 
 async function seedCommunities() {
   if ((await db.query(`select count(*)::int as n from communities`)).rows[0].n) return;

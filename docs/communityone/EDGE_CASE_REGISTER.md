@@ -191,21 +191,21 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| LMS-01 | P0 | 2 | Course is deleted while learners are enrolled or progressing. | Block immediate deletion or require an impact review, learner notice and retention decision. | Not run | |
-| LMS-02 | P1 | 3 | Instructor leaves, is removed or suspended while course is active. | Reassign instructor or pause affected management actions; learners retain valid access as policy allows. | Not run | |
-| LMS-03 | P1 | 2 | Course is unpublished after learners enrol. | Apply a clear policy for existing learners; do not silently erase access/progress. | Not run | |
-| LMS-04 | P1 | 3 | Course content is updated after a learner has completed it. | Preserve completion/version history and define whether re-completion is required. | Not run | |
-| LMS-05 | P2 | 2 | Learner repeats a lesson or marks it complete multiple times. | Keep progress and completion records consistent; avoid inflated counts. | Not run | |
-| LMS-06 | P0 | 2 | User submits multiple enrolment requests or clicks Enrol repeatedly. | Create one enrolment and return the existing state on retry. | Not run | |
-| LMS-07 | P1 | 3 | Course capacity is reached during simultaneous enrolment. | Enforce capacity atomically and apply waitlist/closed behaviour. | Not run | |
-| LMS-08 | P0 | 2 | Guest tries to access a members-only lesson using a direct URL. | Deny access server-side even if the lesson URL is known. | Not run | |
-| LMS-09 | P1 | 3 | Member is removed from the community while enrolled in a members-only course. | Apply the configured continuation/revocation policy and communicate the impact. | Not run | |
-| LMS-10 | P1 | 2 | Video, PDF or external learning resource fails to load. | Show a useful error/retry path and do not mark the lesson complete automatically. | Not run | |
-| LMS-11 | P1 | 2 | Learner loses network connection while watching/reading or submitting progress. | Save progress safely where possible and reconcile without duplicate or false completion. | Not run | |
-| LMS-12 | P1 | 2 | Learner opens a lesson in multiple tabs/devices. | Synchronise progress without overwriting newer progress or double-counting completion. | Not run | |
-| LMS-13 | P0 | 2 | Course is moved to another community or ownership changes. | Re-evaluate enrolment, visibility, instructor authority and resource permissions. | Not run | |
-| LMS-14 | P0 | 2 | Instructor tries to manage a course in a community where they are not assigned. | Deny the action; instructor scope must be community/course-specific. | Not run | |
-| LMS-15 | P1 | 2 | Course has no lessons or a required module is missing. | Prevent publication or clearly mark the course as incomplete according to publishing rules. | Not run | |
+| LMS-01 | P0 | 2 | Course is deleted while learners are enrolled or progressing. | Block immediate deletion or require an impact review, learner notice and retention decision. | Pass | server/test/learning.test.js LMS-01 (HAS_LEARNERS; archived stays readable, read-only); builder offers Delete only with no learners |
+| LMS-02 | P1 | 3 | Instructor leaves, is removed or suspended while course is active. | Reassign instructor or pause affected management actions; learners retain valid access as policy allows. | Pass | server/test/learning.test.js LMS-02 (rights end as soon as the membership does) |
+| LMS-03 | P1 | 2 | Course is unpublished after learners enrol. | Apply a clear policy for existing learners; do not silently erase access/progress. | Pass | server/test/learning.test.js LMS-03; course page says “Not open for enrolment” and enrolled learners keep their lessons |
+| LMS-04 | P1 | 3 | Course content is updated after a learner has completed it. | Preserve completion/version history and define whether re-completion is required. | Pass | server/test/learning.test.js LMS-04 (completion kept; later lessons marked New, not required). Not checked in the browser |
+| LMS-05 | P2 | 2 | Learner repeats a lesson or marks it complete multiple times. | Keep progress and completion records consistent; avoid inflated counts. | Pass | server/test/learning.test.js LMS-05 / LMS-12 (one progress row); browser 12 Nov: Mark complete moves on, outline ticks once |
+| LMS-06 | P0 | 2 | User submits multiple enrolment requests or clicks Enrol repeatedly. | Create one enrolment and return the existing state on retry. | Pass | server/test/learning.test.js LMS-06 (3 simultaneous → 1); browser 12 Nov: double-clicked Enrol → one enrolment |
+| LMS-07 | P1 | 3 | Course capacity is reached during simultaneous enrolment. | Enforce capacity atomically and apply waitlist/closed behaviour. | Pass | server/test/learning.test.js LMS-07 (course locked while counting places); browser 12 Nov: full course → Join waitlist → Leave waitlist |
+| LMS-08 | P0 | 2 | Guest tries to access a members-only lesson using a direct URL. | Deny access server-side even if the lesson URL is known. | Pass | server/test/learning.test.js LMS-08; browser 12 Nov: lesson address before enrolling → “Enrol to open this lesson” |
+| LMS-09 | P1 | 3 | Member is removed from the community while enrolled in a members-only course. | Apply the configured continuation/revocation policy and communicate the impact. | Pass | server/test/learning.test.js LMS-09 (access ends, progress returns on rejoining). Not checked in the browser |
+| LMS-10 | P1 | 2 | Video, PDF or external learning resource fails to load. | Show a useful error/retry path and do not mark the lesson complete automatically. | Pass | browser 12 Nov: failed download → “This file didn’t load.” + Try again; files deleted from the store are counted (missingFiles); nothing completes on its own |
+| LMS-11 | P1 | 2 | Learner loses network connection while watching/reading or submitting progress. | Save progress safely where possible and reconcile without duplicate or false completion. | Pass (by design) | Progress is only recorded by Mark complete, which is safe to resend (one row); a failed request shows an error and changes nothing |
+| LMS-12 | P1 | 2 | Learner opens a lesson in multiple tabs/devices. | Synchronise progress without overwriting newer progress or double-counting completion. | Pass | server/test/learning.test.js LMS-05 / LMS-12 (two tabs mark the same lesson → counted once) |
+| LMS-13 | P0 | 2 | Course is moved to another community or ownership changes. | Re-evaluate enrolment, visibility, instructor authority and resource permissions. | Pass (by design) | Courses can’t be moved to another community; there is no such action |
+| LMS-14 | P0 | 2 | Instructor tries to manage a course in a community where they are not assigned. | Deny the action; instructor scope must be community/course-specific. | Pass | server/test/learning.test.js LMS-14 (another course’s draft is 404; Instructors can’t assign Instructors) |
+| LMS-15 | P1 | 2 | Course has no lessons or a required module is missing. | Prevent publication or clearly mark the course as incomplete according to publishing rules. | Pass | server/test/learning.test.js LMS-15 (NO_LESSONS); browser 12 Nov: Publish disabled with “Add at least one lesson to publish.” |
 
 ## 11. LMS Assessments, Grading and Certificates
 

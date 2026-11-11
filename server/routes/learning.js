@@ -391,11 +391,15 @@ export default async function learningRoutes(app, { ctx }) {
     const i = order.indexOf(l.id);
     const { rows: files } = l.file_ids.length
       ? await db.query(`select id, name, mime, kind, size from files where id = any($1) and deleted_at is null`, [l.file_ids]) : { rows: [] };
+    const { rows: [co] } = await db.query(`select id, slug, name, accent from communities where id = $1`, [r.c.community_id]);
+    const kept = l.file_ids.map((id) => files.find((f) => f.id === id)).filter(Boolean);
     return {
       lesson: { id: l.id, moduleId: l.module_id, title: l.title, kind: l.kind, body: l.body, url: l.url, durationMin: l.duration_min, required: l.required,
-        files: l.file_ids.map((id) => files.find((f) => f.id === id)).filter(Boolean), done: course.modules.some((m) => m.lessons.some((x) => x.id === l.id && x.done)),
+        files: kept, missingFiles: l.file_ids.length - kept.length, // deleted from the store since (LMS-10)
+        done: course.modules.some((m) => m.lessons.some((x) => x.id === l.id && x.done)),
         prevId: order[i - 1] ?? null, nextId: order[i + 1] ?? null },
       course,
+      community: co,
     };
   });
 

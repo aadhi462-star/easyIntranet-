@@ -1,4 +1,4 @@
-// A community's page (redesign Stage 3): /c/:slug with Overview, Discussions, Events, Members,
+// A community's page (redesign Stage 3): /c/:slug with Overview, Discussions, Learning, Events, Members,
 // About and, for admins, Settings. Every community has one, AlumniZone included. The page reads
 // the community straight from the server (by slug or id) and re-reads it after every change, so
 // what it shows is what the server stored and what this person may see.
@@ -26,11 +26,15 @@ import AddMembers from '../components/groups/AddMembers.jsx';
 import RolePanel from '../components/groups/RolePanel.jsx';
 import Resources from '../components/groups/Resources.jsx';
 import Discussions from '../components/groups/Discussions.jsx';
+import Catalogue from '../components/learning/Catalogue.jsx';
+import CoursePage from '../components/learning/CoursePage.jsx';
+import Builder from '../components/learning/Builder.jsx';
 
 const DAY = 864e5;
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'discussions', label: 'Discussions', members: true },
+  { id: 'learning', label: 'Learning', members: true },
   { id: 'events', label: 'Events', members: true },
   { id: 'resources', label: 'Resources', members: true },
   { id: 'members', label: 'Members', members: true },
@@ -67,7 +71,7 @@ function useCommunityPage(key, admin) {
 }
 
 export default function Community() {
-  const { id: key, tab: rawTab } = useParams();
+  const { id: key, tab: rawTab, sub, mode } = useParams();
   const { me } = useStore();
   const [params] = useSearchParams();
   // Administrative Mode: platform staff open /c/:slug?admin=1 to see a community they aren't in.
@@ -97,10 +101,10 @@ export default function Community() {
     );
   }
   // Re-mounted on entering or leaving Administrative Mode, so nothing loaded as staff lingers.
-  return <CommunityView key={admin ? 'admin' : 'member'} g={page.group} tab={tab} keyInUrl={key} admin={admin && page.group.adminMode} />;
+  return <CommunityView key={admin ? 'admin' : 'member'} g={page.group} tab={tab} sub={sub} mode={mode} keyInUrl={key} admin={admin && page.group.adminMode} />;
 }
 
-function CommunityView({ g, tab, keyInUrl, admin }) {
+function CommunityView({ g, tab, sub, mode, keyInUrl, admin }) {
   const { me } = useStore();
   const nav = useNavigate();
   const perms = permsOf(g, me.id);
@@ -110,10 +114,12 @@ function CommunityView({ g, tab, keyInUrl, admin }) {
   const current = tabs.some((t) => t.id === tab) ? tab : 'overview';
 
   // One address per community: an id or an old tab name in the URL becomes the slug and tab.
-  const canonical = communityPath(g, current);
+  // A course (and its builder) lives under the Learning tab: /c/:slug/learning/:course[/edit].
+  const rest = current === 'learning' && sub ? `/${encodeURIComponent(sub)}${mode === 'edit' ? '/edit' : ''}` : '';
+  const canonical = communityPath(g, current) + rest;
   const q = admin ? '?admin=1' : '';
   useEffect(() => {
-    if (`/c/${encodeURIComponent(keyInUrl)}${tab && tab !== 'overview' ? `/${tab}` : ''}` !== canonical) nav(canonical + q, { replace: true });
+    if (`/c/${encodeURIComponent(keyInUrl)}${tab && tab !== 'overview' ? `/${tab}` : ''}${rest}` !== canonical) nav(canonical + q, { replace: true });
   }, [canonical]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${g.name} · CommunityOne`; }, [g.name]);
 
@@ -165,6 +171,8 @@ function CommunityView({ g, tab, keyInUrl, admin }) {
 
       {current === 'overview' && (perms.canView ? <Overview g={g} perms={perms} /> : <MembersOnly g={g} />)}
       {current === 'discussions' && <Discussions g={g} perms={perms} />}
+      {current === 'learning' && (!sub ? <Catalogue key={g.id} g={g} />
+        : mode === 'edit' ? <Builder key={sub} g={g} id={sub} /> : <CoursePage key={sub} g={g} perms={perms} id={sub} />)}
       {current === 'events' && <EventList groupId={g.id} member={!!role && !archived} />}
       {current === 'resources' && <Resources g={g} />}
       {current === 'members' && <Members group={g} perms={perms} />}

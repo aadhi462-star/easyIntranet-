@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (10 Nov 2026, after step 4c)
+# CommunityOne — Session handoff (12 Nov 2026, after Stage 5a)
 
 Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -80,7 +80,7 @@ Server is the authority; legacy screens still read the local store. `lib/api.js`
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — Stage 5a in progress (12 Nov 2026)
+## Where we stopped — Stage 5a done (12 Nov 2026)
 
 Stages 1–3 are built and browser-checked (§14). Stage 3: community pages `src/pages/Community.jsx` (`/c/:slug`, tabs; old `/groups/:id` and `/feed/wall` redirect), `src/pages/Groups.jsx` (My Communities / Explore from `GET /communities`), `src/pages/Search.jsx` + `server/routes/search.js`, `src/pages/Welcome.jsx` (onboarding; gate in `App.jsx` `Protected`), profile in `src/pages/People.jsx`. R4: migration `006_core.sql`, `server/lib/merge.js`, `server/scripts/undo-merge.mjs`; the seed merges All Hands (g0) once.
 
@@ -100,24 +100,14 @@ Stage 4 (engagement) is built: Resources, Discussions with topics and attachment
 
 Stage 4 leftovers done (`5d975aa`): `server/lib/jobs.js` runs each minute from `server/index.js`. It handles scheduled posts, event reminders (NTF-04), email retries up to 3 attempts (NTF-03), and a waitlist sweep that gives a removed member's place to the next person. The tests call `sendReminders` / `retryEmails` / `sweepWaitlists` directly.
 
-Pushed up to `5932a8e`. Not pushed: `af9b246` (Stage 5 decisions), `5d975aa`, `7e9d06f` (handoff) and `b049167` (Stage 5a server).
+Pushed up to `3b3cad0` (Stage 5a server). The Stage 5a client commit is not pushed yet.
 
-### Stage 5a: server done (`b049167`), client not started
-The user approved the Stage 5 boards (design canvas page "Stage 5 — Learning") and decisions D1–D8, and asked to build. Committed, not pushed:
-- `server/migrations/009_learning.sql`: courses, course_instructors, course_modules, lessons, enrollments, lesson_progress.
-- `server/routes/learning.js`: catalogue, course CRUD, publish/unpublish/archive/delete, instructors, modules, lessons, `PUT /courses/:id/order`, enrol and leave with waitlist, `GET /lessons/:id`, `POST /lessons/:id/complete`, `GET /me/learning`. It's registered in `server/app.js`.
-- `server/test/learning.test.js`: 13 tests (LMS-01–09, 12, 14, 15). `npm run test:server`: 190 pass.
-- The earlier hang was enrol calling `loadCourse` (which uses `db`) inside `db.tx`; PGlite's single connection deadlocked. Rule: check permissions before the transaction, and use only `t` inside it.
-- Draft courses return 404 to anyone who can't manage them, Instructors of another course included.
-
-**Still to build for 5a after the server passes** (per the boards):
-- Client: the Learning tab in `src/pages/Community.jsx` TABS (between Discussions and Events), with the catalogue, "Continue where you left off" and New course for admins.
-- The course page with Enrol and Join waitlist.
-- The lesson viewer (outline rail, text, file rows via `/api/files/:id`, link rows, Mark complete and continue, a Try again state for a file that fails to load, LMS-10).
-- The course builder (modules and lessons, Move up/down, lesson editor using `uploadFile` from `src/lib/api.js`, instructors, settings, Publish disabled with its reason). There's no builder on phones.
-- `src/pages/MyLearning.jsx` plus a route in `src/lib/modules.js` and a sidebar item, and the Learning card on Home (`src/pages/Dashboard.jsx`), shown only when the person is enrolled.
-- Instructor role frame in `RolePanel.jsx`, optional.
-- Then: browser checks at 1280 and 375 px, register updates (LMS-*; LMS-13 counts as "Pass (by design)" because courses can't be moved), a log entry in PHASE0_ASSESSMENT.md, and a commit. Ask before pushing.
+### Stage 5a: built and browser-checked
+Details and what was checked are in PHASE0_ASSESSMENT.md ("Redesign Stage 5a — learning"); LMS-01–15 in the register.
+- Server: `009_learning.sql`, `server/routes/learning.js`, 13 tests in `server/test/learning.test.js`. Rule from the hang: check permissions before `db.tx`, and use only `t` inside it. Draft courses are 404 to anyone who can't manage them. `GET /lessons/:id` also returns `community` and `missingFiles`.
+- Client: `src/lib/learning.js` (paths, hooks, helpers), `src/components/learning/` (`Catalogue`, `CoursePage`, `Builder`, `bits`), `src/pages/Lesson.jsx`, `src/pages/MyLearning.jsx`, the Learning tab in `Community.jsx`, the Learning card on Home, and My Learning in the sidebar (`Layout.jsx`). Routes are in `src/lib/modules.js`: `/c/:id/:tab/:sub[/:mode]`, `/learning`, `/lessons/:id`. A lesson hides the phone bottom bar (focus mode).
+- Not built (5a): lesson questions, choosing existing files, a text toolbar (lessons are plain text with `##` and `-`), the Instructor frame in RolePanel, drag to reorder.
+- Preview for this session: launch entry `communityone-5a` (port **5183**) in the Portfolio folder's `.claude/launch.json`, copy in this session's scratchpad. Its DB has one test course, "Career switching for alumni" (Ishita completed it, Priya is 1 of 3, Karthik is on the waitlist).
 
 **After 5a:** Stage 5b (quizzes, assignments, grading, certificates; D7/D8), then layouts for Stage 6 (moderation) and Stage 7 (management) for approval, then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
 

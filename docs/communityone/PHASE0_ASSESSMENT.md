@@ -660,3 +660,36 @@ The boards (refined style) were approved, along with decisions S4-1 to S4-6. Mig
 - **Bug found and fixed:** going from one community straight to a different community on a different tab drew the old community's data under the new address for a moment. Its address fix-up then sent you back to the old community. The page now keeps track of which address its data belongs to, and shows the loading state until the new community arrives.
 - **Gap found and fixed:** Saved said "Use Save on a post, event or resource", but only posts had Save. Events (next to Copy link) and resources (each row) now have a Save / ✓ Saved button. Both were checked in the browser.
 
+
+### Redesign Stage 5a — learning (12 Nov 2026)
+
+Built to the approved boards (design canvas page "Stage 5 — Learning") and decisions D1–D8.
+
+- **Server** (`009_learning.sql`, `routes/learning.js`, 13 tests):
+  - Courses, modules, lessons, enrolment with capacity and waitlist, and progress.
+  - The test run used to hang. Enrol called `loadCourse`, which queries through `db`, inside `db.tx`, and PGlite's single connection deadlocked. Permissions are now checked before the transaction, and only `t` is used inside it.
+  - **Bug found by the tests:** completion counted no lessons once a course was finished. `countedFor` read `created_at` from outline rows that use `createdAt`.
+  - `GET /lessons/:id` now also returns the community, and `missingFiles` (files deleted from the store since), for LMS-10.
+- **Client:**
+  - The Learning tab (`components/learning/Catalogue.jsx`): Continue where you left off, search, category, sort, status chips. Phones get list rows.
+  - The course page (`CoursePage.jsx`): outline, What you'll learn, requirements, enrolment box with Enrol, Join waitlist, Leave, and Join the community.
+  - The builder (`Builder.jsx`): modules and lessons with Move up/down, the lesson editor with uploads, Instructors, settings, and publish, unpublish, archive and delete. Not offered on phones.
+  - The lesson viewer (`pages/Lesson.jsx`): outline rail, focus mode on phones, file rows with Try again.
+  - My Learning (`pages/MyLearning.jsx`), the sidebar item, and the Learning card on Home.
+  - Course URLs are `/c/:slug/learning/:course[/edit]`; lessons are `/lessons/:id`.
+- **Browser, 1280 and 375 px:**
+  - **Admin (Sara):** created a course (double-click made one), added a lesson, moved a lesson across modules, published.
+  - **Member (Ishita):** lesson URL refused before enrolling; enrolled with a double-click (one enrolment); completed all three lessons; the course completed and My Learning listed it.
+  - **Priya:** Continue card and the Home Learning card.
+  - **Karthik:** the full course offered Join waitlist, then Leave waitlist.
+  - **LMS-10:** a forced download failure showed "This file didn't load." with Try again.
+  - **Phone:** no sideways scroll; the lesson hides the bottom bar and pins its action.
+  - **Fixed while checking:** the current lesson's circle in the outline was invisible, and Continue lesson wrapped onto its own line.
+- **Also fixed:** `npm run db:seed` crashed because the `ACCENT` table was defined after the code that runs on load. The server's own startup seed wasn't affected.
+- **Not built:**
+  - Lesson questions ("Ask a question"): there is no server for them yet.
+  - "Choose from AlumniZone files": the server only accepts files the editor uploads.
+  - The B / I / H text toolbar: lessons are plain text with `##` headings and `-` lists instead.
+  - The Instructor frame in RolePanel (optional).
+  - Drag to reorder: only Move up and Move down.
+- **Not checked in the browser:** LMS-04 and LMS-09 (both covered by server tests), and the builder's phone message as an admin.

@@ -23,6 +23,8 @@ const PRIMARY = [
   { id: 'communities', label: 'My Communities', short: 'Communities', icon: 'groups', to: '/groups', match: (p, q) => (p.startsWith('/groups') && q.get('tab') !== 'discover') || p.startsWith('/c/') },
   { id: 'events', label: 'Events', icon: 'events', to: '/events', match: (p) => p.startsWith('/events') },
 ];
+// Sidebar only (the phone bottom bar keeps five places); phones reach it from the account menu.
+const LEARNING = { id: 'learning', label: 'My Learning', icon: 'cap', to: '/learning', match: (p) => p === '/learning' };
 const MORE = [
   { id: 'feed', label: 'Feed', icon: 'feeds', to: '/feed', match: (p) => p.startsWith('/feed') || p.startsWith('/post/') },
   { id: 'people', label: 'People', icon: 'people', to: '/people', match: (p) => p === '/people' },
@@ -34,7 +36,7 @@ const MORE = [
 // Community pages and the community lists name the tab themselves.
 const OWN_TITLE = ['/c/', '/groups', '/search'];
 const TITLES = [['/dashboard', 'Home'], ['/events', 'Events'], ['/feed', 'Feed'], ['/post/', 'Post'], ['/people', 'People'],
-  ['/calendar', 'Calendar'], ['/notifications', 'Notifications'], ['/saved', 'Saved'], ['/search', 'Search'], ['/admin', 'Platform Admin']];
+  ['/calendar', 'Calendar'], ['/learning', 'My Learning'], ['/notifications', 'Notifications'], ['/saved', 'Saved'], ['/search', 'Search'], ['/admin', 'Platform Admin']];
 
 function useMyCommunities(me) {
   const [list, setList] = useState([]);
@@ -77,6 +79,8 @@ export default function Layout() {
   const mainRef = useRef(null);
   const searchRef = useRef(null);
   const isActive = (item) => item.match(loc.pathname, query);
+  // A lesson on a phone is in focus mode: no bottom bar, its own actions are pinned (S5Mobile).
+  const focus = loc.pathname.startsWith('/lessons/');
 
   // On navigation: close menus, start the new page at the top, name the tab after the section.
   useEffect(() => {
@@ -151,6 +155,7 @@ export default function Layout() {
           <Link to="/dashboard" className="px-2 py-1" aria-label="CommunityOne home"><Logo size={30} /></Link>
           <div className="flex flex-col gap-0.5">
             {PRIMARY.map((m) => <NavItem key={m.id} item={m} active={isActive(m)} />)}
+            <NavItem item={LEARNING} active={isActive(LEARNING)} />
             <NavItem item={{ label: 'Create Community', icon: 'create', to: '/groups?new=1' }} active={false} />
           </div>
           {communities.length > 0 && (
@@ -188,7 +193,7 @@ export default function Layout() {
         </Link>
       </aside>
 
-      <div className="relative z-10 pb-20 lg:pb-0 lg:pl-[248px]">
+      <div className={`relative z-10 lg:pb-0 lg:pl-[248px] ${focus ? '' : 'pb-20'}`}>
         <header className="sticky top-0 z-20 border-b border-[var(--az-hairline)] bg-[var(--color-ink-950)]">
           <div className="flex h-14 items-center gap-2 px-3 sm:px-5">
             <Link to="/dashboard" className="lg:hidden" aria-label="CommunityOne home"><Logo size={28} withText={false} /></Link>
@@ -209,7 +214,7 @@ export default function Layout() {
                     <Link role="menuitem" className={menuLink} to={`/people/${me.id}`}>Profile</Link>
                     <Link role="menuitem" className={menuLink} to="/feed/bookmarks">Bookmarks</Link>
                     <div className="lg:hidden">
-                      {more.map((m) => <Link key={m.id} role="menuitem" className={menuLink} to={m.to}>{m.label}</Link>)}
+                      {[LEARNING, ...more].map((m) => <Link key={m.id} role="menuitem" className={menuLink} to={m.to}>{m.label}</Link>)}
                       {me.admin && <Link role="menuitem" className={menuLink} to="/admin">Platform Admin</Link>}
                     </div>
                     <div className="flex items-center justify-between px-3 py-1.5"><span>Theme</span><ThemeToggle /></div>
@@ -224,7 +229,7 @@ export default function Layout() {
         <main id="main" ref={mainRef} tabIndex={-1} className="mx-auto max-w-[1200px] px-3 py-6 outline-none sm:px-6"><Outlet /></main>
       </div>
 
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-[var(--az-hairline)] bg-[var(--az-sidebar)] pb-[env(safe-area-inset-bottom)] lg:hidden">
+      {!focus && <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-[var(--az-hairline)] bg-[var(--az-sidebar)] pb-[env(safe-area-inset-bottom)] lg:hidden">
         {PRIMARY.map((m) => {
           const active = isActive(m);
           return (
@@ -238,7 +243,7 @@ export default function Layout() {
           className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] ${loc.pathname === `/people/${me.id}` ? 'font-semibold text-brand-300' : 'font-medium text-slate-400'}`}>
           <Avatar user={me} size={22} />Profile
         </Link>
-      </nav>
+      </nav>}
     </div>
   );
 }

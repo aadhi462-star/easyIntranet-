@@ -29,6 +29,10 @@ export const EXTRA_ROUTES = [
   { path: '/search', page: 'Search' },
   { path: '/c/:id', page: 'Community' },
   { path: '/c/:id/:tab', page: 'Community' },
+  { path: '/c/:id/:tab/:sub', page: 'Community' },
+  { path: '/c/:id/:tab/:sub/:mode', page: 'Community' },
+  { path: '/learning', page: 'MyLearning' },
+  { path: '/lessons/:id', page: 'Lesson' },
   { path: '/notifications', page: 'Notifications' },
   { path: '/saved', page: 'Saved' },
 ];
