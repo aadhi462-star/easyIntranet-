@@ -5,6 +5,12 @@
 import catalyst from 'zcatalyst-sdk-node';
 
 const TEMPLATES = {
+  // Stage 4 notifications. Only who did what and where: never the post's text, so a private
+  // discussion is never quoted in an inbox (NTF-06, CNT-15).
+  notification: ({ name, line, link }) => ({
+    subject: line,
+    body: `Hi ${name},\n\n${line}.\n\nOpen CommunityOne to see it:\n${link}\n\nChoose which emails you get in Notifications → Settings.`,
+  }),
   verify_email: ({ name, link }) => ({
     subject: 'Confirm your CommunityOne email',
     body: `Hi ${name},\n\nConfirm your email to finish setting up your CommunityOne account:\n${link}\n\nThis link expires in 24 hours. If you didn't sign up, ignore this email.`,

@@ -97,7 +97,7 @@ describe('RSVPs', () => {
     assert.deepEqual(rows, [{ status: 'maybe' }]);
     const view = (await c.mem.get(`/api/events/${e.id}`)).body.event;
     assert.equal(view.myRsvp, 'maybe');
-    assert.deepEqual(view.counts, { going: 0, maybe: 1, no: 0 });
+    assert.deepEqual(view.counts, { going: 0, maybe: 1, no: 0, waitlist: 0 });
   });
 
   test('EVT-02 two people taking the last seat at once: one gets it, the other is told it’s full', async () => {

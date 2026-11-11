@@ -7,6 +7,7 @@ import { newId } from '../lib/crypto.js';
 import { can } from '../lib/permissions.js';
 import { idempotent } from '../lib/session.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
+import { notify } from '../lib/notify.js';
 
 // Settings a community stores for its own screens (tabs, dashboard, guidelines, membership rule).
 // Validated as a plain object of limited size; nothing here grants permissions.
@@ -100,8 +101,13 @@ export default async function communityRoutes(app, { ctx }) {
          joined_at = excluded.joined_at, role = 'member', updated_at = now()
        where memberships.state in ('left', 'invited')`, [c.id, uid, state, message]);
     await audit(db, { actorId: uid, action: state === 'active' ? 'community.join' : 'community.request', targetType: 'community', targetId: c.id, ip: req.ip });
-    const now = (await db.query(`select state, role from memberships where community_id = $1 and user_id = $2`, [c.id, uid])).rows[0];
-    return { membership: now };
+    const now = (await db.query(`select state, role, updated_at from memberships where community_id = $1 and user_id = $2`, [c.id, uid])).rows[0];
+    // A new request tells the community's admins (once per request).
+    if (now?.state === 'pending') {
+      const { rows: admins } = await db.query(`select user_id from memberships where community_id = $1 and state = 'active' and role in ('owner', 'admin')`, [c.id]);
+      await notify(ctx, req, { to: admins.map((r) => r.user_id), type: 'join_request', actorId: uid, communityId: c.id, targetType: 'community', targetId: c.id, dedupe: `join:${c.id}:${uid}:${new Date(now.updated_at).getTime()}` });
+    }
+    return { membership: { state: now.state, role: now.role } };
   });
 
   // Leave, or withdraw a pending request (MEM-02). The owner must transfer first (MEM-09), and
@@ -154,10 +160,12 @@ export default async function communityRoutes(app, { ctx }) {
       if (!a.canAdmin) throw forbidden();
       const { rows } = await db.query(
         `update memberships set state = $3, joined_at = case when $3 = 'active' then now() else joined_at end, updated_at = now()
-          where community_id = $1 and user_id = $2 and state = 'pending' returning state`,
+          where community_id = $1 and user_id = $2 and state = 'pending' returning state, updated_at`,
         [a.community.id, req.params.userId, decision === 'approve' ? 'active' : 'left']);
       if (!rows.length) throw conflict('NOT_PENDING', 'This request isn’t waiting any more.');
       await audit(db, { actorId: req.user.id, action: `community.request_${decision}`, targetType: 'community', targetId: a.community.id, context: { userId: req.params.userId, adminMode: a.adminMode }, ip: req.ip });
+      await notify(ctx, req, { to: [req.params.userId], type: decision === 'approve' ? 'join_approved' : 'join_declined', actorId: req.user.id, communityId: a.community.id,
+        targetType: 'community', targetId: a.community.id, dedupe: `joindecision:${a.community.id}:${req.params.userId}:${new Date(rows[0].updated_at).getTime()}` });
       return { ok: true };
     });
   }

@@ -9,6 +9,7 @@ import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/
 import { idempotent } from '../lib/session.js';
 import { notBlockedSql } from '../lib/relations.js';
 import { isValidTimeZone, nextOccurrence, seriesEnd } from '../../shared/recurrence.js';
+import { notify } from '../lib/notify.js';
 
 export const EVENT_TYPES = ['Meetup', 'Reunion', 'Conference', 'Contest', 'Webinar', 'ShowTime', 'Meeting'];
 const REMINDERS = [5, 15, 30, 60, 120, 1440, 10080];
@@ -112,7 +113,7 @@ export async function presentEvents(db, req, rows, accessById, now = Date.now())
     db.query(`select id, name, status from users where id = any($1)`, [[...new Set(rows.map((e) => e.host_id))]]),
     db.query(`select event_id, user_id from event_staff where event_id = any($1)`, [ids]),
     db.query(`select event_id, user_id from event_invitees where event_id = any($1)`, [ids]),
-    db.query(`select r.event_id, r.user_id, r.status from event_rsvps r join events e on e.id = r.event_id
+    db.query(`select r.event_id, r.user_id, r.status, r.waitlisted_at from event_rsvps r join events e on e.id = r.event_id
       where r.event_id = any($1) and ${COUNTED} and (r.user_id = $2 or ${notBlockedSql('r.user_id', '$2')})`, [ids, uid]),
     db.query(`select event_id, count(*)::int as n from event_comments where event_id = any($1) and deleted_at is null group by event_id`, [ids]),
     db.query(`select id, name, emoji, visibility from communities where id = any($1)`, [[...new Set(rows.map((e) => e.community_id))]]),
@@ -129,8 +130,11 @@ export async function presentEvents(db, req, rows, accessById, now = Date.now())
     const isHost = e.host_id === uid;
     const manage = isHost || assistants.includes(uid) || !!a?.canAdmin;
     const rs = Object.fromEntries((R[e.id] || []).map((x) => [x.user_id, x.status]));
-    const counts = { going: 0, maybe: 0, no: 0 };
+    const counts = { going: 0, maybe: 0, no: 0, waitlist: 0 };
     for (const s of Object.values(rs)) counts[s] += 1;
+    // Your place on the waitlist (S4-4): first come, first served.
+    const queue = (R[e.id] || []).filter((x) => x.status === 'waitlist').sort((x, y) => new Date(x.waitlisted_at) - new Date(y.waitlisted_at));
+    const waitlistPosition = rs[uid] === 'waitlist' ? queue.findIndex((x) => x.user_id === uid) + 1 : null;
     const over = seriesEnd(t) < now;
     const closed = e.rsvp_deadline && new Date(e.rsvp_deadline).getTime() < now;
     const host = person[e.host_id];
@@ -144,7 +148,7 @@ export async function presentEvents(db, req, rows, accessById, now = Date.now())
       status: e.status, cancelReason: e.cancel_reason, version: e.version,
       hostId: e.host_id, host: host?.status === 'deleted' ? { id: e.host_id, name: 'Deleted member', deleted: true } : { id: e.host_id, name: host?.name },
       assistants, invitees: (I[e.id] || []).map((x) => x.user_id),
-      rsvps: rs, counts, myRsvp: rs[uid] ?? null, commentCount: C[e.id] ?? 0,
+      rsvps: rs, counts, myRsvp: rs[uid] ?? null, waitlistPosition, commentCount: C[e.id] ?? 0,
       nextStart: new Date(nextOccurrence(t, now)).toISOString(), over,
       can: {
         edit: manage && e.status === 'scheduled', cancel: manage && e.status === 'scheduled', delete: isHost || !!a?.canAdmin,
@@ -196,6 +200,32 @@ export default async function eventRoutes(app, { ctx }) {
   const { db, mailer } = ctx;
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
   const origin = (req) => ctx.appOrigin || `${req.protocol}://${req.headers.host}`;
+
+  // Fills free places from the waitlist, oldest first, with people who still count (active
+  // members with active accounts). Someone who left the waitlist has another answer now, so
+  // they're never put back (EVT-09). Runs inside the caller's transaction, with the event locked.
+  async function promoteWaitlist(t, eventId) {
+    const { rows: [ev] } = await t.query(`select capacity, status from events where id = $1`, [eventId]);
+    if (!ev || ev.status !== 'scheduled') return [];
+    let free = Infinity;
+    if (ev.capacity != null) {
+      const { rows: [c] } = await t.query(`select count(*)::int as n from event_rsvps r join events e on e.id = r.event_id
+        where r.event_id = $1 and r.status = 'going' and ${COUNTED}`, [eventId]);
+      free = ev.capacity - c.n;
+    }
+    if (free <= 0) return [];
+    const { rows } = await t.query(`select r.user_id, r.waitlisted_at from event_rsvps r join events e on e.id = r.event_id
+      where r.event_id = $1 and r.status = 'waitlist' and ${COUNTED} order by r.waitlisted_at, r.user_id limit $2`, [eventId, Number.isFinite(free) ? free : 10000]);
+    for (const r of rows) await t.query(`update event_rsvps set status = 'going', updated_at = now() where event_id = $1 and user_id = $2 and status = 'waitlist'`, [eventId, r.user_id]);
+    return rows;
+  }
+  const tellPromoted = (req, e, rows) => Promise.all(rows.map((r) => notify(ctx, req, { to: [r.user_id], type: 'waitlist_promoted', communityId: e.community_id,
+    targetType: 'event', targetId: e.id, dedupe: `waitlist:${e.id}:${r.user_id}:${new Date(r.waitlisted_at).getTime()}` })));
+  // In-app notices to everyone going; the email goes out separately (emailRegistrants).
+  async function tellGoing(req, e, type, dedupe) {
+    const { rows } = await db.query(`select r.user_id from event_rsvps r join events e on e.id = r.event_id where r.event_id = $1 and r.status = 'going' and ${COUNTED}`, [e.id]);
+    await notify(ctx, req, { to: rows.map((r) => r.user_id), type, actorId: req.user.id, communityId: e.community_id, targetType: 'event', targetId: e.id, dedupe, email: false });
+  }
 
   // Loads an event the caller may see. Anything they may not see (another community's members-
   // only event, an invite-only event they aren't on, a deleted one) is "not found" (EVT-08).
@@ -324,6 +354,10 @@ export default async function eventRoutes(app, { ctx }) {
     const moved = ['start_at', 'end_at', 'all_day', 'timezone', 'location'].some((k) => String(fresh[k]) !== String(e[k]))
       || JSON.stringify(fresh.recurrence) !== JSON.stringify(e.recurrence);
     const notified = moved ? await emailRegistrants(req, fresh, 'event_changed') : 0;
+    if (moved) await tellGoing(req, fresh, 'event_changed', `event:${e.id}:v${fresh.version}`);
+    // A bigger capacity (or none) opens places for the waitlist.
+    const promoted = await db.tx(async (t) => { await t.query(`select id from events where id = $1 for update`, [e.id]); return promoteWaitlist(t, e.id); });
+    await tellPromoted(req, fresh, promoted);
     await audit(db, { actorId: req.user.id, action: 'event.edit', targetType: 'event', targetId: e.id, context: { moved, notified, adminMode: a.adminMode }, ip: req.ip });
     return { event: await one(req, fresh, a) };
   });
@@ -337,6 +371,7 @@ export default async function eventRoutes(app, { ctx }) {
       where id = $1 and status = 'scheduled' returning *`, [e.id, reason]);
     if (!rows.length) throw conflict('ALREADY_CANCELLED', 'This event was already cancelled.');
     const notified = await emailRegistrants(req, rows[0], 'event_cancelled', { reason });
+    await tellGoing(req, rows[0], 'event_cancelled', `event:${e.id}:cancelled`);
     await audit(db, { actorId: req.user.id, action: 'event.cancel', targetType: 'event', targetId: e.id, context: { reason, notified, adminMode: a.adminMode }, ip: req.ip });
     return { event: await one(req, rows[0], a) };
   });
@@ -353,11 +388,11 @@ export default async function eventRoutes(app, { ctx }) {
   // One RSVP per member (EVT-01). Capacity, cancellation, the deadline and the event's end are
   // all re-checked inside one transaction with the event row locked, so two people can't take
   // the last seat at once (EVT-02) and a form left open past the deadline is refused (EVT-07).
-  app.put('/events/:id/rsvp', { schema: { body: { type: 'object', required: ['status'], additionalProperties: false, properties: { status: { type: 'string', enum: ['going', 'maybe', 'no'] } } } } }, async (req) => {
+  app.put('/events/:id/rsvp', { schema: { body: { type: 'object', required: ['status'], additionalProperties: false, properties: { status: { type: 'string', enum: ['going', 'maybe', 'no', 'waitlist'] } } } } }, async (req) => {
     const { e, a } = await loadEvent(req, req.params.id);
     if (!a.canComment) throw forbidden(a.member ? 'You can’t take part in this community right now.' : 'Join this community to RSVP.', 'CANNOT_RSVP');
-    const status = req.body.status;
-    await db.tx(async (t) => {
+    let status = req.body.status;
+    const promoted = await db.tx(async (t) => {
       const { rows: [ev] } = await t.query(`select * from events where id = $1 and deleted_at is null for update`, [e.id]);
       if (!ev) throw notFound('That event doesn’t exist or was deleted.');
       if (ev.status === 'cancelled') throw conflict('EVENT_CANCELLED', 'This event was cancelled.');
@@ -365,21 +400,32 @@ export default async function eventRoutes(app, { ctx }) {
       if (seriesEnd(timing(ev)) < Date.now()) throw conflict('EVENT_OVER', 'This event has already ended.');
       // Saying "no" is always allowed, so people can still free their seat after the deadline.
       if (status !== 'no' && ev.rsvp_deadline && new Date(ev.rsvp_deadline) < new Date()) throw conflict('RSVP_CLOSED', 'RSVPs for this event have closed.');
-      if (status === 'going' && ev.capacity != null) {
+      if ((status === 'going' || status === 'waitlist') && ev.capacity != null) {
         const { rows: [c] } = await t.query(`select count(*)::int as n, bool_or(r.user_id = $2) as mine from event_rsvps r join events e on e.id = r.event_id
           where r.event_id = $1 and r.status = 'going' and ${COUNTED}`, [ev.id, req.user.id]);
-        if (!c.mine && c.n >= ev.capacity) throw conflict('EVENT_FULL', 'This event is full.');
-      }
-      await t.query(`insert into event_rsvps (event_id, user_id, status) values ($1, $2, $3)
-        on conflict (event_id, user_id) do update set status = excluded.status, updated_at = now()`, [ev.id, req.user.id, status]);
+        const full = !c.mine && c.n >= ev.capacity;
+        if (full && status === 'going') throw conflict('EVENT_FULL', 'This event is full. Join the waitlist to get the next place that opens.', { waitlist: true });
+        if (!full) status = 'going';
+      } else if (status === 'waitlist') status = 'going';
+      // Joining the waitlist again keeps your place; leaving it (any other answer) gives it up.
+      await t.query(`insert into event_rsvps (event_id, user_id, status, waitlisted_at) values ($1, $2, $3, case when $3 = 'waitlist' then now() end)
+        on conflict (event_id, user_id) do update set status = excluded.status, updated_at = now(),
+          waitlisted_at = case when excluded.status = 'waitlist' then coalesce(event_rsvps.waitlisted_at, now()) end`, [ev.id, req.user.id, status]);
+      return promoteWaitlist(t, ev.id);
     });
+    await tellPromoted(req, e, promoted);
     const { rows: [fresh] } = await db.query(`select * from events where id = $1`, [e.id]);
     return { event: await one(req, fresh, a) };
   });
 
   app.delete('/events/:id/rsvp', async (req) => {
     const { e, a } = await loadEvent(req, req.params.id);
-    await db.query(`delete from event_rsvps where event_id = $1 and user_id = $2`, [e.id, req.user.id]);
+    const promoted = await db.tx(async (t) => {
+      await t.query(`select id from events where id = $1 for update`, [e.id]);
+      await t.query(`delete from event_rsvps where event_id = $1 and user_id = $2`, [e.id, req.user.id]);
+      return promoteWaitlist(t, e.id);
+    });
+    await tellPromoted(req, e, promoted);
     return { event: await one(req, e, a) };
   });
 

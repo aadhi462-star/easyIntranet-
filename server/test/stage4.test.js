@@ -180,3 +180,140 @@ describe('discussions: topics, attachments, search and sort', () => {
     assert.ok((await c.mem.get('/api/feed?community=pub&view=polls')).body.posts.every((x) => x.type === 'poll'));
   });
 });
+
+describe('notifications', () => {
+  const list = async (who) => (await c[who].get('/api/notifications')).body;
+  const at = (days) => new Date(Date.now() + days * 864e5);
+
+  test('a reply notifies the post’s author once, never the replier; retries don’t duplicate (NTF-02)', async () => {
+    const p = (await c.own.post('/api/communities/pri/posts', { body: 'Budget for the reunion' })).body.post;
+    const h = { 'idempotency-key': 'reply-1' };
+    await c.mem.post(`/api/posts/${p.id}/comments`, { body: 'Count me in' }, h);
+    await c.mem.post(`/api/posts/${p.id}/comments`, { body: 'Count me in' }, h);
+    await c.own.post(`/api/posts/${p.id}/comments`, { body: 'Thanks!' });
+    const mine = (await list('own')).notifications.filter((n) => n.href === `/post/${p.id}`);
+    assert.equal(mine.length, 1);
+    assert.equal(mine[0].line, 'mem person replied to your post in Files pri');
+    assert.ok(!(await list('mem')).notifications.some((n) => n.href === `/post/${p.id}` && n.kind === 'reply'), 'not for your own reply');
+  });
+
+  test('NTF-06 / CNT-15 emails name who and where, never the post’s text; email follows each person’s settings (NTF-01)', async () => {
+    await q(`delete from email_outbox`);
+    const p = (await c.mem.post('/api/communities/pri/posts', { body: 'SECRET salary numbers @own', mentions: ['own'] })).body.post;
+    let mail = (await q(`select to_email, subject, body from email_outbox where template = 'notification'`)).rows;
+    assert.equal(mail.length, 1, 'mentions email by default');
+    assert.equal(mail[0].to_email, 'own@example.com');
+    assert.ok(!JSON.stringify(mail).includes('SECRET'), 'no content in the email');
+    await c.own.put('/api/notification-prefs', { mentions: false });
+    await c.mem.post('/api/communities/pri/posts', { body: 'Another @own', mentions: ['own'] });
+    mail = (await q(`select 1 from email_outbox where template = 'notification'`)).rows;
+    assert.equal(mail.length, 1, 'turned off: no email');
+    assert.ok((await list('own')).notifications.filter((n) => n.kind === 'mention').length >= 2, 'still in the app');
+    const prefs = (await c.own.get('/api/notification-prefs')).body.categories;
+    assert.equal(prefs.find((x) => x.id === 'mentions').email, false);
+    assert.equal(prefs.find((x) => x.id === 'replies').email, false, 'replies default to no email');
+    assert.equal((await c.own.put('/api/notification-prefs', { bogus: true })).status, 400);
+    void p;
+  });
+
+  test('NTF-10 after losing access, a notification says it’s no longer available and shows nothing', async () => {
+    const p = (await c.mem.post('/api/communities/pri/posts', { body: 'Members-only plan' })).body.post;
+    await c.ex.post(`/api/posts/${p.id}/comments`, { body: 'Agreed' });
+    await q(`update memberships set state = 'left' where community_id = 'pri' and user_id = 'mem'`);
+    try {
+      const n = (await list('mem')).notifications.find((x) => x.kind === 'reply' && !x.available);
+      assert.ok(n, 'the reply is still listed');
+      assert.equal(n.line, 'This is no longer available to you');
+      assert.equal(n.href, null);
+      assert.ok(!JSON.stringify(n).includes('Files pri'), 'not even the community’s name');
+    } finally { await q(`update memberships set state = 'active' where community_id = 'pri' and user_id = 'mem'`); }
+  });
+
+  test('NTF-09 suspended accounts and blocked people get nothing', async () => {
+    const p = (await c.ex.post('/api/communities/pri/posts', { body: 'From ex' })).body.post;
+    await q(`update users set status = 'suspended' where id = 'ex'`);
+    await c.mem.post(`/api/posts/${p.id}/comments`, { body: 'Hello ex' });
+    await q(`update users set status = 'active' where id = 'ex'`);
+    await q(`insert into blocks (blocker_id, blocked_id) values ('ex', 'own')`);
+    try {
+      await c.own.post(`/api/posts/${p.id}/comments`, { body: 'Blocked reply' });
+    } finally { await q(`delete from blocks where blocker_id = 'ex'`); }
+    const ex = (await c.ex.get('/api/notifications')).body.notifications.filter((n) => n.href === `/post/${p.id}`);
+    assert.equal(ex.length, 0);
+  });
+
+  test('join requests tell admins; the decision tells the requester, who isn’t a member yet', async () => {
+    await c.out.post('/api/communities/pri/join', { message: 'Hi' });
+    const req = (await list('own')).notifications.find((n) => n.kind === 'join_request');
+    assert.equal(req.href, '/c/pri/members');
+    await c.own.post('/api/communities/pri/requests/out/decline', {});
+    const dec = (await list('out')).notifications.find((n) => n.kind === 'join_declined');
+    assert.equal(dec.line, 'Your request to join Files pri was declined');
+  });
+
+  test('mark read: one, then all; only your own', async () => {
+    const before = (await list('own')).unread;
+    assert.ok(before >= 2);
+    const first = (await list('own')).notifications.find((n) => !n.read);
+    assert.equal((await c.own.post('/api/notifications/read', { ids: [first.id] })).body.unread, before - 1);
+    await c.mem.post('/api/notifications/read', { ids: [first.id] });
+    assert.equal((await c.own.post('/api/notifications/read', { all: true })).body.unread, 0);
+    void at;
+  });
+});
+
+describe('saved', () => {
+  test('save posts, events and resources you can open; unavailable later shows nothing; import old bookmarks', async () => {
+    const p = (await c.mem.post('/api/communities/pri/posts', { body: 'Save me' })).body.post;
+    assert.equal((await c.out.put('/api/saved', { type: 'post', id: p.id })).body.error.code, 'NOT_AVAILABLE', 'outsiders can’t save it');
+    await c.ex.put('/api/saved', { type: 'post', id: p.id });
+    await c.ex.put('/api/saved', { type: 'post', id: p.id });
+    let items = (await c.ex.get('/api/saved')).body.items;
+    assert.equal(items.filter((i) => i.id === p.id).length, 1, 'saving twice keeps one');
+    assert.equal(items.find((i) => i.id === p.id).title, 'Save me');
+    await q(`update memberships set state = 'left' where community_id = 'pri' and user_id = 'ex'`);
+    try {
+      items = (await c.ex.get('/api/saved')).body.items;
+      const gone = items.find((i) => i.id === p.id);
+      assert.equal(gone.available, false);
+      assert.equal(gone.title, undefined);
+    } finally { await q(`update memberships set state = 'active' where community_id = 'pri' and user_id = 'ex'`); }
+    const p2 = (await c.mem.post('/api/communities/pub/posts', { body: 'Old bookmark' })).body.post;
+    assert.equal((await c.ex.post('/api/saved/import', { postIds: [p2.id, p2.id, 'missing'] })).body.added, 1);
+    assert.equal((await c.ex.delete(`/api/saved/post/${p2.id}`)).body.saved, false);
+  });
+});
+
+describe('event waitlist (S4-4)', () => {
+  test('a full event offers the waitlist; a freed place goes to the first in line, not to someone who left it (EVT-09)', async () => {
+    for (const id of ['w1', 'w2', 'w3']) {
+      await makeUser(env.db, { id, email: `${id}@example.com`, name: `${id} person` });
+      await q(`insert into memberships (community_id, user_id, state, joined_at) values ('pub', $1, 'active', now())`, [id]);
+      c[id] = await signIn(env.app, { email: `${id}@example.com`, password: 'correct-horse-battery' });
+    }
+    const start = new Date(Date.now() + 5 * 864e5);
+    await q(`insert into events (id, community_id, host_id, title, start_at, end_at, capacity) values ('ev-cap', 'pub', 'own', 'Small dinner', $1, $1::timestamptz + interval '2 hours', 1)`, [start]);
+    assert.equal((await c.w1.put('/api/events/ev-cap/rsvp', { status: 'going' })).body.event.myRsvp, 'going');
+    const full = await c.w2.put('/api/events/ev-cap/rsvp', { status: 'going' });
+    assert.equal(full.body.error.code, 'EVENT_FULL');
+    assert.equal(full.body.error.waitlist, true);
+    assert.equal((await c.w2.put('/api/events/ev-cap/rsvp', { status: 'waitlist' })).body.event.waitlistPosition, 1);
+    assert.equal((await c.w3.put('/api/events/ev-cap/rsvp', { status: 'waitlist' })).body.event.waitlistPosition, 2);
+    await c.w2.put('/api/events/ev-cap/rsvp', { status: 'no' }); // w2 leaves the waitlist
+    await c.w1.delete('/api/events/ev-cap/rsvp'); // a place opens
+    const st = Object.fromEntries((await q(`select user_id, status from event_rsvps where event_id = 'ev-cap'`)).rows.map((r) => [r.user_id, r.status]));
+    assert.equal(st.w3, 'going', 'the next in line gets it');
+    assert.equal(st.w2, 'no', 'someone who left isn’t put back');
+    const n = (await c.w3.get('/api/notifications')).body.notifications.find((x) => x.kind === 'waitlist_promoted');
+    assert.equal(n.href, '/events/ev-cap');
+  });
+
+  test('raising the capacity promotes in order; waitlisting when there’s room just means going', async () => {
+    await q(`update event_rsvps set status = 'waitlist', waitlisted_at = now() where event_id = 'ev-cap' and user_id = 'w2'`);
+    const { rows: [ev] } = await q(`select version from events where id = 'ev-cap'`);
+    const r = await c.own.patch('/api/events/ev-cap', { version: ev.version, capacity: 5 });
+    assert.equal(r.status, 200);
+    assert.equal((await q(`select status from event_rsvps where event_id = 'ev-cap' and user_id = 'w2'`)).rows[0].status, 'going');
+    assert.equal((await c.w1.put('/api/events/ev-cap/rsvp', { status: 'waitlist' })).body.event.myRsvp, 'going');
+  });
+});

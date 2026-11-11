@@ -6,6 +6,7 @@ import { newId } from '../lib/crypto.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { idempotent } from '../lib/session.js';
 import { notBlockedSql } from '../lib/relations.js';
+import { notify } from '../lib/notify.js';
 
 const clean = (s, max, field) => {
   const t = String(s ?? '').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '').trim();
@@ -80,6 +81,17 @@ export default async function postRoutes(app, { ctx }) {
         can: { edit: p.author_id === req.user.id && p.status !== 'removed', delete: p.author_id === req.user.id || !!a?.canModerate, moderate: !!a?.canModerate, pin: !!a?.canAdmin },
       };
     });
+  }
+
+  // When a post goes live: tell the people it mentions, and for an announcement, every member.
+  async function announce(req, p) {
+    if (p.status !== 'published') return;
+    const base = { actorId: p.author_id, communityId: p.community_id, targetType: 'post', targetId: p.id };
+    if (p.mentions?.length) await notify(ctx, req, { ...base, to: p.mentions, type: 'mention', dedupe: `post:${p.id}:mention` });
+    if (p.type === 'announcement') {
+      const { rows } = await db.query(`select user_id from memberships where community_id = $1 and state in ('active', 'restricted')`, [p.community_id]);
+      await notify(ctx, req, { ...base, to: rows.map((r) => r.user_id).filter((u) => !p.mentions?.includes(u)), type: 'announcement', dedupe: `post:${p.id}:announcement` });
+    }
   }
 
   // A post's topic must be one of its community's (S4-2).
@@ -212,6 +224,7 @@ export default async function postRoutes(app, { ctx }) {
     });
     await audit(db, { actorId: req.user.id, action: 'post.create', targetType: 'post', targetId: id, context: { communityId: a.community.id, type, status }, ip: req.ip });
     const { rows: [p] } = await db.query(`select * from posts where id = $1`, [id]);
+    await announce(req, p);
     reply.status(201);
     return { post: (await present(req, [p], { [p.community_id]: a }))[0] };
   }));
@@ -247,6 +260,7 @@ export default async function postRoutes(app, { ctx }) {
       where id = $1 and status in ('draft', 'scheduled') returning *`, [p.id, next]);
     if (!rows.length) return { post: (await present(req, [p], { [p.community_id]: a }))[0] };
     await audit(db, { actorId: req.user.id, action: 'post.publish', targetType: 'post', targetId: p.id, context: { status: next }, ip: req.ip });
+    await announce(req, rows[0]);
     return { post: (await present(req, rows, { [p.community_id]: a }))[0] };
   });
 
@@ -257,6 +271,8 @@ export default async function postRoutes(app, { ctx }) {
     const { rows } = await db.query(`update posts set status = 'published', published_at = now(), version = version + 1 where id = $1 and status = 'pending' returning *`, [p.id]);
     if (!rows.length) throw conflict('NOT_PENDING', 'This post isn’t waiting for review any more.');
     await audit(db, { actorId: req.user.id, action: 'post.approve', targetType: 'post', targetId: p.id, context: { adminMode: a.adminMode }, ip: req.ip });
+    await notify(ctx, req, { to: [p.author_id], type: 'post_approved', actorId: req.user.id, communityId: p.community_id, targetType: 'post', targetId: p.id, dedupe: `post:${p.id}:approved` });
+    await announce(req, rows[0]);
     return { post: (await present(req, rows, { [p.community_id]: a }))[0] };
   });
 
@@ -267,6 +283,7 @@ export default async function postRoutes(app, { ctx }) {
     if (!reason) throw badRequest('REASON_REQUIRED', 'Give a reason for removing this post.');
     await db.query(`update posts set status = 'removed', removed_by = $2, removed_reason = $3, pinned = false, version = version + 1 where id = $1`, [p.id, req.user.id, reason]);
     await audit(db, { actorId: req.user.id, action: 'post.remove', targetType: 'post', targetId: p.id, context: { reason, adminMode: a.adminMode }, ip: req.ip });
+    await notify(ctx, req, { to: [p.author_id], type: 'post_removed', actorId: req.user.id, communityId: p.community_id, targetType: 'post', targetId: p.id, dedupe: `post:${p.id}:removed` });
     return { ok: true };
   });
 
@@ -349,6 +366,12 @@ export default async function postRoutes(app, { ctx }) {
     }
     const id = newId('cmt');
     await db.query(`insert into comments (id, post_id, author_id, parent_id, body) values ($1, $2, $3, $4, $5)`, [id, p.id, req.user.id, req.body.parentId ?? null, body]);
+    const base = { actorId: req.user.id, communityId: p.community_id, targetType: 'post', targetId: p.id };
+    await notify(ctx, req, { ...base, to: [p.author_id], type: 'reply', dedupe: `comment:${id}` });
+    if (req.body.parentId) {
+      const { rows: [parent] } = await db.query(`select author_id from comments where id = $1`, [req.body.parentId]);
+      if (parent && parent.author_id !== p.author_id) await notify(ctx, req, { ...base, to: [parent.author_id], type: 'reply_comment', dedupe: `comment:${id}:parent` });
+    }
     reply.status(201);
     return { comment: { id, parentId: req.body.parentId ?? null, body, createdAt: new Date().toISOString(), author: { id: req.user.id, name: req.user.name }, can: { delete: true } } };
   }));
