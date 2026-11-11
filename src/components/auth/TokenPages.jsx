@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { useStore } from '../../lib/store.jsx';
 import { Field } from '../ui.jsx';
-import { AuthShell, takeProfile } from '../../pages/Login.jsx';
+import { AuthShell, takeNext, takeProfile } from '../../pages/Login.jsx';
 
 const tokenFrom = (search) => new URLSearchParams(search).get('token') || '';
 
@@ -35,7 +35,7 @@ export function VerifyEmail() {
       .then(({ user, message }) => {
         if (user.status === 'active') {
           dispatch({ type: 'session/adopt', user, profile: takeProfile(user.email) });
-          nav('/dashboard', { replace: true });
+          nav(takeNext(user.email) ?? '/dashboard', { replace: true });
         } else setState({ phase: 'pending', message });
       })
       .catch((err) => setState({ phase: 'error', message: err.message }));

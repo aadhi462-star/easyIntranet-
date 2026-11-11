@@ -2,7 +2,7 @@
 
 Source: *Community_Platform_Comprehensive_Edge_Cases.docx* (244 scenarios, 20 areas). Phase = the delivery phase in which the case must pass (see `PHASE0_ASSESSMENT.md` §11). P0 cases block their phase.
 
-Last updated 10 Nov 2026 (Phase 1, steps 1–4c). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
+Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status values: **Not run**, **Pass**, **Fail**, **Blocked**. "Evidence" links the automated test or the browser check that proves the result.
 
 
 ## Summary by phase
@@ -80,7 +80,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4c). Status values: **Not run**, **
 | VIS-01 | P0 | 2 | Visitor opens a private community page directly by URL. | Show only permitted public metadata or an access-denied/join-request state; never expose protected content. | Pass | server/test/communities.test.js VIS-01/02 |
 | VIS-02 | P0 | 2 | Visitor opens a private post, file or member profile endpoint directly. | Deny access server-side; do not rely on hidden UI controls. | Pass | server/test/communities.test.js VIS-01/02 + server/test/events.test.js VIS-02/03 (events) |
 | VIS-03 | P0 | 2 | Non-invited user opens a closed community URL. | Deny access and do not reveal protected content or member details. | Pass | server/test/communities.test.js VIS-03 + server/test/events.test.js VIS-02/03 (events) |
-| VIS-04 | P0 | 2 | Closed community appears in search, recommendations, sitemap or public API. | Exclude it from all public discovery surfaces. | Pass | server/test/communities.test.js VIS-04 |
+| VIS-04 | P0 | 2 | Closed community appears in search, recommendations, sitemap or public API. | Exclude it from all public discovery surfaces. | Pass | server/test/communities.test.js VIS-04 + server/test/public.test.js VIS-04 (public, signed-out discovery) |
 | VIS-05 | P0 | 2 | Public community changes to Private while a visitor is viewing it. | Recheck permissions on subsequent requests and immediately protect restricted content. | Pass | server/test/communities.test.js VIS-05 + server/test/events.test.js VIS-05 (events) |
 | VIS-06 | P0 | 2 | Private community changes to Closed. | Remove it from discovery and require a valid invitation for new access. | Not run | |
 | VIS-07 | P1 | 2 | Closed community changes to Public. | Apply public visibility consistently while preserving role and membership rules. | Not run | |
@@ -183,7 +183,7 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4c). Status values: **Not run**, **
 | EVT-05 | P1 | 2 | Member is removed from the community before a members-only event. | Recheck access and apply the defined registration/attendance policy. | Pass | server/test/events.test.js EVT-05 (removed member: event not found, RSVP refused, RSVP stops counting and frees the seat) |
 | EVT-06 | P1 | 2 | Event creator leaves, is suspended or deleted. | Transfer event management or assign an authorised replacement. | Pass | server/test/events.test.js EVT-06 (host suspended → community admin edits and cancels). A deleted host shows as “Deleted member” and the event stays with community admins; explicit host transfer is Phase 2 |
 | EVT-07 | P1 | 2 | Registration deadline passes while a form is open. | Revalidate deadline at submission; reject late registration clearly. | Pass | server/test/events.test.js EVT-07 (deadline passes with the form open → RSVP_CLOSED on submit; “not going” still allowed) |
-| EVT-08 | P0 | 2 | Private event URL is shared with a non-member. | Enforce event visibility and eligibility on every request. | Pass | server/test/events.test.js EVT-08 (invite-only: non-invitees get 404 on detail, RSVP, comments and lists; removed invitee loses access and RSVP) + VIS-02/03 events |
+| EVT-08 | P0 | 2 | Private event URL is shared with a non-member. | Enforce event visibility and eligibility on every request. | Pass | server/test/events.test.js EVT-08 (invite-only: non-invitees get 404 on detail, RSVP, comments and lists; removed invitee loses access and RSVP) + VIS-02/03 events + server/test/public.test.js EVT-08 (public listing: only open, scheduled, upcoming events of Public communities) |
 | EVT-09 | P1 | 2 | Waitlisted user is promoted after capacity changes but has already cancelled. | Do not reactivate a cancelled registration; promote the next eligible user. | Not run | |
 | EVT-10 | P2 | 2 | Attendance is marked more than once or changed after event closure. | Prevent duplicate attendance records and audit corrections. | Not run | |
 
@@ -260,10 +260,10 @@ Last updated 10 Nov 2026 (Phase 1, steps 1–4c). Status values: **Not run**, **
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| SRC-01 | P0 | 2 | Closed community name appears in public search suggestions/autocomplete. | Do not return closed community names or metadata to unauthorised users. | Not run | |
+| SRC-01 | P0 | 2 | Closed community name appears in public search suggestions/autocomplete. | Do not return closed community names or metadata to unauthorised users. | Pass | server/test/public.test.js VIS-04 (public discovery search never returns Closed names or their categories). Signed-in search still uses browser data until Stage 3 |
 | SRC-02 | P0 | 2 | Private post content appears in search results for non-members. | Filter search results by current access permissions. | Not run | |
 | SRC-03 | P1 | 2 | Community is renamed but old search result links remain. | Redirect only to the new permitted page; recheck visibility and access. | Not run | |
-| SRC-04 | P1 | 2 | Archived/suspended community remains in recommendations. | Remove or clearly label it according to platform policy. | Not run | |
+| SRC-04 | P1 | 2 | Archived/suspended community remains in recommendations. | Remove or clearly label it according to platform policy. | Pass | server/test/public.test.js VIS-04 (archived and suspended excluded from public discovery) + communities.test.js DEL-01 |
 | SRC-05 | P0 | 2 | User's access changes between search and result click. | Recheck permission on destination; do not rely on search-time authorisation. | Not run | |
 | SRC-06 | P2 | 2 | Search returns no results or service is unavailable. | Show useful empty/error state and preserve query for retry. | Not run | |
 | SRC-07 | P2 | 2 | Multiple communities have similar names or duplicate descriptions. | Show distinguishing metadata without exposing private details. | Not run | |

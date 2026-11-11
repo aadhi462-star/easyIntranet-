@@ -1,131 +1,193 @@
-import { Glyph } from '../components/icons.jsx';
-import { Link } from 'react-router-dom';
-import { Logo, ThemeToggle } from '../components/ui.jsx';
+// Public landing page (redesign Stage 2, REDESIGN_BRIEF.md Part B): what CommunityOne is, real
+// communities to join, what you can do, how it works, AlumniZone as one community inside it.
+// Every community, count and event shown comes from GET /api/public/communities.
+import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Icon } from '../components/icons.jsx';
+import { NETWORK_COMMUNITY } from '../lib/communities.js';
+import { PublicFooter, PublicHeader, usePageTitle } from '../components/public/PublicChrome.jsx';
+import { CardSkeletons, CommunityCard, CommunityTile, eventWhen, LoadError, NoCommunities, usePublicCommunities } from '../components/public/CommunityCards.jsx';
 
-// Section order follows the HooBank template: navbar, hero, stats, features, showcase,
-// testimonials, CTA, footer. Copy is AlumniZone's own.
-const stats = [['8,400+', 'Alumni members'], ['120', 'Active groups'], ['340', 'Events a year']];
+const wrap = 'mx-auto max-w-[1200px] px-4 sm:px-8';
+const eyebrow = 'text-xs font-semibold uppercase tracking-[0.08em] text-brand-300';
+const h2 = 'mt-2 text-[30px] font-bold leading-tight tracking-tight text-white sm:text-[36px]';
 
-const features = [
-  ['📣', 'The Wall', 'Post updates, polls and announcements. Admins can mark posts as Mandatory Read and track who has acknowledged them.'],
-  ['👥', 'Groups', 'Spaces for your batch, city or interests, each with its own feed, forums, events and members.'],
-  ['📅', 'Events', 'Reunions and meet-ups with RSVPs, hosts and event assistants, in month or list view.'],
-  ['💬', 'Channels', 'Real-time chat rooms. Link one to a group and new members join automatically.'],
-  ['🗂️', 'Forums', 'Long-form questions and answers organised by category, with drafts and upvotes.'],
-  ['📖', 'Manuals', 'A shared knowledge base of chapters and articles: handbooks, guides and checklists.'],
+const CAPABILITIES = [
+  ['search', 'Discover communities', 'Search by interest, institution, city or profession.'],
+  ['channels', 'Join discussions', 'Posts, questions, polls and announcements with replies.'],
+  ['people', 'Connect with members', 'Find classmates, colleagues and mentors; build relationships.'],
+  ['events', 'Attend events', 'Meet-ups, reunions and webinars, online or in person.'],
+  ['doc', 'Share resources', 'Files, guides and links, kept within each community.'],
+  ['cap', 'Learn together', 'Courses and lessons inside the communities you join.'],
 ];
-
-const testimonials = [
-  ['Meera Iyer', 'Class of 2014 · Mumbai', 'We went from a scattered WhatsApp group to monthly chapter meet-ups. Polls and RSVPs made planning painless.'],
-  ['Karthik Menon', 'Class of 2016 · Founder', 'My first three hires came from the jobs channel. It’s the most trusted network I have.'],
-  ['Priya Sharma', 'Class of 2015 · Mentor', 'Matching students with mentors used to take weeks of email. Now it’s a group and a forum.'],
+export const STEPS = [
+  ['Discover', 'Browse public communities, no account needed.'],
+  ['Join', 'Join instantly, or request access to private ones.'],
+  ['Participate', 'Post, reply, RSVP and meet members.'],
+  ['Learn', 'Take courses your communities offer.'],
+  ['Contribute', 'Mentor, share, host events, start your own community.'],
 ];
+const plural = (n) => `${n} ${n === 1 ? 'member' : 'members'}`;
 
 export default function Landing() {
+  usePageTitle(null);
+  const loc = useLocation();
+  const { status, communities, message, retry } = usePublicCommunities({ limit: 7 });
+  const alumni = communities.find((c) => c.id === NETWORK_COMMUNITY);
+  const others = communities.filter((c) => c.id !== NETWORK_COMMUNITY).slice(0, 6);
+  const shown = alumni ? [alumni, ...others].slice(0, 6) : others;
+
+  // "How It Works" from another public page lands here and scrolls to the section.
+  useEffect(() => {
+    if (loc.state?.scrollTo) document.getElementById(loc.state.scrollTo)?.scrollIntoView({ block: 'start' });
+  }, [loc.state]);
+
   return (
-    <div className="relative overflow-hidden">
-      <div className="aurora" />
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
-        <Logo />
-        <nav className="flex items-center gap-2">
-          <a href="#features" className="hidden px-3 text-sm text-slate-300 hover:text-white sm:inline">Features</a>
-          <a href="#stories" className="hidden px-3 text-sm text-slate-300 hover:text-white sm:inline">Stories</a>
-          <Link to="/explore" className="hidden px-3 text-sm text-slate-300 hover:text-white sm:inline">Explore</Link>
-          <ThemeToggle />
-          <Link to="/login" className="btn btn-ghost">Sign in</Link>
-          <Link to="/signup" className="btn btn-primary">Join</Link>
-        </nav>
-      </header>
-
-      <section className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-10 sm:px-6 lg:grid-cols-2 lg:pt-20">
-        <div>
-          <span className="chip"><Glyph value="🎓" tile={false} size={16} /> Open alumni community · free to join</span>
-          <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-            Your alumni community, <span className="text-brand-gradient">in one place.</span>
-          </h1>
-          <p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-300">
-            Catch up on the wall, join groups, go to events and keep your story up to date. Open to every alumnus, with friendly moderation to keep it a good place.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/signup" className="btn btn-primary h-12 px-6">Join the community</Link>
-            <Link to="/explore" className="btn btn-ghost h-12 px-6">Look around first</Link>
+    <div className="min-h-full bg-[var(--color-ink-950)]">
+      <PublicHeader />
+      <main id="main">
+        <section aria-labelledby="hero-h" className="relative overflow-hidden">
+          <div aria-hidden="true" className="auth-grid pointer-events-none absolute inset-0" />
+          <div className={`${wrap} relative flex flex-wrap items-center gap-12 py-20 sm:py-24`}>
+            <div className="min-w-0 flex-[1_1_460px]">
+              <p className={eyebrow}>One platform. Every community.</p>
+              <h1 id="hero-h" className="mt-4 text-[42px] font-extrabold leading-[1.04] tracking-tight text-white sm:text-[64px]">
+                Find your people.<br />Build your community.
+              </h1>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-300">
+                Discover communities, connect with people, share knowledge, join conversations and learn together. Everything you need to stay connected, in one place.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link to="/explore" className="btn btn-primary min-h-12 !px-5 text-[15px]">Explore Communities</Link>
+                <Link to="/signup" className="btn btn-ghost min-h-12 !px-5 text-[15px]">Get Started</Link>
+              </div>
+              <p className="mt-5 text-sm text-slate-400">Free to join. Browse public communities without an account.</p>
+            </div>
+            <HeroCommunities status={status} alumni={alumni} others={others} />
           </div>
-        </div>
-        <HeroPreview />
-      </section>
+        </section>
 
-      <section className="relative z-10 mx-auto grid max-w-6xl gap-4 px-4 sm:grid-cols-3 sm:px-6">
-        {stats.map(([n, l]) => (
-          <div key={l} className="glass p-6">
-            <div className="text-4xl font-extrabold text-brand-gradient">{n}</div>
-            <div className="mt-1 text-sm uppercase tracking-wider text-slate-400">{l}</div>
+        <section aria-labelledby="discover-h" className="border-t border-[var(--az-hairline)]">
+          <div className={`${wrap} py-20`}>
+            <div className="flex flex-wrap items-end justify-between gap-5">
+              <div>
+                <p className={eyebrow}>Discover</p>
+                <h2 id="discover-h" className={h2}>Communities you can join today</h2>
+                <p className="mt-3 max-w-2xl leading-relaxed text-slate-300">Public communities are open to everyone. Private ones accept members by request. Closed communities are invitation-only and never listed.</p>
+              </div>
+              <Link to="/explore" className="btn btn-ghost min-h-11">See all communities</Link>
+            </div>
+            <div className="mt-8">
+              {status === 'loading' && <CardSkeletons n={6} />}
+              {status === 'error' && <LoadError message={message} onRetry={retry} />}
+              {status === 'ready' && shown.length === 0 && <NoCommunities>No public communities yet. Create an account to start one.</NoCommunities>}
+              {status === 'ready' && shown.length > 0 && (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+                  {shown.map((c) => <CommunityCard key={c.id} c={c} />)}
+                </div>
+              )}
+            </div>
           </div>
-        ))}
-      </section>
+        </section>
 
-      <section id="features" className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:px-6">
-        <h2 className="max-w-xl text-3xl font-extrabold tracking-tight sm:text-4xl">Everything your network needs, built in.</h2>
-        <p className="mt-3 max-w-xl text-slate-400">No third-party tools to stitch together. Wall, groups, events, channels, forums and manuals share one login and one directory.</p>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map(([icon, title, text]) => (
-            <article key={title} className="glass p-6 transition hover:-translate-y-0.5">
-              <div className="brand-gradient grid h-12 w-12 place-items-center rounded-xl text-xl">{icon}</div>
-              <h3 className="mt-4 font-bold">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="stories" className="relative z-10 mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-        <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">What alumni say</h2>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {testimonials.map(([name, meta, quote]) => (
-            <figure key={name} className="glass p-6">
-              <blockquote className="text-[15px] leading-relaxed text-slate-200">“{quote}”</blockquote>
-              <figcaption className="mt-5 text-sm"><b>{name}</b><div className="text-slate-400">{meta}</div></figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
-
-      <section className="relative z-10 mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <div className="brand-gradient flex flex-col items-start justify-between gap-6 rounded-3xl p-8 sm:flex-row sm:items-center sm:p-12">
-          <div>
-            <h2 className="text-2xl font-extrabold sm:text-3xl">Find your batch today</h2>
-            <p className="mt-2 text-white/85">Free, open to every alumnus, and it takes under a minute.</p>
+        <section aria-labelledby="about-h" className="border-t border-[var(--az-hairline)] bg-[var(--az-sidebar)]">
+          <div className={`${wrap} py-20`}>
+            <p className={eyebrow}>What you can do</p>
+            <h2 id="about-h" className={h2}>Everything a community needs, in one account</h2>
+            <ul className="mt-8 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+              {CAPABILITIES.map(([icon, title, text]) => (
+                <li key={title} className="flex flex-col gap-3 rounded-xl border border-[var(--az-hairline)] p-5">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--az-hairline)] bg-[var(--az-surface)] text-brand-300"><Icon name={icon} /></span>
+                  <h3 className="font-semibold text-white">{title}</h3>
+                  <p className="text-sm leading-relaxed text-slate-300">{text}</p>
+                </li>
+              ))}
+            </ul>
           </div>
-          <Link to="/signup" className="btn h-12 bg-white px-6 text-ink-900 hover:bg-white/90">Join free</Link>
-        </div>
-      </section>
+        </section>
 
-      <footer className="relative z-10 border-t border-white/5">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-slate-500 sm:flex-row sm:px-6">
-          <Logo size={28} />
-          <p>© {new Date().getFullYear()} CommunityOne. One Platform. Every Community.</p>
-        </div>
-      </footer>
+        <section id="how" aria-labelledby="how-h" className="scroll-mt-4 border-t border-[var(--az-hairline)]">
+          <div className={`${wrap} py-20`}>
+            <p className={eyebrow}>How it works</p>
+            <h2 id="how-h" className={h2}>From first visit to giving back</h2>
+            <ol className="mt-8 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+              {STEPS.map(([title, text], i) => (
+                <li key={title} className="glass flex flex-col gap-2 p-5">
+                  <span className="text-sm font-bold text-brand-300">{String(i + 1).padStart(2, '0')}</span>
+                  <h3 className="font-semibold text-white">{title}</h3>
+                  <p className="text-sm leading-relaxed text-slate-300">{text}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {alumni && (
+          <section aria-labelledby="featured-h" className="border-t border-[var(--az-hairline)] bg-[var(--az-sidebar)]">
+            <div className={`${wrap} flex flex-wrap items-center gap-10 py-20`}>
+              <div className="min-w-0 flex-[1_1_420px]">
+                <p className={eyebrow}>Featured community</p>
+                <h2 id="featured-h" className={h2}>{alumni.name} lives on CommunityOne</h2>
+                <p className="mt-3 max-w-xl leading-relaxed text-slate-300">
+                  {alumni.name} is one of the communities on CommunityOne. Its members keep their profiles, connections, discussions and events, and can join other communities with the same account.
+                </p>
+                <div className="mt-6"><Link to="/explore" className="btn btn-ghost min-h-11">Explore Communities</Link></div>
+              </div>
+              <div className="glass flex min-w-0 flex-[1_1_380px] flex-col gap-4 p-5">
+                <div className="flex items-center gap-3">
+                  <CommunityTile name={alumni.name} accent />
+                  <div><div className="font-semibold text-white">{alumni.name}</div>
+                    <div className="text-xs text-slate-400">{[alumni.category, alumni.visibility === 'private' ? 'Private' : 'Public', plural(alumni.memberCount)].filter(Boolean).join(' · ')}</div></div>
+                </div>
+                {alumni.upcomingEvents?.length > 0
+                  ? (
+                    <ul className="flex flex-col gap-2.5 border-t border-[var(--az-hairline)] pt-3 text-sm">
+                      {alumni.upcomingEvents.map((e) => (
+                        <li key={e.id} className="flex justify-between gap-3"><span className="text-slate-200">{e.title}</span><span className="shrink-0 text-xs text-slate-400">{eventWhen(e)}</span></li>
+                      ))}
+                    </ul>
+                  )
+                  : <p className="border-t border-[var(--az-hairline)] pt-3 text-sm text-slate-400">No upcoming public events right now.</p>}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section aria-labelledby="cta-h" className="border-t border-[var(--az-hairline)]">
+          <div className={`${wrap} flex flex-col items-center gap-4 py-24 text-center`}>
+            <h2 id="cta-h" className="text-[34px] font-bold tracking-tight text-white sm:text-[44px]">Your community is waiting.</h2>
+            <p className="max-w-xl text-slate-300">Find a community that shares your interests, goals and ideas.</p>
+            <Link to="/explore" className="btn btn-primary mt-2 min-h-12 !px-5 text-[15px]">Explore Communities</Link>
+          </div>
+        </section>
+      </main>
+      <PublicFooter />
     </div>
   );
 }
 
-function HeroPreview() {
+/** Hero visual: a few real communities as cards. Decorative (the list below is the real one). */
+function HeroCommunities({ status, alumni, others }) {
+  if (status !== 'ready' || (!alumni && !others.length)) {
+    return <div aria-hidden="true" className="hidden min-h-[260px] min-w-0 flex-[1_1_420px] rounded-xl border border-dashed border-[var(--az-hairline)] lg:block" />;
+  }
+  const lead = alumni ?? others[0];
+  const rest = others.filter((c) => c.id !== lead.id).slice(0, 2);
   return (
-    <div className="relative mx-auto w-full max-w-md" aria-hidden="true">
-      <div className="glass p-5">
+    <div className="grid min-w-0 flex-[1_1_420px] grid-cols-2 gap-3.5" aria-hidden="true">
+      <div className="glass col-span-2 flex flex-col gap-3 p-5">
         <div className="flex items-center gap-3">
-          <span className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-500 to-brand-500" />
-          <div><div className="text-sm font-semibold">Sara Thomas</div><div className="text-xs text-slate-400">Announcement · 2h</div></div>
-          <span className="chip ml-auto !bg-amber-400/15 !text-amber-200">Mandatory read</span>
+          <CommunityTile name={lead.name} accent />
+          <div className="min-w-0"><div className="font-semibold text-white">{lead.name}</div><div className="text-xs text-slate-400">{plural(lead.memberCount)}</div></div>
         </div>
-        <p className="mt-4 text-sm text-slate-200">The Annual Alumni Homecoming is confirmed for next month! 🎉</p>
-        <div className="mt-4 flex gap-4 text-xs text-slate-400"><span>❤️ 24</span><span><Glyph value="💬" tile={false} size={16} /> 8</span><span><Glyph value="✅" tile={false} size={16} /> 112 acknowledged</span></div>
+        {lead.upcomingEvents?.[0] && <div className="text-xs text-slate-300">{lead.upcomingEvents[0].title} · {eventWhen(lead.upcomingEvents[0])}</div>}
       </div>
-      <div className="glass absolute -bottom-10 -right-4 w-56 p-4 sm:-right-10">
-        <div className="text-xs font-semibold uppercase tracking-wider text-brand-400">Next event</div>
-        <div className="mt-1 font-semibold">Bengaluru Meet-up</div>
-        <div className="text-xs text-slate-400">Cubbon Park · 18 going</div>
-      </div>
+      {rest.map((c) => (
+        <div key={c.id} className="glass flex min-w-0 flex-col gap-2 p-4">
+          <div className="flex items-center gap-2.5"><CommunityTile name={c.name} size={36} /><div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{c.name}</div><div className="text-xs text-slate-400">{plural(c.memberCount)}</div></div></div>
+          {c.upcomingEvents?.[0] && <div className="truncate text-xs text-slate-400">{c.upcomingEvents[0].title}</div>}
+        </div>
+      ))}
     </div>
   );
 }

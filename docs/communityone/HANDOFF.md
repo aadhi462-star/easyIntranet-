@@ -57,11 +57,13 @@ Server is the authority; legacy screens still read the local store. `lib/api.js`
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — redesign Stage 1 done (committed, not pushed)
+## Where we stopped — redesign Stage 2 done (committed, not pushed)
 
-Stage 0 review approved (R1–R8, canvas: https://claude.ai/artifact/1HEFyv7gXgWW2sHfqbc5rw). Stage 1 (tokens, outline icons, app shell, branding) is built and browser-checked; see §14.
+Stages 1–2 are built and browser-checked (§14). Public site: `src/components/public/*`, `src/pages/{Landing,Explore,About,Help,Privacy,Terms,Contact}.jsx`, `src/lib/public.js`; server `routes/public.js`; default-community join in `lib/community.js` (`joinDefaultCommunity`, called from email verify and admin approve).
 
-Next: **redesign Stage 2 — public website**: landing page and public Explore on real data, About / How it works, auth and onboarding screens per the brief. Server work in it: R7 public discovery endpoint (Public + Private only, no members or content) and R5 auto-join AlumniZone on email confirmation. Then Stage 3 (Home, Explore, My Communities, community pages incl. AlumniZone at `/c/:slug` with redirects, Profile, search) and R4 (merge All Hands into AlumniZone, reversible).
+Waiting on the user: Terms of Service text and a contact address (the pages say they aren't published yet).
+
+Next: **redesign Stage 3 — core application**: Home, Explore and My Communities in the new layout; community pages for every community incl. AlumniZone at `/c/:slug` (old `/groups/:id` and `/feed/wall` redirect; change `communityPath`); community header/tabs per the wireframe; Profile; global search on the server (SRC-01/02/05); R4 (merge All Hands into AlumniZone, reversible); onboarding after sign-up (profile basics, choose communities).
 
 ## Working style that's been effective
 

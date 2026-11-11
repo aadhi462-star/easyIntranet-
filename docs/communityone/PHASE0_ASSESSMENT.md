@@ -428,3 +428,23 @@ Bugs found and fixed while testing:
 
 Kept on purpose until later stages: notifications (still in-browser data), the old Explore page for signed-out visitors (Stage 2), group cover gradients and emoji community logos (Stage 3), admin "module order" settings (Stage 7).
 
+### Redesign Stage 2 — public website (11 Nov 2026)
+
+Built:
+- **Public discovery (R7):** `GET /api/public/communities` (no sign-in, rate-limited): Public and Private active communities with category, description and a member count of active accounts; categories only from listed communities; upcoming open events for Public communities only (repeating events at their next date). Never Closed, archived or suspended communities, member lists, emails or content.
+- **Default community (R5):** an account joins AlumniZone when it becomes active (email confirmed, or approved by an admin when approval is on). Someone who left, was removed or blocked is never re-added.
+- **Public site:** new landing page on real data (hero, discovery cards with Join / Request to join, capabilities, how it works, AlumniZone featured with its real events, final CTA, footer); public Explore with search and category chips; About, Help and Support, and a factual Privacy page; Terms and Contact say honestly that the operating organisation hasn't published them yet. Shared header (phone menu) and footer. Signed-in visitors opening /explore go to Discover.
+- **Intended destination:** a visitor's chosen community survives sign-up: it's kept in this browser for a day and used once after the email is confirmed (the confirmation usually opens in a new tab). Sign-in and sign-up tabs keep `?next=`; `?next=` now also rejects backslashes (the react-router open-redirect pattern).
+- Sign-up copy is platform-level ("Create your CommunityOne account").
+
+Tested: 132 server tests (7 new in `public.test.js`; mutation check: removing the Closed filter or the invite-only filter makes VIS-04 / EVT-08 fail). Browser: landing with real data and no console errors; every header/footer link resolves; How It Works scrolls; About/Help/Privacy/Terms/Contact/Explore each have one h1, a title and no overflow; Explore search; signed-out Join on Bengaluru Chapter → sign-up → confirmation link opened in a new tab → lands on Bengaluru Chapter, signed in, already an AlumniZone member, Home not empty; phone width with the header menu.
+
+Bugs found and fixed while testing: Explore announced the whole result grid to screen readers on every keystroke (now only the count); page titles read "About CommunityOne · CommunityOne".
+
+Not done / open:
+- the Explore error state and "Try again" weren't exercised in the browser (SRC-06 stays Not run);
+- Terms of Service and a contact address must come from the organisation running CommunityOne;
+- "All Hands" still appears as a community until R4 (Stage 3);
+- sign-up still asks for graduation year and department (alumni fields) — to revisit with onboarding in Stage 3;
+- the account data export exists in the API but has no button yet.
+

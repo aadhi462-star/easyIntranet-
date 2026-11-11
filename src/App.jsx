@@ -95,6 +95,10 @@ export default function App() {
         <Route path="/login" element={me ? <Navigate to="/dashboard" replace /> : <Login />} />
         <Route path="/signup" element={me ? <Navigate to="/dashboard" replace /> : <Signup />} />
         <Route path="/explore" element={<Explore />} />
+        {['About', 'Help', 'Privacy', 'Terms', 'Contact'].map((name) => {
+          const Page = page(name);
+          return <Route key={name} path={`/${name.toLowerCase()}`} element={<Suspense fallback={null}><Page /></Suspense>} />;
+        })}
         <Route path="/invite/:code" element={<Invite />} />
         <Route path="/verify" element={<VerifyEmail />} />
         <Route path="/reset" element={<ResetPassword />} />

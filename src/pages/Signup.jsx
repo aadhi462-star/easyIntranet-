@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { Field } from '../components/ui.jsx';
 import { api, newKey } from '../lib/api.js';
-import { AuthShell, EMAIL_RE, stashProfile } from './Login.jsx';
+import { AuthShell, EMAIL_RE, nextPath, stashNext, stashProfile } from './Login.jsx';
 
 const DEPTS = ['Computer Science', 'Electronics', 'Electrical', 'Mechanical', 'Civil', 'Chemical', 'Business', 'Design', 'Other'];
 
 export default function Signup() {
   const { state } = useStore();
+  const { search } = useLocation();
   // The server decides whether sign-ups are open; the guidelines text still comes from settings.
   const [server, setServer] = useState(null);
   useEffect(() => { api('/auth/registration').then(setServer).catch(() => setServer({ open: true })); }, []);
@@ -32,6 +33,7 @@ export default function Signup() {
     busyRef.current = true; setBusy(true);
     try {
       await api('/auth/register', { method: 'POST', idempotencyKey: keyRef.current, body: { name: form.name.trim(), email, password: form.password, acceptedGuidelines: true } });
+      stashNext(email, nextPath(search));
       stashProfile(email, { batch: Number(form.batch) || null, dept: form.dept, city: form.city.trim() });
       setSentTo(email);
     } catch (err) {
@@ -68,8 +70,8 @@ export default function Signup() {
   return (
     <AuthShell mode="signup">
       <form onSubmit={submit} className="p-7 sm:p-8" noValidate>
-        <h2 className="text-2xl font-semibold">Join the community</h2>
-        <p className="mt-2 text-sm text-slate-300">Free and open to every alumnus. Takes under a minute.</p>
+        <h2 className="text-2xl font-semibold">Create your CommunityOne account</h2>
+        <p className="mt-2 text-sm text-slate-300">Free to join. One account for every community you belong to.</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <div className="col-span-2"><Field label="Full name"><input className="input" value={form.name} onChange={set('name')} autoComplete="name" /></Field></div>
           <div className="col-span-2"><Field label="Email"><input className="input" type="email" value={form.email} onChange={set('email')} autoComplete="email" placeholder="you@example.com" /></Field></div>

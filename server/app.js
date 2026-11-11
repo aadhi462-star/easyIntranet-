@@ -17,6 +17,7 @@ import communityRoutes from './routes/communities.js';
 import postRoutes from './routes/posts.js';
 import eventRoutes from './routes/events.js';
 import dashboardRoutes from './routes/dashboard.js';
+import publicRoutes from './routes/public.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
   const app = Fastify({
@@ -69,6 +70,7 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   await app.register(postRoutes, { prefix: '/api', ctx });
   await app.register(eventRoutes, { prefix: '/api', ctx });
   await app.register(dashboardRoutes, { prefix: '/api', ctx });
+  await app.register(publicRoutes, { prefix: '/api', ctx });
   if (process.env.NODE_ENV !== 'production') await app.register(devRoutes, { prefix: '/api/dev', ctx });
 
   if (staticDir) {

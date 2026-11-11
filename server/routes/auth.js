@@ -2,6 +2,7 @@
 // deactivate/reactivate → delete. Edge cases REG-01…18 are referenced where they're handled.
 import { UNIQUE_VIOLATION } from '../db/index.js';
 import { audit } from '../lib/audit.js';
+import { joinDefaultCommunity } from '../lib/community.js';
 import { hashPassword, newId, newToken, passwordProblem, sha256, verifyPassword } from '../lib/crypto.js';
 import { badRequest, conflict, forbidden, HttpError, unauthorized } from '../lib/errors.js';
 import { endSession, idempotent, revokeAllSessions, startSession } from '../lib/session.js';
@@ -102,6 +103,7 @@ export default async function authRoutes(app, { ctx }) {
           `update users set email_verified_at = coalesce(email_verified_at, now()),
                   status = case when status = 'unverified' then $2 else status end, updated_at = now(), version = version + 1
             where id = $1 returning *`, [userId, reg.requireApproval ? 'pending_approval' : 'active']);
+        if (rows[0].status === 'active') await joinDefaultCommunity(t, userId);
         return rows[0];
       });
       await audit(db, { actorId: user.id, action: 'account.verify_email', targetType: 'user', targetId: user.id, ip: req.ip });

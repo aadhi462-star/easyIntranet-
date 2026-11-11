@@ -42,16 +42,35 @@ export function takeProfile(email) {
   return undefined;
 }
 
+// Where a visitor was heading when they chose to sign up (e.g. a community's Join button). The
+// confirmation email usually opens in a new tab, so it waits in localStorage (this browser,
+// one day) and is used once, after the email is confirmed.
+const AFTER_SIGNUP = 'c1:after-signup';
+const internal = (p) => typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') && !p.includes('\\');
+export function stashNext(email, next) {
+  if (!internal(next)) return;
+  try { localStorage.setItem(AFTER_SIGNUP, JSON.stringify({ email: email.toLowerCase(), next, at: Date.now() })); } catch { /* optional */ }
+}
+export function takeNext(email) {
+  try {
+    const v = JSON.parse(localStorage.getItem(AFTER_SIGNUP) || 'null');
+    localStorage.removeItem(AFTER_SIGNUP);
+    if (v && v.email === String(email).toLowerCase() && Date.now() - v.at < 864e5 && internal(v.next)) return v.next;
+  } catch { /* optional */ }
+  return null;
+}
+
 /** Where to go after signing in: the page the visitor was trying to reach, if it's internal. */
 export function nextPath(search) {
   const next = new URLSearchParams(search).get('next');
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+  return internal(next) ? next : '/dashboard';
 }
 
 /** Sign in / Join switch shown at the top of the auth card. */
 function AuthTabs({ mode }) {
+  const { search } = useLocation();
   const tab = (to, id, label) => (
-    <Link to={to} aria-current={mode === id ? 'page' : undefined}
+    <Link to={`${to}${search}`} aria-current={mode === id ? 'page' : undefined}
       className={`grid min-h-10 flex-1 place-items-center rounded-xl text-sm font-semibold transition ${mode === id ? 'bg-accent-fill shadow' : 'text-slate-300 hover:text-white'}`}>
       {label}
     </Link>
