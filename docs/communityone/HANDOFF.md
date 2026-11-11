@@ -20,6 +20,21 @@ D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real
 - **S4-5:** notification emails have default settings members can change.
 - **S4-6:** there's no malware scanner. Only safe file types are allowed, and that's recorded as a known gap (FIL-04).
 
+**Stage 5 decisions, approved by the user on 11 Nov 2026** (by asking to start building Stage 5):
+- **D1:** Owners and Admins build courses, plus members they assign as Instructor for one course (LMS-14).
+- **D2:** lessons are text, files from the Stage 4 store and outside links. There's no video hosting; a video is a link.
+- **D3:** enrolment is open to members, with an optional capacity and the events-style waitlist.
+- **D4:** leaving the community ends course access; progress is kept and comes back on rejoin (LMS-09).
+- **D5:** Unpublish stops new enrolments only. A course with learners can only be archived, not deleted (LMS-01/03).
+- **D6:** edits after someone completes a course keep their completion. New lessons show as "New" and aren't required for them (LMS-04).
+- **D7 (5b):** multiple-choice quizzes with an attempt limit (default 3), best score, server-side deadlines.
+- **D8 (5b):** certificates are issued automatically, each with a verification code. The check page shows only name, course, community, date and code.
+- **Extra rules on the boards, adopted:**
+  - courses can be "Hidden from the catalogue (link only)"
+  - there's no course builder on phones in 5a
+  - grading has Save draft and Return to learner
+  - quiz answers are saved as you go
+
 ## Run / test
 
 ```bash
