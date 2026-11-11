@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (12 Nov 2026, after Stage 5b)
+# CommunityOne — Session handoff (12 Nov 2026, after Stage 6)
 
 Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -80,7 +80,7 @@ Server is the authority; legacy screens still read the local store. `lib/api.js`
 
 **Still on local data:** TownHalls (parked), Dashboard widget layout (per-user pref), Search index (incl. events), Admin screens (Members, Moderation, settings UI), scheduler/workflow runners, signed-out Explore, admin data export/analytics (read old `state.events`), notifications.
 
-## Where we stopped — Stage 5 done (12 Nov 2026)
+## Where we stopped — Stage 6 done (12 Nov 2026)
 
 Stages 1–3 are built and browser-checked (§14). Stage 3: community pages `src/pages/Community.jsx` (`/c/:slug`, tabs; old `/groups/:id` and `/feed/wall` redirect), `src/pages/Groups.jsx` (My Communities / Explore from `GET /communities`), `src/pages/Search.jsx` + `server/routes/search.js`, `src/pages/Welcome.jsx` (onboarding; gate in `App.jsx` `Protected`), profile in `src/pages/People.jsx`. R4: migration `006_core.sql`, `server/lib/merge.js`, `server/scripts/undo-merge.mjs`; the seed merges All Hands (g0) once.
 
@@ -120,7 +120,13 @@ On the design canvas, pages "Stage 6 — Management" (S6Plan, S6Manage, S6Modera
 - Stage 6 needs new server tables: reports, cases (snapshot + history), sanctions, appeals, deletion_requests, daily community_stats. There is no reporting at all yet.
 - Stage 7 replaces the old local-data admin screens (Members, Moderation, Analytics) and adds the deletion job (30-day restore), announcements, sessions and fresh-password checks.
 
-**Next:** the user's decisions on Stage 6 and 7, then build Stage 6, then Stage 7, then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
+### Stage 6: built and browser-checked
+Details in PHASE0_ASSESSMENT.md ("Redesign Stage 6 — community management"); MOD, DEL, ANL, SET, MEM rows in the register.
+- Server: `011_moderation.sql` (moderation_cases, reports, case_events, sanctions, appeals, deletion_requests; removed_at on comments/events/posts), `server/routes/moderation.js` (reports, cases, decide/restore, appeals, member sanctions, `liftExpiredRestrictions` in the job runner), `server/routes/manage.js` (deletion requests, analytics + CSV), 20 tests in `server/test/moderation.test.js`. Full suite: 230 pass.
+- Client: `src/components/manage/` (Manage, Cases, ManageMembers, Analytics, Report), `src/pages/Notice.jsx`, `src/lib/manage.js`. The community page's Settings tab became Manage (`/c/:slug/manage/:section`); `CommunityView` now compares the real address to rewrite old ones.
+- Rules to keep: a case's audience is fixed at the first report (D1); moderators' removals of replies/events set `deleted_at` too, so existing queries hide them; reporters are never named in the review.
+
+**Next:** Stage 7 (platform administration). Its decisions D1–D8 on S7Plan still need the user's approval before building. Then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
 
 ## Working style that's been effective
 

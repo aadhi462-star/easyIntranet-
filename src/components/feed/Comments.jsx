@@ -4,6 +4,7 @@ import { newKey } from '../../lib/api.js';
 import { addComment, authorUser, deleteComment, errorText, loadComments } from '../../lib/feed.js';
 import { Avatar } from '../ui.jsx';
 import RichText from './RichText.jsx';
+import ReportDialog from '../manage/Report.jsx';
 import { AuthorName } from './PostCard.jsx';
 
 const MAX = 2000;
@@ -13,7 +14,8 @@ const MAX = 2000;
  * Deleted comments stay as placeholders so their replies keep their thread.
  */
 export default function Comments({ post }) {
-  const { user } = useStore();
+  const { user, me } = useStore();
+  const [reporting, setReporting] = useState(null);
   const isQ = post.type === 'question';
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -84,6 +86,7 @@ export default function Comments({ post }) {
             <div className="mt-1 flex flex-wrap gap-1 text-xs text-3">
               {!depth && <button className="min-h-8 rounded px-2 hover:bg-white/5" onClick={() => { setReplyTo(c.id); setReply(''); }}>Reply</button>}
               {c.can?.delete && <button className="min-h-8 rounded px-2 text-rose-300 hover:bg-white/5" disabled={busy} onClick={() => remove(c)}>Delete</button>}
+              {me && c.author?.id && c.author.id !== me.id && <button className="min-h-8 rounded px-2 hover:bg-white/5" onClick={() => setReporting(c.id)}>Report</button>}
             </div>
             {kids.length > 0 && <ul>{kids.map((r) => item(r, 1))}</ul>}
             {replyTo === c.id && (
@@ -107,6 +110,7 @@ export default function Comments({ post }) {
         <input className="input !py-2 text-sm" maxLength={MAX} placeholder={isQ ? 'Write an answer…' : 'Write a comment…'} value={text} onChange={(e) => setText(e.target.value)} aria-label={isQ ? 'Answer' : 'Comment'} />
         <button className="btn btn-primary" disabled={busy || !text.trim()}>{isQ ? 'Answer' : 'Send'}</button>
       </form>
+      {reporting && <ReportDialog targetType="comment" targetId={reporting} communityId={post.communityId} communityName={post.community?.name} onClose={() => setReporting(null)} />}
     </div>
   );
 }

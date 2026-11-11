@@ -732,3 +732,38 @@ Built to the approved boards (S5Quiz, S5Grading, S5Certificate) and decisions D7
   - A published course can gain an empty quiz; publish checks only at publish time, and learners see "no questions yet".
   - The grading lock between two instructors is covered by tests, not checked in the browser.
 - **Seen, not changed:** signing in through `/login?next=…` while already signed in goes to Home, not to `next`.
+
+### Redesign Stage 6 — community management (12 Nov 2026)
+
+Built to the approved boards (design canvas page "Stage 6 — Management") and decisions D1–D8, approved by the user on 12 Nov.
+
+- **Server** (`011_moderation.sql`, `routes/moderation.js`, `routes/manage.js`, 20 tests; full suite 230):
+  - **Reports and cases:** reports on posts, replies, events and members join one case per item, with a snapshot taken at the first report. Who reviews follows D1. Reporters are numbered, never named.
+  - **Reviewing:** opening a case takes a 30-minute lock that stops counting if its holder loses the role.
+  - **Decisions (D3):** dismiss, remove (restorable 30 days), warn, restrict (1/7/30 days or until lifted; lifts on its own through the job runner), remove from community, block. Each needs a reason, is recorded in the case history, and notifies the person and the reporters.
+  - **Appeals (D4):** one per decision, within 14 days, decided by an Owner or Admin who didn't take the action; overturning undoes it.
+  - **Members:** sanction and lift from the members list, with rank rules. Removed members can ask again after 7 days.
+  - **Deletion requests (D6):** Owners only, with the name typed to confirm.
+  - **Analytics (D7):** computed live from complete days, rather than nightly stats rows. Bounded to 90 days per community, the result is the same with less to keep in sync.
+- **Client:**
+  - **Manage tab** (`components/manage/Manage.jsx`, `/c/:slug/manage/:section`): Overview, Queue (reports, held posts, join requests, appeals, decided), Members (`ManageMembers.jsx`), Analytics (`Analytics.jsx`), Settings with Danger Zone. Owners open on Overview; Admins and Moderators on the Queue.
+  - **Report dialog** (`Report.jsx`) on posts, replies, events and Members-tab rows.
+  - **Notice page** (`pages/Notice.jsx`, `/notices/:id`) with the appeal form.
+  - **Settings:** the brief's section names with locked platform rows and an unsaved-changes bar. The old `/settings` addresses move to Manage → Settings.
+  - The Members tab is now a directory; staff manage people from Manage → Members.
+- **Browser, 1280 and 375 px:**
+  - **Report and decide:** Priya reported Karthik's post from its menu, and Ishita reported it too; Sara saw one case with both reports, "as reported" and "now", and removed it with a warning and a reason.
+  - **Notice and appeal:** Karthik got the notification and the notice page, and appealed. The appeal reached Aisha, not Sara; Aisha undid it on a phone and the post came back.
+  - **Members, analytics, settings:** Aisha restricted Rohan for 7 days ("Restricted until 19 Nov"). Analytics showed real figures. The Settings unsaved bar appeared, and Sara sent a deletion request (withdrawn through the API afterwards).
+- **Fixed while checking:**
+  - Settings crashed for AlumniZone, because it stores no module list. The crash was already there before Stage 6.
+  - The queue counts didn't refresh after a decision.
+  - Old addresses like `/settings` weren't rewritten to the new address.
+- **Not built or limits:**
+  - Settings sections for Branding, Roles and permissions, Learning, Events and resources, and Notifications.
+  - Invitations (MEM-11/12/14).
+  - Members CSV export.
+  - Report on the profile page (it's on Members-tab rows) and on event comments.
+  - A notice page for sanctions applied from the Members list (the in-app line only).
+  - Withdrawing a deletion request through its confirm dialog wasn't clicked in the browser (covered by tests).
+  - Stage 7 handles deciding deletion requests, the moderation centre (reports about Owners, appeals no one can decide) and MOD-10 exports.

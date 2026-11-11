@@ -3,6 +3,9 @@ import { fmtDate, useStore } from '../../lib/store.jsx';
 import { Avatar, UserLink } from '../ui.jsx';
 import { RANK, roleOf } from './helpers.js';
 import { communityApi } from '../../lib/communities.js';
+import { managePath } from '../../lib/manage.js';
+import { Link } from 'react-router-dom';
+import ReportDialog from '../manage/Report.jsx';
 import { useChannelSync, useCommunityWrite } from './useCommunity.js';
 
 const ROLE_CHIP = { owner: '!bg-amber-500/20 !text-amber-200', admin: '!bg-leaf-500/20 !text-leaf-200', moderator: '!bg-brand-500/15 !text-brand-200', member: '' };
@@ -16,6 +19,7 @@ export default function Members({ group, perms }) {
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(null);
   const [heir, setHeir] = useState('');
+  const [reporting, setReporting] = useState(null);
   const myRole = roleOf(group, me.id);
   const isOwner = myRole === 'owner';
   const archived = group.status === 'archived';
@@ -28,14 +32,6 @@ export default function Members({ group, perms }) {
     try { return await run(group.id, fn, opts); } finally { setBusy(null); }
   };
   const setRole = (id, role) => act(`role-${id}`, () => communityApi.setMember(group.id, id, { role }), { ok: `${user(id)?.name ?? 'Member'} is now ${role === 'admin' ? 'an admin' : `a ${role}`}` });
-  const restrict = (id) => {
-    if (!confirm(`Restrict ${user(id)?.name}? They stay in ${group.name} and can read it, but can’t post or comment.`)) return;
-    act(`restrict-${id}`, () => communityApi.setMember(group.id, id, { state: 'restricted' }), { ok: 'Member restricted' });
-  };
-  const remove = async (id) => {
-    if (!confirm(`Remove ${user(id)?.name} from ${group.name}?`)) return;
-    if (await act(`remove-${id}`, () => communityApi.setMember(group.id, id, { state: 'removed' }), { ok: 'Member removed' })) channels.drop(group.id, id);
-  };
   const decide = async (id, approve) => {
     if (!await act(`req-${id}`, () => communityApi.decide(group.id, id, approve), { ok: approve ? 'Request approved' : 'Request declined' })) return;
     if (approve) channels.add(group.id, [id]);
@@ -117,15 +113,16 @@ export default function Members({ group, perms }) {
                         <option value="moderator">Moderator</option><option value="member">Member</option>
                       </select>
                     )}
-                    <button className="btn btn-ghost h-9 !px-3 text-xs" onClick={() => restrict(u.id)} disabled={!!busy}>Restrict</button>
-                    <button className="btn btn-ghost h-9 !px-3 text-xs text-rose-300" onClick={() => remove(u.id)} disabled={!!busy}>Remove</button>
+                    <Link to={managePath(group, 'members')} className="btn btn-ghost h-9 !px-3 text-xs">Manage</Link>
                   </>
                 )}
+                {!manage && u.id !== me.id && perms.canView && <button className="btn btn-ghost h-9 !px-3 text-xs" onClick={() => setReporting(u.id)} aria-label={`Report ${u.name}`}>Report</button>}
               </li>
             );
           })}
         </ul>
       </section>
+      {reporting && <ReportDialog targetType="member" targetId={reporting} communityId={group.id} communityName={group.name} onClose={() => setReporting(null)} />}
     </div>
   );
 }

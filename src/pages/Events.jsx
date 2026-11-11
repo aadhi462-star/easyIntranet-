@@ -10,6 +10,7 @@ import CalendarGrid, { RangeNav, viewRange } from '../components/events/Calendar
 import EventCard, { RsvpButtons } from '../components/events/EventCard.jsx';
 import EventForm from '../components/events/EventForm.jsx';
 import SaveButton from '../components/SaveButton.jsx';
+import ReportDialog from '../components/manage/Report.jsx';
 import {
   EVENT_TYPES, TYPE_COLORS, downloadIcs, isUrl, lastOccurrence, nextOccurrence, occurrences,
   recurrenceText, scopeLabel, sectionOf, whenText,
@@ -143,6 +144,7 @@ function EventDetail({ id }) {
   const [loadError, setLoadError] = useState('');
   const [editing, setEditing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [tab, setTab] = useState('going');
   const [comment, setComment] = useState('');
   const [posting, setPosting] = useState(false);
@@ -253,6 +255,7 @@ function EventDetail({ id }) {
               {e.can.edit && <button className="btn btn-ghost" onClick={() => setEditing(true)}><Glyph value="✏️" tile={false} size={16} /> Edit</button>}
               {e.can.cancel && <button className="btn btn-ghost !text-amber-200" onClick={() => setCancelling(true)}>🚫 Cancel event</button>}
               {e.can.delete && <button className="btn btn-ghost !text-rose-300" onClick={remove}>🗑 Delete</button>}
+              {e.hostId !== me.id && <button className="btn btn-ghost" onClick={() => setReporting(true)}>⚑ Report</button>}
             </div>
           </div>
         </div>
@@ -308,6 +311,7 @@ function EventDetail({ id }) {
 
       {editing && <EventForm initial={e} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); }} />}
       {cancelling && <CancelEvent event={e} onClose={() => setCancelling(false)} />}
+      {reporting && <ReportDialog targetType="event" targetId={e.id} communityId={e.communityId} communityName={e.community?.name} onClose={() => setReporting(false)} />}
     </div>
   );
 }

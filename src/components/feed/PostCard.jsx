@@ -14,6 +14,7 @@ import Comments from './Comments.jsx';
 import Composer from './Composer.jsx';
 import { AckBox } from './Mandatory.jsx';
 import RichText from './RichText.jsx';
+import ReportDialog from '../manage/Report.jsx';
 import { followingIds, GUEST } from './utils.js';
 
 /** The author's name: a profile link, or plain "Deleted member". */
@@ -117,6 +118,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
                 {can.edit && item('✏️ Edit', () => setModal('edit'))}
                 {can.moderate && !mine && status === 'published' && item('🛡️ Remove post', remove, 'text-rose-300')}
                 {can.delete && item('🗑️ Delete', () => del(), 'text-rose-300')}
+                {!mine && status === 'published' && item('⚑ Report', () => setModal('report'))}
               </div>
             )}
           </div>
@@ -208,6 +210,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
       {status === 'published' && !embedded && !guest && showComments && <Comments post={post} />}
 
       {modal === 'edit' && <Modal title="Edit post" onClose={close} wide><Composer initial={post} onDone={close} /></Modal>}
+      {modal === 'report' && <ReportDialog targetType="post" targetId={post.id} communityId={post.communityId} communityName={post.community?.name} onClose={close} />}
     </article>
   );
 }

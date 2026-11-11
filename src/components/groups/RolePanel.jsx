@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { communityApi, communityPath, errorText } from '../../lib/communities.js';
+import { managePath } from '../../lib/manage.js';
 import { approvePost, removePost, useServerFeed } from '../../lib/feed.js';
 import { timeAgo } from '../../lib/store.jsx';
 import { useCommunityWrite } from './useCommunity.js';
@@ -36,8 +37,8 @@ function OwnerHealth({ g }) {
   if (h.status === 'error') return <p role="alert" className="band p-4 text-sm text-rose-300">{h.message}</p>;
   const d = h.data;
   const steps = [
-    ['Write a description', !!g.description, communityPath(g, 'settings')],
-    ['Write community guidelines', !!g.guidelines, communityPath(g, 'settings')],
+    ['Write a description', !!g.description, managePath(g, 'settings')],
+    ['Write community guidelines', !!g.guidelines, managePath(g, 'settings')],
     ['Invite your first members', g.memberCount > 1, communityPath(g, 'members')],
     ['Create your first event', d.events > 0, communityPath(g, 'events')],
     ['Pin a welcome post', d.pinned > 0, communityPath(g, 'discussions')],
@@ -105,25 +106,7 @@ function DecisionQueue({ g, hideWhenEmpty = false }) {
         ))}
       </div>
       <div role="tabpanel" className="px-5 py-3">
-        {tab === 'requests' && (nReq === 0
-          ? <p className="text-3 py-3 text-sm">Nothing waiting. New requests show here and in your notifications.</p>
-          : (
-            <ul className="list-rows">
-              {reqs.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center gap-3 py-3">
-                  <span className="min-w-0 flex-[1_1_220px]">
-                    <Link to={`/people/${r.id}`} className="font-semibold text-white hover:underline">{r.name}</Link>
-                    <span className="t-small"> · asked {timeAgo(Date.parse(r.updated_at))}</span>
-                    {r.message && <span className="text-2 mt-0.5 block text-sm">“{r.message}”</span>}
-                  </span>
-                  <span className="flex gap-2">
-                    <button className="btn btn-ghost" disabled={busy === r.id} onClick={() => decide(r, false)} aria-label={`Decline ${r.name}`}>Decline</button>
-                    <button className="btn btn-ghost !border-[var(--color-brand-400)] text-white" disabled={busy === r.id} onClick={() => decide(r, true)} aria-label={`Approve ${r.name}`}>Approve</button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ))}
+        {tab === 'requests' && <JoinRequests reqs={reqs} busy={busy} decide={decide} />}
         {tab === 'posts' && <ReviewQueue g={g} feed={held} />}
       </div>
     </section>
@@ -131,7 +114,7 @@ function DecisionQueue({ g, hideWhenEmpty = false }) {
 }
 
 /** Moderator: held posts in a split view: the list, and the selected post in full with its actions. */
-function ReviewQueue({ g, feed, framed = false }) {
+export function ReviewQueue({ g, feed, framed = false }) {
   const own = useServerFeed({ view: 'pending', community: g.id, keep: (p) => p.status === 'pending', enabled: !feed });
   const f = feed ?? own;
   const posts = f.posts.filter((p) => p.status === 'pending');
@@ -147,7 +130,7 @@ function ReviewQueue({ g, feed, framed = false }) {
   };
   const body = f.status === 'loading' && !posts.length ? <p className="text-3 py-3 text-sm">Loading…</p>
     : f.status === 'error' ? <p className="py-3 text-sm text-rose-300">{f.error} <button className="underline" onClick={f.reload}>Try again</button></p>
-      : !current ? <p className="text-3 py-3 text-sm">Nothing to review. Posts held for approval show here; reported posts join them in Stage 6.</p>
+      : !current ? <p className="text-3 py-3 text-sm">Nothing to review. Posts held for approval show here; reports are in Manage → Queue.</p>
         : (
           <div className="grid gap-4 py-2 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             <ul aria-label="Held posts" className="list-rows">
@@ -186,4 +169,41 @@ function ReviewQueue({ g, feed, framed = false }) {
       {body}
     </section>
   );
+}
+
+function JoinRequests({ reqs, busy, decide }) {
+  if (!reqs.length) return <p className="text-3 py-3 text-sm">Nothing waiting. New requests show here and in your notifications.</p>;
+  return (
+    <ul className="list-rows">
+      {reqs.map((r) => (
+        <li key={r.id} className="flex flex-wrap items-center gap-3 py-3">
+          <span className="min-w-0 flex-[1_1_220px]">
+            <Link to={`/people/${r.id}`} className="font-semibold text-white hover:underline">{r.name}</Link>
+            <span className="t-small"> · asked {timeAgo(Date.parse(r.updated_at))}</span>
+            {r.message && <span className="text-2 mt-0.5 block text-sm">“{r.message}”</span>}
+          </span>
+          <span className="flex gap-2">
+            <button className="btn btn-ghost" disabled={busy === r.id} onClick={() => decide(r, false)} aria-label={`Decline ${r.name}`}>Decline</button>
+            <button className="btn btn-ghost !border-[var(--color-brand-400)] text-white" disabled={busy === r.id} onClick={() => decide(r, true)} aria-label={`Approve ${r.name}`}>Approve</button>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Join requests on their own, for Manage → Queue (Stage 6). */
+export function RequestQueue({ g }) {
+  const { run } = useCommunityWrite();
+  const [reqs, setReqs] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const load = useCallback(() => api(`/communities/${encodeURIComponent(g.id)}/requests`).then((r) => setReqs(r.requests)).catch(() => setReqs([])), [g.id]);
+  useEffect(() => { load(); }, [load]);
+  const decide = async (r, approve) => {
+    setBusy(r.id);
+    try { if (await run(g.id, () => communityApi.decide(g.id, r.id, approve), { ok: approve ? `${r.name} can now take part` : 'Request declined' })) await load(); }
+    finally { setBusy(null); }
+  };
+  if (reqs === null) return <div aria-busy="true" aria-label="Loading requests" className="glass h-32 animate-pulse" />;
+  return <section aria-label="Join requests" className="glass px-5 py-2"><JoinRequests reqs={reqs} busy={busy} decide={decide} /></section>;
 }

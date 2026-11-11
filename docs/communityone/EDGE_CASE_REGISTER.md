@@ -103,7 +103,7 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | MEM-04 | P1 | 2 | Two admins approve/reject the same request simultaneously. | Persist one valid terminal outcome and record the actor/action in audit history. | Pass | server/test/communities.test.js MEM-04 |
 | MEM-05 | P0 | 2 | User is blocked but receives a new invitation. | Block status takes precedence; invitation cannot restore access unless an authorised unblock occurs. | Pass | server/test/communities.test.js removed members not silently restored |
 | MEM-06 | P1 | 2 | Community reaches its membership capacity during an approval flow. | Recheck capacity at approval time; queue or reject according to policy. | Not run | |
-| MEM-07 | P1 | 2 | User is removed and immediately tries to rejoin. | Apply cooldown/rejoin policy and clearly communicate the result. | Not run | |
+| MEM-07 | P1 | 2 | User is removed and immediately tries to rejoin. | Apply cooldown/rejoin policy and clearly communicate the result. | Pass | server/test/moderation.test.js MEM-07 (removed members can ask again after 7 days; earlier attempts are told the date) |
 | MEM-08 | P0 | 2 | User is removed from one community but still has an active session. | Revoke only that community's access immediately. | Pass | server/test/communities.test.js MEM-08 / VIS-12 |
 | MEM-09 | P0 | 2 | Owner attempts to leave without transferring ownership. | Require transfer to an eligible member or prevent leaving. | Pass | server/test/communities.test.js MEM-09 / MEM-10 |
 | MEM-10 | P0 | 2 | Last Admin leaves, is suspended or is deleted. | Require another authorised Admin/Owner or trigger recovery workflow. | Pass | server/test/communities.test.js MEM-09 / MEM-10 |
@@ -160,17 +160,17 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| MOD-01 | P1 | 2 | User reports content that has already been deleted. | Retain report context where policy allows and indicate that content is no longer available. | Not run | |
-| MOD-02 | P2 | 2 | Multiple users report the same content. | Group duplicate reports while preserving each reporter's submission and evidence. | Not run | |
-| MOD-03 | P0 | 2 | Moderator attempts to investigate a community outside assigned scope. | Deny access unless Platform Admin authority or explicit assignment applies. | Not run | |
-| MOD-04 | P1 | 2 | Moderator acts on a report that another moderator has already resolved. | Show latest state and prevent duplicate/conflicting action. | Not run | |
-| MOD-05 | P1 | 2 | Moderator issues a warning/restriction to the wrong user or content. | Require clear target context and confirmation; record reversible action history. | Not run | |
-| MOD-06 | P2 | 2 | A user appeals a moderation action. | Create an appeal record and route it to an authorised reviewer who is not improperly conflicted. | Not run | |
-| MOD-07 | P2 | 2 | Blocked keyword incorrectly flags legitimate content. | Provide review/override path and avoid irreversible automated deletion without policy basis. | Not run | |
-| MOD-08 | P1 | 2 | Spam or harmful content is posted at high volume. | Apply rate limits, detection and queue prioritisation without taking down unrelated users' content. | Not run | |
-| MOD-09 | P0 | 2 | Moderator account is suspended while cases are assigned. | Reassign open cases and revoke moderation privileges. | Not run | |
+| MOD-01 | P1 | 2 | User reports content that has already been deleted. | Retain report context where policy allows and indicate that content is no longer available. | Pass | server/test/moderation.test.js MOD-01 (deleted content can’t be reported; deleted after reporting stays open and shows “Deleted by its author”) |
+| MOD-02 | P2 | 2 | Multiple users report the same content. | Group duplicate reports while preserving each reporter's submission and evidence. | Pass | server/test/moderation.test.js MOD-02 (one case per item, each reporter’s report kept; reporting again updates it); browser 12 Nov: two reports grouped |
+| MOD-03 | P0 | 2 | Moderator attempts to investigate a community outside assigned scope. | Deny access unless Platform Admin authority or explicit assignment applies. | Pass | server/test/moderation.test.js D1 who reviews (about a Moderator → Owners only; about an Owner → Platform Admins; never about yourself) |
+| MOD-04 | P1 | 2 | Moderator acts on a report that another moderator has already resolved. | Show latest state and prevent duplicate/conflicting action. | Pass | server/test/moderation.test.js MOD-04 (30-minute review lock; LOCKED / ALREADY_DECIDED; applied once) |
+| MOD-05 | P1 | 2 | Moderator issues a warning/restriction to the wrong user or content. | Require clear target context and confirmation; record reversible action history. | Pass | server/test/moderation.test.js MOD-05 (reason required, restore within 30 days, case history); browser 12 Nov: remove and warn, then history |
+| MOD-06 | P2 | 2 | A user appeals a moderation action. | Create an appeal record and route it to an authorised reviewer who is not improperly conflicted. | Pass | server/test/moderation.test.js MOD-06 (one appeal; the person who decided can’t decide it; overturning undoes it); browser 12 Nov: Karthik appealed, Aisha undid it, Sara didn’t see it |
+| MOD-07 | P2 | 2 | Blocked keyword incorrectly flags legitimate content. | Provide review/override path and avoid irreversible automated deletion without policy basis. | Pass (by design) | No automatic removal exists; every decision is a person’s, with a reason, and restorable for 30 days |
+| MOD-08 | P1 | 2 | Spam or harmful content is posted at high volume. | Apply rate limits, detection and queue prioritisation without taking down unrelated users' content. | Pass | server/test/moderation.test.js MOD-08 (20 reports an hour per person; the 21st is refused with TOO_MANY_REPORTS) |
+| MOD-09 | P0 | 2 | Moderator account is suspended while cases are assigned. | Reassign open cases and revoke moderation privileges. | Pass | server/test/moderation.test.js MOD-09 (a Moderator who loses the role loses the queue and their hold on a case at once) |
 | MOD-10 | P0 | 2 | Moderator exports report data containing sensitive information. | Restrict export to authorised roles and log export events. | Not run | |
-| MOD-11 | P1 | 2 | Reported content is edited after report submission. | Preserve the reported snapshot/version where policy permits and show current state separately. | Not run | |
+| MOD-11 | P1 | 2 | Reported content is edited after report submission. | Preserve the reported snapshot/version where policy permits and show current state separately. | Pass | server/test/moderation.test.js MOD-11 (snapshot at the first report, current state shown beside it); browser 12 Nov: “As reported” and “Now” |
 
 ## 9. Events and Registrations
 
@@ -273,23 +273,23 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| ANL-01 | P1 | 4 | Community has zero members or no activity in selected period. | Show zero/empty states; avoid divide-by-zero or misleading percentages. | Not run | |
-| ANL-02 | P1 | 4 | One person belongs to several communities and platform unique users are calculated. | Count unique platform users once; distinguish memberships from unique people. | Not run | |
+| ANL-01 | P1 | 4 | Community has zero members or no activity in selected period. | Show zero/empty states; avoid divide-by-zero or misleading percentages. | Pass | server/test/moderation.test.js ANL-01 / a brand-new community shows zeros (no percentages; empty weeks are 0) |
+| ANL-02 | P1 | 4 | One person belongs to several communities and platform unique users are calculated. | Count unique platform users once; distinguish memberships from unique people. | Pass | server/test/moderation.test.js ANL-01 / ANL-04 (active people ≤ members: distinct people, not actions) |
 | ANL-03 | P1 | 4 | Account is deleted but historical activity remains in aggregate reports. | Apply anonymisation/retention rules and keep metrics internally consistent. | Not run | |
-| ANL-04 | P1 | 4 | Date range crosses timezone/daylight-saving boundaries. | Use defined reporting timezone and inclusive/exclusive boundaries consistently. | Not run | |
-| ANL-05 | P2 | 4 | Analytics data is delayed or partially processed. | Display last-updated time and avoid presenting partial figures as final. | Not run | |
-| ANL-06 | P0 | 4 | Moderator attempts to view revenue or unrelated platform analytics. | Deny unless separately authorised. | Not run | |
-| ANL-07 | P0 | 4 | Unauthorised user exports member-level or learner-level data. | Deny export and audit access attempts. | Not run | |
-| ANL-08 | P0 | 4 | Small-group report could identify an individual. | Suppress, aggregate or restrict the result according to privacy threshold. | Not run | |
-| ANL-09 | P0 | 4 | CSV export formula cells contain user-controlled text. | Escape formula-leading characters and prevent spreadsheet formula injection. | Not run | |
-| ANL-10 | P2 | 4 | Analytics filter is changed while export is being generated. | Bind export to a fixed filter snapshot and show the applied date range. | Not run | |
+| ANL-04 | P1 | 4 | Date range crosses timezone/daylight-saving boundaries. | Use defined reporting timezone and inclusive/exclusive boundaries consistently. | Pass | server/test/moderation.test.js ANL-01 / ANL-04 (complete days, midnight to midnight in Asia/Kolkata; today excluded) |
+| ANL-05 | P2 | 4 | Analytics data is delayed or partially processed. | Display last-updated time and avoid presenting partial figures as final. | Pass (by design) | Only complete days are counted, so a figure never changes after it’s shown; the page says “today’s figures arrive tomorrow” |
+| ANL-06 | P0 | 4 | Moderator attempts to view revenue or unrelated platform analytics. | Deny unless separately authorised. | Pass | server/test/moderation.test.js ANL-06 (Moderators and members get 404 for analytics and its CSV) |
+| ANL-07 | P0 | 4 | Unauthorised user exports member-level or learner-level data. | Deny export and audit access attempts. | Pass | server/test/moderation.test.js ANL-08 / 09 / 10 (exports recorded in the audit log); Members export not built |
+| ANL-08 | P0 | 4 | Small-group report could identify an individual. | Suppress, aggregate or restrict the result according to privacy threshold. | Pass | server/test/moderation.test.js ANL-08 (course and batch groups under 5 folded into “fewer than 5”) |
+| ANL-09 | P0 | 4 | CSV export formula cells contain user-controlled text. | Escape formula-leading characters and prevent spreadsheet formula injection. | Pass | server/test/moderation.test.js ANL-09 (cells starting = + - @ written as text) |
+| ANL-10 | P2 | 4 | Analytics filter is changed while export is being generated. | Bind export to a fixed filter snapshot and show the applied date range. | Pass | server/test/moderation.test.js ANL-10 (file named with the date range; rows for the period shown) |
 | ANL-11 | P2 | 4 | Metrics definitions change between reporting periods. | Version definitions or annotate changes to avoid misleading comparisons. | Not run | |
 
 ## 16. Community and Platform Settings
 
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| SET-01 | P0 | 2 | Community Admin tries to change a setting controlled globally. | Reject the change and explain that the setting is managed at platform level. | Not run | |
+| SET-01 | P0 | 2 | Community Admin tries to change a setting controlled globally. | Reject the change and explain that the setting is managed at platform level. | Pass (by design) | Platform rules show as “Managed by CommunityOne” with no control; the server’s settings allow-list refuses other keys (SET-08) |
 | SET-02 | P0 | 2 | Platform Admin disables a feature while a community is actively using it. | Apply documented graceful shutdown/migration behaviour; prevent new use without corrupting existing data. | Not run | |
 | SET-03 | P1 | 2 | Two admins save conflicting settings simultaneously. | Detect conflict or apply version checks; do not silently overwrite changes. | Pass | server/test/admin.test.js SET-03; server/test/communities.test.js community settings version check |
 | SET-04 | P2 | 2 | Admin changes community category while it is featured or recommended. | Update discovery metadata and dependent placements consistently. | Not run | |
@@ -297,7 +297,7 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | SET-06 | P1 | 2 | Default platform language/timezone changes after communities have configured their own values. | Preserve explicit community/user overrides; apply new defaults only where intended. | Not run | |
 | SET-07 | P0 | 2 | Settings save partially succeeds across multiple services. | Use transactional behaviour or rollback/clear partial state and communicate result. | Not run | |
 | SET-08 | P0 | 2 | User manipulates hidden settings API fields not shown in UI. | Validate permissions and allowed fields server-side; reject mass assignment. | Pass | server/test/admin.test.js SET-08 field allow-list |
-| SET-09 | P2 | 2 | Admin leaves settings page with unsaved changes. | Warn about unsaved changes and avoid accidental data loss. | Not run | |
+| SET-09 | P2 | 2 | Admin leaves settings page with unsaved changes. | Warn about unsaved changes and avoid accidental data loss. | Pass | browser 12 Nov: editing Settings shows the unsaved-changes bar (Save / Discard); leaving the page asks first |
 | SET-10 | P0 | 2 | Platform-wide security setting is changed by an unauthorised staff role. | Deny and record the attempt. | Pass | server/test/admin.test.js SET-10/PER-07 |
 
 ## 17. Community Archive, Transfer and Deletion
@@ -305,11 +305,11 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | DEL-01 | P0 | 2 | Community Admin looks for a direct permanent-delete action. | Show Request Community Deletion only; no direct delete control/API permission. | Pass | server/test/communities.test.js DEL-01 / TC-03; browser 10 Nov: Delete only for platform staff, Archive for admins |
-| DEL-02 | P1 | 2 | Admin submits the same deletion request repeatedly. | Deduplicate or link requests; do not create conflicting active requests. | Not run | |
+| DEL-02 | P1 | 2 | Admin submits the same deletion request repeatedly. | Deduplicate or link requests; do not create conflicting active requests. | Pass | server/test/moderation.test.js DEL-01 / DEL-02 / DEL-05 (one open request per community) |
 | DEL-03 | P1 | 2 | Email to Platform Admin fails after request submission. | Keep the request in the in-platform queue and flag failed delivery. | Not run | |
 | DEL-04 | P1 | 2 | Platform Admin rejects a request without a reason. | Require a reason and notify the requester. | Not run | |
-| DEL-05 | P2 | 2 | Requester wants to cancel while request is under review. | Allow cancellation only in permitted statuses and record it. | Not run | |
-| DEL-06 | P1 | 2 | New members, posts or courses are created during deletion review. | Freeze selected operations or include new changes in the review; define the policy explicitly. | Not run | |
+| DEL-05 | P2 | 2 | Requester wants to cancel while request is under review. | Allow cancellation only in permitted statuses and record it. | Pass | server/test/moderation.test.js DEL-01 / DEL-02 / DEL-05 (withdraw while open; recorded); browser 12 Nov: request sent from the Danger Zone |
+| DEL-06 | P1 | 2 | New members, posts or courses are created during deletion review. | Freeze selected operations or include new changes in the review; define the policy explicitly. | Pass (by design) | Decision D6: the community keeps working while a request waits; the Stage 7 review shows it as it is then |
 | DEL-07 | P0 | 2 | Community has active courses, learners, certificates or upcoming events. | Require impact review, learner/member communication and continuity decisions before deletion. | Not run | |
 | DEL-08 | P0 | 2 | Community has outstanding payments, refunds or financial records. | Resolve financial obligations and retain legally required records before deletion. | Not run | |
 | DEL-09 | P0 | 2 | Community has open reports or investigations. | Preserve evidence and resolve/transfer cases before permanent deletion. | Not run | |
@@ -318,7 +318,7 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | DEL-12 | P1 | 2 | Deleted community URL is accessed later. | Show a safe unavailable/removed state without leaking retained data. | Not run | |
 | DEL-13 | P0 | 2 | Deletion process fails midway across services/storage. | Use recoverable jobs, retries and status tracking; do not report complete deletion prematurely. | Not run | |
 | DEL-14 | P0 | 2 | Community is restored from backup after deletion. | Ensure restored state respects deletion requests, retention and audit/legal policy. | Not run | |
-| DEL-15 | P1 | 2 | Owner requests deletion but Platform Admin has already transferred ownership. | Revalidate requester authority and current community state before acting. | Not run | |
+| DEL-15 | P1 | 2 | Owner requests deletion but Platform Admin has already transferred ownership. | Revalidate requester authority and current community state before acting. | Pass | server/test/moderation.test.js DEL-01 (Owner only, name typed; checked again at withdrawal) |
 
 ## 18. Integrations, APIs and External Services
 

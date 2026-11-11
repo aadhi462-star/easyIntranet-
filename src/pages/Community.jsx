@@ -1,9 +1,9 @@
 // A community's page (redesign Stage 3): /c/:slug with Overview, Discussions, Learning, Events, Members,
-// About and, for admins, Settings. Every community has one, AlumniZone included. The page reads
+// About and, for its Owners, Admins and Moderators, Manage (Stage 6). Every community has one, AlumniZone included. The page reads
 // the community straight from the server (by slug or id) and re-reads it after every change, so
 // what it shows is what the server stored and what this person may see.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { setAdminScope } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
 import { accentOf, communityPath, errorText, loadCommunity, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
@@ -20,7 +20,6 @@ import JoinButton, { useLeaveGroup } from '../components/groups/JoinButton.jsx';
 import Composer from '../components/feed/Composer.jsx';
 import EventList from '../components/events/EventList.jsx';
 import Members from '../components/groups/Members.jsx';
-import Settings from '../components/groups/Settings.jsx';
 import GroupForm from '../components/groups/GroupForm.jsx';
 import AddMembers from '../components/groups/AddMembers.jsx';
 import RolePanel from '../components/groups/RolePanel.jsx';
@@ -30,6 +29,7 @@ import Catalogue from '../components/learning/Catalogue.jsx';
 import CoursePage from '../components/learning/CoursePage.jsx';
 import Builder from '../components/learning/Builder.jsx';
 import Grading from '../components/learning/Grading.jsx';
+import Manage, { useQueueCounts } from '../components/manage/Manage.jsx';
 
 const DAY = 864e5;
 const TABS = [
@@ -40,10 +40,11 @@ const TABS = [
   { id: 'resources', label: 'Resources', members: true },
   { id: 'members', label: 'Members', members: true },
   { id: 'about', label: 'About' },
-  { id: 'settings', label: 'Settings', admins: true },
+  // Stage 6: Owners, Admins and Moderators manage the community here (Settings moved inside).
+  { id: 'manage', label: 'Manage', mods: true },
 ];
 // Older addresses (/groups/:id/:app) used app names; they map onto these tabs.
-export const TAB_FOR_APP = { dashboard: 'overview', feed: 'discussions', events: 'events', members: 'members', settings: 'settings' };
+export const TAB_FOR_APP = { dashboard: 'overview', feed: 'discussions', events: 'events', members: 'members', settings: 'manage' };
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Loads one community by slug or id and reloads it whenever it changes. */
@@ -72,7 +73,9 @@ function useCommunityPage(key, admin) {
 }
 
 export default function Community() {
-  const { id: key, tab: rawTab, sub, mode } = useParams();
+  const { id: key, tab: rawTab, sub: rawSub, mode } = useParams();
+  // The old Settings tab now lives at Manage → Settings.
+  const sub = rawTab === 'settings' ? 'settings' : rawSub;
   const { me } = useStore();
   const [params] = useSearchParams();
   // Administrative Mode: platform staff open /c/:slug?admin=1 to see a community they aren't in.
@@ -102,26 +105,29 @@ export default function Community() {
     );
   }
   // Re-mounted on entering or leaving Administrative Mode, so nothing loaded as staff lingers.
-  return <CommunityView key={admin ? 'admin' : 'member'} g={page.group} tab={tab} sub={sub} mode={mode} keyInUrl={key} admin={admin && page.group.adminMode} />;
+  return <CommunityView key={admin ? 'admin' : 'member'} g={page.group} tab={tab} sub={sub} mode={mode} admin={admin && page.group.adminMode} />;
 }
 
-function CommunityView({ g, tab, sub, mode, keyInUrl, admin }) {
+function CommunityView({ g, tab, sub, mode, admin }) {
   const { me } = useStore();
   const nav = useNavigate();
   const perms = permsOf(g, me.id);
   const role = roleOf(g, me.id);
   const archived = g.status === 'archived';
-  const tabs = TABS.filter((t) => (!t.members || perms.canView) && (!t.admins || perms.canAdmin));
+  const tabs = TABS.filter((t) => (!t.members || perms.canView) && (!t.admins || perms.canAdmin) && (!t.mods || perms.canModerate));
+  const queue = useQueueCounts(g, perms);
   const current = tabs.some((t) => t.id === tab) ? tab : 'overview';
 
   // One address per community: an id or an old tab name in the URL becomes the slug and tab.
   // A course (and its builder) lives under the Learning tab: /c/:slug/learning/:course[/edit].
-  const rest = current === 'learning' && sub ? `/${encodeURIComponent(sub)}${mode === 'edit' ? '/edit' : ''}` : '';
+  const rest = (current === 'learning' || current === 'manage') && sub ? `/${encodeURIComponent(sub)}${mode === 'edit' ? '/edit' : ''}` : '';
   const canonical = communityPath(g, current) + rest;
   const q = admin ? '?admin=1' : '';
+  // Compared with the real address, so old ones (an id, /groups/…, /settings) are rewritten too.
+  const { pathname, search } = useLocation();
   useEffect(() => {
-    if (`/c/${encodeURIComponent(keyInUrl)}${tab && tab !== 'overview' ? `/${tab}` : ''}${rest}` !== canonical) nav(canonical + q, { replace: true });
-  }, [canonical]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (pathname !== canonical) nav(canonical + (search || q), { replace: true });
+  }, [canonical, pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${g.name} · CommunityOne`; }, [g.name]);
 
   return (
@@ -159,7 +165,7 @@ function CommunityView({ g, tab, sub, mode, keyInUrl, admin }) {
             <Link key={t.id} to={communityPath(g, t.id) + q} aria-current={current === t.id ? 'page' : undefined}
               className={`shrink-0 border-b-2 px-3.5 py-3 text-sm transition ${current === t.id ? 'border-[var(--cm)] font-semibold text-white' : 'text-2 border-transparent font-medium hover:text-white'}`}>
               {t.label}
-              {t.id === 'members' && perms.canAdmin && g.joinRequests?.length > 0 && <span className="ml-1.5 rounded-full bg-brand-400 px-1.5 text-[10px] font-bold text-ink-950">{g.joinRequests.length}</span>}
+              {t.id === 'manage' && queue.total > 0 && <span className="ml-1.5 rounded-full bg-brand-400 px-1.5 text-[10px] font-bold text-ink-950">{queue.total}</span>}
             </Link>
           ))}
         </nav>
@@ -178,7 +184,7 @@ function CommunityView({ g, tab, sub, mode, keyInUrl, admin }) {
       {current === 'resources' && <Resources g={g} />}
       {current === 'members' && <Members group={g} perms={perms} />}
       {current === 'about' && <About g={g} />}
-      {current === 'settings' && <Settings key={g.id} group={g} />}
+      {current === 'manage' && <Manage g={g} perms={perms} section={sub} />}
     </div>
   );
 }
