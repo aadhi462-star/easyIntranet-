@@ -17,7 +17,7 @@ export default async function dashboardRoutes(app, { ctx }) {
     const mine = `select m.community_id from memberships m join communities c on c.id = m.community_id
       where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended' and c.merged_into is null`;
 
-    const [communities, events, mandatory, announcements, requests, newMembers] = await Promise.all([
+    const [communities, events, mandatory, announcements, requests, newMembers, replies, recent, suggested] = await Promise.all([
       db.query(`select c.id, c.slug, c.name, c.emoji, c.accent, c.visibility, c.status, m.role, m.state,
           (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
             where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
@@ -46,6 +46,30 @@ export default async function dashboardRoutes(app, { ctx }) {
          where m.community_id in (${mine}) and m.state = 'active' and u.status = 'active' and u.id <> $1
            and coalesce(pr.directory_visible, true) and ${notBlockedSql('u.id', '$1')}
          group by u.id, u.name, u.created_at order by u.created_at desc, u.id limit 5`, [uid]),
+      // Replies from other people to your own posts in the last 30 days, newest first.
+      db.query(`select k.id, k.body, k.created_at, k.post_id, p.body as post_body, p.community_id, c.slug, c.name as community,
+                       u.name as author, u.status as author_status
+          from comments k join posts p on p.id = k.post_id join communities c on c.id = p.community_id join users u on u.id = k.author_id
+         where p.author_id = $1 and k.author_id <> $1 and k.deleted_at is null and p.deleted_at is null and p.status = 'published'
+           and p.community_id in (${mine}) and k.created_at > now() - interval '30 days' and ${notBlockedSql('k.author_id', '$1')}
+         order by k.created_at desc limit 20`, [uid]),
+      // What's new: other people's posts in your communities.
+      db.query(`select p.id, p.body, p.type, p.published_at, p.community_id, c.slug, c.name as community, c.accent,
+                       u.id as author_id, u.name as author, u.status as author_status,
+                       (select count(*)::int from reactions r where r.post_id = p.id and r.kind = 'like') as likes,
+                       (select count(*)::int from comments k where k.post_id = p.id and k.deleted_at is null) as replies
+          from posts p join communities c on c.id = p.community_id join users u on u.id = p.author_id
+         where p.community_id in (${mine}) and p.status = 'published' and p.deleted_at is null and p.author_id <> $1
+           and ${notBlockedSql('p.author_id', '$1')}
+         order by p.published_at desc limit 5`, [uid]),
+      // Public communities you're not in (and haven't asked to join), most members first. No tracking.
+      db.query(`select c.id, c.slug, c.name, c.category, c.accent,
+          (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
+            where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
+          from communities c
+         where c.visibility = 'public' and c.status = 'active' and c.merged_into is null
+           and not exists (select 1 from memberships m where m.community_id = c.id and m.user_id = $1)
+         order by member_count desc, c.name limit 3`, [uid]),
     ]);
 
     const upcoming = events.filter((e) => e.status === 'scheduled' && Date.parse(e.nextStart) >= now)
@@ -58,6 +82,23 @@ export default async function dashboardRoutes(app, { ctx }) {
       announcements: announcements.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author_status === 'deleted' ? 'Deleted member' : p.author })),
       connectionRequests: requests.rows[0].n,
       newMembers: newMembers.rows.map((u) => ({ id: u.id, name: u.name })),
+      replies: repliesByPost(replies.rows, excerpt),
+      recentPosts: recent.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), type: p.type, publishedAt: p.published_at, likes: p.likes, replies: p.replies,
+        community: { id: p.community_id, slug: p.slug, name: p.community, accent: p.accent },
+        author: p.author_status === 'deleted' ? { id: null, name: 'Deleted member' } : { id: p.author_id, name: p.author } })),
+      suggested: suggested.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, category: c.category, accent: c.accent, memberCount: c.member_count })),
     };
   });
+}
+
+// Replies grouped by your post, newest activity first: the two latest replies and the count.
+function repliesByPost(rows, excerpt) {
+  const posts = new Map();
+  for (const r of rows) {
+    const p = posts.get(r.post_id) ?? { postId: r.post_id, excerpt: excerpt(r.post_body), community: { id: r.community_id, slug: r.slug, name: r.community }, count: 0, latest: [] };
+    p.count += 1;
+    if (p.latest.length < 2) p.latest.push({ id: r.id, author: r.author_status === 'deleted' ? 'Deleted member' : r.author, excerpt: excerpt(r.body), at: r.created_at });
+    posts.set(r.post_id, p);
+  }
+  return [...posts.values()].slice(0, 3);
 }

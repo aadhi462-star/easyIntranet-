@@ -2,7 +2,7 @@
 // account. Closed communities never appear (the server leaves them out). Signed-in members use
 // the in-app Explore instead.
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { PublicFooter, PublicHeader, usePageTitle } from '../components/public/PublicChrome.jsx';
 import { CardSkeletons, CommunityCard, LoadError, NoCommunities, usePublicCommunities } from '../components/public/CommunityCards.jsx';
@@ -15,9 +15,11 @@ export default function Explore() {
 
 function PublicExplore() {
   usePageTitle('Explore Communities');
-  const [text, setText] = useState('');
-  const [q, setQ] = useState('');
-  const [category, setCategory] = useState('');
+  // The landing page's search and category buttons open Explore with ?q= or ?category=.
+  const [params] = useSearchParams();
+  const [text, setText] = useState(params.get('q') ?? '');
+  const [q, setQ] = useState((params.get('q') ?? '').trim());
+  const [category, setCategory] = useState(params.get('category') ?? '');
   // Search as you type, without a request per keystroke.
   useEffect(() => {
     const t = setTimeout(() => setQ(text.trim()), 250);

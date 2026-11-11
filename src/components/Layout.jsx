@@ -124,7 +124,7 @@ export default function Layout() {
   const menuLink = 'flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-white/5';
   const createMenu = (
     <div ref={createRef} className="relative">
-      <button className="btn btn-primary h-10 !px-3 sm:!px-4" aria-haspopup="menu" aria-expanded={createOpen} onClick={() => setCreateOpen(!createOpen)}>
+      <button className="btn btn-ghost h-10 !px-3 sm:!px-4" aria-haspopup="menu" aria-expanded={createOpen} onClick={() => setCreateOpen(!createOpen)}>
         <Icon name="plus" size={18} /><span className="hidden sm:inline">Create</span><span className="sr-only sm:hidden">Create</span>
       </button>
       {createOpen && (

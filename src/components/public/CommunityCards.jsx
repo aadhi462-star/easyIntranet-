@@ -60,12 +60,13 @@ export function CommunityCard({ c }) {
           <p className="text-xs text-slate-400">{[c.category, members(c.memberCount)].filter(Boolean).join(' · ')}</p>
         </div>
       </div>
-      {c.description && <p className="line-clamp-3 text-sm leading-relaxed text-slate-300">{c.description}</p>}
+      {c.description && <p className="text-2 line-clamp-3 text-sm leading-relaxed">{c.description}</p>}
+      {c.upcomingEvents?.[0] && <p className="t-small truncate">Next event · {eventWhen(c.upcomingEvents[0])} · {c.upcomingEvents[0].title}</p>}
       <div className="mt-auto flex items-center justify-between gap-3 pt-1">
         <VisibilityBadge visibility={c.visibility} />
         {c.visibility === 'private'
           ? <Link className="btn btn-ghost min-h-11 !px-4 text-sm" to={joinPath(c.id)} aria-label={`Request to join ${c.name}`}>Request to join</Link>
-          : <Link className="btn btn-primary min-h-11 !px-4 text-sm" to={joinPath(c.id)} aria-label={`Join ${c.name}`}>Join</Link>}
+          : <Link className="btn btn-ghost min-h-11 !px-4 text-sm" to={joinPath(c.id)} aria-label={`Join ${c.name}`}>Join</Link>}
       </div>
     </article>
   );

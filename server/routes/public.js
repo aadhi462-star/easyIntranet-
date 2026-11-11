@@ -19,7 +19,7 @@ export default async function publicRoutes(app, { ctx }) {
     const visible = `c.status = 'active' and c.visibility in ('public', 'private')`;
     const [{ rows }, cats] = await Promise.all([
       db.query(
-        `select c.id, c.slug, c.name, c.description, c.category, c.visibility,
+        `select c.id, c.slug, c.name, c.description, c.category, c.accent, c.visibility,
                 (select count(*)::int from memberships m join users u on u.id = m.user_id
                   where m.community_id = c.id and m.state in ('active', 'restricted') and u.status = 'active') as member_count
            from communities c
@@ -45,7 +45,7 @@ export default async function publicRoutes(app, { ctx }) {
     }
     return {
       communities: rows.map((c) => ({
-        id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category, visibility: c.visibility,
+        id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category, accent: c.accent, visibility: c.visibility,
         memberCount: c.member_count, upcomingEvents: upcoming[c.id] ?? [],
       })),
       categories: cats.rows.map((r) => r.category),

@@ -191,3 +191,44 @@ describe('community accents (refined design system)', () => {
     await assert.rejects(q(`update communities set accent = 'lime' where id = $1`, [id]));
   });
 });
+
+describe('Home dashboard (refined design): replies, what’s new, communities to join', () => {
+  // Cy is a fresh AlumniZone member (Ben left AlumniZone in an earlier test).
+  let cy;
+  before(async () => {
+    await makeUser(env.db, { id: 'cy', email: 'cy@example.com', name: 'Cy Fernandes' });
+    await q(`insert into memberships (community_id, user_id, state, joined_at) values ('alumnizone', 'cy', 'active', now())`);
+    cy = await signIn(env.app, { email: 'cy@example.com', password: 'correct-horse-battery' });
+  });
+
+  test('replies to your posts leave out your own and blocked people’s; what’s new leaves out your own posts', async () => {
+    await q(`insert into posts (id, community_id, author_id, body, status, published_at) values ('p-ana', 'alumnizone', 'ana', 'Ana asks about harbour ferries', 'published', now())`);
+    for (const [id, who] of [['k-own', 'own'], ['k-ana', 'ana'], ['k-cy', 'cy']]) {
+      await q(`insert into comments (id, post_id, author_id, body) values ($1, 'p-ana', $2, $3)`, [id, who, `reply from ${who}`]);
+    }
+    const mine = (await ana.get('/api/dashboard')).body;
+    const r = mine.replies.find((x) => x.postId === 'p-ana');
+    assert.equal(r.count, 2, 'your own reply isn’t counted');
+    assert.deepEqual(r.latest.map((x) => x.id).sort(), ['k-cy', 'k-own']);
+    assert.ok(!mine.recentPosts.some((p) => p.id === 'p-ana'), 'your own post isn’t “new in your communities”');
+    const forCy = (await cy.get('/api/dashboard')).body;
+    const p = forCy.recentPosts.find((x) => x.id === 'p-ana');
+    assert.equal(p.replies, 3);
+    assert.equal(p.community.accent, 'violet');
+    await q(`insert into blocks (blocker_id, blocked_id) values ('ana', 'cy')`);
+    try {
+      assert.equal((await ana.get('/api/dashboard')).body.replies.find((x) => x.postId === 'p-ana').count, 1, 'a blocked person’s reply isn’t shown');
+      assert.ok(!(await cy.get('/api/dashboard')).body.recentPosts.some((x) => x.id === 'p-ana'), 'nor their posts to you');
+    } finally { await q(`delete from blocks where blocker_id = 'ana'`); }
+  });
+
+  test('communities to join are Public ones you aren’t in or waiting on', async () => {
+    const ids = async (c) => (await c.get('/api/dashboard')).body.suggested.map((x) => x.id);
+    const forCy = await ids(cy);
+    assert.ok(forCy.includes('pub'));
+    for (const id of ['pri', 'clo', 'alumnizone']) assert.ok(!forCy.includes(id), `${id} isn’t suggested`);
+    await q(`insert into memberships (community_id, user_id, state) values ('pub', 'cy', 'pending')`);
+    try { assert.ok(!(await ids(cy)).includes('pub'), 'a community you asked to join isn’t suggested again'); }
+    finally { await q(`delete from memberships where community_id = 'pub' and user_id = 'cy'`); }
+  });
+});

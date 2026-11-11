@@ -487,3 +487,27 @@ The user approved the refined designs (canvas page "Refined designs": system, La
 - **Browser:** Explore and the community page were checked in dark and light at desktop size, and at phone size (no horizontal scroll).
 - **Not yet done:** the Landing, Home, community Overview and Platform Admin layouts from the refined boards.
 
+### Refined design system — step 2: Landing and Home (11 Nov 2026)
+
+- **Landing:**
+  - Finding a community is the main action. The search box is the only primary button in the hero; the header's "Join free" and the card Join buttons are secondary.
+  - Search and the category buttons open public Explore pre-filtered (`?q=`, `?category=`).
+  - Next to the headline is a mosaic of real communities in their own colours.
+  - A section shows AlumniZone as one community on CommunityOne, with a preview of its community page.
+  - "Inside every community" is a keyboard-operable tab list. It holds only descriptions, no sample posts.
+  - How it works has three steps, followed by a "Run a community?" band.
+  - Cards show the next public event.
+- **Home:**
+  - One featured, raised item: replies to your posts first, then a Mandatory Read (acknowledged in place), then connection requests, then the next event. Up to two others sit beside it.
+  - Below: New in your communities (a list, with each community named in its colour), Coming up (a timeline) and You might join (Public communities you're not in or waiting on; one-click Join).
+  - Widget controls are removed.
+- **Dashboard API:** `GET /dashboard` adds:
+  - `replies`: other people's replies to your posts in the last 30 days, grouped by post, with blocks applied.
+  - `recentPosts`: other people's posts in your communities, with like and reply counts.
+  - `suggested`.
+- **Tests:** 148 pass. New ones cover replies leaving out your own and blocked people's, What's new leaving out your own posts, and suggestions leaving out Private and Closed communities, your own, and ones you're waiting on. The public-card field list now includes `accent`.
+- **Browser:**
+  - Landing at 1280, 768 and 375 px with no horizontal scroll. Search went to `?q=mentor` (Mentorship Program), and City went to Bengaluru and Mumbai. The tab arrow keys work.
+  - Home at 1280 (dark and light), 768 and 375 px. Join from You might join added Mentorship to the sidebar and its events to Coming up.
+  - Not seen in the browser: the replies version of the featured item (covered by tests).
+

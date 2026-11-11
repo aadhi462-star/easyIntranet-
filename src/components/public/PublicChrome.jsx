@@ -1,5 +1,5 @@
 // Header and footer shared by the public pages (landing, Explore, About, Help, Privacy, Terms,
-// Contact). Signed-in visitors see "Open CommunityOne" instead of Sign In / Get Started.
+// Contact). Signed-in visitors see "Open CommunityOne" instead of Sign In / Join free.
 import { useEffect, useId, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
@@ -48,7 +48,7 @@ export function PublicHeader() {
     : (
       <>
         <Link className={linkCls} to="/login">Sign In</Link>
-        <Link className="btn btn-primary min-h-11" to="/signup">Get Started</Link>
+        <Link className="btn btn-ghost min-h-11" to="/signup">Join free</Link>
       </>
     );
 
