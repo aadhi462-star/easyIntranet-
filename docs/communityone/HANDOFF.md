@@ -100,7 +100,7 @@ Stage 4 (engagement) is built: Resources, Discussions with topics and attachment
 
 Stage 4 leftovers done (`5d975aa`): `server/lib/jobs.js` runs each minute from `server/index.js`. It handles scheduled posts, event reminders (NTF-04), email retries up to 3 attempts (NTF-03), and a waitlist sweep that gives a removed member's place to the next person. The tests call `sendReminders` / `retryEmails` / `sweepWaitlists` directly.
 
-Pushed up to `dcc7cf5` (Stage 5a client). Stage 5b is committed, not pushed.
+Pushed up to `d268355` (Stage 5b).
 
 ### Stage 5a: built and browser-checked
 Details and what was checked are in PHASE0_ASSESSMENT.md ("Redesign Stage 5a — learning"); LMS-01–15 in the register.
@@ -115,7 +115,12 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 5b — assessment"); ASM-01–1
 - Client: `src/components/learning/` `Quiz`, `Assignment`, `Grading`, the builder's question editor; `src/pages/Verify.jsx` is public (`/verify/:code`, routed outside `Protected` in `App.jsx`).
 - Limits: no revoke action, no rubrics, no deadline grace, PDF = browser print.
 
-**Next:** layouts for Stage 6 (moderation) and Stage 7 (management) for approval, then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
+### Stages 6 and 7: layouts drawn, waiting for approval (12 Nov 2026)
+On the design canvas, pages "Stage 6 — Management" (S6Plan, S6Manage, S6Moderation, S6Members, S6Settings, S6Analytics, S6Mobile) and "Stage 7 — Platform administration" (S7Plan, S7Users, S7Communities, S7Moderation, S7Settings, S7Activity). Each plan board lists decisions D1–D8 marked "Proposed · not yet approved". Build nothing for either stage until the user approves them.
+- Stage 6 needs new server tables: reports, cases (snapshot + history), sanctions, appeals, deletion_requests, daily community_stats. There is no reporting at all yet.
+- Stage 7 replaces the old local-data admin screens (Members, Moderation, Analytics) and adds the deletion job (30-day restore), announcements, sessions and fresh-password checks.
+
+**Next:** the user's decisions on Stage 6 and 7, then build Stage 6, then Stage 7, then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
 
 ## Working style that's been effective
 
