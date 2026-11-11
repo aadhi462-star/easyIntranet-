@@ -26,6 +26,16 @@ const SETTING_FIELDS = ['apps', 'dashboard', 'guidelines', 'dynamicRule', 'annou
 
 const enc = encodeURIComponent;
 
+// Each community's accent (styles/index.css .cm-*), stored by the server. A copy without one
+// (an older cached list) falls back to a colour worked out from the id. Lime is the platform's own.
+export const ACCENTS = ['sky', 'violet', 'amber', 'teal', 'rose', 'orange'];
+export function accentOf(c) {
+  if (ACCENTS.includes(c?.accent)) return c.accent;
+  if (c?.id === NETWORK_COMMUNITY) return 'sky';
+  const n = [...String(c?.id ?? '')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  return ACCENTS[1 + (n % (ACCENTS.length - 1))];
+}
+
 /**
  * Server community (+ the detail response's membership/permissions and the members list) → the
  * store's group shape. Members, admins and moderators come from the members list; when that
@@ -34,7 +44,7 @@ const enc = encodeURIComponent;
 export function toLocalGroup(c, { members, membership = c.membership ?? null, permissions, requests, me } = {}) {
   const settings = c.settings || {};
   const out = {
-    id: c.id, slug: c.slug || c.id, name: c.name, description: c.description || '', type: c.category || 'Interest', emoji: c.emoji || '👥',
+    id: c.id, slug: c.slug || c.id, name: c.name, description: c.description || '', type: c.category || 'Interest', emoji: c.emoji || '👥', accent: c.accent,
     accessType: TO_ACCESS[c.visibility] ?? 'public',
     status: c.status, memberCount: c.memberCount ?? members?.length ?? 0,
     myMembership: membership, permissions: permissions ?? null,

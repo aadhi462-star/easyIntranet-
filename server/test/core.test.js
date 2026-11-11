@@ -170,3 +170,24 @@ describe('onboarding', () => {
     assert.deepEqual((await q(`select onboarded_at from users where email = 'neha@example.com'`)).rows[0].onboarded_at, first);
   });
 });
+
+describe('community accents (refined design system)', () => {
+  test('a new community gets the least-used accent, never lime or AlumniZone’s sky, and every view returns it', async () => {
+    const used = async () => Object.fromEntries((await q(`select accent, count(*)::int as n from communities group by accent`)).rows.map((r) => [r.accent, r.n]));
+    const before = await used();
+    const a = await ana.post('/api/communities', { name: 'Harbour Rowers', visibility: 'public' });
+    assert.equal(a.status, 201);
+    const pickable = ['violet', 'amber', 'teal', 'rose', 'orange'];
+    const least = Math.min(...pickable.map((x) => before[x] ?? 0));
+    assert.ok(pickable.includes(a.body.community.accent));
+    assert.equal(before[a.body.community.accent] ?? 0, least);
+    const id = a.body.community.id;
+    assert.equal((await ana.get(`/api/communities/${id}`)).body.community.accent, a.body.community.accent);
+    assert.equal((await ana.get('/api/communities')).body.communities.find((x) => x.id === id).accent, a.body.community.accent);
+    assert.equal((await search(ana, 'Harbour Rowers', 'communities')).body.results.communities.find((x) => x.id === id).accent, a.body.community.accent);
+    assert.equal((await ana.get('/api/dashboard')).body.communities.find((x) => x.id === id).accent, a.body.community.accent);
+    const b = await ana.post('/api/communities', { name: 'Harbour Swimmers', visibility: 'public' });
+    assert.notEqual(b.body.community.accent, a.body.community.accent);
+    await assert.rejects(q(`update communities set accent = 'lime' where id = $1`, [id]));
+  });
+});

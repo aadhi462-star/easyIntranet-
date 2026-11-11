@@ -81,5 +81,14 @@ export function requireView(ctx) {
 /** Public metadata a non-member may see (Private communities show this, never content). */
 export const publicCommunity = (c, extra = {}) => ({
   id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category, emoji: c.emoji,
-  visibility: c.visibility, status: c.status, ...extra,
+  accent: c.accent, visibility: c.visibility, status: c.status, ...extra,
 });
+
+// Accents a new community can get (sky is AlumniZone's). The least-used one, so neighbours in
+// a list rarely share a colour.
+const PICKABLE = ['violet', 'amber', 'teal', 'rose', 'orange'];
+export async function pickAccent(db) {
+  const { rows } = await db.query(`select accent, count(*)::int as n from communities group by accent`);
+  const used = Object.fromEntries(rows.map((r) => [r.accent, r.n]));
+  return PICKABLE.reduce((best, a) => ((used[a] ?? 0) < (used[best] ?? 0) ? a : best), PICKABLE[0]);
+}

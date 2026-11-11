@@ -14,6 +14,7 @@ import { communityPath } from '../lib/communities.js';
 import { Avatar, Logo, ThemeToggle } from './ui.jsx';
 import { Icon } from './icons.jsx';
 import Toaster from './Toaster.jsx';
+import { CommunityTile } from './public/CommunityCards.jsx';
 
 const PRIMARY = [
   { id: 'home', label: 'Home', icon: 'home', to: '/dashboard', match: (p) => p === '/dashboard' },
@@ -57,7 +58,6 @@ function NavItem({ item, active }) {
 }
 
 // Lettered tile until communities have uploaded logos: "Bengaluru Chapter" → BC, "AlumniZone" → AZ.
-const initials = (name) => name.split(/\s+|(?=[A-Z][a-z])/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
 export default function Layout() {
   const { state, me, dispatch } = useStore();
@@ -159,7 +159,7 @@ export default function Layout() {
                 return (
                   <Link key={c.id} to={to} aria-current={active ? 'page' : undefined}
                     className={`flex min-h-9 items-center gap-3 rounded-lg px-3 text-sm transition ${active ? 'bg-white/[0.07] font-semibold text-white' : 'text-slate-400 hover:bg-white/[0.04] hover:text-white'}`}>
-                    <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-brand-400/15 text-[10px] font-bold text-brand-300">{initials(c.name)}</span>
+                    <CommunityTile c={c} size={24} />
                     <span className="truncate">{c.name}</span>
                   </Link>
                 );

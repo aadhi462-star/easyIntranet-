@@ -9,6 +9,7 @@ import { isUrl, whenText } from '../components/events/eventUtils.js';
 import { fetchDashboard } from '../lib/events.js';
 import { acknowledge, errorText } from '../lib/feed.js';
 import { Avatar, Field, Modal, PageHeader } from '../components/ui.jsx';
+import { CommunityTile } from '../components/public/CommunityCards.jsx';
 
 const KINDS = {
   welcome: { title: 'Welcome & announcements', icon: '👋' },
@@ -154,7 +155,7 @@ function WidgetBody({ w, d, onAcked }) {
             {shown.length > 0 && (
               <ul className="mt-3 space-y-1 text-xs">{shown.map((c) => (
                 <li key={c.id}><Link to={communityPath(c.id)} className="flex items-center gap-1.5 text-white/90 hover:underline">
-                  <span aria-hidden="true">{c.emoji || '👥'}</span><span className="flex-1 truncate">{c.name}</span>
+                  <CommunityTile c={c} size={18} /><span className="flex-1 truncate">{c.name}</span>
                   <span className="text-white/70">{c.memberCount}{['owner', 'admin'].includes(c.role) ? ` · ${c.role}` : ''}{c.status === 'archived' ? ' · archived' : ''}</span>
                 </Link></li>
               ))}

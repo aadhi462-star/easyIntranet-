@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api.js';
 import { timeAgo } from '../lib/store.jsx';
-import { communityPath, NETWORK_COMMUNITY } from '../lib/communities.js';
+import { communityPath } from '../lib/communities.js';
 import { Avatar, Empty, PageHeader } from '../components/ui.jsx';
 import { CommunityTile, eventWhen, VisibilityBadge } from '../components/public/CommunityCards.jsx';
 
@@ -80,7 +80,7 @@ export default function Search() {
               <div className="space-y-6">
                 {results.communities?.length > 0 && <Group title="Communities" kind="communities" type={type} n={results.communities.length} onMore={() => set({ type: 'communities' })}>
                   {results.communities.map((c) => (
-                    <Row key={c.id} to={communityPath(c)} lead={<CommunityTile name={c.name} size={40} accent={c.id === NETWORK_COMMUNITY} />}
+                    <Row key={c.id} to={communityPath(c)} lead={<CommunityTile c={c} size={40} />}
                       title={<Highlight text={c.name} q={q} />}
                       meta={<>{[c.category, `${c.memberCount} ${c.memberCount === 1 ? 'member' : 'members'}`, c.member && 'You’re a member', c.status === 'archived' && 'Archived'].filter(Boolean).join(' · ')}</>}
                       trail={<VisibilityBadge visibility={c.visibility} />} />

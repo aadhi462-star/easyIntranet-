@@ -135,7 +135,7 @@ export default function Landing() {
               </div>
               <div className="glass flex min-w-0 flex-[1_1_380px] flex-col gap-4 p-5">
                 <div className="flex items-center gap-3">
-                  <CommunityTile name={alumni.name} accent />
+                  <CommunityTile c={alumni} />
                   <div><div className="font-semibold text-white">{alumni.name}</div>
                     <div className="text-xs text-slate-400">{[alumni.category, alumni.visibility === 'private' ? 'Private' : 'Public', plural(alumni.memberCount)].filter(Boolean).join(' · ')}</div></div>
                 </div>
@@ -177,14 +177,14 @@ function HeroCommunities({ status, alumni, others }) {
     <div className="grid min-w-0 flex-[1_1_420px] grid-cols-2 gap-3.5" aria-hidden="true">
       <div className="glass col-span-2 flex flex-col gap-3 p-5">
         <div className="flex items-center gap-3">
-          <CommunityTile name={lead.name} accent />
+          <CommunityTile c={lead} />
           <div className="min-w-0"><div className="font-semibold text-white">{lead.name}</div><div className="text-xs text-slate-400">{plural(lead.memberCount)}</div></div>
         </div>
         {lead.upcomingEvents?.[0] && <div className="text-xs text-slate-300">{lead.upcomingEvents[0].title} · {eventWhen(lead.upcomingEvents[0])}</div>}
       </div>
       {rest.map((c) => (
         <div key={c.id} className="glass flex min-w-0 flex-col gap-2 p-4">
-          <div className="flex items-center gap-2.5"><CommunityTile name={c.name} size={36} /><div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{c.name}</div><div className="text-xs text-slate-400">{plural(c.memberCount)}</div></div></div>
+          <div className="flex items-center gap-2.5"><CommunityTile c={c} size={36} /><div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{c.name}</div><div className="text-xs text-slate-400">{plural(c.memberCount)}</div></div></div>
           {c.upcomingEvents?.[0] && <div className="truncate text-xs text-slate-400">{c.upcomingEvents[0].title}</div>}
         </div>
       ))}

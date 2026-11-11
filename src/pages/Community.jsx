@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
-import { communityPath, errorText, loadCommunity, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
+import { accentOf, communityPath, errorText, loadCommunity, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
 import { useServerFeed } from '../lib/feed.js';
 import { useEvents } from '../lib/events.js';
 import { occurrences, whenText } from '../components/events/eventUtils.js';
@@ -100,13 +100,15 @@ function CommunityView({ g, tab, keyInUrl }) {
 
   return (
     <div className="space-y-5">
-      <header className="glass overflow-hidden">
-        <div className="flex flex-wrap items-start gap-4 p-5 sm:p-6">
-          <CommunityTile name={g.name} size={56} accent={g.id === NETWORK_COMMUNITY} />
+      <header className={`glass overflow-hidden cm-${accentOf(g)}`}>
+        <div aria-hidden="true" className="cm-cover h-20 sm:h-24" />
+        <div className="-mt-9 flex flex-wrap items-end gap-4 px-5 pb-5 sm:px-6">
+          <span className="rounded-[18px] border-4 border-[var(--az-surface)]"><CommunityTile c={g} size={72} /></span>
           <div className="min-w-0 flex-1 basis-60">
-            <h1 className="text-2xl font-bold tracking-tight">{g.name}</h1>
-            {g.description && <p className="mt-1 line-clamp-2 text-sm text-slate-300">{g.description}</p>}
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+            <p className="t-small">A community on CommunityOne</p>
+            <h1 className="t-h1">{g.name}</h1>
+            {g.description && <p className="text-2 mt-1 line-clamp-2 text-sm">{g.description}</p>}
+            <p className="text-3 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
               {g.type && <span>{g.type}</span>}
               <VisibilityBadge visibility={visibilityOf(g.accessType)} />
               <span>{plural(g.memberCount, 'member')}</span>
@@ -119,10 +121,10 @@ function CommunityView({ g, tab, keyInUrl }) {
             <ActionsMenu g={g} perms={perms} role={role} />
           </div>
         </div>
-        <nav aria-label="Community sections" className="flex overflow-x-auto border-t border-[var(--az-hairline)] px-2 sm:px-4">
+        <nav aria-label="Community sections" className="no-scrollbar flex overflow-x-auto border-t border-[var(--az-hairline)] px-2 sm:px-4">
           {tabs.map((t) => (
             <Link key={t.id} to={communityPath(g, t.id)} aria-current={current === t.id ? 'page' : undefined}
-              className={`shrink-0 border-b-2 px-3.5 py-3 text-sm transition ${current === t.id ? 'border-brand-400 font-semibold text-white' : 'border-transparent font-medium text-slate-400 hover:text-white'}`}>
+              className={`shrink-0 border-b-2 px-3.5 py-3 text-sm transition ${current === t.id ? 'border-[var(--cm)] font-semibold text-white' : 'text-2 border-transparent font-medium hover:text-white'}`}>
               {t.label}
               {t.id === 'members' && perms.canAdmin && g.joinRequests?.length > 0 && <span className="ml-1.5 rounded-full bg-brand-400 px-1.5 text-[10px] font-bold text-ink-950">{g.joinRequests.length}</span>}
             </Link>

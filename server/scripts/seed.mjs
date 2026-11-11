@@ -10,6 +10,7 @@ import { createDb } from '../db/index.js';
 import { migrate } from '../db/migrate.js';
 import { hashPassword } from '../lib/crypto.js';
 import { mergeCommunity } from '../lib/merge.js';
+import { pickAccent } from '../lib/community.js';
 
 export const DEV_PASSWORD = 'Community-Demo-2026';
 // The demo passwords are published in DEMO_ACCOUNTS.md, so a production seed must never use them:
@@ -152,6 +153,9 @@ async function seedConnections() {
 // Groups → communities (same ids; public→public, restricted→private, private→closed), plus the
 // default "AlumniZone" community for network-wide content (decision D3). Posts, comments,
 // likes, moods, polls and Mandatory Read acknowledgements come across. Runs once.
+// The accents in the approved designs; any other prototype group gets the least-used one.
+const ACCENT = { alumnizone: 'sky', g2: 'amber', g4: 'violet', g7: 'teal', g3: 'rose', g5: 'orange' };
+
 async function seedCommunities() {
   if ((await db.query(`select count(*)::int as n from communities`)).rows[0].n) return;
   const active = new Set((await db.query(`select id from users where status = 'active'`)).rows.map((r) => r.id));
@@ -160,8 +164,8 @@ async function seedCommunities() {
   const counts = { communities: 0, memberships: 0, posts: 0, comments: 0, reactions: 0, votes: 0, acks: 0 };
   await db.tx(async (t) => {
     const add = async (c, members) => {
-      await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [c.id, slug(c.name), c.name, c.description || null, c.category || null, c.emoji || null, c.visibility, c.owner, JSON.stringify(c.settings || {})]);
+      await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings, accent) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [c.id, slug(c.name), c.name, c.description || null, c.category || null, c.emoji || null, c.visibility, c.owner, JSON.stringify(c.settings || {}), ACCENT[c.id] ?? await pickAccent(t)]);
       counts.communities += 1;
       for (const [uid, role] of members) {
         if (!active.has(uid)) continue;

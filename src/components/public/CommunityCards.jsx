@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchPublicCommunities } from '../../lib/public.js';
-import { communityPath, NETWORK_COMMUNITY } from '../../lib/communities.js';
+import { accentOf, communityPath } from '../../lib/communities.js';
 import { Icon } from '../icons.jsx';
 
 // Lettered tile until communities have uploaded logos: "Bengaluru Chapter" → BC, "AlumniZone" → AZ.
@@ -41,11 +41,11 @@ export function VisibilityBadge({ visibility }) {
     : <span className="inline-flex h-6 items-center gap-1 rounded-full bg-brand-400/15 px-2.5 text-xs font-semibold text-brand-300"><Icon name="globe" size={13} />Public</span>;
 }
 
-export function CommunityTile({ name, size = 44, accent = false }) {
+export function CommunityTile({ c, size = 44 }) {
   return (
-    <span aria-hidden="true" className={`grid shrink-0 place-items-center rounded-[10px] font-bold ${accent ? 'bg-brand-400 text-ink-950' : 'bg-brand-400/15 text-brand-300'}`}
-      style={{ width: size, height: size, fontSize: size * 0.34 }}>
-      {initials(name)}
+    <span aria-hidden="true" className={`cm-tile cm-${accentOf(c)}`}
+      style={{ width: size, height: size, fontSize: size * 0.34, borderRadius: Math.round(size * 0.24) }}>
+      {initials(c.name)}
     </span>
   );
 }
@@ -54,7 +54,7 @@ export function CommunityCard({ c }) {
   return (
     <article className="glass flex flex-col gap-3 p-5">
       <div className="flex items-center gap-3">
-        <CommunityTile name={c.name} accent={c.id === NETWORK_COMMUNITY} />
+        <CommunityTile c={c} />
         <div className="min-w-0">
           <h3 className="truncate font-semibold text-white">{c.name}</h3>
           <p className="text-xs text-slate-400">{[c.category, members(c.memberCount)].filter(Boolean).join(' · ')}</p>

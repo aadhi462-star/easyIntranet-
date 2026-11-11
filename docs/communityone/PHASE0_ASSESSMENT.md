@@ -475,3 +475,15 @@ Not done / open:
 - Home keeps its Stage 4c layout (emoji in the community list);
 - Feed, People, Calendar and the older modules (forums, files, tasks…) aren't redesigned. Community pages no longer show the browser-only apps;
 - Terms of Service and a contact address are still needed from the operator.
+
+### Refined design system — step 1 (11 Nov 2026)
+
+The user approved the refined designs (canvas page "Refined designs": system, Landing, Home, community overview, learning, Platform Admin, role views, tablet and phone). Step 1 puts the system in the code:
+
+- **Tokens** (`src/styles/index.css`): four surface levels (sunken, band, surface, raised; only raised has a shadow), three text levels (16.6, 9.3 and 5.6:1 on the page), the type scale (`.t-display` … `.t-label`), and 44 px minimum buttons.
+- **Community accents:** sky (AlumniZone), violet, amber, teal, rose and orange, all of equal lightness. They're stored in `communities.accent` (migration 007, with a check constraint, so lime can't be set). New communities get the least-used accent. They're returned by the community, list, search and dashboard endpoints. Measured contrast: accent text is 11.5–13.3:1 in dark mode and 6.5–7.4:1 in light mode; dark text on tiles is 9.1–11.2:1.
+- **Screens:** community pages have an accent cover band, a 72 px tile, "A community on CommunityOne", and an accent tab underline (with no visible scrollbar on phones). Tiles in Explore, Search, Welcome, Landing, the sidebar and the dashboard use the community's accent.
+- **Tests:** a new accent test covers the least-used pick, the value in every view, and the rejection of lime. 146 tests pass.
+- **Browser:** Explore and the community page were checked in dark and light at desktop size, and at phone size (no horizontal scroll).
+- **Not yet done:** the Landing, Home, community Overview and Platform Admin layouts from the refined boards.
+

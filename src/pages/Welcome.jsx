@@ -142,7 +142,7 @@ function CommunitiesStep({ me }) {
               <ul className="mt-6 divide-y divide-[var(--az-hairline)]">
                 {options.map((g) => (
                   <li key={g.id} className="flex flex-wrap items-center gap-3 py-3">
-                    <CommunityTile name={g.name} size={40} />
+                    <CommunityTile c={g} size={40} />
                     <div className="min-w-0 flex-1 basis-40">
                       <p className="truncate text-sm font-semibold text-white">{g.name}</p>
                       <p className="flex flex-wrap items-center gap-2 text-xs text-slate-400">{g.type && <span>{g.type}</span>}<span>{g.memberCount} {g.memberCount === 1 ? 'member' : 'members'}</span><VisibilityBadge visibility={visibilityOf(g.accessType)} /></p>

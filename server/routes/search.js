@@ -35,7 +35,7 @@ export default async function searchRoutes(app, { ctx }) {
       // Same rule as discovery: Public and Private, plus Closed ones you belong to; never merged,
       // suspended, or one you're blocked from (VIS-04, SRC-01, SRC-04).
       want('communities') ? db.query(
-        `select c.id, c.slug, c.name, c.description, c.category, c.emoji, c.visibility, c.status, m.state as member_state,
+        `select c.id, c.slug, c.name, c.description, c.category, c.emoji, c.accent, c.visibility, c.status, m.state as member_state,
                 (select count(*)::int from memberships mm join users u on u.id = mm.user_id
                   where mm.community_id = c.id and mm.state in ('active', 'restricted') and u.status = 'active') as member_count
            from communities c left join memberships m on m.community_id = c.id and m.user_id = $1
@@ -69,7 +69,7 @@ export default async function searchRoutes(app, { ctx }) {
     const out = {};
     if (communities) {
       out.communities = communities.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category,
-        emoji: c.emoji, visibility: c.visibility, status: c.status, memberCount: c.member_count, member: ['active', 'restricted'].includes(c.member_state) }));
+        emoji: c.emoji, accent: c.accent, visibility: c.visibility, status: c.status, memberCount: c.member_count, member: ['active', 'restricted'].includes(c.member_state) }));
     }
     if (people) {
       out.people = people.rows.map((p) => ({ id: p.id, name: p.name, headline: p.headline || [p.job_title, p.company].filter(Boolean).join(' · ') || null, city: p.city, avatarHue: p.avatar_hue }));

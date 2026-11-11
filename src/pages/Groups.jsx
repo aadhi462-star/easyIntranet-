@@ -124,7 +124,7 @@ function CommunityCard({ g }) {
   return (
     <article className="glass flex flex-col gap-3 p-5">
       <div className="flex items-center gap-3">
-        <CommunityTile name={g.name} accent={g.id === NETWORK_COMMUNITY} />
+        <CommunityTile c={g} />
         <div className="min-w-0">
           <h3 className="truncate font-semibold text-white"><Link to={communityPath(g)} className="hover:underline">{g.name}</Link></h3>
           <p className="text-xs text-slate-400">{[g.type, `${n} ${n === 1 ? 'member' : 'members'}`].filter(Boolean).join(' · ')}</p>

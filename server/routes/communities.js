@@ -1,7 +1,7 @@
 // Communities and memberships (Phase 1 community foundation). MEM-*, VIS-*, PER-* cases are
 // referenced where handled.
 import { audit } from '../lib/audit.js';
-import { access, atLeast, publicCommunity, requireView, resolveCommunityId } from '../lib/community.js';
+import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { can } from '../lib/permissions.js';
@@ -200,10 +200,11 @@ export default async function communityRoutes(app, { ctx }) {
     const description = String(req.body.description ?? '').trim().slice(0, 1000) || null;
     const settings = cleanSettings(req.body.settings);
     const id = newId('com');
+    let accent;
     try {
       await db.tx(async (t) => {
-        await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [id, slugOf(name), name, description, String(req.body.category ?? '').slice(0, 40) || null, String(req.body.emoji ?? '').slice(0, 8) || null, req.body.visibility, uid, JSON.stringify(settings)]);
+        await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings, accent) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [id, slugOf(name), name, description, String(req.body.category ?? '').slice(0, 40) || null, String(req.body.emoji ?? '').slice(0, 8) || null, req.body.visibility, uid, JSON.stringify(settings), accent = await pickAccent(t)]);
         await t.query(`insert into memberships (community_id, user_id, role, state, joined_at) values ($1, $2, 'owner', 'active', now())`, [id, uid]);
       });
     } catch (err) {
@@ -212,7 +213,7 @@ export default async function communityRoutes(app, { ctx }) {
     }
     await audit(db, { actorId: uid, action: 'community.create', targetType: 'community', targetId: id, context: { name, visibility: req.body.visibility }, ip: req.ip });
     reply.status(201);
-    return { community: { id, name, visibility: req.body.visibility, membership: { state: 'active', role: 'owner' } } };
+    return { community: { id, name, accent, visibility: req.body.visibility, membership: { state: 'active', role: 'owner' } } };
   }));
 
   // Edit details, visibility and settings (community admins, or admin mode). Version-checked so

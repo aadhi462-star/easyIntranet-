@@ -17,9 +17,10 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
 
+  /* Surface levels (refined system): page 950, band 900, surface 850, raised 800. */
   --color-ink-950: #0a0b0a;
-  --color-ink-900: #101211;
-  --color-ink-850: #161817;
+  --color-ink-900: #0f1110;
+  --color-ink-850: #151816;
   --color-ink-800: #1d201e;
   --color-ink-700: #2c302d;
 
@@ -52,12 +53,23 @@
 
 :root {
   color-scheme: dark;
-  --az-text: #f3f5f2;
-  /* Solid surfaces with hairline borders (no glass, decision R2). */
-  --az-surface: #111312;
-  --az-surface-strong: #131514;
-  --az-hairline: #262a27;
-  --az-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.6);
+  --az-text: #f4f6f3;
+  /* Secondary and tertiary text: 9.3:1 and 5.6:1 on the page. */
+  --az-text-2: #b6bcb8;
+  --az-text-3: #8b928d;
+  /*
+   * Four surface levels, one job each: sunken (fields, media wells), band (page sections),
+   * surface (cards, the only level with a border) and raised (one featured item per screen,
+   * the only level with a shadow).
+   */
+  --az-sunken: #070807;
+  --az-band: #0f1110;
+  --az-surface: #151816;
+  --az-surface-strong: #151816;
+  --az-raised: #1d201e;
+  --az-hairline: #232725;
+  --az-divider: #1b1e1c;
+  --az-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   --az-field: #0b0c0b;
   --az-placeholder: #868d88;
   --az-focus: #a3e635;
@@ -105,9 +117,15 @@
   --color-dim: rgba(20, 22, 20, 0.74);
 
   --az-text: #141614;
+  --az-text-2: #3f4541;
+  --az-text-3: #5f6661;
+  --az-sunken: #eef0ed;
+  --az-band: #f4f5f3;
   --az-surface: #ffffff;
   --az-surface-strong: #ffffff;
+  --az-raised: #ffffff;
   --az-hairline: #e3e6e2;
+  --az-divider: #eceeeb;
   --az-shadow: 0 16px 40px -14px rgba(20, 24, 21, 0.22);
   --az-field: #ffffff;
   --az-placeholder: #737a75;
@@ -162,6 +180,45 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
     border-radius: 12px;
   }
   .glass-strong { background: var(--az-surface-strong); }
+  /* The other three levels. Use .raised once per screen, for the item that matters most. */
+  .band { background: var(--az-band); border-radius: 16px; }
+  .raised { position: relative; background: var(--az-raised); border-radius: 16px; box-shadow: var(--az-shadow); }
+  .sunken { background: var(--az-sunken); border: 1px solid var(--az-divider); border-radius: 12px; }
+  /* Lists: rows split by a divider, no box around each item. */
+  .list-rows > * + * { border-top: 1px solid var(--az-divider); }
+
+  /* Type scale: display, h1–h3, body, small, label. */
+  .t-display { font-size: clamp(2.375rem, 5vw, 3.75rem); line-height: 1.07; font-weight: 700; letter-spacing: -0.03em; }
+  .t-h1 { font-size: 2rem; line-height: 2.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  .t-h2 { font-size: 1.375rem; line-height: 1.875rem; font-weight: 600; }
+  .t-h3 { font-size: 1.0625rem; line-height: 1.5rem; font-weight: 600; }
+  .t-body { font-size: 0.9375rem; line-height: 1.5rem; }
+  .t-small { font-size: 0.8125rem; line-height: 1.25rem; color: var(--az-text-3); }
+  .t-label { font-size: 0.75rem; line-height: 1rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--az-text-3); }
+  .text-2 { color: var(--az-text-2); }
+  .text-3 { color: var(--az-text-3); }
+
+  /*
+   * Community accents. Equal lightness, so near-black text passes on every tile and no
+   * community looks louder than another. Lime is not among them: it belongs to the platform.
+   * --cm: the accent (tiles, tab underline); --cm-tint/--cm-line: cover band and its border;
+   * --cm-ink: accent-coloured text on the page.
+   */
+  .cm-sky { --cm: #7cc4f5; --cm-tint: #0f1a22; --cm-line: #1f3442; --cm-ink: #a8d4f5; }
+  .cm-amber { --cm: #f2b35b; --cm-tint: #221a0c; --cm-line: #3d2e13; --cm-ink: #f5c886; }
+  .cm-violet { --cm: #b9a3f7; --cm-tint: #17132a; --cm-line: #2c2547; --cm-ink: #cdbdf9; }
+  .cm-teal { --cm: #5ed6c4; --cm-tint: #0c1f1c; --cm-line: #183a35; --cm-ink: #8fe3d6; }
+  .cm-rose { --cm: #f29bb3; --cm-tint: #24121a; --cm-line: #43222f; --cm-ink: #f6bccc; }
+  .cm-orange { --cm: #f5a36f; --cm-tint: #24150c; --cm-line: #432816; --cm-ink: #f8c19d; }
+  :root[data-theme="light"] .cm-sky { --cm-tint: #e8f4fd; --cm-line: #c4e2f8; --cm-ink: #1d5f8c; }
+  :root[data-theme="light"] .cm-amber { --cm-tint: #fdf3e4; --cm-line: #f6dcae; --cm-ink: #855212; }
+  :root[data-theme="light"] .cm-violet { --cm-tint: #f2eefe; --cm-line: #ddd3fc; --cm-ink: #5b3fb5; }
+  :root[data-theme="light"] .cm-teal { --cm-tint: #e6f8f5; --cm-line: #b8ece3; --cm-ink: #12695c; }
+  :root[data-theme="light"] .cm-rose { --cm-tint: #fdedf1; --cm-line: #f9d0db; --cm-ink: #9c2f4f; }
+  :root[data-theme="light"] .cm-orange { --cm-tint: #fef0e7; --cm-line: #fad6bf; --cm-ink: #8f4615; }
+  .cm-tile { display: inline-grid; place-items: center; flex-shrink: 0; background: var(--cm); color: #0a0b0a; font-weight: 700; }
+  .cm-cover { background: var(--cm-tint); border-bottom: 1px solid var(--cm-line); }
+  .cm-ink { color: var(--cm-ink); }
 
   .input {
     width: 100%;
@@ -179,7 +236,7 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
 
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-    border-radius: 8px; padding: 0.55rem 1rem; font-weight: 600; font-size: .9rem; min-height: 2.5rem;
+    border-radius: 8px; padding: 0.55rem 1rem; font-weight: 600; font-size: .9rem; min-height: 2.75rem;
     transition: background-color .15s, border-color .15s, color .15s;
     cursor: pointer;
   }
@@ -229,6 +286,10 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   .skip-link { position: fixed; left: 1rem; top: -4rem; z-index: 60; padding: .6rem 1rem; border-radius: 8px;
     background-image: var(--az-fill); color: var(--az-on-fill); font-weight: 600; transition: top .15s; }
   .skip-link:focus { top: 1rem; }
+
+  /* Tab rows scroll sideways on small screens without showing a bar. */
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 
   .scroll-thin::-webkit-scrollbar { width: 8px; }
   .scroll-thin::-webkit-scrollbar-thumb { background: var(--az-hairline); border-radius: 8px; }
