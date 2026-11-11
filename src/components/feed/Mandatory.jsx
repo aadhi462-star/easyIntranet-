@@ -31,7 +31,7 @@ export function MandatoryConfig({ initial, onSave, onRemove, onClose }) {
         <Field label="Acknowledgement message"><textarea className="input" rows={2} maxLength={200} value={cfg.message} onChange={set('message')} /></Field>
         <Field label="Button text"><input className="input" maxLength={40} value={cfg.button} onChange={set('button')} /></Field>
         <div>
-          <div className="mb-1.5 text-xs font-semibold text-slate-300">Live preview</div>
+          <div className="mb-1.5 text-xs font-semibold text-2">Live preview</div>
           <AckBox cfg={cfg} preview />
         </div>
         {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
@@ -58,7 +58,7 @@ export function AckBox({ cfg, preview = false, onSubmit, busy = false }) {
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button className="btn text-white" style={{ background: cfg.color || ACK_COLOR }} disabled={(!checked && !preview) || busy}
           onClick={() => !preview && onSubmit?.()}>{cfg.button || 'Submit'}</button>
-        {cfg.deadline && <span className="text-xs text-slate-400">Due {fmtDate(cfg.deadline)}</span>}
+        {cfg.deadline && <span className="text-xs text-3">Due {fmtDate(cfg.deadline)}</span>}
       </div>
     </div>
   );

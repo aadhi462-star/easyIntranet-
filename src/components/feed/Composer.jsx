@@ -149,14 +149,14 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="glass flex w-full items-center gap-3 p-4 text-left text-slate-400 hover:text-slate-200">
+      <button onClick={() => setOpen(true)} className="glass flex w-full items-center gap-3 p-4 text-left text-3 hover:text-slate-200">
         <Avatar user={me} size={40} /> What’s on your mind right now?
       </button>
     );
   }
 
   if (notMember) {
-    return <p className="glass p-4 text-sm text-slate-400">Join this community to post in it.</p>;
+    return <p className="glass p-4 text-sm text-3">Join this community to post in it.</p>;
   }
 
   return (
@@ -165,11 +165,11 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
         <div className="mb-3 flex flex-wrap gap-1" role="tablist" aria-label="Post type">
           {TYPES.map((t) => (
             <button key={t.id} role="tab" aria-selected={type === t.id} onClick={() => setType(t.id)}
-              className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${type === t.id ? 'bg-brand-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+              className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${type === t.id ? 'bg-brand-500 text-white' : 'text-2 hover:bg-white/5'}`}>
               <Glyph value={t.icon} tile={false} size={16} /> {t.label}
             </button>
           ))}
-          <Link to="/events?new=1" className="min-h-9 rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5"><Glyph value="📅" tile={false} size={16} /> Event</Link>
+          <Link to="/events?new=1" className="min-h-9 rounded-lg px-3 py-2 text-xs font-semibold text-2 hover:bg-white/5"><Glyph value="📅" tile={false} size={16} /> Event</Link>
         </div>
       )}
 
@@ -180,20 +180,20 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
             onKeyDown={(e) => { if (e.key === 'Escape') setMq(null); }}
             placeholder={type === 'question' ? 'Ask the community a question…' : 'What’s on your mind right now? Use @ to mention and # to tag.'} />
           {text.length > MAX_TEXT * 0.8 && (
-            <p className={`mt-1 text-right text-xs ${text.length > MAX_TEXT ? 'text-rose-300' : 'text-slate-400'}`} aria-live="polite">{text.length}/{MAX_TEXT}</p>
+            <p className={`mt-1 text-right text-xs ${text.length > MAX_TEXT ? 'text-rose-300' : 'text-3'}`} aria-live="polite">{text.length}/{MAX_TEXT}</p>
           )}
           {suggestions.length > 0 && (
             <ul className="glass glass-strong absolute z-20 mt-1 w-64 p-1" role="listbox" aria-label="Mention suggestions">
               {suggestions.map((u) => (
                 <li key={u.id}><button type="button" onClick={() => pickMention(u)} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-white/10">
-                  <Avatar user={u} size={26} />{u.name}<span className="ml-auto text-xs text-slate-500">{u.batch}</span></button></li>
+                  <Avatar user={u} size={26} />{u.name}<span className="ml-auto text-xs text-3">{u.batch}</span></button></li>
               ))}
             </ul>
           )}
         </div>
       </div>
 
-      {editing && initial.poll && <p className="mt-2 text-xs text-slate-400">Poll options can’t be changed after posting.</p>}
+      {editing && initial.poll && <p className="mt-2 text-xs text-3">Poll options can’t be changed after posting.</p>}
 
       {!editing && type === 'poll' && (
         <div className="mt-3 space-y-2">
@@ -217,7 +217,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
 
       {showSchedule && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <label className="text-xs font-semibold text-slate-300" htmlFor="sched">Publish at</label>
+          <label className="text-xs font-semibold text-2" htmlFor="sched">Publish at</label>
           <input id="sched" type="datetime-local" className="input !w-auto" value={toLocal(scheduleAt)}
             onChange={(e) => setScheduleAt(e.target.value ? new Date(e.target.value).getTime() : null)} />
           <button className="btn btn-primary" disabled={busy} onClick={() => submit('schedule')}>Schedule</button>
@@ -225,7 +225,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
         </div>
       )}
 
-      {attachNote && <p className="mt-2 text-xs text-slate-400" role="status">Attachments arrive with secure file storage.</p>}
+      {attachNote && <p className="mt-2 text-xs text-3" role="status">Attachments arrive with secure file storage.</p>}
       {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">

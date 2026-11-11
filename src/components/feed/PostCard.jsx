@@ -1,7 +1,7 @@
 import UserLabels from '../UserLabels.jsx';
 import { Glyph } from '../icons.jsx';
 import { useState } from 'react';
-import { communityPath } from '../../lib/communities.js';
+import { accentOf, communityPath } from '../../lib/communities.js';
 import { Link } from 'react-router-dom';
 import { bookmarksOf, fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
@@ -17,7 +17,7 @@ import { followingIds, GUEST } from './utils.js';
 
 /** The author's name: a profile link, or plain "Deleted member". */
 export function AuthorName({ author, className = '' }) {
-  if (!author || author.deleted) return <span className={`font-semibold text-slate-400 ${className}`}>Deleted member</span>;
+  if (!author || author.deleted) return <span className={`font-semibold text-3 ${className}`}>Deleted member</span>;
   return <Link to={`/people/${author.id}`} className={`font-semibold text-white hover:underline ${className}`}>{author.name || 'Member'}</Link>;
 }
 
@@ -85,9 +85,9 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
           <div className="flex flex-wrap items-center gap-x-1.5 text-sm">
             <AuthorName author={author} />
             {!author.deleted && <UserLabels userId={author.id} context="post" max={2} small />}
-            {where && <span className="text-slate-400">▸ <Link className="hover:underline" to={communityPath(where.id)}>{where.emoji} {where.name}</Link></span>}
+            {where && <span className="text-3">in <Link className={`cm-${accentOf(where)} cm-ink font-medium hover:underline`} to={communityPath(where.id)}>{where.name}</Link></span>}
           </div>
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-3">
             <Link to={`/post/${post.id}`} className="hover:underline">{status === 'scheduled' && post.publishAt ? `Scheduled for ${fmtDate(post.publishAt)}` : timeAgo(new Date(post.createdAt).getTime())}</Link>
             {post.editedAt && ' · edited'}{!author.deleted && user(author.id)?.role && ` · ${user(author.id).role}`}
           </div>
@@ -121,7 +121,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
       </header>
 
       <div className="mt-3">
-        {body && <RichText text={text} mentions={post.mentions || []} className="text-[15px] text-slate-100" />}
+        {body && <RichText text={text} mentions={post.mentions || []} className="text-[15px] text-[var(--az-text)]" />}
         {long && <button className="mt-1 text-sm text-brand-400 hover:underline" onClick={() => setMore(!more)}>{more ? 'See less' : 'See more'}</button>}
       </div>
 
@@ -135,12 +135,12 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
                 <button disabled={guest || status !== 'published' || busy} onClick={() => !mineVote && run(() => vote(post.id, o.id))} aria-pressed={mineVote}
                   className={`relative block min-h-11 w-full overflow-hidden rounded-xl border px-3 text-left text-sm ${mineVote ? 'border-brand-500' : 'border-white/10 hover:border-white/25'}`}>
                   <span className="absolute inset-y-0 left-0 bg-brand-500/25" style={{ width: `${pct}%` }} />
-                  <span className="relative flex justify-between py-2.5"><span>{mineVote && '✓ '}{o.label}</span><span className="text-slate-300">{pct}%</span></span>
+                  <span className="relative flex justify-between py-2.5"><span>{mineVote && '✓ '}{o.label}</span><span className="text-2">{pct}%</span></span>
                 </button>
               </li>
             );
           })}
-          <li className="text-xs text-slate-400">{totalVotes} vote{totalVotes === 1 ? '' : 's'}</li>
+          <li className="text-xs text-3">{totalVotes} vote{totalVotes === 1 ? '' : 's'}</li>
         </ul>
       )}
 
@@ -153,7 +153,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
           ) : (
             <AckBox cfg={post.mandatory} busy={busy} onSubmit={() => run(() => acknowledge(post.id), 'Acknowledged')} />
           )}
-          {!mine && can.moderate && post.mandatory.ackCount != null && <p className="mt-1 text-xs text-slate-400">{post.mandatory.ackCount} member{post.mandatory.ackCount === 1 ? '' : 's'} acknowledged</p>}
+          {!mine && can.moderate && post.mandatory.ackCount != null && <p className="mt-1 text-xs text-3">{post.mandatory.ackCount} member{post.mandatory.ackCount === 1 ? '' : 's'} acknowledged</p>}
         </div>
       )}
 
@@ -177,14 +177,14 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
       {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
 
       {status === 'published' && !embedded && guest && (
-        <footer className="mt-3 flex flex-wrap items-center gap-4 border-t border-white/5 pt-2 text-sm text-slate-400">
+        <footer className="mt-3 flex flex-wrap items-center gap-4 border-t border-white/5 pt-2 text-sm text-3">
           <span>❤️ {r.like}</span><span><Glyph value="💬" tile={false} size={16} /> {post.commentCount ?? 0}</span>
           <Link to="/signup" className="ml-auto font-semibold text-brand-400 hover:underline">Join to react</Link>
         </footer>
       )}
       {status === 'published' && !embedded && !guest && (
         <footer className="mt-3 flex flex-wrap items-center gap-1 border-t border-white/5 pt-2 text-sm">
-          <button className={`btn btn-ghost !border-0 !bg-transparent !px-2.5 ${r.liked ? 'text-leaf-300' : 'text-slate-300'}`} onClick={like} disabled={busy} aria-pressed={r.liked}>
+          <button className={`btn btn-ghost !border-0 !bg-transparent !px-2.5 ${r.liked ? 'text-leaf-300' : 'text-2'}`} onClick={like} disabled={busy} aria-pressed={r.liked}>
             {r.liked ? '❤️' : '🤍'} {r.like || ''} <span className="sr-only">likes</span>
           </button>
           <span className="flex" role="group" aria-label="How does this make you feel?">
@@ -196,7 +196,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
               );
             })}
           </span>
-          <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-slate-300" onClick={() => setShowComments(!showComments)} aria-expanded={showComments}>
+          <button className="btn btn-ghost !border-0 !bg-transparent !px-2.5 text-2" onClick={() => setShowComments(!showComments)} aria-expanded={showComments}>
             <Glyph value="channels" tile={false} size={16} /> {post.commentCount || ''} {post.type === 'question' ? (post.commentCount === 1 ? 'Answer' : 'Answers') : (post.commentCount === 1 ? 'Comment' : 'Comments')}
           </button>
         </footer>

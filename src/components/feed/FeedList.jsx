@@ -39,7 +39,7 @@ export default function FeedList({ scope, composer = true, readOnly = false, gro
   return (
     <div className="space-y-4">
       {showComposer && <Composer communityId={community} compact />}
-      {readOnly && membership && !isAdmin && <p className="text-xs text-slate-400">Only admins can post here.</p>}
+      {readOnly && membership && !isAdmin && <p className="text-xs text-3">Only admins can post here.</p>}
       {feed.status === 'loading' ? <div className="glass h-40 animate-pulse" aria-busy="true" aria-label="Loading posts" />
         : feed.status === 'error' ? (
           <div role="alert" className="glass p-6 text-center text-sm"><p className="text-rose-300">{feed.error}</p>

@@ -154,8 +154,8 @@ export function PageHeader({ title, subtitle, actions }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
+        <h1 className="t-h1 text-white">{title}</h1>
+        {subtitle && <p className="text-2 mt-1 text-[15px]">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
@@ -164,11 +164,11 @@ export function PageHeader({ title, subtitle, actions }) {
 
 export function Tabs({ tabs, value, onChange }) {
   return (
-    <div role="tablist" className="glass mb-5 inline-flex flex-wrap gap-1 !rounded-xl p-1">
+    <div role="tablist" className="no-scrollbar mb-5 flex overflow-x-auto border-b border-[var(--az-hairline)]">
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
-          className={`min-h-9 rounded-lg px-3.5 text-sm font-semibold transition ${value === t.id ? 'bg-brand-500 text-white shadow' : 'text-slate-300 hover:bg-white/5'}`}>
-          {t.label}{t.count != null && <span className="ml-1.5 opacity-70">{t.count}</span>}
+          className={`min-h-11 shrink-0 border-b-2 px-3.5 text-sm transition ${value === t.id ? 'border-brand-400 font-semibold text-white' : 'text-2 border-transparent font-medium hover:text-white'}`}>
+          {t.label}{t.count != null && <span className="text-3 ml-1.5 tabular-nums">{t.count}</span>}
         </button>
       ))}
     </div>

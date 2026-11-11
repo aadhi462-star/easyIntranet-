@@ -45,7 +45,7 @@ export default async function postRoutes(app, { ctx }) {
       db.query(`select post_id, option_id from poll_votes where post_id = any($1) and user_id = $2`, [ids, uid]),
       db.query(`select post_id, count(*)::int as n, bool_or(user_id = $2) as mine from post_acks where post_id = any($1) group by post_id`, [ids, uid]),
       db.query(`select post_id, count(*)::int as n from comments where post_id = any($1) and deleted_at is null group by post_id`, [ids]),
-      db.query(`select id, name, emoji, visibility from communities where id = any($1)`, [[...new Set(posts.map((p) => p.community_id))]]),
+      db.query(`select id, slug, name, emoji, accent, visibility from communities where id = any($1)`, [[...new Set(posts.map((p) => p.community_id))]]),
     ]);
     const by = (rows, key) => rows.reduce((m, r) => (m[r[key]] ??= []).push(r) && m, {});
     const author = Object.fromEntries(authors.rows.map((u) => [u.id, u]));
@@ -62,7 +62,7 @@ export default async function postRoutes(app, { ctx }) {
         if (r.kind === 'like') { reactions.like = r.n; reactions.liked = r.mine; } else { reactions.moods[r.kind] = r.n; if (r.mine) reactions.myMood = r.kind; }
       }
       return {
-        id: p.id, communityId: p.community_id, community: community[p.community_id] ? { id: p.community_id, name: community[p.community_id].name, emoji: community[p.community_id].emoji } : null,
+        id: p.id, communityId: p.community_id, community: community[p.community_id] ? { id: p.community_id, slug: community[p.community_id].slug, name: community[p.community_id].name, emoji: community[p.community_id].emoji, accent: community[p.community_id].accent } : null,
         author: au?.status === 'deleted' ? { id: p.author_id, name: 'Deleted member', deleted: true } : { id: p.author_id, name: au?.name },
         type: p.type, body: p.body, status: p.status, pinned: p.pinned, mentions: p.mentions,
         createdAt: p.published_at ?? p.created_at, publishAt: p.publish_at, editedAt: p.edited_at, version: p.version,

@@ -103,7 +103,9 @@ export function FollowButton({ userId, className = '' }) {
   const [following, toggle] = useFollow(userId);
   if (userId === me.id) return null;
   return (
-    <button className={`btn ${following ? 'btn-ghost' : 'btn-primary'} min-h-11 ${className}`} onClick={toggle} aria-pressed={following}>
+    // Secondary in both states: a directory shows one per person, so lime here would mean dozens
+    // of primary buttons on one screen.
+    <button className={`btn btn-ghost min-h-11 ${following ? 'text-3' : ''} ${className}`} onClick={toggle} aria-pressed={following}>
       {following ? '✓ Following' : '+ Follow'}
     </button>
   );

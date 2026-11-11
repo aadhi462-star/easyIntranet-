@@ -17,7 +17,7 @@ export function TrendingTags() {
   return (
     <section className="glass p-4" aria-labelledby="trending-h">
       <h2 id="trending-h" className="text-sm font-bold"><Glyph value="🔥" tile={false} size={16} /> Trending tags</h2>
-      {tags.length === 0 ? <p className="mt-2 text-xs text-slate-400">No tags yet. Add #tags to your posts.</p> : (
+      {tags.length === 0 ? <p className="mt-2 text-xs text-3">No tags yet. Add #tags to your posts.</p> : (
         <ul className="mt-2 flex flex-wrap gap-1.5">
           {tags.map(({ tag }) => <li key={tag}><Link to={`/feed?tag=${tag}`} className="chip !py-1.5 hover:!bg-brand-500/30">#{tag}</Link></li>)}
         </ul>
@@ -54,7 +54,7 @@ function MandatoryPendingCard() {
   return (
     <Link to="/feed/mandatory" className="glass block p-4 ring-1 ring-amber-300/30 hover:ring-amber-300/60">
       <div className="text-sm font-bold text-amber-200"><Glyph value="mandatory" tile={false} size={16} /> {count} mandatory read{count > 1 ? 's' : ''} pending</div>
-      <p className="mt-1 text-xs text-slate-400">Open and acknowledge them before the deadline.</p>
+      <p className="mt-1 text-xs text-3">Open and acknowledge them before the deadline.</p>
     </Link>
   );
 }
@@ -89,7 +89,7 @@ export function CelebrateClassmates() {
     <>
     <section className="glass p-4" aria-labelledby="celebrate-h">
       <h2 id="celebrate-h" className="text-sm font-bold"><Glyph value="🎉" tile={false} size={16} /> Celebrate classmates</h2>
-      {!list.length ? <p className="mt-2 text-xs text-slate-400">No birthdays or community anniversaries in the next week.</p> : (
+      {!list.length ? <p className="mt-2 text-xs text-3">No birthdays or community anniversaries in the next week.</p> : (
         <>
           <ul className="mt-2 space-y-1">
             {shown.map((c) => {
@@ -101,7 +101,7 @@ export function CelebrateClassmates() {
                     <Avatar user={c.user} size={32} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{c.user.name}</span>
-                      <span className="block truncate text-xs text-slate-400"><span aria-hidden="true">{c.kind === 'birthday' ? '🎂' : '🎉'} </span>{what} · {whenLabel(c.inDays, c.date)}</span>
+                      <span className="block truncate text-xs text-3"><span aria-hidden="true">{c.kind === 'birthday' ? '🎂' : '🎉'} </span>{what} · {whenLabel(c.inDays, c.date)}</span>
                     </span>
                   </Link>
                   {done
@@ -144,10 +144,10 @@ function WishModal({ celebration: c, onClose }) {
   return (
     <Modal title={`Wish ${c.user.name}`} onClose={onClose}>
       <form onSubmit={send} className="space-y-4">
-        <p className="text-sm text-slate-400">{c.kind === 'birthday' ? '🎂 Birthday' : `🎉 ${c.years}-year community anniversary`} · {whenLabel(c.inDays, c.date)}. {firstName(c.user)} gets this as a notification from you.</p>
+        <p className="text-sm text-3">{c.kind === 'birthday' ? '🎂 Birthday' : `🎉 ${c.years}-year community anniversary`} · {whenLabel(c.inDays, c.date)}. {firstName(c.user)} gets this as a notification from you.</p>
         <Field label="Your message">
           <textarea className="input min-h-24" value={text} maxLength={280} onChange={(e) => { setText(e.target.value); setError(''); }} aria-invalid={!!error} aria-describedby="wish-count" />
-          <span id="wish-count" className="mt-1 block text-right text-xs text-slate-500">{text.length}/280</span>
+          <span id="wish-count" className="mt-1 block text-right text-xs text-3">{text.length}/280</span>
           {error && <span role="alert" className="mt-1 block text-xs text-rose-300">{error}</span>}
         </Field>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

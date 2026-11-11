@@ -55,11 +55,11 @@ export default function EventCard({ event }) {
             {!cancelled && past && <span className="chip !bg-white/10 !text-slate-400">Ended</span>}
             {event.inviteOnly && <span className="chip !bg-white/10 !text-slate-300">Invite-only</span>}
           </div>
-          <p className="mt-1 text-sm text-slate-300">{whenText(event)}</p>
-          <p className="mt-0.5 truncate text-xs text-slate-400">
+          <p className="mt-1 text-sm text-2">{whenText(event)}</p>
+          <p className="mt-0.5 truncate text-xs text-3">
             {scopeLabel(event, state.groups)}{event.location && ` · 📍 ${event.location}`}{recurrenceText(event.recurrence) && ` · 🔁 ${recurrenceText(event.recurrence)}`}
           </p>
-          {going.length > 0 && <div className="mt-2 flex items-center gap-2 text-xs text-slate-400"><AvatarStack ids={going} size={22} />{event.counts?.going ?? going.length} going{event.capacity ? ` of ${event.capacity}` : ''}</div>}
+          {going.length > 0 && <div className="mt-2 flex items-center gap-2 text-xs text-3"><AvatarStack ids={going} size={22} />{event.counts?.going ?? going.length} going{event.capacity ? ` of ${event.capacity}` : ''}</div>}
         </div>
       </Link>
       {!past && !cancelled && <RsvpButtons event={event} compact />}

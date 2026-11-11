@@ -37,8 +37,8 @@ export function TownHallCard({ th }) {
         {th.allowAnonymous && <span className="chip !bg-white/5 !text-slate-400">Anonymous questions on</span>}
       </div>
       <h3 className="mt-3 font-bold"><Glyph value="🎤" tile={false} size={16} /> {th.title}</h3>
-      <p className="mt-1 line-clamp-2 text-sm text-slate-400">{th.description}</p>
-      <p className="mt-3 text-xs text-slate-400">
+      <p className="mt-1 line-clamp-2 text-sm text-3">{th.description}</p>
+      <p className="mt-3 text-xs text-3">
         {new Date(th.start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
         {' · '}{qs.length} question{qs.length === 1 ? '' : 's'}{answered ? ` · ${answered} answered` : ''}
       </p>

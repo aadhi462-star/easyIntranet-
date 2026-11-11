@@ -214,15 +214,15 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
 
         {editing ? (
           <fieldset>
-            <legend className="mb-1.5 text-xs font-semibold text-slate-300">Shared in {communityName || 'its community'}</legend>
+            <legend className="mb-1.5 text-xs font-semibold text-2">Shared in {communityName || 'its community'}</legend>
             <label className="flex min-h-10 items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={f.inviteOnly} onChange={(e) => set('inviteOnly', e.target.checked)} /> Invited members only
             </label>
           </fieldset>
         ) : (
           <fieldset>
-            <legend className="mb-1.5 text-xs font-semibold text-slate-300">Share with</legend>
-            {!communities && !error && <p className="text-sm text-slate-400">Loading your communities…</p>}
+            <legend className="mb-1.5 text-xs font-semibold text-2">Share with</legend>
+            {!communities && !error && <p className="text-sm text-3">Loading your communities…</p>}
             <div className="flex flex-wrap gap-2">
               {shareOptions.map(([v, l, disabled]) => (
                 <label key={v} className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm ${f.share === v ? 'border-brand-500 bg-brand-500/15' : 'border-white/10'} ${disabled ? 'opacity-40' : 'cursor-pointer'}`}>
@@ -232,7 +232,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
                 </label>
               ))}
             </div>
-            {communities && !canNetwork && <p className="mt-1 text-xs text-slate-500">Only AlumniZone admins can create events open to all of AlumniZone.</p>}
+            {communities && !canNetwork && <p className="mt-1 text-xs text-3">Only AlumniZone admins can create events open to all of AlumniZone.</p>}
             {f.share === 'group' && (
               <select className="input mt-2" value={f.groupId} onChange={(e) => set('groupId', e.target.value)} aria-label="Group">
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
@@ -274,13 +274,13 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
         )}
 
         <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Reminders</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-2">Reminders</legend>
           <div className="flex flex-wrap gap-2">
             {REMINDER_OPTIONS.map(([m, l]) => {
               const on = f.reminders.includes(m);
               return (
                 <button type="button" key={m} aria-pressed={on} onClick={() => set('reminders', on ? f.reminders.filter((x) => x !== m) : [...f.reminders, m])}
-                  className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-brand-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>
+                  className={`min-h-9 rounded-full px-3 text-xs font-semibold ${on ? 'bg-brand-500 text-white' : 'bg-white/5 text-2 hover:bg-white/10'}`}>
                   {l} before
                 </button>
               );
@@ -289,7 +289,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
         </fieldset>
 
         {/* Files need secure, access-checked storage (Resources, Phase 2), so none are faked here. */}
-        <p className="text-xs text-slate-500">📎 Attachments are coming soon.</p>
+        <p className="text-xs text-3">📎 Attachments are coming soon.</p>
 
         {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">

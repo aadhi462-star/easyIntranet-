@@ -135,22 +135,22 @@ function FeedView({ view }) {
       <nav aria-label="Feed views" className="ext-menu -mx-3 flex gap-1 overflow-x-auto px-3 pb-1 lg:mx-0 lg:block lg:space-y-0.5 lg:overflow-visible lg:px-0">
         {views.map((x) => (
           <NavLink key={x.id} to={x.id === 'my' ? '/feed' : `/feed/${x.id}`} end
-            className={({ isActive }) => `flex min-h-10 shrink-0 items-center gap-2 rounded-xl px-3 text-sm font-medium ${isActive ? 'bg-brand-500/20 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
-            <Glyph value={x.icon} size={26} />{x.label}
-            {x.id === 'bookmarks' && bookmarkIds.length > 0 && <span className="ml-auto text-xs text-slate-500">{bookmarkIds.length}</span>}
+            className={({ isActive }) => `flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm ${isActive ? 'bg-[var(--az-surface)] font-semibold text-white shadow-[inset_3px_0_0_var(--color-brand-400)]' : 'text-2 font-medium hover:bg-white/5 hover:text-white'}`}>
+            <Glyph value={x.icon} tile={false} size={18} />{x.label}
+            {x.id === 'bookmarks' && bookmarkIds.length > 0 && <span className="ml-auto text-xs text-3">{bookmarkIds.length}</span>}
           </NavLink>
         ))}
       </nav>
 
       <div className="min-w-0 space-y-4">
-        <h1 className="flex items-center gap-3 text-2xl font-extrabold tracking-tight"><Glyph value={v.icon} size={38} />{v.label}</h1>
+        <h1 className="t-h1 text-white">{v.label}</h1>
         {tag && (
           <div className="flex items-center gap-2 text-sm">Showing <span className="chip">#{tag}</span>
             <button className="text-brand-400 hover:underline" onClick={() => { sp.delete('tag'); setSp(sp); }}>Clear</button></div>
         )}
         {v.id === 'following' && following.length > 0 && (
           <div className="glass flex flex-wrap items-center gap-3 p-3 text-sm">
-            <span className="text-slate-400">Following</span>
+            <span className="text-3">Following</span>
             {following.map((f) => <span key={f.id} className="flex items-center gap-1.5"><Avatar user={user(f.targetId)} size={24} /><UserLink id={f.targetId} /></span>)}
           </div>
         )}

@@ -18,12 +18,12 @@ export default function PeoplePicker({ value, onChange, exclude = [], only, labe
             <input type="checkbox" checked={value.includes(u.id)} onChange={() => toggle(u.id)} className="h-4 w-4 accent-brand-500" />
             <Avatar user={u} size={24} />
             <span className="flex-1">{u.name}</span>
-            <span className="text-xs text-slate-500">{u.batch}</span>
+            <span className="text-xs text-3">{u.batch}</span>
           </label>
         ))}
-        {list.length === 0 && <p className="px-2 py-3 text-sm text-slate-500">No matches.</p>}
+        {list.length === 0 && <p className="px-2 py-3 text-sm text-3">No matches.</p>}
       </div>
-      {value.length > 0 && <p className="border-t border-white/10 px-3 py-2 text-xs text-slate-400">{value.length} selected</p>}
+      {value.length > 0 && <p className="border-t border-white/10 px-3 py-2 text-xs text-3">{value.length} selected</p>}
     </div>
   );
 }

@@ -14,7 +14,7 @@ export default function Calendar() {
   const [tab, setTab] = useState('mine');
   return (
     <div>
-      <PageHeader title="Calendar" subtitle="Events and task deadlines in one place." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="📅" tile={false} size={16} /> Events</Link>} />
+      <PageHeader title="Calendar" subtitle="Events from your communities, by month or week." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="📅" tile={false} size={16} /> Events</Link>} />
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'mine', label: 'My calendar' }, { id: 'team', label: 'Team schedule' }]} />
       {tab === 'mine' ? <MyCalendar /> : <TeamSchedule />}
     </div>
@@ -26,7 +26,8 @@ function MyCalendar() {
   const nav = useNavigate();
   const [mode, setMode] = useState('month');
   const [cursor, setCursor] = useState(Date.now());
-  const [show, setShow] = useState({ events: true, tasks: true, onlyMine: false });
+  // Tasks are parked behind a feature flag (decision D2), so their due dates aren't shown.
+  const [show, setShow] = useState({ events: true, tasks: false, onlyMine: false });
   const [draft, setDraft] = useState(null);
   const [from, to] = viewRange(mode, cursor);
   // Only events this viewer may see come back from the server (EVT-08).
@@ -55,16 +56,16 @@ function MyCalendar() {
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <RangeNav mode={mode} cursor={cursor} onChange={setCursor} />
-        <div role="group" aria-label="View" className="glass inline-flex !rounded-xl p-1">
+        <div role="group" aria-label="View" className="inline-flex rounded-lg border border-[var(--az-hairline)] p-1">
           {[['month', 'Month'], ['week', 'Week']].map(([v, l]) => (
             <button key={v} aria-pressed={mode === v} onClick={() => setMode(v)}
-              className={`min-h-8 rounded-lg px-3 text-sm font-semibold ${mode === v ? 'bg-brand-500 text-white' : 'text-slate-300 hover:bg-white/5'}`}>{l}</button>
+              className={`min-h-8 rounded-lg px-3 text-sm font-semibold ${mode === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2 hover:bg-white/5'}`}>{l}</button>
           ))}
         </div>
       </div>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        {[['events', 'Events', '#a3e635'], ['tasks', 'Task due dates', TASK_COLOR], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
-          <label key={k} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full bg-white/5 px-3">
+        {[['events', 'Events', '#a3e635'], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
+          <label key={k} className="text-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[var(--az-hairline)] px-3.5">
             <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={show[k]} onChange={() => toggle(k)} />
             {c && <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />}{l}
           </label>
@@ -72,7 +73,6 @@ function MyCalendar() {
       </div>
       {error && <p role="alert" className="mb-3 text-sm text-rose-300">Couldn’t load events: {error}</p>}
       <CalendarGrid mode={mode} cursor={cursor} items={items} onDayClick={(d) => { const x = new Date(d); x.setHours(18, 0, 0, 0); setDraft(x.getTime()); }} />
-      {!(state.tasks || []).length && show.tasks && <p className="mt-3 text-xs text-slate-500">No tasks with due dates yet. Deadlines from Tasks & Boards show up here.</p>}
       {draft && <EventForm initial={{ start: draft }} onClose={() => setDraft(null)} onSaved={(id) => { setDraft(null); nav(`/events/${id}`); }} />}
     </>
   );
@@ -110,7 +110,7 @@ function TeamSchedule() {
       <div className="glass overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+            <tr className="text-left text-[11px] uppercase tracking-wider text-3">
               <th className="w-44 p-3">Member</th>
               {days.map((d) => (
                 <th key={d} className={`p-3 ${startOfDay(Date.now()) === d ? 'text-brand-400' : ''}`}>
@@ -147,7 +147,7 @@ function TeamSchedule() {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-slate-500">Shows events each member hosts, assists, is invited to or is attending, plus tasks assigned to them.</p>
+      <p className="mt-3 text-xs text-3">Shows events each member hosts, assists, is invited to or is attending.</p>
     </>
   );
 }

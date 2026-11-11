@@ -64,6 +64,7 @@ function Directory() {
   const list = result.people.filter((u) => !blocked.has(u.id)
     && (!f.label || (state.userLabels || []).find((l) => l.id === f.label)?.members.includes(u.id)));
   const people = { length: result.total };
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const active = Object.values(f).some(Boolean) || q;
 
   return (
@@ -71,19 +72,24 @@ function Directory() {
       <PageHeader title="People" subtitle={`${people.length} members in the community`}
         actions={<>
           {!(state.settings?.hiddenModules || ['orgchart']).includes('orgchart') && <Link to="/orgchart" className="btn btn-ghost min-h-11"><Glyph value="🌳" tile={false} size={16} /> Community structure</Link>}
-          <div className="glass inline-flex !rounded-xl p-1" role="group" aria-label="View">
+          <div className="inline-flex rounded-lg border border-[var(--az-hairline)] p-1" role="group" aria-label="View">
             {['grid', 'list'].map((v) => (
               <button key={v} onClick={() => setView(v)} aria-pressed={view === v}
-                className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${view === v ? 'bg-brand-500 text-white' : 'text-slate-300'}`}>{v === 'grid' ? '▦ Grid' : '☰ List'}</button>
+                className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${view === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2'}`}>{v === 'grid' ? '▦ Grid' : '☰ List'}</button>
             ))}
           </div>
         </>} />
 
-      <div className="glass mb-5 grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-7">
-        <input className="input sm:col-span-3 lg:col-span-1" type="search" placeholder="Search name, role, skill…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-        {[['batch', 'Batch'], ['dept', 'Department'], ['city', 'City'], ['company', 'Company'], ['skill', 'Skill']].map(([k, label]) => (
+      <div className="band mb-6 grid gap-3 p-4 sm:grid-cols-3 lg:grid-cols-7">
+        <div className="flex gap-2 sm:col-span-3 lg:col-span-1">
+          <input className="input" type="search" placeholder="Search name, role, skill…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+          {/* Phones: the filters fold away behind one button so the directory starts on screen one. */}
+          <button type="button" className="btn btn-ghost min-h-11 shrink-0 sm:hidden" aria-expanded={filtersOpen} aria-controls="people-filters" onClick={() => setFiltersOpen(!filtersOpen)}>Filters</button>
+        </div>
+        <div id="people-filters" className={`${filtersOpen ? 'grid' : 'hidden'} gap-3 sm:col-span-3 sm:grid sm:grid-cols-3 lg:col-span-6 lg:grid-cols-6`}>
+        {[['batch', 'Batch', 'All batches'], ['dept', 'Department', 'All departments'], ['city', 'City', 'All cities'], ['company', 'Company', 'All companies'], ['skill', 'Skill', 'All skills']].map(([k, label, all]) => (
           <select key={k} className="input" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} aria-label={label}>
-            <option value="">All {label.toLowerCase()}s</option>
+            <option value="">{all}</option>
             {opts[k].map((o) => (typeof o === 'object' ? <option key={o.id} value={o.id}>{o.name}</option> : <option key={o} value={o}>{o}</option>))}
           </select>
         ))}
@@ -91,7 +97,8 @@ function Directory() {
           <option value="">Label</option>
           {(state.userLabels || []).map((l) => <option key={l.id} value={l.id}>{l.name} ({l.members.length})</option>)}
         </select>
-        {active && <button className="btn btn-ghost min-h-11 sm:col-span-3 lg:col-span-7" onClick={() => { setQ(''); setF({ batch: '', dept: '', city: '', company: '', label: '', skill: '' }); }}>Clear filters · {list.length} result{list.length === 1 ? '' : 's'}</button>}
+        </div>
+        {active && <button className="btn btn-ghost min-h-11 sm:col-span-3 lg:col-span-6" onClick={() => { setQ(''); setF({ batch: '', dept: '', city: '', company: '', label: '', skill: '' }); }}>Clear filters · {list.length} result{list.length === 1 ? '' : 's'}</button>}
       </div>
 
       {requests.length > 0 && (
@@ -119,8 +126,8 @@ function Directory() {
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{u.name}{u.admin && <span className="chip ml-2">Admin</span>}</div>
                   <UserLabels userId={u.id} max={2} small className="my-1" />
-                  <div className="truncate text-sm text-slate-400">{u.role}{u.company && ` · ${u.company}`}</div>
-                  <div className="text-xs text-slate-500">{[u.batch && `Class of ${u.batch}`, u.city].filter(Boolean).join(' · ')}</div>
+                  <div className="truncate text-sm text-3">{u.role}{u.company && ` · ${u.company}`}</div>
+                  <div className="text-xs text-3">{[u.batch && `Class of ${u.batch}`, u.city].filter(Boolean).join(' · ')}</div>
                 </div>
               </Link>
               <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).slice(0, 3).map((s) => <span key={s} className="chip">{s}</span>)}</div>
@@ -138,7 +145,7 @@ function Directory() {
             <div key={u.id} className="flex flex-wrap items-center gap-3 p-3">
               <Link to={`/people/${u.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                 <Avatar user={u} size={40} />
-                <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="truncate font-semibold">{u.name}</span><UserLabels userId={u.id} max={2} small /></div><div className="truncate text-xs text-slate-400">{[u.role, u.company, u.city, u.batch].filter(Boolean).join(' · ')}</div></div>
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="truncate font-semibold">{u.name}</span><UserLabels userId={u.id} max={2} small /></div><div className="truncate text-xs text-3">{[u.role, u.company, u.city, u.batch].filter(Boolean).join(' · ')}</div></div>
               </Link>
               {u.id !== me.id && <div className="flex gap-2">
                 <FollowButton userId={u.id} />
@@ -202,9 +209,9 @@ function Profile({ id }) {
             <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold tracking-tight">{u.name}
               {u.admin && <span className="rounded-full bg-brand-400/15 px-2.5 py-0.5 text-xs font-semibold text-brand-300">Platform Admin</span>}
             </h1>
-            {u.title && <p className="mt-1 text-sm text-slate-200">{u.title}</p>}
-            {work && <p className="mt-1 text-sm text-slate-300">{work}</p>}
-            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">
+            {u.title && <p className="mt-1 text-sm text-[var(--az-text)]">{u.title}</p>}
+            {work && <p className="mt-1 text-sm text-2">{work}</p>}
+            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-3">
               {study && <span>{study}</span>}
               {u.city && <span className="inline-flex items-center gap-1"><Icon name="globe" size={12} />{u.city}</span>}
             </p>
@@ -234,43 +241,43 @@ function Profile({ id }) {
       <nav aria-label="Profile sections" className="flex gap-1 border-b border-[var(--az-hairline)]">
         {[['about', 'About'], ['posts', 'Posts']].map(([t, label]) => (
           <button key={t} type="button" aria-current={tab === t ? 'page' : undefined} onClick={() => setTab(t)}
-            className={`border-b-2 px-3.5 py-3 text-sm transition ${tab === t ? 'border-brand-400 font-semibold text-white' : 'border-transparent font-medium text-slate-400 hover:text-white'}`}>{label}</button>
+            className={`border-b-2 px-3.5 py-3 text-sm transition ${tab === t ? 'border-brand-400 font-semibold text-white' : 'border-transparent font-medium text-3 hover:text-white'}`}>{label}</button>
         ))}
       </nav>
 
       {tab === 'about' && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0 space-y-5">
-            <section className="glass p-5"><h2 className="font-semibold">About</h2><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-300">{u.bio || (isMe ? 'Add a short bio so people know what you do and how to help.' : 'No bio yet.')}</p></section>
+            <section className="glass p-5"><h2 className="font-semibold">About</h2><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-2">{u.bio || (isMe ? 'Add a short bio so people know what you do and how to help.' : 'No bio yet.')}</p></section>
             <section className="glass p-5">
               <h2 className="font-semibold">Experience</h2>
               {(u.career || []).length ? (
                 <ol className="mt-3 space-y-3">
-                  {u.career.map((c, i) => <li key={i}><div className="text-sm font-semibold">{c.title}</div><div className="text-xs text-slate-400">{[c.org, [c.from, c.to ?? (c.from ? 'Present' : null)].filter(Boolean).join('–')].filter(Boolean).join(' · ')}</div></li>)}
+                  {u.career.map((c, i) => <li key={i}><div className="text-sm font-semibold">{c.title}</div><div className="text-xs text-3">{[c.org, [c.from, c.to ?? (c.from ? 'Present' : null)].filter(Boolean).join('–')].filter(Boolean).join(' · ')}</div></li>)}
                 </ol>
-              ) : <p className="mt-2 text-sm text-slate-400">No experience listed.</p>}
+              ) : <p className="mt-2 text-sm text-3">No experience listed.</p>}
             </section>
             <section className="glass p-5">
               <h2 className="font-semibold">Education</h2>
               {(u.education || []).length ? (
                 <ol className="mt-3 space-y-3">
-                  {u.education.map((e, i) => <li key={e.id ?? i}><div className="text-sm font-semibold">{e.institution}</div><div className="text-xs text-slate-400">{[e.programme, e.department, e.gradYear && `Class of ${e.gradYear}`].filter(Boolean).join(' · ')}</div></li>)}
+                  {u.education.map((e, i) => <li key={e.id ?? i}><div className="text-sm font-semibold">{e.institution}</div><div className="text-xs text-3">{[e.programme, e.department, e.gradYear && `Class of ${e.gradYear}`].filter(Boolean).join(' · ')}</div></li>)}
                 </ol>
-              ) : <p className="mt-2 text-sm text-slate-400">No education listed.</p>}
+              ) : <p className="mt-2 text-sm text-3">No education listed.</p>}
             </section>
           </div>
           <div className="min-w-0 space-y-5">
             <section className="glass p-5">
               <h2 className="font-semibold">Skills</h2>
-              <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).length ? u.skills.map((s) => <span key={s} className="chip">{s}</span>) : <span className="text-sm text-slate-400">None listed</span>}</div>
+              <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).length ? u.skills.map((s) => <span key={s} className="chip">{s}</span>) : <span className="text-sm text-3">None listed</span>}</div>
             </section>
             <section className="glass p-5">
               <h2 className="font-semibold">Details</h2>
               <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between gap-3"><dt className="text-slate-400">Email</dt><dd className="truncate">{showContact && u.email ? u.email : <span className="inline-flex items-center gap-1 text-slate-400"><Icon name="lock" size={13} /> Hidden</span>}</dd></div>
-                {u.birthday && showContact && isValidBirthday(u.birthday) && <div className="flex justify-between gap-3"><dt className="text-slate-400">Birthday</dt><dd>{formatMonthDay(u.birthday)}</dd></div>}
-                {u.joinedAt && <div className="flex justify-between gap-3"><dt className="text-slate-400">Joined</dt><dd>{new Date(u.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</dd></div>}
-                {fields.map((cf) => <div key={cf.id} className="flex justify-between gap-3"><dt className="text-slate-400">{cf.label}</dt><dd className="truncate">{u.customFields[cf.id]}</dd></div>)}
+                <div className="flex justify-between gap-3"><dt className="text-3">Email</dt><dd className="truncate">{showContact && u.email ? u.email : <span className="inline-flex items-center gap-1 text-3"><Icon name="lock" size={13} /> Hidden</span>}</dd></div>
+                {u.birthday && showContact && isValidBirthday(u.birthday) && <div className="flex justify-between gap-3"><dt className="text-3">Birthday</dt><dd>{formatMonthDay(u.birthday)}</dd></div>}
+                {u.joinedAt && <div className="flex justify-between gap-3"><dt className="text-3">Joined</dt><dd>{new Date(u.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</dd></div>}
+                {fields.map((cf) => <div key={cf.id} className="flex justify-between gap-3"><dt className="text-3">{cf.label}</dt><dd className="truncate">{u.customFields[cf.id]}</dd></div>)}
               </dl>
             </section>
           </div>
@@ -290,7 +297,7 @@ function UserPosts({ userId }) {
   const { state } = useStore();
   const posts = state.posts.filter((p) => p.authorId === userId && p.status !== 'draft' && p.status !== 'scheduled');
   if (!posts.length) return <Empty icon="📝" title="No posts yet" />;
-  return <div className="space-y-3">{posts.map((p) => <Link key={p.id} to={`/post/${p.id}`} className="glass block p-4 text-sm hover:bg-white/5"><p className="text-slate-200">{p.text}</p><p className="mt-2 text-xs text-slate-500">{timeAgo(p.createdAt)} · ❤️ {p.likes.length} · 💬 {p.comments.length}</p></Link>)}</div>;
+  return <div className="space-y-3">{posts.map((p) => <Link key={p.id} to={`/post/${p.id}`} className="glass block p-4 text-sm hover:bg-white/5"><p className="text-[var(--az-text)]">{p.text}</p><p className="mt-2 text-xs text-3">{timeAgo(p.createdAt)} · ❤️ {p.likes.length} · 💬 {p.comments.length}</p></Link>)}</div>;
 }
 
 function EditProfile({ onClose, focus }) {
@@ -435,7 +442,7 @@ function EditProfile({ onClose, focus }) {
         </div>
         <Field label="About" hint={`${d.bio.trim().length} characters${d.bio.trim().length < 40 ? ' · 40+ makes your profile complete' : ''}`}><textarea id="ep-bio" className="input min-h-24" value={d.bio} onChange={set('bio')} /></Field>
         <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Birthday (optional)</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-2">Birthday (optional)</legend>
           <div className="flex flex-wrap gap-2">
             <select id="ep-birthday" className="input min-w-0 flex-1 sm:max-w-48" aria-label="Birthday month" value={bday.m} aria-invalid={!!errors.birthday} aria-describedby="ep-birthday-hint"
               onChange={(e) => { const m = e.target.value; setBday({ m, d: m && Number(bday.d) > daysInMonth(Number(m)) ? '' : bday.d }); setErrors({ ...errors, birthday: undefined }); }}>
@@ -449,7 +456,7 @@ function EditProfile({ onClose, focus }) {
             </select>
             {(bday.m || bday.d) && <button type="button" className="btn btn-ghost min-h-11" onClick={() => { setBday({ m: '', d: '' }); setErrors({ ...errors, birthday: undefined }); }}>Clear</button>}
           </div>
-          <span id="ep-birthday-hint" className="mt-1 block text-xs text-slate-500">Month and day only, never the year. Classmates who can see your contact details can send you wishes.</span>
+          <span id="ep-birthday-hint" className="mt-1 block text-xs text-3">Month and day only, never the year. Classmates who can see your contact details can send you wishes.</span>
           {errText('birthday')}
         </fieldset>
         <Field label="Skills">
@@ -457,7 +464,7 @@ function EditProfile({ onClose, focus }) {
           <div className="flex gap-2"><input id="ep-skills" className="input" aria-label="Add a skill" value={skill} onChange={(e) => setSkill(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }} placeholder="Add a skill and press Enter" /><button type="button" className="btn btn-ghost min-h-11" onClick={addSkill}>Add</button></div>
         </Field>
         <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Career history</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-2">Career history</legend>
           <div className="space-y-2">
             {d.career.map((c, i) => (
               <div key={i} className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 p-2 sm:grid-cols-[1fr_1fr_80px_80px_auto]">

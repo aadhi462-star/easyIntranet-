@@ -49,7 +49,7 @@ export default function Comments({ post }) {
 
   if (!comments) {
     return (
-      <div className="mt-3 border-t border-white/5 pt-2 text-sm text-slate-400">
+      <div className="mt-3 border-t border-white/5 pt-2 text-sm text-3">
         {loadError ? <p role="alert" className="text-rose-300">{loadError} <button className="text-brand-400 underline" onClick={load}>Try again</button></p> : 'Loading comments…'}
       </div>
     );
@@ -64,7 +64,7 @@ export default function Comments({ post }) {
     if (c.deleted) {
       return (
         <li key={c.id} className={depth ? 'ml-10 mt-2' : 'mt-3'}>
-          <p className="rounded-xl bg-white/[.03] px-3 py-2 text-xs italic text-slate-500">Comment deleted</p>
+          <p className="rounded-xl bg-white/[.03] px-3 py-2 text-xs italic text-3">Comment deleted</p>
           {kids.length > 0 && <ul>{kids.map((r) => item(r, 1))}</ul>}
         </li>
       );
@@ -76,12 +76,12 @@ export default function Comments({ post }) {
           <div className="min-w-0 flex-1">
             <div className="rounded-xl bg-white/5 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <AuthorName author={c.author} /><span className="text-slate-500">{timeAgo(new Date(c.createdAt).getTime())}</span>
-                {c.editedAt && <span className="text-slate-500">· edited</span>}
+                <AuthorName author={c.author} /><span className="text-3">{timeAgo(new Date(c.createdAt).getTime())}</span>
+                {c.editedAt && <span className="text-3">· edited</span>}
               </div>
-              <RichText text={c.body} className="mt-1 text-sm text-slate-200" />
+              <RichText text={c.body} className="mt-1 text-sm text-[var(--az-text)]" />
             </div>
-            <div className="mt-1 flex flex-wrap gap-1 text-xs text-slate-400">
+            <div className="mt-1 flex flex-wrap gap-1 text-xs text-3">
               {!depth && <button className="min-h-8 rounded px-2 hover:bg-white/5" onClick={() => { setReplyTo(c.id); setReply(''); }}>Reply</button>}
               {c.can?.delete && <button className="min-h-8 rounded px-2 text-rose-300 hover:bg-white/5" disabled={busy} onClick={() => remove(c)}>Delete</button>}
             </div>
@@ -100,7 +100,7 @@ export default function Comments({ post }) {
 
   return (
     <div className="mt-3 border-t border-white/5 pt-2">
-      {top.length === 0 && <p className="mt-2 text-xs text-slate-400">{isQ ? 'No answers yet.' : 'No comments yet.'}</p>}
+      {top.length === 0 && <p className="mt-2 text-xs text-3">{isQ ? 'No answers yet.' : 'No comments yet.'}</p>}
       <ul>{top.map((c) => item(c))}</ul>
       {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
       <form onSubmit={send} className="mt-3 flex gap-2">

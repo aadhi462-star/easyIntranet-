@@ -579,3 +579,17 @@ The user approved the refined designs (canvas page "Refined designs": system, La
   - She approved one held post (it moved to Recent discussions) and removed the other with a reason.
   - Ishita, made a moderator, saw the review queue at 375 px with no horizontal scroll.
 
+### Feed, People and Calendar restyled (11 Nov 2026)
+
+- **Shared components:** `PageHeader` uses the H1 scale and secondary text. `Tabs` is an underline tab row with lime for the active tab. These are used by about 19 older screens.
+- **Text colours:** Feed, People, Calendar and their components use the system's three text levels instead of Tailwind `slate`, which is blue-tinted next to the graphite palette (92 classes swapped).
+- **Feed:**
+  - The view list uses the system's active style, and headings use the type scale.
+  - A post names its community in that community's colour. Posts now carry the community's `slug` and `accent`.
+- **People:**
+  - Follow is secondary. A directory shows one per person, so a lime Follow put dozens of primary buttons on one screen.
+  - The filter labels are fixed ("All batches", "All cities", "All companies").
+  - On phones the filters fold behind a Filters button.
+- **Calendar:** "Task due dates" is gone, because Tasks are parked (decision D2). The view switch and filters use the system.
+- **Checked:** 151 tests pass. All three screens at 1280 and 375 px with no horizontal scroll and no console errors. The People filters open and close on a phone.
+

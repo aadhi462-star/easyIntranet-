@@ -67,7 +67,7 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
             <div key={d} role="button" tabIndex={0} aria-label={`Create event on ${new Date(d).toDateString()}`}
               onClick={() => onDayClick?.(d)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onDayClick?.(d))}
               className="min-h-24 cursor-pointer border-b border-white/5 p-2 hover:bg-white/[.03] sm:min-h-72 sm:border-b-0 sm:border-r last:border-r-0">
-              <div className={`mb-2 text-xs font-semibold ${d === today ? 'text-brand-400' : 'text-slate-400'}`}>
+              <div className={`mb-2 text-xs font-semibold ${d === today ? 'text-brand-400' : 'text-3'}`}>
                 {WEEKDAYS[new Date(d).getDay()]} <span className={`ml-1 inline-grid h-6 min-w-6 place-items-center rounded-full ${d === today ? 'bg-brand-500 text-white' : ''}`}>{new Date(d).getDate()}</span>
               </div>
               <div className="space-y-1">{list.map(chip)}</div>
@@ -81,7 +81,7 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
   return (
     <div>
       <div className="glass overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-white/5 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="grid grid-cols-7 border-b border-white/5 text-center text-[11px] font-semibold uppercase tracking-wider text-3">
           {WEEKDAYS.map((w) => <div key={w} className="py-2">{w}</div>)}
         </div>
         <div className="grid grid-cols-7">
@@ -92,10 +92,10 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
               <div key={d} role="button" tabIndex={0} aria-label={`${new Date(d).toDateString()}, ${list.length} items. Create event`}
                 onClick={() => onDayClick?.(d)} onKeyDown={(e) => e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onDayClick?.(d))}
                 className={`min-h-14 cursor-pointer border-b border-r border-white/5 p-1 hover:bg-white/[.03] sm:min-h-28 sm:p-1.5 ${out ? 'opacity-40' : ''}`}>
-                <div className={`mb-1 inline-grid h-6 min-w-6 place-items-center rounded-full text-xs font-semibold ${d === today ? 'bg-brand-500 text-white' : 'text-slate-300'}`}>{new Date(d).getDate()}</div>
+                <div className={`mb-1 inline-grid h-6 min-w-6 place-items-center rounded-full text-xs font-semibold ${d === today ? 'bg-brand-500 text-white' : 'text-2'}`}>{new Date(d).getDate()}</div>
                 <div className="hidden space-y-1 sm:block">
                   {list.slice(0, 3).map(chip)}
-                  {list.length > 3 && <div className="px-1 text-[11px] text-slate-400">+{list.length - 3} more</div>}
+                  {list.length > 3 && <div className="px-1 text-[11px] text-3">+{list.length - 3} more</div>}
                 </div>
                 <div className="flex flex-wrap gap-0.5 sm:hidden">{list.slice(0, 4).map((it) => <span key={it.key} className="h-1.5 w-1.5 rounded-full" style={{ background: it.color }} />)}</div>
               </div>
@@ -110,7 +110,7 @@ export default function CalendarGrid({ mode = 'month', cursor, items, onDayClick
             <Link to={it.href} className="glass flex items-center gap-3 p-3 text-sm">
               <span className="h-8 w-1 rounded-full" style={{ background: it.color }} />
               <span className="flex-1"><span className="block font-semibold">{it.icon ?? ''}{it.title}</span>
-                <span className="text-xs text-slate-400">{new Date(it.start).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}{!it.allDay && ` · ${time(it.start)}`}</span></span>
+                <span className="text-xs text-3">{new Date(it.start).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}{!it.allDay && ` · ${time(it.start)}`}</span></span>
             </Link>
           </li>
         ))}

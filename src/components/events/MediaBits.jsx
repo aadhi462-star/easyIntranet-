@@ -46,12 +46,12 @@ export function ChatPanel({ col, id, chat = [], disabled = false, title = 'Live 
           return (
             <li key={m.id} className="flex gap-2 text-sm">
               {u ? <Avatar user={u} size={26} /> : <span className="h-[26px] w-[26px] rounded-full bg-white/10" />}
-              <div><span className="font-semibold">{u?.name ?? m.name ?? 'Guest'}</span> <span className="text-[11px] text-slate-500">{timeAgo(m.createdAt)}</span>
-                <p className="text-slate-200">{m.text}</p></div>
+              <div><span className="font-semibold">{u?.name ?? m.name ?? 'Guest'}</span> <span className="text-[11px] text-3">{timeAgo(m.createdAt)}</span>
+                <p className="text-[var(--az-text)]">{m.text}</p></div>
             </li>
           );
         })}
-        {chat.length === 0 && <li className="text-sm text-slate-500">No messages yet.</li>}
+        {chat.length === 0 && <li className="text-sm text-3">No messages yet.</li>}
         <li ref={end} />
       </ul>
       <form onSubmit={send} className="flex gap-2 border-t border-white/5 p-3">
