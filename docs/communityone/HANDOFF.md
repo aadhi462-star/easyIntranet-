@@ -67,7 +67,9 @@ Rules to keep: a merged community keeps its memberships (for undo), so every "my
 
 Waiting on the user: Terms of Service text and a contact address. The AppSail upload happens once, after the last stage.
 
-Next: the user's new logo (wordmark and app icon), then the role views and the Administrative Mode entry point. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
+Logo: the user's artwork redrawn as SVG: `LogoMark` / `Logo` (with optional `tagline`) in `src/components/ui.jsx`, and the app icon in `public/favicon.svg`.
+
+Next: the role views and the Administrative Mode entry point, then redraw the Stage 4 boards in the refined system. Then redraw the Stage 4 boards in the refined system and get the six Stage 4 decisions approved before building Stage 4. Open from Stage 3: recurring events in search show the series' first date; the search error state wasn't triggered in the browser.
 
 ## Working style that's been effective
 

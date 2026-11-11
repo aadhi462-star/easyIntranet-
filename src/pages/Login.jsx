@@ -91,7 +91,7 @@ export function AuthShell({ children, mode }) {
       <div aria-hidden="true" className="auth-grid pointer-events-none absolute inset-0" />
       <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-4 sm:px-6">
         <header className="flex items-center justify-between gap-3 py-5">
-          <Link to="/" aria-label="CommunityOne home"><Logo size={34} /></Link>
+          <Link to="/" aria-label="CommunityOne home"><Logo size={40} tagline /></Link>
           <div className="flex gap-2">
             <ThemeToggle />
             <Link to="/explore" className="btn btn-ghost">Explore Communities</Link>

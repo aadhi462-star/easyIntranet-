@@ -532,3 +532,14 @@ The user approved the refined designs (canvas page "Refined designs": system, La
   - Admin as Neha at 1280 and 375 px: 36 accounts, 8 communities, 9 events, 7 posts. The Closed filter shows the two Closed communities, and there's no horizontal scroll.
 - **Not built:** an Administrative Mode entry point in the client. The server supports it.
 
+### New logo (11 Nov 2026)
+
+- The user supplied the CommunityOne logo artwork: a lime-to-green "C" holding three people, the wordmark "CommunityOne" with "One" in lime, the tagline "One Platform. Every Community.", and a dark rounded-square app icon. I redrew it as SVG on a 64-unit grid.
+- **`LogoMark`:** draws the people in the text colour, so the mark works in dark and light mode.
+- **`Logo`:**
+  - The wordmark is live text: "One" uses `brand-300`, so it stays readable in light mode.
+  - It's used in the app sidebar, the mobile top bar, the public header and Welcome.
+  - With the tagline, it's used on sign-in and in the public footer.
+- **Favicon:** `public/favicon.svg` is now the app icon. It replaces the old "AZ" tile.
+- **Browser:** checked at 16, 32, 64 and 160 px on dark and white backgrounds. Below 32 px the C still reads, but the people don't.
+

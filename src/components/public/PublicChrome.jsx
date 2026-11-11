@@ -85,8 +85,7 @@ export function PublicFooter() {
     <footer className="border-t border-[var(--az-hairline)]">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-8 gap-y-4 px-4 py-8 sm:px-8">
         <div className="flex flex-wrap items-center gap-3">
-          <Logo size={28} />
-          <span className="text-sm text-slate-400">One Platform. Every Community.</span>
+          <Logo size={36} tagline />
         </div>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5">
           <Link className={f} to="/about">About</Link>

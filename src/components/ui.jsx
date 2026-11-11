@@ -1,18 +1,44 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { useTheme } from '../lib/theme.js';
 import { Glyph, Icon } from './icons.jsx';
 
-/** The CommunityOne mark (lime tile, "C1") and wordmark. AlumniZone is a community, not the logo. */
-export function Logo({ size = 40, withText = true }) {
+// The CommunityOne logo (user-supplied artwork, redrawn as SVG): a lime-to-green "C" holding
+// three people, and the wordmark "Community" + "One". The C's ends point right, open like a
+// welcome. AlumniZone is a community, not the logo.
+const C_ARC = 'M47.6 16.4A22 22 0 1 0 47.6 47.6';
+
+/** The mark on its own. People are drawn in the text colour, so the mark works on both themes. */
+export function LogoMark({ size = 40 }) {
+  const id = useId();
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <span aria-hidden="true" className="bg-accent-fill grid place-items-center font-extrabold"
-        style={{ width: size, height: size, fontSize: size * 0.4, borderRadius: size * 0.26 }}>
-        C1
-      </span>
-      {withText && <span className="text-[17px] font-bold tracking-tight text-white">CommunityOne</span>}
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 64 64" className="shrink-0" style={{ color: 'var(--az-text)' }}>
+      <defs>
+        <linearGradient id={`${id}c`} x1="0.05" y1="0.75" x2="0.95" y2="0.15">
+          <stop offset="0" stopColor="#d4f75e" /><stop offset="0.55" stopColor="#a3e635" /><stop offset="1" stopColor="#4cc92b" />
+        </linearGradient>
+      </defs>
+      <path d={C_ARC} fill="none" stroke={`url(#${id}c)`} strokeWidth="13" strokeLinecap="round" />
+      <g fill="currentColor" transform="translate(32 34) scale(.9) translate(-32 -34)">
+        <g opacity=".62"><circle cx="22.6" cy="29.6" r="3.4" /><path d="M16.8 41a5.8 5.6 0 0 1 11.6 0z" /><circle cx="41.4" cy="29.6" r="3.4" /><path d="M35.6 41a5.8 5.6 0 0 1 11.6 0z" /></g>
+        <circle cx="32" cy="27" r="4.6" /><path d="M23.6 41.4a8.4 8 0 0 1 16.8 0z" />
+      </g>
+    </svg>
+  );
+}
+
+/** Mark and wordmark. `tagline` adds “One Platform. Every Community.” under the name. */
+export function Logo({ size = 40, withText = true, tagline = false }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <LogoMark size={size} />
+      {withText && (
+        <span className="flex flex-col leading-none">
+          <span className="font-bold tracking-tight text-white" style={{ fontSize: Math.max(16, size * 0.52) }}>Community<span className="text-brand-300">One</span></span>
+          {tagline && <span className="text-2 mt-1 text-[13px] font-medium">One Platform. Every Community.</span>}
+        </span>
+      )}
     </span>
   );
 }
