@@ -101,8 +101,27 @@ const visibleSql = (uid, admin) => `(not e.invite_only or e.host_id = ${uid} or 
 
 // Registrants count only while they're active members with an active account, so a removed
 // member's RSVP stops counting (and stops holding a seat) at once (EVT-05).
-const COUNTED = `exists (select 1 from memberships mm join users uu on uu.id = mm.user_id
+export const COUNTED = `exists (select 1 from memberships mm join users uu on uu.id = mm.user_id
   where mm.community_id = e.community_id and mm.user_id = r.user_id and mm.state = 'active' and uu.status = 'active')`;
+
+// Fills free places from the waitlist, oldest first, with people who still count (active
+// members with active accounts). Someone who left the waitlist has another answer now, so
+// they're never put back (EVT-09). Runs inside the caller's transaction, with the event locked.
+export async function promoteWaitlist(t, eventId) {
+  const { rows: [ev] } = await t.query(`select capacity, status from events where id = $1`, [eventId]);
+  if (!ev || ev.status !== 'scheduled') return [];
+  let free = Infinity;
+  if (ev.capacity != null) {
+    const { rows: [c] } = await t.query(`select count(*)::int as n from event_rsvps r join events e on e.id = r.event_id
+      where r.event_id = $1 and r.status = 'going' and ${COUNTED}`, [eventId]);
+    free = ev.capacity - c.n;
+  }
+  if (free <= 0) return [];
+  const { rows } = await t.query(`select r.user_id, r.waitlisted_at from event_rsvps r join events e on e.id = r.event_id
+    where r.event_id = $1 and r.status = 'waitlist' and ${COUNTED} order by r.waitlisted_at, r.user_id limit $2`, [eventId, Number.isFinite(free) ? free : 10000]);
+  for (const r of rows) await t.query(`update event_rsvps set status = 'going', updated_at = now() where event_id = $1 and user_id = $2 and status = 'waitlist'`, [eventId, r.user_id]);
+  return rows;
+}
 
 /** Shapes events for one viewer. `accessById` holds that viewer's access to each community. */
 export async function presentEvents(db, req, rows, accessById, now = Date.now()) {
@@ -201,24 +220,6 @@ export default async function eventRoutes(app, { ctx }) {
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
   const origin = (req) => ctx.appOrigin || `${req.protocol}://${req.headers.host}`;
 
-  // Fills free places from the waitlist, oldest first, with people who still count (active
-  // members with active accounts). Someone who left the waitlist has another answer now, so
-  // they're never put back (EVT-09). Runs inside the caller's transaction, with the event locked.
-  async function promoteWaitlist(t, eventId) {
-    const { rows: [ev] } = await t.query(`select capacity, status from events where id = $1`, [eventId]);
-    if (!ev || ev.status !== 'scheduled') return [];
-    let free = Infinity;
-    if (ev.capacity != null) {
-      const { rows: [c] } = await t.query(`select count(*)::int as n from event_rsvps r join events e on e.id = r.event_id
-        where r.event_id = $1 and r.status = 'going' and ${COUNTED}`, [eventId]);
-      free = ev.capacity - c.n;
-    }
-    if (free <= 0) return [];
-    const { rows } = await t.query(`select r.user_id, r.waitlisted_at from event_rsvps r join events e on e.id = r.event_id
-      where r.event_id = $1 and r.status = 'waitlist' and ${COUNTED} order by r.waitlisted_at, r.user_id limit $2`, [eventId, Number.isFinite(free) ? free : 10000]);
-    for (const r of rows) await t.query(`update event_rsvps set status = 'going', updated_at = now() where event_id = $1 and user_id = $2 and status = 'waitlist'`, [eventId, r.user_id]);
-    return rows;
-  }
   const tellPromoted = (req, e, rows) => Promise.all(rows.map((r) => notify(ctx, req, { to: [r.user_id], type: 'waitlist_promoted', communityId: e.community_id,
     targetType: 'event', targetId: e.id, dedupe: `waitlist:${e.id}:${r.user_id}:${new Date(r.waitlisted_at).getTime()}` })));
   // In-app notices to everyone going; the email goes out separately (emailRegistrants).

@@ -70,6 +70,17 @@ export function createMailer({ db, transport = defaultTransport(), log = console
       }
       return id;
     },
+    // Re-sends one failed outbox row (NTF-03). The row records every attempt.
+    async retry(row, { req } = {}) {
+      try {
+        await transport({ to: row.to_email, subject: row.subject, body: row.body }, log, { req });
+        await db.query(`update email_outbox set status = 'sent', attempts = attempts + 1, sent_at = now(), last_error = null where id = $1`, [row.id]);
+        return true;
+      } catch (err) {
+        await db.query(`update email_outbox set attempts = attempts + 1, last_error = $2 where id = $1`, [row.id, String(err.message || err).slice(0, 500)]);
+        return false;
+      }
+    },
   };
 }
 

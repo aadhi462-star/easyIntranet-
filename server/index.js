@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { createDb } from './db/index.js';
 import { migrate } from './db/migrate.js';
-import { publishDuePosts } from './routes/posts.js';
+import { runJobs } from './lib/jobs.js';
 import { runSeed } from './scripts/seed.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,8 +39,9 @@ await migrate(db, { log: (m) => console.log(m) });
 if (process.env.SEED_PASSWORD || process.env.SEED_ON_START === '1') await runSeed(db);
 
 const app = await buildApp({ db, appOrigin, staticDir: process.env.STATIC_DIR || path.join(root, 'dist'), logger: { level: process.env.LOG_LEVEL || 'info' } });
-// Background job: publish scheduled posts each minute (idempotent, so a double run is harmless).
-setInterval(() => { publishDuePosts(db).catch((err) => app.log.error(err)); }, 60e3).unref();
+// Background jobs each minute: scheduled posts, event reminders, email retries, waitlists
+// (lib/jobs.js; each is safe to run twice).
+setInterval(() => { runJobs(app.ctx, app.log); }, 60e3).unref();
 
 const appsailPort = Number(process.env.X_ZOHO_CATALYST_LISTEN_PORT);
 const port = appsailPort || Number(process.env.PORT) || 5181;

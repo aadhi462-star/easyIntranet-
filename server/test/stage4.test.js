@@ -3,6 +3,7 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeUser, setup, signIn } from './helpers.js';
+import { retryEmails, sendReminders, sweepWaitlists } from '../lib/jobs.js';
 
 let env; const c = {};
 const q = (s, p) => env.db.query(s, p);
@@ -315,5 +316,42 @@ describe('event waitlist (S4-4)', () => {
     assert.equal(r.status, 200);
     assert.equal((await q(`select status from event_rsvps where event_id = 'ev-cap' and user_id = 'w2'`)).rows[0].status, 'going');
     assert.equal((await c.w1.put('/api/events/ev-cap/rsvp', { status: 'waitlist' })).body.event.myRsvp, 'going');
+  });
+});
+
+describe('background jobs (Stage 4 leftovers)', () => {
+  test('NTF-04 a reminder goes once, only to people still going and still members when it’s due', async () => {
+    const start = new Date(Date.now() + 20 * 60e3);
+    await q(`insert into events (id, community_id, host_id, title, start_at, end_at, reminders) values ('ev-rem', 'pub', 'own', 'Soon', $1, $1::timestamptz + interval '1 hour', '{30}')`, [start]);
+    for (const u of ['w1', 'w2', 'w3']) await q(`insert into event_rsvps (event_id, user_id, status) values ('ev-rem', $1, $2)`, [u, u === 'w3' ? 'maybe' : 'going']);
+    await q(`update memberships set state = 'removed' where community_id = 'pub' and user_id = 'w2'`);
+    try {
+      const n = await sendReminders(env.app.ctx);
+      assert.equal(n, 1, 'w1 only: w2 was removed, w3 said maybe');
+      assert.equal(await sendReminders(env.app.ctx), 0, 'not twice');
+      assert.ok((await c.w1.get('/api/notifications')).body.notifications.some((x) => x.kind === 'event_reminder'));
+      assert.equal(await sendReminders(env.app.ctx, Date.now() - 30 * 60e3), 0, 'nothing before it’s due');
+    } finally { await q(`update memberships set state = 'active' where community_id = 'pub' and user_id = 'w2'`); }
+  });
+
+  test('NTF-03 a failed email is retried up to 3 attempts, then left recorded', async () => {
+    await q(`insert into email_outbox (to_email, template, subject, body, status, attempts) values ('w1@example.com', 'notification', 'S', 'B', 'failed', 1), ('w2@example.com', 'notification', 'S', 'B', 'failed', 3)`);
+    const sentBefore = (await q(`select count(*)::int as n from email_outbox where status = 'sent'`)).rows[0].n;
+    assert.equal(await retryEmails(env.app.ctx), 1);
+    assert.equal((await q(`select count(*)::int as n from email_outbox where status = 'sent'`)).rows[0].n, sentBefore + 1);
+    assert.equal((await q(`select status from email_outbox where to_email = 'w2@example.com' and subject = 'S'`)).rows[0].status, 'failed', 'gave up after 3');
+  });
+
+  test('a place freed by a member being removed goes to the waitlist without waiting for another RSVP', async () => {
+    const start = new Date(Date.now() + 6 * 864e5);
+    await q(`insert into events (id, community_id, host_id, title, start_at, end_at, capacity) values ('ev-sw', 'pub', 'own', 'One seat', $1, $1::timestamptz + interval '1 hour', 1)`, [start]);
+    await q(`insert into event_rsvps (event_id, user_id, status) values ('ev-sw', 'w1', 'going')`);
+    await q(`insert into event_rsvps (event_id, user_id, status, waitlisted_at) values ('ev-sw', 'w3', 'waitlist', now())`);
+    assert.equal(await sweepWaitlists(env.app.ctx), 0, 'still full');
+    await q(`update memberships set state = 'removed' where community_id = 'pub' and user_id = 'w1'`);
+    try {
+      assert.equal(await sweepWaitlists(env.app.ctx), 1);
+      assert.equal((await q(`select status from event_rsvps where event_id = 'ev-sw' and user_id = 'w3'`)).rows[0].status, 'going');
+    } finally { await q(`update memberships set state = 'active' where community_id = 'pub' and user_id = 'w1'`); }
   });
 });

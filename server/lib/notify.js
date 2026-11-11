@@ -28,6 +28,7 @@ export const TYPES = {
   join_declined: { cat: 'joins', outsider: true, line: (x) => `Your request to join ${x.community} was declined` },
   event_changed: { cat: 'events', line: (x) => `An event you’re going to in ${x.community} changed` },
   event_cancelled: { cat: 'events', line: (x) => `An event you’re going to in ${x.community} was cancelled` },
+  event_reminder: { cat: 'events', line: (x) => `Reminder: an event you’re going to in ${x.community} starts soon` },
   waitlist_promoted: { cat: 'events', line: (x) => `A place opened up: you’re now going to an event in ${x.community}` },
   announcement: { cat: 'announcements', line: (x) => `${x.actor} posted an announcement in ${x.community}` },
   post_approved: { cat: 'moderation', line: (x) => `Your post in ${x.community} was approved` },
