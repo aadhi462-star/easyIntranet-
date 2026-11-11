@@ -25,12 +25,14 @@ import Settings from '../components/groups/Settings.jsx';
 import GroupForm from '../components/groups/GroupForm.jsx';
 import AddMembers from '../components/groups/AddMembers.jsx';
 import RolePanel from '../components/groups/RolePanel.jsx';
+import Resources from '../components/groups/Resources.jsx';
 
 const DAY = 864e5;
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'discussions', label: 'Discussions', members: true },
   { id: 'events', label: 'Events', members: true },
+  { id: 'resources', label: 'Resources', members: true },
   { id: 'members', label: 'Members', members: true },
   { id: 'about', label: 'About' },
   { id: 'settings', label: 'Settings', admins: true },
@@ -162,6 +164,7 @@ function CommunityView({ g, tab, keyInUrl, admin }) {
       {current === 'overview' && (perms.canView ? <Overview g={g} perms={perms} /> : <MembersOnly g={g} />)}
       {current === 'discussions' && <FeedList scope={{ type: 'group', id: g.id }} groupId={g.id} readOnly={g.announceOnly} />}
       {current === 'events' && <EventList groupId={g.id} member={!!role && !archived} />}
+      {current === 'resources' && <Resources g={g} />}
       {current === 'members' && <Members group={g} perms={perms} />}
       {current === 'about' && <About g={g} />}
       {current === 'settings' && <Settings key={g.id} group={g} />}

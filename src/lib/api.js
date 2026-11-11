@@ -65,3 +65,25 @@ export async function api(path, { method = 'GET', body, idempotent = false, idem
 }
 
 export { newKey };
+
+/**
+ * Uploads one file's bytes to a community (Stage 4). Resolves to the stored file's fields.
+ * Same CSRF, idempotency and error handling as api(); the type is checked by the server.
+ */
+export async function uploadFile(communityId, file, { idempotencyKey = newKey() } = {}) {
+  const path = `/communities/${encodeURIComponent(communityId)}/files`;
+  const headers = { accept: 'application/json', 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name),
+    'x-csrf-token': await ensureCsrf(), 'idempotency-key': idempotencyKey };
+  if (inAdminScope(path)) headers['x-admin-mode'] = '1';
+  let res;
+  try {
+    res = await fetch(`/api${path}`, { method: 'POST', headers, credentials: 'same-origin', body: file });
+  } catch {
+    throw new ApiError(0, { code: 'NETWORK', message: 'The upload didn’t finish. Check your connection and try again.' });
+  }
+  const data = await res.json().catch(() => null);
+  if (res.status === 413) throw new ApiError(413, { code: 'FILE_TOO_LARGE', message: 'Files can be up to 10 MB.' });
+  if (!res.ok) throw new ApiError(res.status, data?.error);
+  return data.file;
+}
+
