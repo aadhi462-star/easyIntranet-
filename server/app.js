@@ -22,6 +22,7 @@ import searchRoutes from './routes/search.js';
 import resourceRoutes from './routes/resources.js';
 import topicRoutes from './routes/topics.js';
 import notificationRoutes from './routes/notifications.js';
+import learningRoutes from './routes/learning.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
   const app = Fastify({
@@ -79,6 +80,7 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   await app.register(resourceRoutes, { prefix: '/api', ctx });
   await app.register(topicRoutes, { prefix: '/api', ctx });
   await app.register(notificationRoutes, { prefix: '/api', ctx });
+  await app.register(learningRoutes, { prefix: '/api', ctx });
   if (process.env.NODE_ENV !== 'production') await app.register(devRoutes, { prefix: '/api/dev', ctx });
 
   if (staticDir) {
