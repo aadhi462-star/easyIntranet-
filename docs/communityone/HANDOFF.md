@@ -12,6 +12,14 @@ Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (t
 
 D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real server) · D2 park Tasks/Custom Apps/Web Tabs/Live/Town Halls/Channels/Surveys/Ideas/Leaderboard/Smart Assist behind flags (flags exist in DB `feature_flags`, **not yet read by the client**) · D3 network-wide content → public community `alumnizone` · D4 institutions → departments → batches are first-class · D6 Super Admin = Sara Thomas (`u7`) · D7 PGlite. D5 (email) → Catalyst Mail on AppSail (`MAIL_TRANSPORT=catalyst`); locally emails still go to the server log + `/api/dev/outbox`.
 
+**Stage 4 decisions, approved by the user on 11 Nov 2026:**
+- **S4-1:** files are stored in the database, up to 10 MB each.
+- **S4-2:** Discussions have topics.
+- **S4-3:** posts can carry attachments: images and PDFs, up to 4 per post.
+- **S4-4:** a full event gets a waitlist.
+- **S4-5:** notification emails have default settings members can change.
+- **S4-6:** there's no malware scanner. Only safe file types are allowed, and that's recorded as a known gap (FIL-04).
+
 ## Run / test
 
 ```bash
