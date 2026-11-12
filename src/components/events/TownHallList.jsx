@@ -5,9 +5,9 @@ import { Empty } from '../ui.jsx';
 import { canSeeTownhall } from './eventUtils.js';
 
 export const STATUS_STYLES = {
-  live: '!bg-rose-500/20 !text-rose-200',
+  live: '!bg-[var(--az-danger-soft)] !text-[var(--az-danger)]',
   upcoming: '!bg-brand-500/20 !text-brand-200',
-  ended: '!bg-white/10 !text-slate-400',
+  ended: '!bg-[var(--az-sunken)] !text-[var(--az-text-2)]',
 };
 
 /**
@@ -33,8 +33,8 @@ export function TownHallCard({ th }) {
     <Link to={`/townhalls/${th.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`chip ${STATUS_STYLES[st.key]}`}>{st.label}</span>
-        {group && <span className="chip !bg-white/5 !text-slate-300">{group.name}</span>}
-        {th.allowAnonymous && <span className="chip !bg-white/5 !text-slate-400">Anonymous questions on</span>}
+        {group && <span className="chip !bg-[var(--az-sunken)] !text-[var(--az-text-2)]">{group.name}</span>}
+        {th.allowAnonymous && <span className="chip !bg-[var(--az-sunken)] !text-[var(--az-text-2)]">Anonymous questions on</span>}
       </div>
       <h3 className="mt-3 font-bold"><Glyph value="mic" tile={false} size={16} /> {th.title}</h3>
       <p className="mt-1 line-clamp-2 text-sm text-3">{th.description}</p>

@@ -1,6 +1,6 @@
 // CommunityOne app shell (v2 workstream D, boards V2DShellHome, V2DPhone and V2DPhoneMenu):
 // - desktop (1024 px and wider): a fixed 248 px sidebar with the brief's eight destinations, then
-//   your communities, Create Community and, for platform staff, Administration (D1); a top bar
+//   your communities, Create Community and, for platform staff roles, Administration (D1, G8); a top bar
 //   with global search, Create and the account menu (D12);
 // - phone and tablet: a top bar with Menu, the logo, Search and Create, and a bottom bar with
 //   Home, Explore, Communities, Notifications and Profile; Menu opens a sheet with the rest (D2).
@@ -16,6 +16,7 @@ import { communityPath } from '../lib/communities.js';
 import { useTheme } from '../lib/theme.js';
 import { useUnread } from '../lib/engage.js';
 import { sidebarOrder, useCanCreateCommunity, useComposeTargets } from '../lib/shell.js';
+import { useStaffAccess } from '../lib/platform.js';
 import { Avatar, Logo } from './ui.jsx';
 import { Icon } from './icons.jsx';
 import Toaster from './Toaster.jsx';
@@ -141,6 +142,8 @@ export default function Layout() {
   const unread = useUnread(!!me);
   const canCreate = useCanCreateCommunity(me.id);
   const targets = useComposeTargets(me.id);
+  // Administration shows for every platform staff role with at least one permission (G8).
+  const staff = useStaffAccess();
   const [pref, , setPref] = useTheme();
   const [account, setAccount] = useState(false);
   const [create, setCreate] = useState(false);
@@ -229,7 +232,7 @@ export default function Layout() {
             <CommunityList communities={communities} path={path} />
           </nav>
           {canCreate && <Link to="/communities/new" className={navCls(false)}><Icon name="create" size={20} className="text-[var(--az-text-2)]" />Create Community</Link>}
-          {me.admin && (
+          {staff.any && (
             <nav aria-labelledby="side-admin" className="flex flex-col gap-0.5">
               <GroupLabel id="side-admin">Administration</GroupLabel>
               <NavItem item={{ id: 'admin', label: 'Platform Admin', icon: 'shield', to: '/admin' }} active={path.startsWith('/admin')} />
@@ -313,7 +316,7 @@ export default function Layout() {
             <CommunityList communities={communities} path={path} onPick={() => setSheet(false)} />
           </nav>
           {canCreate && <Link to="/communities/new" onClick={() => setSheet(false)} className={navCls(false)}><Icon name="create" size={20} className="text-[var(--az-text-2)]" />Create Community</Link>}
-          {me.admin && (
+          {staff.any && (
             <nav aria-labelledby="sheet-admin" className="flex flex-col gap-0.5">
               <GroupLabel id="sheet-admin">Administration</GroupLabel>
               <NavItem item={{ id: 'admin', label: 'Platform Admin', icon: 'shield', to: '/admin' }} active={path.startsWith('/admin')} onPick={() => setSheet(false)} />

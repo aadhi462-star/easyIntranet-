@@ -126,7 +126,7 @@ function FeedView({ view }) {
       <nav aria-label="Feed views" className="ext-menu -mx-3 flex gap-1 overflow-x-auto px-3 pb-1 lg:mx-0 lg:block lg:space-y-0.5 lg:overflow-visible lg:px-0">
         {views.map((x) => (
           <NavLink key={x.id} to={x.id === 'my' ? '/feed' : `/feed/${x.id}`} end
-            className={({ isActive }) => `flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm ${isActive ? 'bg-[var(--az-surface)] font-semibold text-white shadow-[inset_3px_0_0_var(--color-brand-400)]' : 'text-2 font-medium hover:bg-white/5 hover:text-white'}`}>
+            className={({ isActive }) => `flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm ${isActive ? 'bg-[var(--az-surface)] font-semibold text-[var(--az-text)] shadow-[inset_3px_0_0_var(--color-brand-400)]' : 'text-2 font-medium hover:bg-[var(--az-sunken)] hover:text-[var(--az-text)]'}`}>
             <Glyph value={x.icon} tile={false} size={18} />{x.label}
             {x.id === 'bookmarks' && bookmarkIds.length > 0 && <span className="ml-auto text-xs text-3">{bookmarkIds.length}</span>}
           </NavLink>
@@ -134,7 +134,7 @@ function FeedView({ view }) {
       </nav>
 
       <div className="min-w-0 space-y-4">
-        <h1 className="t-h1 text-white">{v.label}</h1>
+        <h1 className="t-h1 text-[var(--az-text)]">{v.label}</h1>
         {tag && (
           <div className="flex items-center gap-2 text-sm">Showing <span className="chip">#{tag}</span>
             <button className="text-brand-400 hover:underline" onClick={() => { sp.delete('tag'); setSp(sp); }}>Clear</button></div>
@@ -157,7 +157,7 @@ function FeedView({ view }) {
                 {filtered && feed.nextBefore && <span className="mt-1 block">Older posts may match: use “Load more”.</span>}
               </Empty>
             ) : posts.map((p) => <PostCard key={p.id} post={p} />)}
-        {!isBookmarks && source.status === 'ready' && feed.error && <p role="alert" className="text-center text-sm text-rose-300">{feed.error}</p>}
+        {!isBookmarks && source.status === 'ready' && feed.error && <p role="alert" className="text-center text-sm text-[var(--az-danger)]">{feed.error}</p>}
         {!isBookmarks && source.status === 'ready' && feed.nextBefore && (
           <button className="btn btn-ghost w-full" onClick={feed.loadMore} disabled={feed.loadingMore}>{feed.loadingMore ? 'Loading…' : 'Load more'}</button>
         )}

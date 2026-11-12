@@ -22,7 +22,7 @@ export function Menu({ items, label = 'More actions' }) {
         <div className="glass glass-strong absolute right-0 z-30 mt-1 w-52 p-1.5 text-sm" role="menu">
           {visible.map((i) => (
             <button key={i.label} role="menuitem" onClick={(e) => { e.stopPropagation(); setOpen(false); i.onClick(); }}
-              className={`block min-h-10 w-full rounded-lg px-3 text-left hover:bg-white/5 ${i.danger ? 'text-rose-300' : ''}`}>{i.label}</button>
+              className={`block min-h-10 w-full rounded-lg px-3 text-left hover:bg-[var(--az-sunken)] ${i.danger ? 'text-[var(--az-danger)]' : ''}`}>{i.label}</button>
           ))}
         </div>
       )}
@@ -43,7 +43,7 @@ export function UserPicker({ value, onChange, exclude = [] }) {
           const on = value.includes(u.id);
           return (
             <button type="button" key={u.id} aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== u.id) : [...value, u.id])}
-              className={`flex min-h-10 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm ring-1 transition ${on ? 'bg-brand-500/25 ring-brand-500' : 'ring-white/10 hover:bg-white/5'}`}>
+              className={`flex min-h-10 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm ring-1 transition ${on ? 'bg-brand-500/25 ring-brand-500' : 'ring-[var(--az-hairline)] hover:bg-[var(--az-sunken)]'}`}>
               <Avatar user={u} size={28} />{u.name}
             </button>
           );
@@ -103,7 +103,7 @@ export const toDateTimeInput = (t) => (t ? new Date(t - new Date(t).getTimezoneO
 /** Tiny markdown-ish renderer: ## headings, - bullets, 1. lists, **bold**. Escapes HTML. */
 export function Prose({ text = '' }) {
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code class="rounded bg-white/10 px-1">$1</code>');
+  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code class="rounded bg-[var(--az-sunken)] px-1">$1</code>');
   const html = text.split(/\n{2,}/).map((block) => {
     const lines = block.split('\n');
     if (/^#{1,3} /.test(block)) {
@@ -114,7 +114,7 @@ export function Prose({ text = '' }) {
     if (lines.every((l) => /^\d+\. /.test(l))) return `<ol class="list-decimal pl-5">${lines.map((l) => `<li>${inline(l.replace(/^\d+\. /, ''))}</li>`).join('')}</ol>`;
     return `<p>${lines.map(inline).join('<br/>')}</p>`;
   }).join('');
-  return <div className="space-y-3 text-[15px] leading-relaxed text-slate-200" dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div className="space-y-3 text-[15px] leading-relaxed text-[var(--az-text)]" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 export function ScopeBadge({ scope, groupId }) {
@@ -123,6 +123,6 @@ export function ScopeBadge({ scope, groupId }) {
     const g = state.groups.find((x) => x.id === groupId);
     return <span className="chip">{g?.name ?? 'Group'}</span>;
   }
-  if (scope === 'private') return <span className="chip !bg-white/10 !text-slate-300"><Glyph value="lock" tile={false} size={16} /> Private</span>;
-  return <span className="chip !bg-emerald-500/15 !text-emerald-200"><Glyph value="webtabs" tile={false} size={16} /> Network</span>;
+  if (scope === 'private') return <span className="chip !bg-[var(--az-sunken)] !text-[var(--az-text-2)]"><Glyph value="lock" tile={false} size={16} /> Private</span>;
+  return <span className="chip !bg-[var(--az-ok-soft)] !text-[var(--az-ok)]"><Glyph value="webtabs" tile={false} size={16} /> Network</span>;
 }

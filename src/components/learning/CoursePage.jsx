@@ -46,11 +46,17 @@ export default function CoursePage({ g, perms, id }) {
     );
   }
   const course = c.course;
-  const open = course.can.manage || course.enrollment?.status === 'active';
+  // Instructors, and Teaching Assistants who grade it, open every lesson (G7).
+  const open = course.can.manage || course.can.grade || course.enrollment?.status === 'active';
   const lessonTotal = course.modules.reduce((n, m) => n + m.lessons.length, 0);
   const modules = course.modules.filter((m) => m.lessons.length);
+  // G7: Teaching Assistants show beside Instructors (a TA grades and sees learners, but doesn't edit).
+  const staff = course.instructors ?? [];
+  const instructors = staff.filter((p) => (p.role ?? 'instructor') !== 'teaching_assistant');
+  const assistants = course.assistants ?? course.teachingAssistants ?? staff.filter((p) => p.role === 'teaching_assistant');
+  const people = (list, one, many) => (list.length ? `${list.map((i) => i.name).join(', ')} · ${list.length === 1 ? one : many}` : null);
   const facts = [
-    course.instructors.length ? `${course.instructors.map((i) => i.name).join(', ')} · ${course.instructors.length === 1 ? 'Instructor' : 'Instructors'}` : null,
+    people(instructors, 'Instructor', 'Instructors'), people(assistants, 'Teaching Assistant', 'Teaching Assistants'),
     `${course.modules.length} ${course.modules.length === 1 ? 'module' : 'modules'}`, lessonsText(lessonTotal),
     course.durationMin ? durationText(course.durationMin) : null,
   ].filter(Boolean).join(' · ');

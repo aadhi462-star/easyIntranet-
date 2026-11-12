@@ -77,7 +77,7 @@ function CreateSession({ onClose }) {
         <Field label="Moderators" hint="You are a moderator automatically."><PeoplePicker value={f.moderators} onChange={(v) => set('moderators', v)} exclude={[me.id]} label="moderators" /></Field>
         <label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={f.allowAnonymous} onChange={(e) => set('allowAnonymous', e.target.checked)} /> Allow anonymous questions</label>
         <label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={f.moderateQuestions} onChange={(e) => set('moderateQuestions', e.target.checked)} /> Moderators approve questions before they’re visible</label>
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
         <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary">Create session</button></div>
       </form>
     </Modal>
@@ -143,22 +143,22 @@ function Session({ id }) {
 
   return (
     <div className="space-y-5">
-      <Link to="/townhalls" className="text-sm text-slate-400 hover:text-white">← All town halls</Link>
+      <Link to="/townhalls" className="text-sm text-[var(--az-text-2)] hover:text-[var(--az-text)]">← All town halls</Link>
       <section className="glass p-5 sm:p-7">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`chip ${STATUS_STYLES[st.key]}`}>{st.label}</span>
-          {isMod && <span className="chip !bg-emerald-500/15 !text-emerald-200">You’re a moderator</span>}
+          {isMod && <span className="chip !bg-[var(--az-ok-soft)] !text-[var(--az-ok)]">You’re a moderator</span>}
         </div>
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl"><Glyph value="mic" tile={false} size={16} /> {th.title}</h1>
-        <p className="mt-2 text-slate-300">{th.description}</p>
-        <p className="mt-3 text-sm text-slate-400">
+        <p className="mt-2 text-[var(--az-text-2)]">{th.description}</p>
+        <p className="mt-3 text-sm text-[var(--az-text-2)]">
           {new Date(th.start).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
           {' · Hosted by '}<UserLink id={th.hostId} />{th.moderators.length > 1 && <> · Moderators: {th.moderators.filter((m) => m !== th.hostId).map((m, i) => <span key={m}>{i > 0 && ', '}<UserLink id={m} /></span>)}</>}
         </p>
         {isMod && th.status !== 'ended' && (
           <div className="mt-5 flex flex-wrap gap-2">
             {th.status === 'upcoming' && <button className="btn btn-primary" onClick={goLive}>● Go live</button>}
-            {th.status === 'live' && <button className="btn btn-ghost !text-rose-300" onClick={async () => { if (await confirmAction('End this session? New questions will be closed.')) setTh({ status: 'ended', end: Date.now() }); }}>■ End session</button>}
+            {th.status === 'live' && <button className="btn btn-ghost !text-[var(--az-danger)]" onClick={async () => { if (await confirmAction('End this session? New questions will be closed.')) setTh({ status: 'ended', end: Date.now() }); }}>■ End session</button>}
           </div>
         )}
       </section>
@@ -171,10 +171,10 @@ function Session({ id }) {
           </div>
           {th.highlights ? (
             <>
-              <p className="mt-3 leading-relaxed text-slate-200">{th.highlights.text}</p>
-              <p className="mt-2 text-xs text-slate-500">From {th.highlights.count} answered questions · {th.highlights.source}</p>
+              <p className="mt-3 leading-relaxed text-[var(--az-text)]">{th.highlights.text}</p>
+              <p className="mt-2 text-xs text-[var(--az-text-3)]">From {th.highlights.count} answered questions · {th.highlights.source}</p>
             </>
-          ) : <p className="mt-2 text-sm text-slate-400">{byTab.answered.length ? 'Summarise the key takeaways and decisions from the answered questions.' : 'No answered questions to summarise.'}</p>}
+          ) : <p className="mt-2 text-sm text-[var(--az-text-2)]">{byTab.answered.length ? 'Summarise the key takeaways and decisions from the answered questions.' : 'No answered questions to summarise.'}</p>}
         </section>
       )}
 
@@ -185,12 +185,12 @@ function Session({ id }) {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             {th.allowAnonymous ? <label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={anon} onChange={(e) => setAnon(e.target.checked)} /> Ask anonymously</label> : <span />}
             <div className="flex items-center gap-3">
-              {th.moderateQuestions && !isMod && <span className="text-xs text-slate-500">Moderators review questions first.</span>}
+              {th.moderateQuestions && !isMod && <span className="text-xs text-[var(--az-text-3)]">Moderators review questions first.</span>}
               <button className="btn btn-primary" disabled={!text.trim()}>Submit</button>
             </div>
           </div>
         </form>
-      ) : <p className="text-sm text-slate-500">This session has ended. Questions are closed.</p>}
+      ) : <p className="text-sm text-[var(--az-text-3)]">This session has ended. Questions are closed.</p>}
 
       <section aria-label="Questions">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -207,19 +207,19 @@ function Session({ id }) {
               <li key={q.id} className="glass flex gap-4 p-4">
                 <button onClick={() => setQ(q.id, (x, m) => ({ ...x, votes: x.votes.includes(m) ? x.votes.filter((v) => v !== m) : [...x.votes, m] }))}
                   aria-pressed={voted} aria-label={`Upvote, ${q.votes.length} votes`} disabled={ended}
-                  className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-sm font-bold ${voted ? 'bg-brand-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}>
+                  className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-sm font-bold ${voted ? 'bg-brand-500 text-[var(--az-text)]' : 'bg-[var(--az-sunken)] text-[var(--az-text-2)] hover:bg-[var(--az-sunken)]'}`}>
                   ▲<span>{q.votes.length}</span>
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-slate-100">{q.text}</p>
-                  <p className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <p className="text-[var(--az-text)]">{q.text}</p>
+                  <p className="mt-1 flex items-center gap-2 text-xs text-[var(--az-text-2)]">
                     {author ? <><Avatar user={author} size={18} />{author.name}</> : <><Glyph value="eyeoff" tile={false} size={16} /> Anonymous</>} · {timeAgo(q.createdAt)}
-                    {q.status === 'pending' && <span className="chip !bg-amber-500/15 !text-amber-200">Awaiting approval</span>}
+                    {q.status === 'pending' && <span className="chip !bg-[var(--az-warn-soft)] !text-[var(--az-warning)]">Awaiting approval</span>}
                   </p>
                   {q.status === 'answered' && (
-                    <div className="mt-3 rounded-xl border-l-2 border-emerald-400 bg-emerald-500/10 px-3 py-2 text-sm">
-                      <div className="text-xs font-semibold text-emerald-300">Answered by {state.users.find((u) => u.id === q.answeredBy)?.name ?? 'moderator'}</div>
-                      <p className="mt-0.5 text-slate-200">{q.answer}</p>
+                    <div className="mt-3 rounded-xl border-l-2 border-[var(--az-ok)] bg-[var(--az-ok-soft)] px-3 py-2 text-sm">
+                      <div className="text-xs font-semibold text-[var(--az-ok)]">Answered by {state.users.find((u) => u.id === q.answeredBy)?.name ?? 'moderator'}</div>
+                      <p className="mt-0.5 text-[var(--az-text)]">{q.answer}</p>
                     </div>
                   )}
                   {answering === q.id && (

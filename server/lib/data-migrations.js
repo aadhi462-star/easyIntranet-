@@ -68,6 +68,10 @@ export async function undoDataMigration(db, name) {
         res = await t.query(`update communities set settings = (settings - 'sections') || jsonb_build_object('apps', $2::jsonb), version = version + 1
             where id = $1 and settings->'sections' = $3::jsonb and not (settings ? 'apps') returning id`,
           [r.row_key.id, JSON.stringify(r.before.apps), JSON.stringify(r.after.sections)]);
+      } else if (r.table_name === 'communities' && name === G2) {
+        // G2: only if no rule has been stored since (the settings allow-list refuses new ones).
+        res = await t.query(`update communities set settings = settings || jsonb_build_object('dynamicRule', $2::jsonb), version = version + 1
+            where id = $1 and not (settings ? 'dynamicRule') returning id`, [r.row_key.id, JSON.stringify(r.before.dynamicRule)]);
       } else if (r.table_name === 'template_versions' && name === F12) {
         // F12: only if the version hasn't been edited since (a draft can be).
         res = await t.query(`update template_versions set questionnaire = $3::jsonb, blueprint = $4::jsonb
@@ -222,6 +226,33 @@ export async function convertQuestionTypes(db) {
           JSON.stringify({ questionnaire: r.after.questionnaire, blueprint: r.after.blueprint })]);
     }
     await audit(t, { action: 'data_migration.apply', targetType: 'data_migration', targetId: F12, context: { name: F12, ...summary } });
+    return summary;
+  });
+}
+
+// ---- G2 (v2 workstream G, approved 12 Nov 2026): automatic membership rules retire -----------
+// The older settings screens stored settings.dynamicRule ({ field, op, value }), which added
+// everyone who matched straight into the community. Nobody is added to a community they didn't
+// choose any more: the rule is replaced by "Invite people who match" (POST
+// /communities/:id/invite-matching), which only sends invitations. Every stored rule is switched
+// off, once, by taking it out of the settings; the old rule is logged so the undo script puts it
+// back. Nobody already added is removed: memberships aren't touched.
+export const G2 = 'g2-retire-membership-rules';
+
+/** Runs G2 once. Returns its summary, or null if it already ran (undone counts as ran). */
+export async function retireMembershipRules(db) {
+  const { rows: [done] } = await db.query(`select 1 from data_migrations where name = $1`, [G2]);
+  if (done) return null;
+  return db.tx(async (t) => {
+    const { rows } = await t.query(`select id, settings->'dynamicRule' as rule from communities where settings ? 'dynamicRule' order by id for update`);
+    const summary = { communities: rows.length, rules: rows.filter((r) => r.rule && String(r.rule.value ?? '').trim()).length };
+    await t.query(`insert into data_migrations (name, summary) values ($1, $2)`, [G2, JSON.stringify(summary)]);
+    for (const r of rows) {
+      await t.query(`update communities set settings = settings - 'dynamicRule', version = version + 1 where id = $1`, [r.id]);
+      await t.query(`insert into migration_log (migration, table_name, row_key, before, after) values ($1, 'communities', $2, $3, $4)`,
+        [G2, JSON.stringify({ id: r.id }), JSON.stringify({ dynamicRule: r.rule }), JSON.stringify({ dynamicRule: null })]);
+    }
+    await audit(t, { action: 'data_migration.apply', targetType: 'data_migration', targetId: G2, context: { name: G2, ...summary } });
     return summary;
   });
 }

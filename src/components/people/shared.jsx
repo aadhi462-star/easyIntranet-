@@ -147,12 +147,12 @@ export function PeoplePicker({ value, onChange, exclude = [], placeholder = 'Sea
       )}
       {!(single && value.length) && <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label={placeholder} />}
       {matches.length > 0 && (
-        <ul className="mt-1 overflow-hidden rounded-xl border border-white/10 bg-ink-850">
+        <ul className="mt-1 overflow-hidden rounded-xl border border-[var(--az-hairline)] bg-[var(--az-raised)]">
           {matches.map((u) => (
             <li key={u.id}>
-              <button type="button" className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-sm hover:bg-white/5"
+              <button type="button" className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-sm hover:bg-[var(--az-sunken)]"
                 onClick={() => { onChange(single ? [u.id] : [...value, u.id]); setQ(''); }}>
-                <Avatar user={u} size={28} /> <span>{u.name}</span><span className="ml-auto text-xs text-slate-500">{u.batch} · {u.city}</span>
+                <Avatar user={u} size={28} /> <span>{u.name}</span><span className="ml-auto text-xs text-[var(--az-text-3)]">{u.batch} · {u.city}</span>
               </button>
             </li>
           ))}
@@ -187,11 +187,11 @@ export function PraiseModal({ toId: initialTo, onClose }) {
       <form onSubmit={submit} className="space-y-4">
         <Field label="Who are you appreciating?"><PeoplePicker value={to} onChange={setTo} exclude={[me.id]} single /></Field>
         <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Badge</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-[var(--az-text-2)]">Badge</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {PRAISE_BADGES.map((b) => (
               <button type="button" key={b.id} onClick={() => setBadge(b.id)} aria-pressed={badge === b.id}
-                className={`min-h-11 rounded-xl border px-3 py-2 text-sm ${badge === b.id ? 'border-brand-500 bg-brand-500/20' : 'border-white/10 hover:bg-white/5'}`}>
+                className={`min-h-11 rounded-xl border px-3 py-2 text-sm ${badge === b.id ? 'border-[var(--az-focus)] bg-brand-500/20' : 'border-[var(--az-hairline)] hover:bg-[var(--az-sunken)]'}`}>
                 <Icon name={b.icon} size={16} className="mr-1 inline align-[-3px]" />{b.name}
               </button>
             ))}

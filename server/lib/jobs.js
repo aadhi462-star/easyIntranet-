@@ -41,7 +41,9 @@ export async function sendReminders(ctx, now = Date.now()) {
 export async function retryEmails(ctx) {
   const { db, mailer } = ctx;
   if (!mailer?.retry) return 0;
-  const { rows } = await db.query(`select * from email_outbox where status = 'failed' and attempts < 3 and created_at > now() - interval '1 day' order by id limit 20`);
+  // Failed within the last day, or a retry was asked for in System health within the last day (G10).
+  const { rows } = await db.query(`select * from email_outbox where status = 'failed' and attempts < 3
+    and (created_at > now() - interval '1 day' or retry_requested_at > now() - interval '1 day') order by id limit 20`);
   let ok = 0;
   for (const r of rows) if (await mailer.retry(r)) ok += 1;
   return ok;
@@ -69,14 +71,27 @@ export const JOBS = [
   ['waitlists', (ctx) => sweepWaitlists(ctx)], ['restrictions', (ctx) => liftExpiredRestrictions(ctx.db)],
   ['purge', (ctx) => purgeDeletedCommunities(ctx.db)], ['stale-reports', (ctx) => remindStaleReports(ctx)],
 ];
-export const JOB_RUN_DAYS = 7;
+export const JOB_RUN_DAYS = 14;
 
-// Error text kept for system health: the message only, email addresses masked, 500 characters.
-const runError = (err) => String(err?.message || err || 'failed').replace(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+/g, '[email]').slice(0, 500);
+/**
+ * Error text kept for system health (job runs and failed emails): the message only, 500
+ * characters, with email addresses masked, query strings and fragments cut from addresses (sign-in
+ * and invitation links carry their token there), and anything that looks like a token or key
+ * (token=..., Bearer ..., long hex or base64 runs) replaced.
+ */
+export const maskError = (err) => String(err?.message || err || 'failed')
+  .replace(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+/g, '[email]')
+  .replace(/\b((?:https?|wss?):\/\/[^\s?#"'<>]*)[?#][^\s"'<>]*/gi, '$1')
+  .replace(/#\/[^\s"'<>]*\/(invite|reset|verify)[^\s"'<>]*/gi, '#/$1/[hidden]')
+  .replace(/\b(token|key|secret|password|pass|auth|signature|sig|code)=[^\s&"'<>]+/gi, '$1=[hidden]')
+  .replace(/\b(Bearer|Basic|Zoho-oauthtoken)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 [hidden]')
+  .replace(/\b[A-Za-z0-9_-]{32,}\b/g, '[hidden]')
+  .slice(0, 500);
+const runError = maskError;
 const runCount = (out) => (Number.isInteger(out) ? out : Array.isArray(out) ? out.length : null);
 
 // Each job is independent: one failing doesn't stop the others. Every run is recorded in job_runs
-// (system health) and runs older than 7 days are pruned. Nothing here throws: a failure to record
+// (system health) and runs older than 14 days are pruned (G9). Nothing here throws: a failure to record
 // is logged and the jobs carry on.
 export async function runJobs(ctx, log = console, { jobs = JOBS } = {}) {
   for (const [name, job] of jobs) {

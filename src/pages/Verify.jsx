@@ -40,31 +40,31 @@ export default function Verify() {
       <div className="print:hidden"><PublicHeader /></div>
       <main id="main" className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 sm:px-8 sm:py-14">
         <div className="print:hidden">
-          <h1 className="t-h1 text-white">Verify a certificate</h1>
+          <h1 className="t-h1 text-[var(--az-text)]">Verify a certificate</h1>
           <p className="text-2 mt-2">Certificates from courses on CommunityOne each have a code. Enter one to check it.</p>
         </div>
 
         {s.state === 'loading' && <div aria-busy="true" aria-label="Checking the code" className="glass h-72 animate-pulse" />}
-        {s.state === 'missing' && <p role="alert" className="glass p-5 text-sm text-amber-100">No certificate matches this code. Check it was typed exactly as printed, for example ABCD-2345.</p>}
-        {s.state === 'error' && <p role="alert" className="glass p-5 text-sm text-rose-300">{s.message}</p>}
+        {s.state === 'missing' && <p role="alert" className="notice notice-warn p-5">No certificate matches this code. Check it was typed exactly as printed, for example ABCD-2345.</p>}
+        {s.state === 'error' && <p role="alert" className="notice notice-bad p-5">{s.message}</p>}
         {s.state === 'ready' && (
           <>
-            <article aria-label="Certificate" className="relative overflow-hidden rounded-2xl border border-[var(--az-hairline)] bg-[var(--az-surface)] p-8 sm:p-12 print:border-black print:bg-white print:text-black">
-              <div className="flex items-center gap-2"><LogoMark size={32} /><span className="font-bold text-white print:text-black">Community<span className="text-brand-300 print:text-black">One</span></span></div>
+            <article aria-label="Certificate" className="relative overflow-hidden rounded-2xl border border-[var(--az-hairline)] bg-[var(--az-surface)] p-8 sm:p-12 print:border-black print:bg-[#fff] print:text-black">
+              <div className="flex items-center gap-2"><LogoMark size={32} /><span className="font-bold text-[var(--az-text)] print:text-black">Community<span className="text-[var(--az-link)] print:text-black">One</span></span></div>
               <p className="t-label mt-8 print:text-black">Certificate of completion</p>
               <p className="text-2 mt-4 print:text-black">This certifies that</p>
-              <p className="mt-1 text-[32px] font-bold leading-tight text-white print:text-black">{s.cert.name}</p>
+              <p className="mt-1 text-[32px] font-bold leading-tight text-[var(--az-text)] print:text-black">{s.cert.name}</p>
               <p className="text-2 mt-3 print:text-black">completed</p>
-              <p className="mt-1 text-2xl font-semibold text-white print:text-black">{s.cert.course}</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--az-text)] print:text-black">{s.cert.course}</p>
               <p className="text-2 mt-1 print:text-black">in {s.cert.community}</p>
               <dl className="mt-8 grid grid-cols-2 gap-4 border-t border-[var(--az-divider)] pt-5 text-sm print:border-black">
-                <div><dt className="t-small print:text-black">Issued</dt><dd className="text-white print:text-black">{longDate(s.cert.issuedAt)}</dd></div>
-                <div><dt className="t-small print:text-black">Verification code</dt><dd className="font-mono text-white print:text-black">{s.cert.code}</dd></div>
+                <div><dt className="t-small print:text-black">Issued</dt><dd className="text-[var(--az-text)] print:text-black">{longDate(s.cert.issuedAt)}</dd></div>
+                <div><dt className="t-small print:text-black">Verification code</dt><dd className="font-mono text-[var(--az-text)] print:text-black">{s.cert.code}</dd></div>
               </dl>
             </article>
             <section aria-labelledby="ok-h" className="band flex flex-col gap-3 p-5 print:hidden">
               {s.cert.revoked
-                ? <h2 id="ok-h" className="t-h3 flex items-center gap-2 text-amber-200"><Icon name="alert" size={18} />This certificate was withdrawn</h2>
+                ? <h2 id="ok-h" className="t-h3 flex items-center gap-2 text-[var(--az-warning)]"><Icon name="alert" size={18} />This certificate was withdrawn</h2>
                 : <h2 id="ok-h" className="t-h3 flex items-center gap-2 text-brand-300"><Icon name="check" size={18} />Certificate verified</h2>}
               <p className="t-small">Shows only the name, course, community, date and code. No email, profile, scores or other courses.</p>
               <div className="flex flex-wrap gap-2">
@@ -76,7 +76,7 @@ export default function Verify() {
         )}
 
         <form onSubmit={check} className="flex flex-wrap items-end gap-2 print:hidden">
-          <label className="flex min-w-0 flex-[1_1_220px] flex-col gap-1.5 text-xs font-semibold text-slate-300">{code ? 'Check another code' : 'Verification code'}
+          <label className="flex min-w-0 flex-[1_1_220px] flex-col gap-1.5 text-xs font-semibold text-[var(--az-text-2)]">{code ? 'Check another code' : 'Verification code'}
             <input className="input font-mono uppercase" required placeholder="ABCD-2345" maxLength={9} value={text} onChange={(e) => setText(e.target.value)} />
           </label>
           <button className="btn btn-ghost">Check</button>

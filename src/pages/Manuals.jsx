@@ -55,7 +55,7 @@ function ManualView({ manual, articleId }) {
         <input className="input mt-3 !py-2" type="search" placeholder="Search this manual" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search this manual" />
         {!!allTags.length && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {allTags.map((t) => <button key={t} className={`chip ${tag === t ? '!bg-brand-500 !text-white' : ''}`} onClick={() => setTag(tag === t ? null : t)} aria-pressed={tag === t}>#{t}</button>)}
+            {allTags.map((t) => <button key={t} className={`chip ${tag === t ? '!bg-brand-500 !text-[var(--az-text)]' : ''}`} onClick={() => setTag(tag === t ? null : t)} aria-pressed={tag === t}>#{t}</button>)}
           </div>
         )}
         <nav className="mt-3 space-y-3">
@@ -64,13 +64,13 @@ function ManualView({ manual, articleId }) {
             if ((q || tag) && !arts.length) return null;
             return (
               <div key={c.id}>
-                <div className="flex items-center gap-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <div className="flex items-center gap-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--az-text-3)]">
                   <span className="flex-1">{c.title}</span>
-                  {roles.canEdit && <button className="h-8 w-8 rounded hover:bg-white/5" aria-label={`New article in ${c.title}`} onClick={() => setModal({ type: 'new', chapterId: c.id })}>＋</button>}
+                  {roles.canEdit && <button className="h-8 w-8 rounded hover:bg-[var(--az-sunken)]" aria-label={`New article in ${c.title}`} onClick={() => setModal({ type: 'new', chapterId: c.id })}>＋</button>}
                 </div>
                 {arts.map((a) => (
                   <Link key={a.id} to={`/manuals/${manual.id}/${a.id}`}
-                    className={`flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm ${a.id === articleId ? 'bg-brand-500/20 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+                    className={`flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm ${a.id === articleId ? 'bg-brand-500/20 text-[var(--az-text)]' : 'text-[var(--az-text-2)] hover:bg-[var(--az-sunken)]'}`}>
                     <span className="flex-1 truncate">{a.title}</span>
                     {!a.published && <span title="Draft" aria-label="Draft"><Glyph value="pen" tile={false} size={16} /></span>}
                     {a.published && !isLive(a) && <span title="Scheduled" aria-label="Scheduled"><Glyph value="scheduled" tile={false} size={16} /></span>}
@@ -102,7 +102,7 @@ function ManualView({ manual, articleId }) {
                   ]} />
                 </>
               )} />
-            {!manual.published && <p className="glass mb-4 p-3 text-sm text-amber-200">This manual is unpublished. Only its admins and contributors can see it. Published articles are visible to members once the manual is published.</p>}
+            {!manual.published && <p className="notice notice-warn mb-4">This manual is unpublished. Only its admins and contributors can see it. Published articles are visible to members once the manual is published.</p>}
             <div className="grid gap-4 sm:grid-cols-2">
               {manual.chapters.map((c) => (
                 <div key={c.id} className="glass p-5">
@@ -117,8 +117,8 @@ function ManualView({ manual, articleId }) {
                     )}
                   </div>
                   <ul className="mt-2 space-y-1 text-sm">
-                    {c.articles.filter(visible).map((a) => <li key={a.id}><Link to={`/manuals/${manual.id}/${a.id}`} className="text-slate-300 hover:text-white hover:underline"><Glyph value="doc" tile={false} size={16} /> {a.title}</Link></li>)}
-                    {!c.articles.filter(visible).length && <li className="text-slate-500">No articles yet.</li>}
+                    {c.articles.filter(visible).map((a) => <li key={a.id}><Link to={`/manuals/${manual.id}/${a.id}`} className="text-[var(--az-text-2)] hover:text-[var(--az-text)] hover:underline"><Glyph value="doc" tile={false} size={16} /> {a.title}</Link></li>)}
+                    {!c.articles.filter(visible).length && <li className="text-[var(--az-text-3)]">No articles yet.</li>}
                   </ul>
                 </div>
               ))}
@@ -152,13 +152,13 @@ function NewArticle({ manual, chapterId, onClose }) {
       <form onSubmit={create} className="space-y-4">
         <Field label="Title"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <fieldset>
-          <legend className="mb-2 text-xs font-semibold text-slate-300">Start from a template</legend>
+          <legend className="mb-2 text-xs font-semibold text-[var(--az-text-2)]">Start from a template</legend>
           <div className="grid gap-2 sm:grid-cols-2">
             {templates.map((t) => (
-              <label key={t.id} className={`cursor-pointer rounded-xl p-3 text-sm ring-1 ${tpl === t.id ? 'bg-brand-500/20 ring-brand-500' : 'ring-white/10 hover:bg-white/5'}`}>
+              <label key={t.id} className={`cursor-pointer rounded-xl p-3 text-sm ring-1 ${tpl === t.id ? 'bg-brand-500/20 ring-brand-500' : 'ring-[var(--az-hairline)] hover:bg-[var(--az-sunken)]'}`}>
                 <input type="radio" name="tpl" className="sr-only" checked={tpl === t.id} onChange={() => setTpl(t.id)} />
                 <div className="font-semibold">{t.name}</div>
-                <div className="mt-1 line-clamp-2 text-xs text-slate-400">{t.body ? t.body.replace(/[#\n]+/g, ' ').trim() : 'Start from scratch'}</div>
+                <div className="mt-1 line-clamp-2 text-xs text-[var(--az-text-2)]">{t.body ? t.body.replace(/[#\n]+/g, ' ').trim() : 'Start from scratch'}</div>
               </label>
             ))}
           </div>
@@ -218,7 +218,7 @@ function ArticleView({ manual, chapter, article }) {
 
   return (
     <article>
-      <div className="mb-2 text-sm text-slate-400">{manual.title} › {chapter.title}</div>
+      <div className="mb-2 text-sm text-[var(--az-text-2)]">{manual.title} › {chapter.title}</div>
       <div className="mb-4 flex flex-wrap items-start gap-2">
         {editing ? (
           <input className="input flex-1 text-xl font-bold" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} aria-label="Article title" />
@@ -253,11 +253,11 @@ function ArticleView({ manual, chapter, article }) {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-        {!article.published && <span className="chip !bg-amber-400/15 !text-amber-200">Draft</span>}
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-[var(--az-text-2)]">
+        {!article.published && <span className="chip !bg-[var(--az-warn-soft)] !text-[var(--az-warning)]">Draft</span>}
         {article.published && !isLive(article) && <span className="chip !bg-leaf-500/15 !text-leaf-200"><Glyph value="scheduled" tile={false} size={16} /> Scheduled for {fmtDate(article.publishAt)}</span>}
-        {isLive(article) && <span className="chip !bg-emerald-500/15 !text-emerald-200">Published</span>}
-        {article.mandatory && <span className="chip !bg-rose-500/15 !text-rose-200"><Glyph value="alert" tile={false} size={16} /> Mandatory read</span>}
+        {isLive(article) && <span className="chip !bg-[var(--az-ok-soft)] !text-[var(--az-ok)]">Published</span>}
+        {article.mandatory && <span className="chip !bg-[var(--az-danger-soft)] !text-[var(--az-danger)]"><Glyph value="alert" tile={false} size={16} /> Mandatory read</span>}
         {sharedAccess(article, me) && <span className="chip">Shared with you · {sharedAccess(article, me) === 'edit' ? 'can edit' : 'read-only'}</span>}
         <span>Updated {timeAgo(article.updatedAt)}{article.editedBy ? ` by ${user(article.editedBy)?.name}` : ''}</span>
         {!editing && (article.tags ?? []).map((t) => <span key={t} className="chip">#{t}</span>)}
@@ -276,9 +276,9 @@ function ArticleView({ manual, chapter, article }) {
       {article.mandatory && !editing && (
         <div className="glass mt-4 p-5">
           {acked ? (
-            <p className="text-sm text-emerald-200">✓ You acknowledged this article.</p>
+            <p className="text-sm text-[var(--az-ok)]">✓ You acknowledged this article.</p>
           ) : article.mandatory.by === me.id ? (
-            <p className="text-sm text-slate-400">You marked this article as mandatory read. {article.mandatory.acks.length} members have acknowledged it.</p>
+            <p className="text-sm text-[var(--az-text-2)]">You marked this article as mandatory read. {article.mandatory.acks.length} members have acknowledged it.</p>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); if (ack) patch((a, uid2) => ({ ...a, mandatory: { ...a.mandatory, acks: [...new Set([...a.mandatory.acks, uid2])], ackAt: { ...a.mandatory.ackAt, [uid2]: Date.now() } } })); }}
               className="flex flex-wrap items-center gap-3">
@@ -321,7 +321,7 @@ function ShareArticle({ article, onClose, onSave }) {
   const ids = list.map((s) => s.userId);
   return (
     <Modal title="Share Article" onClose={onClose} wide>
-      <p className="mb-3 text-sm text-slate-400">Share with network members who aren’t part of this manual.</p>
+      <p className="mb-3 text-sm text-[var(--az-text-2)]">Share with network members who aren’t part of this manual.</p>
       <UserPicker value={ids} onChange={(next) => setList(next.map((id) => list.find((s) => s.userId === id) ?? { userId: id, access: 'read' }))} />
       {!!list.length && (
         <ul className="mt-4 space-y-2">
@@ -350,10 +350,10 @@ function MandatoryModal({ article, onClose, onSave }) {
         <Field label="Deadline"><input className="input" type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} /></Field>
         <Field label="Acknowledgement message"><input className="input" value={message} onChange={(e) => setMessage(e.target.value)} /></Field>
         <Field label="Button text"><input className="input" value={button} onChange={(e) => setButton(e.target.value)} /></Field>
-        <div className="rounded-xl bg-white/5 p-3 text-sm"><div className="mb-2 text-xs text-slate-400">Preview</div>
+        <div className="rounded-xl bg-[var(--az-sunken)] p-3 text-sm"><div className="mb-2 text-xs text-[var(--az-text-2)]">Preview</div>
           <label className="flex items-center gap-2"><input type="checkbox" disabled /> {message}</label><button className="btn btn-primary mt-2" disabled>{button}</button></div>
         <div className="flex justify-between gap-2">
-          {article.mandatory ? <button className="btn btn-ghost text-rose-300" onClick={() => { onSave(null); onClose(); }}>Remove Mandatory Read</button> : <span />}
+          {article.mandatory ? <button className="btn btn-ghost text-[var(--az-danger)]" onClick={() => { onSave(null); onClose(); }}>Remove Mandatory Read</button> : <span />}
           <button className="btn btn-primary" onClick={() => { onSave({ message, button, deadline: new Date(deadline).getTime() }); onClose(); }}>Save</button>
         </div>
       </div>
@@ -368,12 +368,12 @@ function ReadReport({ article, onClose }) {
   const remind = (u) => dispatch({ type: 'notify', silent: true, notification: { userId: u.id, kind: 'mandatory', text: `Reminder from ${me.name}: please read “${article.title}”`, link: location.hash.slice(1) } });
   return (
     <Modal title="Mandatory read report" onClose={onClose} wide>
-      <p className="mb-4 text-sm text-slate-400">{m.acks.length} read · {pending.length} not yet{m.deadline ? ` · due ${fmtDate(m.deadline)}` : ''}</p>
+      <p className="mb-4 text-sm text-[var(--az-text-2)]">{m.acks.length} read · {pending.length} not yet{m.deadline ? ` · due ${fmtDate(m.deadline)}` : ''}</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <h3 className="mb-2 text-sm font-semibold">Read ({m.acks.length})</h3>
           <ul className="space-y-2">{m.acks.map((id) => <li key={id} className="flex items-center gap-2 text-sm"><Avatar user={user(id)} size={26} /><UserLink id={id} />
-            {m.ackAt?.[id] && <span className="text-xs text-slate-500">{timeAgo(m.ackAt[id])}</span>}</li>)}</ul>
+            {m.ackAt?.[id] && <span className="text-xs text-[var(--az-text-3)]">{timeAgo(m.ackAt[id])}</span>}</li>)}</ul>
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-semibold">Not read ({pending.length})</h3>
@@ -393,20 +393,20 @@ function VersionHistory({ article, canRestore, onRestore, onClose }) {
   const [sel, setSel] = useState(null);
   return (
     <Modal title="Version history" onClose={onClose} wide>
-      {!versions.length ? <p className="text-sm text-slate-400">No earlier versions. A version is saved each time the article is edited.</p> : (
+      {!versions.length ? <p className="text-sm text-[var(--az-text-2)]">No earlier versions. A version is saved each time the article is edited.</p> : (
         <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
           <ol className="space-y-1">
             <li className="rounded-lg bg-brand-500/20 px-3 py-2 text-sm">Current · {timeAgo(article.updatedAt)}</li>
             {versions.map((v, i) => (
-              <li key={v.at ?? i}><button className={`w-full rounded-lg px-3 py-2 text-left text-sm ${sel === v ? 'bg-white/10' : 'hover:bg-white/5'}`} onClick={() => setSel(v)}>
-                Version {versions.length - i}<div className="text-xs text-slate-500">{v.at ? fmtDate(v.at) : 'Unknown date'}</div></button></li>
+              <li key={v.at ?? i}><button className={`w-full rounded-lg px-3 py-2 text-left text-sm ${sel === v ? 'bg-[var(--az-sunken)] ring-1 ring-[var(--az-control)]' : 'hover:bg-[var(--az-sunken)]'}`} onClick={() => setSel(v)}>
+                Version {versions.length - i}<div className="text-xs text-[var(--az-text-3)]">{v.at ? fmtDate(v.at) : 'Unknown date'}</div></button></li>
             ))}
           </ol>
-          <div className="min-h-40 rounded-xl bg-white/5 p-4">
+          <div className="min-h-40 rounded-xl bg-[var(--az-sunken)] p-4">
             {sel ? <>
               <Prose text={sel.body} />
               {canRestore && <button className="btn btn-primary mt-4" onClick={() => { onRestore(sel); onClose(); }}>Restore this version</button>}
-            </> : <p className="text-sm text-slate-400">Select a version to preview it.</p>}
+            </> : <p className="text-sm text-[var(--az-text-2)]">Select a version to preview it.</p>}
           </div>
         </div>
       )}

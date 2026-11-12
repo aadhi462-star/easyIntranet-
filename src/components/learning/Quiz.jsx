@@ -36,17 +36,17 @@ export default function Quiz({ lesson, quiz, nextId, onChanged }) {
   return (
     <section aria-labelledby="quiz-h" className="raised flex flex-col gap-4 p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline gap-3">
-        <h2 id="quiz-h" className="t-h2 text-white">Quiz</h2>
+        <h2 id="quiz-h" className="t-h2 text-[var(--az-text)]">Quiz</h2>
         {mine.passed && <Pill tone="done"><Icon name="check" size={14} className="mr-1" />Passed</Pill>}
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-        <dt className="text-3">Questions</dt><dd className="text-slate-200">{quiz.questionCount}</dd>
-        <dt className="text-3">Pass mark</dt><dd className="text-slate-200">{quiz.passPercent}%</dd>
-        <dt className="text-3">Attempts</dt><dd className="text-slate-200">{mine.attemptsUsed} of {quiz.maxAttempts} used · your best score counts</dd>
-        {quiz.dueAt && <><dt className="text-3">Due</dt><dd className="text-slate-200">{whenText(quiz.dueAt)}</dd></>}
-        {mine.best && <><dt className="text-3">Best score</dt><dd className="text-slate-200">{scoreText(mine.best)}</dd></>}
+        <dt className="text-3">Questions</dt><dd className="text-[var(--az-text)]">{quiz.questionCount}</dd>
+        <dt className="text-3">Pass mark</dt><dd className="text-[var(--az-text)]">{quiz.passPercent}%</dd>
+        <dt className="text-3">Attempts</dt><dd className="text-[var(--az-text)]">{mine.attemptsUsed} of {quiz.maxAttempts} used · your best score counts</dd>
+        {quiz.dueAt && <><dt className="text-3">Due</dt><dd className="text-[var(--az-text)]">{whenText(quiz.dueAt)}</dd></>}
+        {mine.best && <><dt className="text-3">Best score</dt><dd className="text-[var(--az-text)]">{scoreText(mine.best)}</dd></>}
       </dl>
-      {quiz.closed ? <p className="text-sm text-amber-200">This quiz closed on {whenText(quiz.dueAt)}.</p>
+      {quiz.closed ? <p className="text-sm text-[var(--az-warning)]">This quiz closed on {whenText(quiz.dueAt)}.</p>
         : !mine.openAttemptId && mine.attemptsLeft === 0 ? <p className="text-2 text-sm">You’ve used all your attempts. Your best score stands.</p>
           : quiz.questionCount === 0 ? <p className="text-2 text-sm">This quiz has no questions yet.</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -57,7 +57,7 @@ export default function Quiz({ lesson, quiz, nextId, onChanged }) {
         <ul className="list-rows border-t border-[var(--az-divider)] text-sm">
           {mine.attempts.map((a) => (
             <li key={a.id} className="flex min-h-11 items-center gap-3">
-              <span className="flex-1 text-slate-200">Attempt {a.number} · {scoreText(a)}</span>
+              <span className="flex-1 text-[var(--az-text)]">Attempt {a.number} · {scoreText(a)}</span>
               <Pill tone={a.passed ? 'done' : 'plain'}>{a.passed ? 'Passed' : 'Not passed'}</Pill>
               <button className="btn btn-ghost min-h-10" onClick={() => review(a.id)}>Review</button>
             </li>
@@ -106,19 +106,19 @@ function Attempt({ quiz, attempt, onExit, onDone }) {
           return (
             <button key={x.id} onClick={() => setI(n)} aria-current={n === i ? 'step' : undefined}
               aria-label={`Question ${n + 1}, ${n === i ? 'current' : done ? 'answered' : 'not answered'}`}
-              className={`grid h-11 w-11 place-items-center rounded-lg text-sm font-semibold ${n === i ? 'border-2 border-brand-400 text-white' : done ? 'border border-[var(--az-hairline)] bg-white/[.08] text-white' : 'text-3 border border-[var(--az-hairline)]'}`}>{n + 1}</button>
+              className={`grid h-11 w-11 place-items-center rounded-lg text-sm font-semibold ${n === i ? 'border-2 border-brand-400 text-[var(--az-text)]' : done ? 'border border-[var(--az-hairline)] bg-[var(--az-sunken)] text-[var(--az-text)]' : 'text-3 border border-[var(--az-hairline)]'}`}>{n + 1}</button>
           );
         })}
       </nav>
       <section aria-labelledby="qq-h" className="glass flex max-w-[760px] flex-col gap-4 p-5 sm:p-7">
         <span className="t-small">Question {i + 1} of {total} · Choose one</span>
-        <h2 id="qq-h" ref={headRef} tabIndex={-1} className="t-h2 whitespace-pre-line text-white outline-none">{q.prompt}</h2>
+        <h2 id="qq-h" ref={headRef} tabIndex={-1} className="t-h2 whitespace-pre-line text-[var(--az-text)] outline-none">{q.prompt}</h2>
         <fieldset className="flex flex-col gap-2.5">
           <legend className="sr-only">Answer choices</legend>
           {q.choices.map((choice, n) => {
             const on = answers[q.id] === n;
             return (
-              <label key={n} className={`flex min-h-14 cursor-pointer items-center gap-3.5 rounded-xl border px-4 text-[15px] ${on ? 'border-brand-400 bg-brand-400/10 text-white' : 'border-[var(--az-hairline)] text-slate-200 hover:bg-white/[.03]'}`}>
+              <label key={n} className={`flex min-h-14 cursor-pointer items-center gap-3.5 rounded-xl border px-4 text-[15px] ${on ? 'border-brand-400 bg-brand-400/10 text-[var(--az-text)]' : 'border-[var(--az-hairline)] text-[var(--az-text)] hover:bg-[var(--az-sunken)]'}`}>
                 <input type="radio" name={q.id} checked={on} onChange={() => choose(n)} className="h-5 w-5 shrink-0 accent-[var(--color-brand-400)]" />{choice}
               </label>
             );
@@ -142,16 +142,16 @@ function Result({ result, quiz, nextId, busy, onAgain, onBack }) {
   return (
     <div className="flex flex-col gap-5">
       <section aria-labelledby="rs-h" className="raised flex max-w-[560px] flex-col gap-4 p-5 sm:p-6">
-        <h2 id="rs-h" className="t-h3 text-white">{a.number ? `Attempt ${a.number}` : 'Your result'}</h2>
+        <h2 id="rs-h" className="t-h3 text-[var(--az-text)]">{a.number ? `Attempt ${a.number}` : 'Your result'}</h2>
         <div className="flex flex-wrap items-baseline gap-3">
-          <span className="text-[40px] font-bold leading-[48px] text-white">{scoreText(a)}</span>
+          <span className="text-[40px] font-bold leading-[48px] text-[var(--az-text)]">{scoreText(a)}</span>
           <Pill tone={a.passed ? 'done' : 'warn'}>{a.passed ? 'Passed' : 'Not passed yet'}</Pill>
         </div>
         <Progress p={{ done: a.score, total: a.total }} label="Score" />
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-          <dt className="text-3">Pass mark</dt><dd className="text-slate-200">{result.passPercent}%</dd>
-          {result.best && <><dt className="text-3">Best score</dt><dd className="text-slate-200">{scoreText(result.best)}</dd></>}
-          <dt className="text-3">Attempts left</dt><dd className="text-slate-200">{result.attemptsLeft}</dd>
+          <dt className="text-3">Pass mark</dt><dd className="text-[var(--az-text)]">{result.passPercent}%</dd>
+          {result.best && <><dt className="text-3">Best score</dt><dd className="text-[var(--az-text)]">{scoreText(result.best)}</dd></>}
+          <dt className="text-3">Attempts left</dt><dd className="text-[var(--az-text)]">{result.attemptsLeft}</dd>
         </dl>
         <div className="flex flex-wrap gap-2">
           {result.best?.passed && nextId && <Link to={lessonPath(nextId)} className="btn btn-primary">Continue course</Link>}
@@ -165,11 +165,11 @@ function Result({ result, quiz, nextId, busy, onAgain, onBack }) {
         <ol className="flex max-w-[760px] flex-col gap-3">
           {result.review.map((x, n) => (
             <li key={x.id} className="glass flex flex-col gap-2 p-4">
-              <span className={`flex items-center gap-1.5 text-xs font-semibold ${x.correct ? 'text-brand-300' : 'text-rose-300'}`}><Icon name={x.correct ? 'check' : 'x'} size={14} />Question {n + 1} · {x.correct ? 'Right' : 'Not right'}</span>
-              <p className="whitespace-pre-line font-semibold text-white">{x.prompt}</p>
+              <span className={`flex items-center gap-1.5 text-xs font-semibold ${x.correct ? 'text-[var(--az-ok)]' : 'text-[var(--az-danger)]'}`}><Icon name={x.correct ? 'check' : 'x'} size={14} />Question {n + 1} · {x.correct ? 'Right' : 'Not right'}</span>
+              <p className="whitespace-pre-line font-semibold text-[var(--az-text)]">{x.prompt}</p>
               <ul className="flex flex-col gap-1 text-sm">
                 {x.choices.map((ch, k) => (
-                  <li key={k} className={`rounded-lg px-3 py-1.5 ${k === x.answer ? 'bg-brand-400/10 text-white' : k === x.yours ? 'bg-rose-400/10 text-slate-200' : 'text-3'}`}>
+                  <li key={k} className={`rounded-lg px-3 py-1.5 ${k === x.answer ? 'bg-brand-400/10 text-[var(--az-text)]' : k === x.yours ? 'bg-[var(--az-danger-soft)] text-[var(--az-text)]' : 'text-3'}`}>
                     {ch}{k === x.yours ? ' · your answer' : ''}{k === x.answer ? ' · right answer' : ''}
                   </li>
                 ))}

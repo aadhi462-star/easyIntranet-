@@ -45,7 +45,7 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
           {showCats && (
             <div className="glass glass-strong absolute left-0 z-30 mt-1 w-60 p-2">
               {allowed.map((c) => (
-                <label key={c.id} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm hover:bg-white/5">
+                <label key={c.id} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm hover:bg-[var(--az-sunken)]">
                   <input type="checkbox" checked={cats.includes(c.id)} onChange={() => { setError(''); setCats(cats.includes(c.id) ? cats.filter((x) => x !== c.id) : [...cats, c.id]); }} />{c.name}
                 </label>
               ))}
@@ -56,21 +56,21 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
           <button type="button" className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post settings" onClick={() => setGear(!gear)}><Glyph value="admin" tile={false} size={16} /></button>
           {gear && (
             <div className="glass glass-strong absolute left-0 z-30 mt-1 w-56 p-1.5">
-              <button className="min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-white/5" onClick={() => { setCD(!commentsDisabled); setGear(false); }}>
+              <button className="min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-[var(--az-sunken)]" onClick={() => { setCD(!commentsDisabled); setGear(false); }}>
                 {commentsDisabled ? 'Enable Comments' : 'Disable Comments'}
               </button>
             </div>
           )}
         </div>
-        {commentsDisabled && <span className="chip !bg-amber-400/15 !text-amber-200">Comments off</span>}
+        {commentsDisabled && <span className="chip !bg-[var(--az-warn-soft)] !text-[var(--az-warning)]">Comments off</span>}
       </div>
       <div className="space-y-3">
         <input className="input text-lg font-semibold" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" />
         <textarea className="input min-h-48" placeholder="Write your post. Use ## for headings and - for bullets." value={body} onChange={(e) => setBody(e.target.value)} aria-label="Body" />
       </div>
-      {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-sm text-[var(--az-danger)]">{error}</p>}
       <div className="mt-4 flex flex-wrap justify-between gap-2">
-        <p className="self-center text-xs text-slate-500">{post ? '' : 'Closing this editor saves your post to My Drafts.'}</p>
+        <p className="self-center text-xs text-[var(--az-text-3)]">{post ? '' : 'Closing this editor saves your post to My Drafts.'}</p>
         <div className="flex gap-2">
           <button className="btn btn-ghost" onClick={() => save('draft')} disabled={!title.trim()}>Save draft</button>
           <button className="btn btn-primary" onClick={() => save('published')} disabled={!title.trim()}>Publish</button>
@@ -121,17 +121,17 @@ export function ForumCard({ post }) {
   return (
     <article className="glass flex gap-4 p-4 sm:p-5">
       <button onClick={() => dispatch({ type: 'forum/upvote', id: post.id })} aria-pressed={voted} aria-label={`Upvote, ${post.upvotes.length} votes`}
-        className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-sm font-bold ring-1 ${voted ? 'bg-brand-500/25 text-white ring-brand-500' : 'ring-white/10 hover:bg-white/5'}`}>
+        className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-sm font-bold ring-1 ${voted ? 'bg-brand-500/25 text-[var(--az-text)] ring-brand-500' : 'ring-[var(--az-hairline)] hover:bg-[var(--az-sunken)]'}`}>
         ▲<span>{post.upvotes.length}</span>
       </button>
       <div className="min-w-0 flex-1">
-        <Link to={`/forums/${post.id}`} className="font-semibold text-white hover:underline">{post.title}</Link>
-        <p className="mt-1 line-clamp-2 text-sm text-slate-400">{post.body}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+        <Link to={`/forums/${post.id}`} className="font-semibold text-[var(--az-text)] hover:underline">{post.title}</Link>
+        <p className="mt-1 line-clamp-2 text-sm text-[var(--az-text-2)]">{post.body}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--az-text-2)]">
           <Avatar user={user(post.authorId)} size={20} /> {user(post.authorId)?.name} · {timeAgo(post.createdAt)}
           {cats.map((c) => <Link key={c.id} to={`/forums/${c.slug || c.id}`} className="chip">{c.name}</Link>)}
           <span><Glyph value="channels" tile={false} size={16} /> {post.replies.length}</span>
-          {post.bestReplyId && <span className="chip !bg-emerald-500/15 !text-emerald-200">✓ Answered</span>}
+          {post.bestReplyId && <span className="chip !bg-[var(--az-ok-soft)] !text-[var(--az-ok)]">✓ Answered</span>}
           {post.commentsDisabled && <span><Glyph value="micoff" tile={false} size={16} /></span>}
         </div>
       </div>
@@ -156,7 +156,7 @@ export function ForumPostView({ post }) {
           <Avatar user={user(post.authorId)} size={44} />
           <div className="flex-1">
             <h1 className="text-xl font-bold sm:text-2xl">{post.title}</h1>
-            <div className="mt-1 text-sm text-slate-400"><UserLink id={post.authorId} /> · {timeAgo(post.createdAt)} {post.status === 'draft' && <span className="chip ml-1">Draft</span>}</div>
+            <div className="mt-1 text-sm text-[var(--az-text-2)]"><UserLink id={post.authorId} /> · {timeAgo(post.createdAt)} {post.status === 'draft' && <span className="chip ml-1">Draft</span>}</div>
           </div>
           <Menu items={[
             { label: 'Edit', onClick: () => setEdit(true), hidden: !mine && !me.admin },
@@ -174,21 +174,21 @@ export function ForumPostView({ post }) {
       <section aria-label="Replies" className="space-y-3">
         <h2 className="font-semibold">{post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}</h2>
         {replies.map((r) => (
-          <div key={r.id} className={`glass p-4 ${r.id === post.bestReplyId ? 'ring-1 ring-emerald-400/60' : ''}`}>
+          <div key={r.id} className={`panel p-4 ${r.id === post.bestReplyId ? 'ring-1 ring-[var(--az-ok)]' : ''}`}>
             <div className="flex items-center gap-2 text-sm">
-              <Avatar user={user(r.authorId)} size={28} /><UserLink id={r.authorId} /><span className="text-slate-500">· {timeAgo(r.createdAt)}</span>
-              {r.id === post.bestReplyId && <span className="chip !bg-emerald-500/15 !text-emerald-200">✓ Best reply</span>}
+              <Avatar user={user(r.authorId)} size={28} /><UserLink id={r.authorId} /><span className="text-[var(--az-text-3)]">· {timeAgo(r.createdAt)}</span>
+              {r.id === post.bestReplyId && <span className="chip !bg-[var(--az-ok-soft)] !text-[var(--az-ok)]">✓ Best reply</span>}
               {mine && (
                 <button className="ml-auto text-xs text-brand-400 hover:underline" onClick={() => dispatch({ type: 'forum/save', post: { id: post.id, bestReplyId: post.bestReplyId === r.id ? null : r.id } })}>
                   {r.id === post.bestReplyId ? 'Unmark best' : 'Mark as best'}
                 </button>
               )}
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-200">{r.text}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--az-text)]">{r.text}</p>
           </div>
         ))}
         {post.commentsDisabled ? (
-          <p className="glass p-4 text-sm text-slate-400"><Glyph value="micoff" tile={false} size={16} /> The author turned off replies for this post.</p>
+          <p className="panel p-4 text-sm text-[var(--az-text-2)]"><Glyph value="micoff" tile={false} size={16} /> The author turned off replies for this post.</p>
         ) : post.status === 'published' && (
           <form className="glass flex gap-2 p-3" onSubmit={(e) => {
             e.preventDefault(); if (!reply.trim()) return;

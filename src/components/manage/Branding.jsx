@@ -144,10 +144,12 @@ export default function Branding({ g }) {
 
   const preview = { ...g, accent: draft.accent, logoUrl: draft.logo.url, coverUrl: draft.cover.url };
   return (
-    <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+    // In Manage, Settings (G1): the form, then the preview below it, in the section column.
+    <div className="flex min-w-0 flex-col gap-6">
       <form onSubmit={save} aria-labelledby="br-h" className="panel flex min-w-0 flex-1 flex-col gap-6 p-5 sm:p-6">
         <div>
-          <h2 id="br-h" className="t-h2">Branding</h2>
+          <span className="t-label">Settings · Owners and Admins</span>
+          <h2 id="br-h" className="t-h2 mt-1">Branding</h2>
           <p className="t-small mt-1">How {g.name} looks in its header, in Explore, in My Communities and on Home. Owners and Admins can change it.</p>
         </div>
 
@@ -241,7 +243,7 @@ function Preview({ g, view, setView }) {
   const meta = [g.type || null, g.accessType === 'restricted' ? 'Private' : g.accessType === 'private' ? 'Closed' : 'Public', `${g.memberCount ?? 0} members`].filter(Boolean).join(' · ');
   const visibility = g.accessType === 'restricted' ? 'private' : g.accessType === 'private' ? 'closed' : 'public';
   return (
-    <section aria-labelledby="br-pv" className="panel flex w-full min-w-0 flex-col gap-4 p-5 xl:sticky xl:top-24 xl:w-[440px]">
+    <section aria-labelledby="br-pv" className="panel flex w-full min-w-0 flex-col gap-4 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="br-pv" className="t-h3">Preview</h2>
         <div role="group" aria-label="Preview size" className="inline-flex rounded-lg border border-[var(--az-hairline)] p-0.5">

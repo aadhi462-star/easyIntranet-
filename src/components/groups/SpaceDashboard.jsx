@@ -39,12 +39,12 @@ export default function SpaceDashboard({ group, isAdmin }) {
           <button className="btn btn-ghost" onClick={() => setAdding(true)}>＋ Add widget</button>
         </div>
       )}
-      {widgets.length === 0 && <div className="glass p-8 text-center text-sm text-slate-400">No widgets yet.</div>}
+      {widgets.length === 0 && <div className="panel p-8 text-center text-sm text-[var(--az-text-2)]">No widgets yet.</div>}
       <div className="grid gap-4 md:grid-cols-2">
         {widgets.map((w, i) => (
           <section key={w.id} className={`glass p-5 ${w.kind === 'about' || w.kind === 'html' ? 'md:col-span-2' : ''}`} aria-label={KINDS[w.kind]}>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">{w.title || KINDS[w.kind]}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--az-text-2)]">{w.title || KINDS[w.kind]}</h3>
               {isAdmin && (
                 <div className="flex gap-1">
                   <button className="btn btn-ghost h-8 w-8 !p-0" onClick={() => move(i, -1)} aria-label="Move widget up" disabled={busy || i === 0}>↑</button>
@@ -66,16 +66,16 @@ function Widget({ w, group }) {
   const { state, user, me } = useStore();
   switch (w.kind) {
     case 'about':
-      return <p className="text-sm leading-relaxed text-slate-200">{group.description || 'No description yet.'}</p>;
+      return <p className="text-sm leading-relaxed text-[var(--az-text)]">{group.description || 'No description yet.'}</p>;
     case 'rules':
-      return <p className="whitespace-pre-wrap text-sm text-slate-300">{group.guidelines || 'No guidelines set.'}</p>;
+      return <p className="whitespace-pre-wrap text-sm text-[var(--az-text-2)]">{group.guidelines || 'No guidelines set.'}</p>;
     case 'events':
       return <EventsWidget group={group} />;
     case 'members':
       return (
         <div className="flex flex-wrap gap-3">
           {group.members.slice(-8).reverse().map((id) => user(id) && (
-            <Link key={id} to={`/people/${id}`} className="flex items-center gap-2 rounded-lg p-1 pr-2 text-sm hover:bg-white/5">
+            <Link key={id} to={`/people/${id}`} className="flex items-center gap-2 rounded-lg p-1 pr-2 text-sm hover:bg-[var(--az-sunken)]">
               <Avatar user={user(id)} size={28} />{user(id).name.split(' ')[0]}
             </Link>
           ))}
@@ -86,10 +86,10 @@ function Widget({ w, group }) {
         <ul className="space-y-1">
           {w.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-400 hover:underline"><Glyph value="link" tile={false} size={16} /> {l.label}</a></li>)}
         </ul>
-      ) : <p className="text-sm text-slate-400">No links.</p>);
+      ) : <p className="text-sm text-[var(--az-text-2)]">No links.</p>);
     case 'html':
       // Sandboxed with no permissions: scripts and same-origin access are blocked.
-      return <iframe title={w.title || 'Custom content'} sandbox="" className="h-40 w-full rounded-lg bg-white"
+      return <iframe title={w.title || 'Custom content'} sandbox="" className="h-40 w-full rounded-lg bg-[#fff]"
         srcDoc={`<!doctype html><body style="font-family:system-ui;padding:12px;color:#111">${w.html || ''}</body>`} />;
     case 'stats': {
       // Only what this viewer could open: live posts, published forum posts, visible events.
@@ -98,7 +98,7 @@ function Widget({ w, group }) {
       return (
         <dl className="grid grid-cols-2 gap-3 text-center">
           {[['Members', group.memberCount ?? group.members.length], ['Posts', posts], ['Events', <EventCount key="e" group={group} />], ['Discussions', forums]].map(([k, n]) => (
-            <div key={k} className="rounded-xl bg-white/5 p-3"><dd className="text-2xl font-extrabold text-brand-gradient">{n}</dd><dt className="text-xs text-slate-400">{k}</dt></div>
+            <div key={k} className="rounded-xl bg-[var(--az-sunken)] p-3"><dd className="text-2xl font-extrabold text-brand-gradient">{n}</dd><dt className="text-xs text-[var(--az-text-2)]">{k}</dt></div>
           ))}
         </dl>
       );
@@ -113,17 +113,17 @@ const DAY = 864e5;
 function EventsWidget({ group }) {
   const [now] = useState(Date.now);
   const { events, loading, error } = useEvents({ community: group.id, from: now, to: now + 400 * DAY });
-  if (error) return <p className="text-sm text-rose-300">{error}</p>;
-  if (loading && !events.length) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (error) return <p className="text-sm text-[var(--az-danger)]">{error}</p>;
+  if (loading && !events.length) return <p className="text-sm text-[var(--az-text-2)]">Loading…</p>;
   const list = events.filter((e) => e.status !== 'cancelled')
     .flatMap((e) => occurrences(e, now, now + 400 * DAY).slice(0, 1)).sort((a, b) => a.occStart - b.occStart).slice(0, 3);
-  if (!list.length) return <p className="text-sm text-slate-400">No upcoming events.</p>;
+  if (!list.length) return <p className="text-sm text-[var(--az-text-2)]">No upcoming events.</p>;
   return (
     <ul className="space-y-2">
       {list.map((e) => (
-        <li key={`${e.id}-${e.occStart}`}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-white/5">
+        <li key={`${e.id}-${e.occStart}`}><Link to={`/events/${e.id}`} className="block rounded-lg p-2 hover:bg-[var(--az-sunken)]">
           <div className="text-sm font-semibold">{e.title}</div>
-          <div className="text-xs text-slate-400">{fmtDate(e.occStart)}{e.location ? ` · ${e.location}` : ''}</div>
+          <div className="text-xs text-[var(--az-text-2)]">{fmtDate(e.occStart)}{e.location ? ` · ${e.location}` : ''}</div>
         </Link></li>
       ))}
     </ul>

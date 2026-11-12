@@ -1,6 +1,7 @@
 // Administration → Communities (board S7Communities; D1, D2, D4): every community with filters,
 // a panel per community (staff, counts, what deleting it affects), suspend and restore, a new
 // Owner for a community without one (COM-08), and the deletion requests queue with its review.
+// Restyled for v2 G (boards V2GPlatformAdmin, V2GPhoneTable: cards under 768 px).
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
@@ -9,7 +10,8 @@ import { dateText, usePasswordGate } from '../../lib/platform.js';
 import { toast } from '../../lib/toast.js';
 import { Modal } from '../ui.jsx';
 import { CommunityTile, VisibilityBadge } from '../public/CommunityCards.jsx';
-import { Chips, Failed, Loading, ReasonDialog, Table } from './bits.jsx';
+import { Badge, Button } from '../ui/Controls.jsx';
+import { Chips, DataTable, Failed, Loading, ReasonDialog } from './bits.jsx';
 import { confirmAction } from '../ui/Confirm.jsx';
 
 const SHOW = [['all', 'All'], ['requests', 'Deletion requests'], ['no_owner', 'No active Owner'], ['suspended', 'Suspended'], ['archived', 'Archived'], ['deleted', 'Deleted, restorable']];
@@ -27,40 +29,53 @@ export default function Communities() {
   useEffect(() => { load(); }, [load]);
   const counts = s.d?.counts ?? {};
   const list = s.d?.show === show ? s.d.communities : [];
+  const name = (c) => (
+    <button type="button" className="link flex min-w-0 items-center gap-2.5 text-left" onClick={() => setOpen(c.id)}>
+      <CommunityTile c={c} size={28} /><span className="min-w-0 break-words">{c.name}</span>
+    </button>
+  );
+
+  const requestColumns = [
+    { head: 'Community', place: 'title', cell: name },
+    { head: 'Status', place: 'badge', cell: (c) => <Badge tone="warn">{c.request.mine ? 'You’re reviewing' : c.request.reviewBy ? `${c.request.reviewBy} is reviewing` : 'Waiting'}</Badge> },
+    { head: 'Asked by', cell: (c) => c.request.by ?? 'Deleted member' },
+    { head: 'Asked', cell: (c) => <span className="text-2">{dateText(c.request.createdAt)}</span> },
+  ];
+  const columns = [
+    { head: 'Community', place: 'title', cell: name },
+    { head: 'Visibility', cell: (c) => <VisibilityBadge visibility={c.visibility} /> },
+    { head: 'Members', num: true, cell: (c) => c.memberCount },
+    { head: 'Owner', cell: (c) => (c.ownerCount ? c.owner : <span className="text-2">No active Owner</span>) },
+    { head: 'Status', place: 'badge', cell: (c) => <CommunityStatus c={c} /> },
+    { head: 'Actions', sr: true, place: 'action', cell: (c) => <Button size="sm" variant="ghost" onClick={() => setOpen(c.id)}>{!c.ownerCount && c.status !== 'deleted' ? 'Choose an Owner' : 'Open'}</Button> },
+  ];
 
   return (
     <div className="flex flex-col gap-5">
       <Chips label="Show" value={show} onChange={setShow} options={SHOW.map(([id, label]) => ({ id, label, count: counts[id] }))} />
       {s.state === 'loading' ? <Loading label="Loading communities" /> : s.state === 'error' ? <Failed message={s.message} onRetry={load} /> : show === 'requests' ? (
         <section aria-labelledby="dr-h" className="flex flex-col gap-3">
-          <h2 id="dr-h" className="t-h2 text-white">Deletion requests</h2>
-          <Table label="Deletion requests" head={['Community', 'Asked by', 'Asked', 'Status']} empty="No deletion requests are waiting."
-            rows={list.map((c) => (
-              <tr key={c.id} className="border-b border-[var(--az-divider)] last:border-0">
-                <td className="px-4 py-3"><button className="flex items-center gap-3 font-semibold text-white hover:underline" onClick={() => setOpen(c.id)}><CommunityTile c={c} size={28} />{c.name}</button></td>
-                <td className="text-2 px-4 py-3">{c.request.by ?? 'Deleted member'}</td>
-                <td className="text-3 px-4 py-3">{dateText(c.request.createdAt)}</td>
-                <td className="px-4 py-3"><span className="rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-semibold text-amber-200">{c.request.mine ? 'Waiting · you’re reviewing' : c.request.reviewBy ? `Waiting · ${c.request.reviewBy} is reviewing` : 'Waiting'}</span></td>
-              </tr>
-            ))} />
-          <p className="t-small">Oldest first. Opening a request marks it as yours for 30 minutes, so two admins don’t decide it at once. The Owner can withdraw it until it’s decided.</p>
+          <h3 id="dr-h" className="t-h3">Deletion requests</h3>
+          <DataTable label="Deletion requests" columns={requestColumns} rows={list} cardLabel={(c) => c.name} empty="No deletion requests are waiting." />
+          <p className="t-small">Oldest first. Opening a request shows what deleting affects and marks it yours for 30 minutes, so two admins don’t decide it at once. The Owner can withdraw it until it’s decided.</p>
         </section>
       ) : (
-        <Table label="Communities" head={['Community', 'Visibility', 'Members', 'Owner', 'Status', '']} empty="No communities here."
-          rows={list.map((c) => (
-            <tr key={c.id} className="border-b border-[var(--az-divider)] last:border-0">
-              <td className="px-4 py-3"><button className="flex items-center gap-3 text-left font-semibold text-white hover:underline" onClick={() => setOpen(c.id)}><CommunityTile c={c} size={28} />{c.name}</button></td>
-              <td className="px-4 py-3"><VisibilityBadge visibility={c.visibility} /></td>
-              <td className="text-2 px-4 py-3 tabular-nums">{c.memberCount}</td>
-              <td className="text-2 px-4 py-3">{c.ownerCount ? c.owner : <span className="text-amber-200">No active Owner</span>}</td>
-              <td className="text-2 px-4 py-3">{c.status === 'deleted' ? `Deleted · goes for good ${dateText(c.purgeAfter)}${c.purging ? ' · removing…' : ''}` : c.status === 'active' ? 'Active' : c.status.replace(/^\w/, (x) => x.toUpperCase())}</td>
-              <td className="whitespace-nowrap px-4 py-3 text-right"><button className="text-brand-300 hover:underline" onClick={() => setOpen(c.id)}>Open</button></td>
-            </tr>
-          ))} />
+        <>
+          <DataTable label="Communities" columns={columns} rows={list} cardLabel={(c) => c.name} empty="No communities here." />
+          <p className="t-small">AlumniZone is listed and sorted like any other community.</p>
+        </>
       )}
       {open && <Panel id={open} onClose={() => setOpen(null)} onChanged={load} />}
     </div>
   );
+}
+
+function CommunityStatus({ c }) {
+  if (c.status === 'deleted') return <Badge tone="bad">{c.purging ? 'Being removed' : `Deleted · goes ${dateText(c.purgeAfter)}`}</Badge>;
+  if (c.status === 'suspended') return <Badge tone="bad">Suspended</Badge>;
+  if (c.status === 'archived') return <Badge>Archived</Badge>;
+  if (!c.ownerCount) return <Badge tone="warn">Needs an Owner</Badge>;
+  return <Badge tone="ok">Active</Badge>;
 }
 
 function Panel({ id, onClose, onChanged }) {
@@ -82,7 +97,7 @@ function Panel({ id, onClose, onChanged }) {
 
   return (
     <Modal title={c ? c.name : 'Community'} onClose={onClose} wide>
-      {s.state === 'loading' ? <Loading label="Loading community" /> : s.state === 'error' ? <Failed message={s.message} /> : (
+      {s.state === 'loading' ? <Loading label="Loading community" /> : s.state === 'error' ? <Failed message={s.message} onRetry={load} /> : (
         <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center gap-3">
             <CommunityTile c={c} size={40} />
@@ -91,25 +106,25 @@ function Panel({ id, onClose, onChanged }) {
             <VisibilityBadge visibility={c.visibility} />
           </div>
           {c.status === 'deleted' && (
-            <p role="status" className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-100">
+            <p role="status" className="notice notice-bad">
               Deleted {dateText(c.deletedAt)}. Members who open an old link see “This community has been removed”. {c.purging ? 'Removal for good has started and can’t be stopped.' : `It can be restored until ${dateText(c.purgeAfter)}; after that it’s removed for good.`}
             </p>
           )}
           <section aria-labelledby="cs-h">
             <h3 id="cs-h" className="t-label mb-1">Owners and Admins</h3>
             {s.d.staff.length ? <ul className="list-rows">{s.d.staff.map((m) => (
-              <li key={m.id} className="flex justify-between gap-2 py-2 text-sm"><span className="text-white">{m.name}</span><span className="text-3">{m.role === 'owner' ? 'Owner' : 'Admin'}{m.accountStatus !== 'active' ? ` · account ${m.accountStatus}` : ''}</span></li>
-            ))}</ul> : <p className="text-sm text-amber-200">Nobody is in charge of this community.</p>}
+              <li key={m.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span>{m.name}</span><span className="text-2">{m.role === 'owner' ? 'Owner' : 'Admin'}{m.accountStatus !== 'active' ? ` · account ${m.accountStatus}` : ''}</span></li>
+            ))}</ul> : <p className="notice notice-warn">Nobody is in charge of this community.</p>}
           </section>
           {req && <RequestReview req={req} review={review} c={c} impact={s.d.impact} onDecline={() => setDialog('decline')} onApprove={() => setDialog('approve')} />}
           {!req && c.status !== 'deleted' && <Impact impact={s.d.impact} />}
           <div className="flex flex-wrap gap-2">
-            {c.status !== 'deleted' && <Link className="btn btn-ghost" to={`${communityPath(c)}?admin=1`}>Open in Administrative Mode</Link>}
-            {['active', 'archived'].includes(c.status) && !c.isDefault && <button className="btn btn-ghost" onClick={() => setDialog('suspend')}>Suspend…</button>}
-            {c.status === 'suspended' && <button className="btn btn-primary" onClick={async () => { try { await post('unsuspend'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Lift suspension</button>}
-            {c.status !== 'deleted' && !s.d.staff.some((m) => m.role === 'owner' && m.accountStatus === 'active') && <button className="btn btn-ghost" onClick={() => setDialog('owner')}>Make someone Owner…</button>}
-            {c.status !== 'deleted' && !c.isDefault && !req && <button className="btn btn-ghost text-rose-300" onClick={() => setDialog('delete')}>Delete…</button>}
-            {c.status === 'deleted' && !c.purging && <button className="btn btn-primary" onClick={async () => { if (!(await confirmAction(`Restore ${c.name}? Everything comes back as it was, memberships included.`))) return; try { await post('restore'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Restore</button>}
+            {c.status !== 'deleted' && <Link className="btn btn-secondary" to={`${communityPath(c)}?admin=1`}>Open in Administrative Mode</Link>}
+            {['active', 'archived'].includes(c.status) && <Button onClick={() => setDialog('suspend')}>Suspend…</Button>}
+            {c.status === 'suspended' && <Button variant="primary" onClick={async () => { try { await post('unsuspend'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Lift suspension</Button>}
+            {c.status !== 'deleted' && !s.d.staff.some((m) => m.role === 'owner' && m.accountStatus === 'active') && <Button onClick={() => setDialog('owner')}>Choose an Owner…</Button>}
+            {c.status !== 'deleted' && !req && <Button variant="danger" onClick={() => setDialog('delete')}>Delete…</Button>}
+            {c.status === 'deleted' && !c.purging && <Button variant="primary" onClick={async () => { if (!(await confirmAction(`Restore ${c.name}? Everything comes back as it was, memberships included.`))) return; try { await post('restore'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Restore</Button>}
           </div>
           {dialog === 'suspend' && <ReasonDialog title={`Suspend ${c.name}`} action="Suspend" danger reasonHint="Required; its staff see it" onClose={() => setDialog(null)}
             intro="It’s hidden from everyone except its own Owners, Admins and Moderators, who can read it but not change it. Nothing is deleted."
@@ -142,7 +157,7 @@ function Impact({ impact: i, compact = false }) {
   return (
     <section aria-labelledby="im-h">
       <h3 id="im-h" className="t-label mb-1">What deleting it affects</h3>
-      <dl className="list-rows">{rows.map(([k, v]) => <div key={k} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><dt className="text-2">{k}</dt><dd className={k.startsWith('Open') && v !== 'None' ? 'text-amber-200' : 'text-white'}>{v}</dd></div>)}</dl>
+      <dl className="list-rows">{rows.map(([k, v]) => <div key={k} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><dt className="text-2">{k}</dt><dd className={k.startsWith('Open') && v !== 'None' ? 'font-semibold text-[var(--az-warning)]' : ''}>{v}</dd></div>)}</dl>
     </section>
   );
 }
@@ -150,16 +165,16 @@ function Impact({ impact: i, compact = false }) {
 function RequestReview({ req, review, impact, onApprove, onDecline }) {
   const blocked = impact.openReports + impact.openAppeals > 0;
   return (
-    <section aria-labelledby="rr-h" className="raised flex flex-col gap-4 p-5">
-      <h3 id="rr-h" className="t-h3 text-white">Deletion request</h3>
+    <section aria-labelledby="rr-h" className="sunken flex flex-col gap-4 p-5">
+      <h3 id="rr-h" className="t-h3">Deletion request</h3>
       <p className="t-small">Asked by {req.requestedBy ?? 'a deleted member'} on {dateText(req.createdAt)}. The community kept working since; this shows it as it is now.</p>
-      <blockquote className="band p-4 text-sm text-white">“{req.reason}”</blockquote>
+      <blockquote className="panel p-4 text-sm">“{req.reason}”</blockquote>
       <Impact impact={impact} />
-      {review && !review.mine && <p role="alert" className="text-sm text-amber-200">{review.message}</p>}
+      {review && !review.mine && <p role="alert" className="notice notice-warn">{review.message}</p>}
       <div className="flex flex-wrap items-center justify-end gap-2">
         {blocked && <span id="why-off" className="t-small">Decide the open reports and appeals first.</span>}
-        <button className="btn btn-ghost" disabled={!review?.mine} onClick={onDecline}>Decline</button>
-        <button className="btn btn-ghost text-rose-300" disabled={!review?.mine || blocked} aria-describedby={blocked ? 'why-off' : undefined} onClick={onApprove}>Approve deletion…</button>
+        <Button disabled={!review?.mine} onClick={onDecline}>Decline</Button>
+        <Button variant="danger" disabled={!review?.mine || blocked} aria-describedby={blocked ? 'why-off' : undefined} onClick={onApprove}>Approve deletion…</Button>
       </div>
     </section>
   );
@@ -182,12 +197,12 @@ function OwnerPicker({ c, onClose, onPick }) {
       <div className="flex flex-col gap-3">
         <p className="text-2 text-sm">For a community whose only Owner left or was suspended. Choose one of its active members; they’re notified.</p>
         <label><span className="sr-only">Search members</span><input type="search" className="input" placeholder="Search members" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-        {list === null ? <Loading label="Loading members" h="h-20" /> : list.length ? (
+        {error && <p role="alert" className="field-error">{error}</p>}
+        {list === null ? <Loading label="Loading members" lines={2} /> : list.length ? (
           <ul className="list-rows">{list.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-2 py-2 text-sm"><span className="text-white">{m.name} <span className="text-3">· {m.role}</span></span><button className="btn btn-ghost" onClick={() => pick(m)}>Make Owner</button></li>
+            <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span>{m.name} <span className="text-2">· {m.role}</span></span><Button size="sm" onClick={() => pick(m)}>Make Owner</Button></li>
           ))}</ul>
-        ) : <p className="text-3 text-sm">No active members match.</p>}
+        ) : <p className="text-2 text-sm">No active members match.</p>}
       </div>
     </Modal>
   );

@@ -28,7 +28,7 @@ function PublicExplore() {
   const { status, communities, categories, message, retry } = usePublicCommunities({ q, category, limit: 60 });
   const chip = (value, label) => (
     <button key={value || 'all'} type="button" aria-pressed={category === value} onClick={() => setCategory(value)}
-      className={`min-h-11 rounded-full px-4 text-sm transition ${category === value ? 'bg-[var(--az-text)] font-semibold text-[var(--color-ink-950)]' : 'border border-[var(--az-hairline)] font-medium text-slate-300 hover:text-white'}`}>
+      className={`min-h-11 rounded-full px-4 text-sm transition ${category === value ? 'bg-[var(--az-text)] font-semibold text-[var(--color-ink-950)]' : 'border border-[var(--az-hairline)] font-medium text-[var(--az-text-2)] hover:text-[var(--az-text)]'}`}>
       {label}
     </button>
   );
@@ -37,8 +37,8 @@ function PublicExplore() {
     <div className="flex min-h-full flex-col bg-[var(--color-ink-950)]">
       <PublicHeader />
       <main id="main" className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-12 sm:px-8">
-        <h1 className="text-[34px] font-bold tracking-tight text-white sm:text-[44px]">Explore communities</h1>
-        <p className="mt-3 max-w-2xl leading-relaxed text-slate-300">Public communities are open to everyone. Private ones accept members by request. Closed communities are invitation-only and never listed.</p>
+        <h1 className="text-[34px] font-bold tracking-tight text-[var(--az-text)] sm:text-[44px]">Explore communities</h1>
+        <p className="mt-3 max-w-2xl leading-relaxed text-[var(--az-text-2)]">Public communities are open to everyone. Private ones accept members by request. Closed communities are invitation-only and never listed.</p>
 
         <div className="mt-8 flex flex-col gap-4">
           <label className="block max-w-xl">
@@ -63,7 +63,7 @@ function PublicExplore() {
           )}
           {status === 'ready' && communities.length > 0 && (
             <>
-              <p className="mb-4 text-sm text-slate-400">{communities.length} {communities.length === 1 ? 'community' : 'communities'}</p>
+              <p className="mb-4 text-sm text-[var(--az-text-2)]">{communities.length} {communities.length === 1 ? 'community' : 'communities'}</p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
                 {communities.map((c) => <CommunityCard key={c.id} c={c} />)}
               </div>

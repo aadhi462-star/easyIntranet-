@@ -2,19 +2,22 @@
 // referenced where handled.
 import { audit } from '../lib/audit.js';
 import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId, SECTIONS, sectionsOf } from '../lib/community.js';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
-import { can } from '../lib/permissions.js';
 import { idempotent } from '../lib/session.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
-import { notify } from '../lib/notify.js';
+import { NOTIFY_DEFAULT_KEYS, notify } from '../lib/notify.js';
 import { CATEGORIES, categoryOf, checkCategory } from '../lib/categories.js';
 import { assertCanCreate, checkSettings, CONFIG_SETTING_KEYS, prepareCommunity, recordCreation } from '../lib/templates.js';
 
-// Settings a community stores for its own screens (tabs, dashboard, guidelines, membership rule).
-// Validated as a plain object of limited size; nothing here grants permissions. `sections` is the
-// list of sections switched on (v2 E, lib/community.js sectionOn) and decides over `apps`.
-const SETTING_KEYS = new Set(['apps', 'sections', 'dashboard', 'guidelines', 'dynamicRule', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue', 'whoCanCreateEvents', 'membersAddResources']);
+// Settings a community stores for its own screens (tabs, dashboard, guidelines, notification
+// defaults). Validated as a plain object of limited size; nothing here grants permissions.
+// `sections` is the list of sections switched on (v2 E, lib/community.js sectionOn) and decides
+// over `apps`. `notifyDefaults` (v2 G5) says, per category, whether members get an email by
+// default; a member's own choice always wins (lib/notify.js).
+// G2: the automatic membership rule (`dynamicRule`) is retired. A new one is refused; null is
+// accepted and takes out a rule still stored (an older screen saving its whole form).
+const SETTING_KEYS = new Set(['apps', 'sections', 'dashboard', 'guidelines', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue', 'whoCanCreateEvents', 'membersAddResources', 'notifyDefaults']);
 // v2 templates: resource categories, event defaults and roles in use (lib/templates.js).
 for (const k of CONFIG_SETTING_KEYS) SETTING_KEYS.add(k);
 function cleanSettings(input) {
@@ -22,8 +25,20 @@ function cleanSettings(input) {
   if (typeof input !== 'object' || Array.isArray(input)) throw badRequest('INVALID_INPUT', 'Settings must be an object.');
   const out = {};
   for (const [k, v] of Object.entries(input)) {
+    if (k === 'dynamicRule') {
+      if (v != null) throw badRequest('RULE_RETIRED', 'Automatic membership rules are no longer available. Use “Invite people who match” to send invitations instead.', { field: 'dynamicRule' });
+      continue;
+    }
     if (!SETTING_KEYS.has(k)) throw badRequest('FIELD_NOT_ALLOWED', `“${k}” can’t be set here.`);
     out[k] = v;
+  }
+  if ('notifyDefaults' in out) {
+    const d = out.notifyDefaults;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) throw badRequest('INVALID_INPUT', 'Notification defaults are an object of categories.', { field: 'notifyDefaults' });
+    for (const [k, v] of Object.entries(d)) {
+      if (!NOTIFY_DEFAULT_KEYS.includes(k)) throw badRequest('FIELD_NOT_ALLOWED', `“${k}” isn’t a notification category: ${NOTIFY_DEFAULT_KEYS.join(', ')}.`, { field: 'notifyDefaults' });
+      if (typeof v !== 'boolean') throw badRequest('INVALID_INPUT', `Say on or off for “${k}”.`, { field: 'notifyDefaults' });
+    }
   }
   if (out.whoCanPost && !['members', 'admins'].includes(out.whoCanPost)) throw badRequest('INVALID_INPUT', 'Choose who can post: members or admins.');
   if (out.whoCanCreateEvents && !['members', 'admins'].includes(out.whoCanCreateEvents)) throw badRequest('INVALID_INPUT', 'Choose who can create events: members or admins.');
@@ -114,12 +129,26 @@ export default async function communityRoutes(app, { ctx }) {
     const a = await access(db, req, await resolveCommunityId(db, req.params.id));
     const n = (await db.query(`select count(*)::int as n from memberships m join users u on u.id = m.user_id
       where m.community_id = $1 and m.state in ('active', 'restricted') and u.status = 'active'`, [a.community.id])).rows[0].n;
+    // Owners and Admins see where the community came from (F6) and who last changed its settings.
+    let origin = {};
+    if (a.canAdmin) {
+      const [tpl, last] = await Promise.all([
+        a.community.template_id ? db.query(`select key, name from community_templates where id = $1`, [a.community.template_id]) : { rows: [] },
+        db.query(`select l.at, u.name from audit_log l left join users u on u.id = l.actor_id
+          where l.target_type = 'community' and l.target_id = $1 and l.action in ('community.update', 'community.branding') order by l.at desc limit 1`, [a.community.id]),
+      ]);
+      origin = {
+        template: tpl.rows[0] ? { key: tpl.rows[0].key, name: tpl.rows[0].name, version: a.community.template_version } : null,
+        lastChange: last.rows[0] ? { at: last.rows[0].at, by: last.rows[0].name ?? 'Former member' } : null,
+      };
+    }
     return {
       community: {
         ...publicCommunity(a.community, { memberCount: n, version: a.community.version, settings: a.canView ? a.community.settings : undefined }),
         // The join screen's "Who this is for" line and a Private community's join question (F7):
         // shown to people who can't open the community yet, too.
         audience: a.community.settings?.audience ?? null, joinQuestion: a.community.settings?.joinQuestion ?? null,
+        ...origin,
       },
       // Which sections are switched on (settings.apps, lib/community.js sectionOn).
       sections: sectionsOf(a.community),
@@ -373,6 +402,40 @@ export default async function communityRoutes(app, { ctx }) {
     return { community: { id, name, accent, visibility: req.body.visibility, membership: { state: 'active', role: 'owner' } } };
   }));
 
+  // G4: what changing visibility would do, for the confirm the Owner sees before saving. Counts
+  // only, read now; the change itself is PATCH below (which re-evaluates requests, VIS-13).
+  //   Private → Public: the people waiting are let in at once (pendingRequests).
+  //   anything → Closed: pending requests are dropped (they'd need an invitation) and the
+  //     community leaves Explore and search; open invitations keep working (openInvitations).
+  //   Closed or Private → Public: members-only content becomes readable by everyone signed in
+  //     (membersOnlyContent: published posts, events, resources and listed courses).
+  app.get('/communities/:id/visibility-impact', async (req) => {
+    const a = await access(db, req, req.params.id);
+    if (!a.canAdmin) throw forbidden('Only community admins can change visibility.');
+    const to = req.query.to;
+    if (!['public', 'private', 'closed'].includes(to)) throw badRequest('INVALID_INPUT', 'Say which visibility: public, private or closed.', { field: 'to' });
+    const c = a.community;
+    const n = async (sql) => (await db.query(sql, [c.id])).rows[0].n;
+    const [pending, posts, events, resources, courses, invitations] = await Promise.all([
+      n(`select count(*)::int as n from memberships m join users u on u.id = m.user_id where m.community_id = $1 and m.state = 'pending' and u.status = 'active'`),
+      n(`select count(*)::int as n from posts where community_id = $1 and status = 'published' and deleted_at is null`),
+      n(`select count(*)::int as n from events where community_id = $1 and deleted_at is null and status = 'scheduled'`),
+      n(`select count(*)::int as n from resources where community_id = $1 and deleted_at is null`),
+      n(`select count(*)::int as n from courses where community_id = $1 and status = 'published' and visibility = 'members'`),
+      n(`select count(*)::int as n from community_invitations where community_id = $1 and accepted_at is null and revoked_at is null and superseded_at is null and declined_at is null and expires_at > now()`),
+    ]);
+    const from = c.visibility;
+    const effects = [];
+    if (to !== from) {
+      if (to === 'public' && pending) effects.push('requests_admitted');
+      if (to === 'closed' && pending) effects.push('requests_dropped');
+      if (to === 'closed') effects.push('hidden_from_discovery');
+      if (to === 'public') effects.push('content_readable');
+      if (from === 'closed' && to === 'private') effects.push('listed_in_discovery');
+    }
+    return { from, to, pendingRequests: pending, membersOnlyContent: { posts, events, resources, courses }, openInvitations: invitations, effects, version: c.version };
+  });
+
   // Edit details, visibility and settings (community admins, or admin mode). Version-checked so
   // two admins can't silently overwrite each other (SET-03). Visibility changes apply to the
   // very next request because access is decided per request (VIS-05/06/07).
@@ -385,7 +448,15 @@ export default async function communityRoutes(app, { ctx }) {
     if (!a.canAdmin) throw forbidden('Only community admins can change these settings.');
     const b = req.body; const c = a.community;
     const name = 'name' in b ? cleanName(b.name) : c.name;
-    const settings = 'settings' in b ? { ...c.settings, ...cleanSettings(b.settings) } : c.settings;
+    let settings = c.settings;
+    if ('settings' in b) {
+      const clean = cleanSettings(b.settings);
+      settings = { ...c.settings, ...clean };
+      // G5: a section saves only the categories it changes; the others keep their value.
+      if (clean.notifyDefaults) settings.notifyDefaults = { ...(c.settings?.notifyDefaults ?? {}), ...clean.notifyDefaults };
+      // G2: an older screen sending `dynamicRule: null` takes out a rule still stored.
+      if (b.settings && 'dynamicRule' in b.settings) delete settings.dynamicRule;
+    }
     try {
       const { rows } = await db.query(
         `update communities set name = $3, slug = $4, description = $5, category = $6, emoji = $7, visibility = $8, settings = $9, version = version + 1
@@ -396,11 +467,17 @@ export default async function communityRoutes(app, { ctx }) {
       if (!rows.length) throw conflict('STALE_VERSION', 'Someone else changed this community. Reload to see the latest settings.');
       // A pending request to a community that's no longer Private is re-evaluated (VIS-13):
       // Public → it becomes a membership; Closed → it's dropped (needs an invitation now).
-      if (b.visibility && b.visibility !== c.visibility) {
-        if (b.visibility === 'public') await db.query(`update memberships set state = 'active', joined_at = now() where community_id = $1 and state = 'pending'`, [c.id]);
-        if (b.visibility === 'closed') await db.query(`update memberships set state = 'left' where community_id = $1 and state = 'pending'`, [c.id]);
+      const changed = b.visibility && b.visibility !== c.visibility;
+      let requests;
+      if (changed) {
+        if (b.visibility === 'public') requests = { admitted: (await db.query(`update memberships set state = 'active', joined_at = now() where community_id = $1 and state = 'pending' returning user_id`, [c.id])).rows.length };
+        if (b.visibility === 'closed') requests = { dropped: (await db.query(`update memberships set state = 'left' where community_id = $1 and state = 'pending' returning user_id`, [c.id])).rows.length };
       }
-      await audit(db, { actorId: req.user.id, action: 'community.update', targetType: 'community', targetId: c.id, context: { fields: Object.keys(b).filter((k) => k !== 'version'), from: b.visibility ? c.visibility : undefined, adminMode: a.adminMode }, ip: req.ip });
+      // G4: a visibility change records what it was and what it became, and what happened to
+      // the requests waiting.
+      await audit(db, { actorId: req.user.id, action: 'community.update', targetType: 'community', targetId: c.id, ip: req.ip,
+        context: { fields: Object.keys(b).filter((k) => k !== 'version'), ...(changed ? { visibility: { before: c.visibility, after: b.visibility }, requests } : {}),
+          from: b.visibility ? c.visibility : undefined, adminMode: a.adminMode } });
       return { community: publicCommunity(rows[0], { settings: rows[0].settings, version: rows[0].version }) };
     } catch (err) {
       if (err.code === UNIQUE_VIOLATION) throw conflict('DUPLICATE_NAME', 'A community with a very similar name already exists.', { field: 'name' });
@@ -420,14 +497,12 @@ export default async function communityRoutes(app, { ctx }) {
     return { ok: true };
   });
 
+  // G6: the instant delete (no restore) is retired. A community is deleted only through the Stage
+  // 7 review: its Owner asks (POST /communities/:id/deletion-request), a Platform Admin reviews it
+  // in Administration, and it can be restored for 30 days. Answers 410 for everyone.
   app.delete('/communities/:id', async (req) => {
     signedIn(req);
-    // Community admins request deletion (Phase 2 workflow); only platform staff delete (DEL-01, TC-03).
-    if (!can(req.user, 'communities.manage')) throw forbidden('Community admins can’t delete a community. Archive it, or ask the platform team.', 'DELETE_NOT_ALLOWED');
-    const { rows } = await db.query(`select id, name from communities where id = $1`, [req.params.id]);
-    if (!rows[0]) throw notFound('That community doesn’t exist.');
-    await db.query(`delete from communities where id = $1`, [req.params.id]);
-    await audit(db, { actorId: req.user.id, action: 'community.delete', targetType: 'community', targetId: req.params.id, context: { name: rows[0].name }, ip: req.ip });
-    return { ok: true };
+    throw new HttpError(410, 'DELETE_RETIRED', 'Communities are no longer deleted at once. The Owner can request deletion from Danger Zone; a Platform Admin reviews it, and it can be restored for 30 days.',
+      { deletionRequest: `/api/communities/${encodeURIComponent(req.params.id)}/deletion-request` });
   });
 }

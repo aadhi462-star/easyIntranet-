@@ -59,12 +59,12 @@ export default function Builder({ g, id }) {
 
   return (
     <>
-      <p className="glass p-5 text-sm text-slate-300 md:hidden">Build courses on a larger screen. <Link to={coursePath(g, course.id)} className="text-brand-300 underline">Back to the course</Link></p>
+      <p className="panel p-5 text-sm text-[var(--az-text-2)] md:hidden">Build courses on a larger screen. <Link to={coursePath(g, course.id)} className="text-[var(--az-link)] underline">Back to the course</Link></p>
       <div className="hidden flex-col gap-6 md:flex">
         <header className="flex flex-wrap items-end gap-4">
           <div className="min-w-0 flex-1">
             <span className="t-label">Course builder</span>
-            <h2 className="t-h1 flex flex-wrap items-center gap-3 text-white">{course.title} <Pill tone="outline">{STATUS_LABEL[course.status]}</Pill></h2>
+            <h2 className="t-h1 flex flex-wrap items-center gap-3 text-[var(--az-text)]">{course.title} <Pill tone="outline">{STATUS_LABEL[course.status]}</Pill></h2>
           </div>
           <Link to={coursePath(g, course.id)} className="btn btn-ghost">Preview as a member</Link>
           {course.status === 'published' ? <button className="btn btn-ghost" disabled={busy} onClick={() => post('unpublish', 'Unpublished. Enrolled learners keep access.')}>Unpublish</button>
@@ -75,13 +75,13 @@ export default function Builder({ g, id }) {
               </span>
             )}
         </header>
-        {archived && <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-100">This course is archived. It’s read-only; learners keep reading it.</p>}
+        {archived && <p className="notice notice-warn">This course is archived. It’s read-only; learners keep reading it.</p>}
 
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="flex min-w-0 flex-col gap-8">
             <section aria-labelledby="cc-h" className="flex flex-col gap-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 id="cc-h" className="t-h2 text-white">Course content</h3>
+                <h3 id="cc-h" className="t-h2 text-[var(--az-text)]">Course content</h3>
                 <span className="t-small">{lessonsText(lessonCount)}</span>
               </div>
               <p className="t-small -mt-1">Use the arrows to move lessons and modules. A lesson moved past the end of its module goes into the next one.</p>
@@ -97,7 +97,7 @@ export default function Builder({ g, id }) {
             {selected && !archived
               ? <LessonEditor key={selected.lessonId ?? `new-${selected.newIn}`} course={course} target={selected} write={write}
                   onCreated={(lessonId) => setSelected({ lessonId })} onClose={() => setSelected(null)} />
-              : <section className="band p-5 text-sm text-slate-300">{archived ? 'Archived courses can’t be edited.' : 'Pick a lesson to edit it, or use Add lesson in a module.'}</section>}
+              : <section className="band p-5 text-sm text-[var(--az-text-2)]">{archived ? 'Archived courses can’t be edited.' : 'Pick a lesson to edit it, or use Add lesson in a module.'}</section>}
             <Settings course={course} write={write} busy={busy} archived={archived} />
             <Lifecycle g={g} course={course} write={write} busy={busy} onDeleted={() => nav(coursePath(g))} />
           </div>
@@ -129,7 +129,7 @@ function ModuleCard({ m, mi, count, busy, archived, selected, onSelect, onMoveLe
           </form>
         ) : (
           <>
-            <h4 className="min-w-0 flex-1 truncate px-2 text-[15px] font-semibold text-white">{m.title}</h4>
+            <h4 className="min-w-0 flex-1 truncate px-2 text-[15px] font-semibold text-[var(--az-text)]">{m.title}</h4>
             {!archived && (
               <>
                 <button className="btn btn-ghost min-h-10" onClick={() => setRenaming(true)}>Rename</button>
@@ -145,11 +145,11 @@ function ModuleCard({ m, mi, count, busy, archived, selected, onSelect, onMoveLe
         {m.lessons.map((l, li) => {
           const on = selected?.lessonId === l.id;
           return (
-            <li key={l.id} className={`flex items-center gap-1 rounded-lg pr-1 ${on ? 'bg-white/[.08]' : ''}`}>
-              <button className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 text-left text-sm hover:bg-white/[.04]" aria-current={on ? 'true' : undefined}
+            <li key={l.id} className={`flex items-center gap-1 rounded-lg pr-1 ${on ? 'bg-[var(--az-sunken)]' : ''}`}>
+              <button className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 text-left text-sm hover:bg-[var(--az-sunken)]" aria-current={on ? 'true' : undefined}
                 disabled={archived} onClick={() => onSelect({ lessonId: l.id })}>
                 <KindBadge kind={l.kind} className="!h-8 !w-8" />
-                <span className={`min-w-0 flex-1 truncate ${on ? 'font-semibold text-white' : 'text-slate-200'}`}>{l.title}</span>
+                <span className={`min-w-0 flex-1 truncate ${on ? 'font-semibold text-[var(--az-text)]' : 'text-[var(--az-text)]'}`}>{l.title}</span>
                 {!l.required && <span className="t-small">Optional</span>}
               </button>
               {!archived && (
@@ -163,7 +163,7 @@ function ModuleCard({ m, mi, count, busy, archived, selected, onSelect, onMoveLe
         })}
       </ul>
       {m.lessons.length === 0 && <p className="t-small px-2 py-2">No lessons in this module yet.</p>}
-      {!archived && <button className={`btn btn-ghost mt-1 self-start ${selected?.newIn === m.id ? 'bg-white/[.08]' : ''}`} onClick={() => onSelect({ newIn: m.id })}><Icon name="plus" size={16} />Add lesson</button>}
+      {!archived && <button className={`btn btn-ghost mt-1 self-start ${selected?.newIn === m.id ? 'bg-[var(--az-sunken)]' : ''}`} onClick={() => onSelect({ newIn: m.id })}><Icon name="plus" size={16} />Add lesson</button>}
     </section>
   );
 }
@@ -219,7 +219,7 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
       .catch((e) => setLoadError(errorText(e)));
   }, [isNew, target.lessonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loadError) return <section role="alert" className="band p-5 text-sm text-rose-300">{loadError}</section>;
+  if (loadError) return <section role="alert" className="band p-5 text-sm text-[var(--az-danger)]">{loadError}</section>;
   if (!v) return <section aria-busy="true" aria-label="Loading lesson" className="band h-72 animate-pulse" />;
   const set = (k) => (e) => setV({ ...v, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   const setIn = (group, k) => (e) => setV({ ...v, [group]: { ...v[group], [k]: e.target.value } });
@@ -258,16 +258,16 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
   return (
     <section aria-labelledby="le-h" className="raised flex flex-col gap-4 p-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 id="le-h" className="t-h2 text-white">{isNew ? 'New lesson' : 'Edit lesson'}</h3>
+        <h3 id="le-h" className="t-h2 text-[var(--az-text)]">{isNew ? 'New lesson' : 'Edit lesson'}</h3>
         <span className="t-small" aria-live="polite">{savedAt ? `Saved ${savedAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : moduleTitle}</span>
       </div>
       <form className="flex flex-col gap-4" onSubmit={save}>
         <Field label="Title"><input className="input" required maxLength={160} value={v.title} onChange={set('title')} /></Field>
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Type</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-[var(--az-text-2)]">Type</legend>
           <div className="flex flex-wrap gap-2">
             {KINDS.map(([k, label]) => (
-              <label key={k} className={`flex min-h-11 min-w-[92px] flex-1 cursor-pointer px-3 items-center justify-center rounded-lg border text-sm ${v.kind === k ? 'border-brand-400 bg-brand-400/10 font-semibold text-white' : 'border-[var(--az-hairline)] text-slate-300'}`}>
+              <label key={k} className={`flex min-h-11 min-w-[92px] flex-1 cursor-pointer px-3 items-center justify-center rounded-lg border text-sm ${v.kind === k ? 'border-brand-400 bg-brand-400/10 font-semibold text-[var(--az-text)]' : 'border-[var(--az-hairline)] text-[var(--az-text-2)]'}`}>
                 <input type="radio" name="kind" value={k} checked={v.kind === k} onChange={set('kind')} className="sr-only" />{label}
               </label>
             ))}
@@ -283,12 +283,12 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
         )}
         {v.kind === 'file' && (
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-semibold text-slate-300">Files</span>
+            <span className="text-xs font-semibold text-[var(--az-text-2)]">Files</span>
             {v.files.length > 0 && (
               <ul className="sunken flex flex-col divide-y divide-[var(--az-divider)] text-sm">
                 {v.files.map((f) => (
                   <li key={f.id} className="flex items-center gap-3 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-white">{f.name}</span><span className="t-small shrink-0">{sizeText(f.size)}</span>
+                    <span className="min-w-0 flex-1 truncate text-[var(--az-text)]">{f.name}</span><span className="t-small shrink-0">{sizeText(f.size)}</span>
                     <IconButton icon="x" label={`Remove ${f.name}`} onClick={() => setV({ ...v, files: v.files.filter((x) => x.id !== f.id) })} />
                   </li>
                 ))}
@@ -315,13 +315,13 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
         )}
         <div className="flex flex-wrap items-end gap-4">
           <Field label="Duration (minutes)"><input className="input !w-32" type="number" min={1} max={600} value={v.durationMin} onChange={set('durationMin')} /></Field>
-          <label className="flex min-h-11 items-center gap-2 text-sm text-slate-200"><input type="checkbox" checked={v.required} onChange={set('required')} className="h-4 w-4 accent-[var(--color-brand-400)]" />Required to complete the course</label>
+          <label className="flex min-h-11 items-center gap-2 text-sm text-[var(--az-text)]"><input type="checkbox" checked={v.required} onChange={set('required')} className="h-4 w-4 accent-[var(--color-brand-400)]" />Required to complete the course</label>
         </div>
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-primary" disabled={busy || uploading}>{busy ? 'Saving…' : isNew ? 'Add lesson' : 'Save lesson'}</button>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Close</button>
-          {!isNew && <button type="button" className="btn btn-ghost ml-auto text-rose-300" onClick={remove}>Delete lesson</button>}
+          {!isNew && <button type="button" className="btn btn-ghost ml-auto text-[var(--az-danger)]" onClick={remove}>Delete lesson</button>}
         </div>
       </form>
       {!isNew && savedKind === 'quiz' && questions && <Questions lessonId={target.lessonId} initial={questions} write={write} />}
@@ -355,7 +355,7 @@ function Questions({ lessonId, initial, write }) {
   return (
     <section aria-labelledby="qs-h" className="flex flex-col gap-4 border-t border-[var(--az-divider)] pt-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h4 id="qs-h" className="t-h3 text-white">Questions</h4>
+        <h4 id="qs-h" className="t-h3 text-[var(--az-text)]">Questions</h4>
         <span className="t-small">{list.length} · multiple choice, one right answer</span>
       </div>
       <ol className="flex flex-col gap-4">
@@ -366,10 +366,10 @@ function Questions({ lessonId, initial, write }) {
               {list.length > 1 && <IconButton icon="x" label={`Remove question ${i + 1}`} onClick={() => { setList(list.filter((_, n) => n !== i)); setDirty(true); }} />}
             </div>
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-xs font-semibold text-slate-300">Choices · mark the right one</legend>
+              <legend className="mb-1 text-xs font-semibold text-[var(--az-text-2)]">Choices · mark the right one</legend>
               {q.choices.map((ch, k) => (
                 <div key={k} className="flex items-center gap-2">
-                  <label className="flex min-h-11 items-center gap-2 text-xs text-slate-300">
+                  <label className="flex min-h-11 items-center gap-2 text-xs text-[var(--az-text-2)]">
                     <input type="radio" name={`right-${q.key}`} checked={q.answer === k} onChange={() => change(i, { answer: k })} className="h-4 w-4 accent-[var(--color-brand-400)]" />
                     <span className="sr-only">Choice {k + 1} is the right answer</span>
                   </label>
@@ -384,7 +384,7 @@ function Questions({ lessonId, initial, write }) {
           </li>
         ))}
       </ol>
-      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+      {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn btn-ghost" disabled={list.length >= 50} onClick={() => { setList([...list, emptyQuestion()]); setDirty(true); }}><Icon name="plus" size={16} />Add question</button>
         <button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? 'Saving…' : dirty ? 'Save questions' : 'Questions saved'}</button>
@@ -406,12 +406,12 @@ function Instructors({ g, course, write, busy }) {
   };
   return (
     <section aria-labelledby="in-h" className="flex flex-col gap-3">
-      <h3 id="in-h" className="t-h2 text-white">Instructors</h3>
+      <h3 id="in-h" className="t-h2 text-[var(--az-text)]">Instructors</h3>
       {course.instructors.length === 0 ? <p className="t-small">No Instructors yet. The community’s Owners and Admins manage this course.</p> : (
         <ul className="list-rows border-t border-[var(--az-divider)]">
           {course.instructors.map((i) => (
             <li key={i.id} className="flex min-h-12 items-center gap-3 text-sm">
-              <span className="min-w-0 flex-1 truncate text-white">{i.name} <span className="t-small">· Instructor</span></span>
+              <span className="min-w-0 flex-1 truncate text-[var(--az-text)]">{i.name} <span className="t-small">· Instructor</span></span>
               {can && <IconButton icon="x" label={`Remove ${i.name} as Instructor`} disabled={busy} onClick={() => write(() => api(`/courses/${course.id}/instructors/${i.id}`, { method: 'DELETE' }), 'Instructor removed')} />}
             </li>
           ))}
@@ -447,7 +447,7 @@ function Settings({ course, write, busy, archived }) {
   };
   return (
     <section aria-labelledby="cs-h" className="flex flex-col gap-3">
-      <h3 id="cs-h" className="t-h2 text-white">Course settings</h3>
+      <h3 id="cs-h" className="t-h2 text-[var(--az-text)]">Course settings</h3>
       <form className="flex flex-col gap-4" onSubmit={save}>
         <fieldset disabled={archived} className="flex flex-col gap-4">
           <Field label="Title"><input className="input" required maxLength={160} value={v.title} onChange={set('title')} /></Field>
@@ -461,11 +461,11 @@ function Settings({ course, write, busy, archived }) {
             </select>
           </Field>
           <div className="flex flex-wrap items-end gap-4">
-            <label className="flex min-h-11 items-center gap-2 text-sm text-slate-200"><input type="checkbox" checked={v.limit} onChange={set('limit')} className="h-4 w-4 accent-[var(--color-brand-400)]" />Limit places</label>
+            <label className="flex min-h-11 items-center gap-2 text-sm text-[var(--az-text)]"><input type="checkbox" checked={v.limit} onChange={set('limit')} className="h-4 w-4 accent-[var(--color-brand-400)]" />Limit places</label>
             {v.limit && <Field label="Places"><input className="input !w-28" type="number" min={1} max={100000} required value={v.capacity} onChange={set('capacity')} /></Field>}
           </div>
           <p className="t-small">With a limit, a full course gets a waitlist, like events. Raising the limit lets the next people in.</p>
-          {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+          {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
           <button className="btn btn-primary self-start" disabled={busy}>Save settings</button>
         </fieldset>
       </form>
@@ -484,12 +484,12 @@ function Lifecycle({ course, write, busy, onDeleted }) {
   if (archived) return null;
   return (
     <section aria-labelledby="lc-h" className="band flex flex-col gap-3 p-5">
-      <h3 id="lc-h" className="t-h3 text-white">Unpublish or archive</h3>
+      <h3 id="lc-h" className="t-h3 text-[var(--az-text)]">Unpublish or archive</h3>
       <p className="text-2 text-sm">Unpublish stops new enrolments; enrolled learners keep access and progress.</p>
       <p className="text-2 text-sm">A course people have enrolled in can’t be deleted, only archived.</p>
       <div className="flex flex-wrap gap-2">
         <button className="btn btn-ghost" disabled={busy} onClick={archive}>Archive</button>
-        {course.can.assignInstructors && course.enrolledCount + course.waitlistCount === 0 && <button className="btn btn-ghost text-rose-300" disabled={busy} onClick={remove}>Delete course</button>}
+        {course.can.assignInstructors && course.enrolledCount + course.waitlistCount === 0 && <button className="btn btn-ghost text-[var(--az-danger)]" disabled={busy} onClick={remove}>Delete course</button>}
       </div>
     </section>
   );

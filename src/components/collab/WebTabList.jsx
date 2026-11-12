@@ -36,7 +36,7 @@ export function WebTabForm({ tab, groupId, onClose }) {
         {f.scope === 'group' && (
           <Field label="Group"><Select label="Group" value={f.groupId} onChange={set('groupId')} options={[['', 'Choose a group'], ...state.groups.filter((g) => me.admin || g.admins.includes(me.id) || g.members.includes(me.id)).map((g) => [g.id, g.name])]} /></Field>
         )}
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
         <button className="btn btn-primary w-full">{tab ? 'Save' : 'Add tab'}</button>
       </form>
     </Modal>
@@ -47,12 +47,12 @@ export function WebTabFrame({ tab }) {
   return (
     <div>
       <div className="glass mb-3 flex flex-wrap items-center gap-2 p-3 text-sm">
-        <span className="min-w-0 flex-1 truncate text-slate-400">{tab.url}</span>
+        <span className="min-w-0 flex-1 truncate text-[var(--az-text-2)]">{tab.url}</span>
         <a href={tab.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">Open in new tab <Glyph value="external" tile={false} size={14} /></a>
       </div>
       <iframe src={tab.url} title={tab.name} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer"
-        className="h-[70vh] w-full rounded-2xl border border-white/10 bg-white" />
-      <p className="mt-2 text-xs text-slate-500">If the page stays blank, the site doesn’t allow embedding. Use “Open in new tab”.</p>
+        className="h-[70vh] w-full rounded-2xl border border-[var(--az-hairline)] bg-[#fff]" />
+      <p className="mt-2 text-xs text-[var(--az-text-3)]">If the page stays blank, the site doesn’t allow embedding. Use “Open in new tab”.</p>
     </div>
   );
 }
@@ -82,7 +82,7 @@ export default function WebTabList({ groupId }) {
             <div key={t.id} className="glass flex items-start gap-3 p-4">
               <Link to={`/webtabs/${t.id}`} className="min-w-0 flex-1">
                 <div className="font-semibold hover:underline"><Glyph value="webtabs" tile={false} size={16} /> {t.name}</div>
-                <div className="mt-1 truncate text-xs text-slate-500">{new URL(t.url).host}</div>
+                <div className="mt-1 truncate text-xs text-[var(--az-text-3)]">{new URL(t.url).host}</div>
                 <div className="mt-2"><ScopeBadge scope={t.scope} groupId={t.groupId} /></div>
               </Link>
               {canManage(t) && <Menu label={`Actions for ${t.name}`} items={[
@@ -93,7 +93,7 @@ export default function WebTabList({ groupId }) {
           ))}
         </div>
       )}
-      {groupId && !current && !!tabs.length && <p className="text-sm text-slate-400">Choose a tab above to open it.</p>}
+      {groupId && !current && !!tabs.length && <p className="text-sm text-[var(--az-text-2)]">Choose a tab above to open it.</p>}
       {form && <WebTabForm tab={form === 'new' ? null : form} groupId={groupId} onClose={() => setForm(null)} />}
     </div>
   );

@@ -15,7 +15,7 @@ export default function Branding() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <section className="glass space-y-4 p-5">
+      <section className="panel space-y-4 p-5">
         <h3 className="font-bold">Branding</h3>
         <Field label="Network name"><input className="input" value={s.networkName} onChange={(e) => set({ networkName: e.target.value })} /></Field>
         <Field label="Tagline"><input className="input" value={s.tagline} onChange={(e) => set({ tagline: e.target.value })} /></Field>
@@ -26,7 +26,7 @@ export default function Branding() {
               <input className="input font-mono" aria-label="Accent colour hex code" value={s.accent} onChange={(e) => set({ accent: e.target.value })} /></div>
           </Field>
         </div>
-        <button className="btn btn-ghost" onClick={() => setCss(`${css}\n.btn-primary { background-image: linear-gradient(90deg, ${s.accent}, ${s.accent}cc); }\n.bg-brand-500, .bg-brand-500\\/20 { background-color: ${s.accent}33; }`.trim())}>
+        <button className="btn btn-ghost" onClick={() => setCss(`${css}\n.btn-primary { background-image: linear-gradient(90deg, ${s.accent}, ${s.accent}cc); }\n.bg-accent-fill { background-image: none; background-color: ${s.accent}; }`.trim())}>
           Insert CSS for accent colour
         </button>
         <Field label="Custom CSS" hint="Applied to the whole app when you click Apply.">
@@ -37,19 +37,19 @@ export default function Branding() {
           <button className="btn btn-ghost" onClick={() => { setCss(''); set({ customCss: '' }); }}>Clear</button>
         </div>
         <div className="rounded-xl p-4" style={{ background: s.accent }}>
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 font-extrabold">{s.logoText ?? 'AZ'}</span>
-            <span><b>{s.networkName}</b><span className="block text-xs text-white/80">{s.tagline}</span></span></div>
+          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#fff]/20 font-extrabold">{s.logoText ?? 'AZ'}</span>
+            <span><b>{s.networkName}</b><span className="block text-xs text-2">{s.tagline}</span></span></div>
         </div>
       </section>
 
-      <section className="glass space-y-4 p-5">
+      <section className="panel space-y-4 p-5">
         <h3 className="font-bold">Navigation</h3>
         <Field label="Landing page after sign-in">
           <select className="input" value={s.landing} onChange={(e) => set({ landing: e.target.value })}>
             {MODULES.filter((m) => !hidden.includes(m.id)).map((m) => <option key={m.id} value={m.path}>{s.moduleNames?.[m.id] || m.label}</option>)}
           </select>
         </Field>
-        <ul className="divide-y divide-white/5">
+        <ul className="divide-y divide-[var(--az-hairline)]">
           {order.map((id, i) => {
             const m = MODULES.find((x) => x.id === id);
             if (!m) return null;

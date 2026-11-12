@@ -58,7 +58,7 @@ export default function Invite() {
       <AuthShell>
         <div className="p-8">
           <h2 className="text-2xl font-bold">Check your email</h2>
-          <p className="mt-2 text-sm text-slate-300" role="status">We sent a confirmation link to <b className="text-white">{sentTo}</b>. Open it to finish joining.</p>
+          <p className="mt-2 text-sm text-[var(--az-text-2)]" role="status">We sent a confirmation link to <b className="text-[var(--az-text)]">{sentTo}</b>. Open it to finish joining.</p>
           <Link to="/login" className="btn btn-primary mt-6 w-full">Back to sign in</Link>
         </div>
       </AuthShell>
@@ -70,14 +70,14 @@ export default function Invite() {
       {!invite ? (
         <div className="p-8">
           <h2 className="text-2xl font-bold">Invitation not found</h2>
-          <p className="mt-2 text-sm text-slate-300">This invitation link is invalid, already used or expired. {reg.open !== false ? 'You can still join: sign-up is open to everyone.' : ''}</p>
+          <p className="mt-2 text-sm text-[var(--az-text-2)]">This invitation link is invalid, already used or expired. {reg.open !== false ? 'You can still join: sign-up is open to everyone.' : ''}</p>
           {reg.open !== false && <Link to="/signup" className="btn btn-primary mt-6 w-full">Sign up</Link>}
           <Link to="/login" className="btn btn-ghost mt-2 w-full">Sign in</Link>
         </div>
       ) : (
         <form onSubmit={submit} className="p-7 sm:p-8" noValidate>
           <h2 className="text-2xl font-bold">You’re invited</h2>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-[var(--az-text-2)]">
             {user(invite.invitedBy)?.name ?? 'A member'} invited you to join CommunityOne. {approval ? 'An admin will approve your membership after you sign up.' : 'An invitation is a quick way in: confirm your email and you’re in.'}
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -87,9 +87,9 @@ export default function Invite() {
             <Field label="Batch"><input className="input" type="number" value={form.batch} onChange={set('batch')} /></Field>
             <Field label="City"><input className="input" value={form.city} onChange={set('city')} /></Field>
           </div>
-          {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
+          {error && <p role="alert" className="mt-3 text-sm text-[var(--az-danger)]">{error}</p>}
           <button className="btn btn-primary mt-5 h-11 w-full" disabled={busy}>Create my account</button>
-          <p className="mt-4 text-center text-sm text-slate-400">Already a member? <Link to="/login" className="text-brand-400 hover:underline">Sign in</Link></p>
+          <p className="mt-4 text-center text-sm text-[var(--az-text-2)]">Already a member? <Link to="/login" className="text-[var(--az-link)] hover:underline">Sign in</Link></p>
         </form>
       )}
     </AuthShell>

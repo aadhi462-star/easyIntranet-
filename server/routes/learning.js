@@ -4,6 +4,8 @@
 //   - manage a course (edit, publish, see learners): the community's Owners and Admins, and the
 //     members assigned as Instructor for that course (and only that course, LMS-14). Instructor
 //     rights need an active membership, so an instructor who leaves loses them at once (LMS-02).
+//   - grade and see learners, without editing (v2 G7): the members assigned as Teaching
+//     Assistant for that course, with the same active-membership rule.
 //   - see the catalogue: anyone who can view the community. Enrol: active members (D3).
 //   - open a lesson: an active enrolment while still a member, or a manager (LMS-08, D4).
 import { audit } from '../lib/audit.js';
@@ -41,20 +43,23 @@ export default async function learningRoutes(app, { ctx }) {
     if (!c) throw notFound('That course doesn’t exist.');
     const a = await access(db, req, c.community_id);
     const { rows: [r] } = await db.query(`select
-        exists (select 1 from course_instructors i where i.course_id = $1 and i.user_id = $2) as instructor,
+        (select i.role from course_instructors i where i.course_id = $1 and i.user_id = $2) as teach_role,
         (select row_to_json(e) from enrollments e where e.course_id = $1 and e.user_id = $2) as enrollment`, [c.id, uid]);
-    const instructor = r.instructor && a.state === 'active';
+    const instructor = r.teach_role === 'instructor' && a.state === 'active';
+    const ta = r.teach_role === 'teaching_assistant' && a.state === 'active';
     const manage = a.canAdmin || instructor;
+    // Grading and the learner list (G7): managers and the course's Teaching Assistants.
+    const grade = manage || ta;
     const enrollment = r.enrollment;
     // Learners keep access while they're members of the community (D4, LMS-09).
     const learner = enrollment?.status === 'active' && (a.member || a.adminMode);
-    const visible = manage || learner || (a.canView && c.status === 'published');
+    const visible = grade || learner || (a.canView && c.status === 'published');
     if (!visible) throw notFound('That course doesn’t exist.');
     // The community's Learning section switched off: only staff still see its courses, checked
     // after visibility so outsiders can't tell. Every change (enrolling, progress, quizzes,
     // editing) waits until it's back on; deleting a course is a removal and goes through.
     requireSection(a, 'learning', { write: !['GET', 'DELETE'].includes(req.method) });
-    return { c, a, manage, instructor, learner, enrollment };
+    return { c, a, manage, instructor, ta, grade, learner, enrollment };
   }
 
   const outline = async (courseId) => {
@@ -74,11 +79,11 @@ export default async function learningRoutes(app, { ctx }) {
     return new Set(rows.map((r) => r.lesson_id));
   }
 
-  async function present(req, c, { a, manage, instructor, enrollment }, { full = false } = {}) {
+  async function present(req, c, { a, manage, instructor, ta, grade, enrollment }, { full = false } = {}) {
     const uid = req.user.id;
-    const [mods, instructors, seats, done] = await Promise.all([
+    const [mods, staff, seats, done] = await Promise.all([
       outline(c.id),
-      db.query(`select u.id, u.name from course_instructors i join users u on u.id = i.user_id where i.course_id = $1 and u.status = 'active' order by u.name`, [c.id]),
+      db.query(`select u.id, u.name, i.role from course_instructors i join users u on u.id = i.user_id where i.course_id = $1 and u.status = 'active' order by u.name`, [c.id]),
       db.query(`select count(*) filter (where status = 'active')::int as active, count(*) filter (where status = 'waitlist')::int as waiting,
           count(*) filter (where completed_at is not null)::int as completed from enrollments where course_id = $1`, [c.id]),
       progressOf(c.id, uid),
@@ -90,20 +95,22 @@ export default async function learningRoutes(app, { ctx }) {
       id: c.id, communityId: c.community_id, title: c.title, description: c.description, objectives: c.objectives, requirements: c.requirements,
       category: c.category, status: c.status, visibility: c.visibility, capacity: c.capacity, version: c.version,
       publishedAt: c.published_at ?? null, createdAt: c.created_at ?? null,
-      instructors: instructors.rows, lessonCount: lessons.length, durationMin: lessons.reduce((n, l) => n + (l.durationMin || 0), 0),
+      instructors: staff.rows.filter((x) => x.role === 'instructor').map(({ id, name }) => ({ id, name })),
+      teachingAssistants: staff.rows.filter((x) => x.role === 'teaching_assistant').map(({ id, name }) => ({ id, name })),
+      lessonCount: lessons.length, durationMin: lessons.reduce((n, l) => n + (l.durationMin || 0), 0),
       enrolledCount: s.active, waitlistCount: s.waiting, seatsLeft: c.capacity == null ? null : Math.max(0, c.capacity - s.active),
       enrollment: enrollment ? { status: enrollment.status, completedAt: enrollment.completed_at, enrolledAt: enrollment.enrolled_at } : null,
       progress: { done: counted.filter((l) => done.has(l.id)).length, total: counted.length },
       nextLessonId: (counted.find((l) => !done.has(l.id)) ?? lessons.find((l) => !done.has(l.id)))?.id ?? lessons[0]?.id ?? null,
       can: {
-        manage, assignInstructors: !!a.canAdmin, instructor,
+        manage, assignInstructors: !!a.canAdmin, instructor, teachingAssistant: !!ta, grade: !!grade, seeLearners: !!grade,
         enroll: c.status === 'published' && a.canParticipate && (!enrollment || enrollment.status === 'left'),
       },
     };
     if (full) {
       out.modules = mods.map((m) => ({ ...m, lessons: m.lessons.map((l) => ({ ...l, done: done.has(l.id),
         isNew: !!enrollment?.completed_at && new Date(l.createdAt) > new Date(enrollment.completed_at) })) }));
-      if (manage) out.completedCount = s.completed;
+      if (grade) out.completedCount = s.completed;
     }
     return out;
   }
@@ -127,7 +134,7 @@ export default async function learningRoutes(app, { ctx }) {
     for (const c of rows) {
       const r = await loadCourse(req, c.id).catch(() => null);
       if (r) out.push(await present(req, c, r));
-      if (r?.manage) managed.push(c.id);
+      if (r?.grade) managed.push(c.id);
     }
     const { rows: [{ n: toGrade }] } = await db.query(`select count(*)::int as n from submissions where course_id = any($1) and status = 'submitted'`, [managed]);
     return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active' && sectionOn(a.community, 'learning'), canGrade: managed.length > 0, toGrade };
@@ -213,23 +220,29 @@ export default async function learningRoutes(app, { ctx }) {
     return { ok: true };
   });
 
-  // ---- Instructors (D1) ----------------------------------------------------------------------
-  app.post('/courses/:id/instructors', { schema: { body: { type: 'object', required: ['userId'], additionalProperties: false, properties: { userId: { type: 'string' } } } } }, async (req) => {
+  // ---- Instructors (D1) and Teaching Assistants (G7) -----------------------------------------
+  // `role` (default instructor) says which; assigning someone already listed changes their role.
+  app.post('/courses/:id/instructors', { schema: { body: { type: 'object', required: ['userId'], additionalProperties: false, properties: {
+    userId: { type: 'string' }, role: { type: 'string', enum: ['instructor', 'teaching_assistant'] } } } } }, async (req) => {
     const r = await loadCourse(req, req.params.id);
-    if (!r.a.canAdmin) throw forbidden('Only the community’s Owners and Admins assign Instructors.');
+    if (!r.a.canAdmin) throw forbidden('Only the community’s Owners and Admins assign Instructors and Teaching Assistants.');
+    const role = req.body.role ?? 'instructor';
     const { rows } = await db.query(`select 1 from memberships m join users u on u.id = m.user_id where m.community_id = $1 and m.user_id = $2 and m.state = 'active' and u.status = 'active'`, [r.c.community_id, req.body.userId]);
-    if (!rows.length) throw badRequest('NOT_A_MEMBER', 'Instructors must be active members of this community.');
-    await db.query(`insert into course_instructors (course_id, user_id) values ($1, $2) on conflict do nothing`, [r.c.id, req.body.userId]);
-    await audit(db, { actorId: req.user.id, action: 'course.instructor_add', targetType: 'course', targetId: r.c.id, context: { userId: req.body.userId }, ip: req.ip });
+    if (!rows.length) throw badRequest('NOT_A_MEMBER', `${role === 'instructor' ? 'Instructors' : 'Teaching Assistants'} must be active members of this community.`);
+    const { rows: [prev] } = await db.query(`select role from course_instructors where course_id = $1 and user_id = $2`, [r.c.id, req.body.userId]);
+    await db.query(`insert into course_instructors (course_id, user_id, role) values ($1, $2, $3) on conflict (course_id, user_id) do update set role = excluded.role`, [r.c.id, req.body.userId, role]);
+    await audit(db, { actorId: req.user.id, action: role === 'instructor' ? 'course.instructor_add' : 'course.assistant_add', targetType: 'course', targetId: r.c.id,
+      context: { userId: req.body.userId, role, from: prev?.role ?? null }, ip: req.ip });
     const fresh = await loadCourse(req, r.c.id);
     return { course: await present(req, fresh.c, fresh, { full: true }) };
   });
 
   app.delete('/courses/:id/instructors/:userId', async (req) => {
     const r = await loadCourse(req, req.params.id);
-    if (!r.a.canAdmin) throw forbidden('Only the community’s Owners and Admins remove Instructors.');
-    await db.query(`delete from course_instructors where course_id = $1 and user_id = $2`, [r.c.id, req.params.userId]);
-    await audit(db, { actorId: req.user.id, action: 'course.instructor_remove', targetType: 'course', targetId: r.c.id, context: { userId: req.params.userId }, ip: req.ip });
+    if (!r.a.canAdmin) throw forbidden('Only the community’s Owners and Admins remove Instructors and Teaching Assistants.');
+    const { rows: [gone] } = await db.query(`delete from course_instructors where course_id = $1 and user_id = $2 returning role`, [r.c.id, req.params.userId]);
+    await audit(db, { actorId: req.user.id, action: gone?.role === 'teaching_assistant' ? 'course.assistant_remove' : 'course.instructor_remove', targetType: 'course', targetId: r.c.id,
+      context: { userId: req.params.userId, role: gone?.role ?? null }, ip: req.ip });
     const fresh = await loadCourse(req, r.c.id);
     return { course: await present(req, fresh.c, fresh, { full: true }) };
   });
@@ -409,7 +422,7 @@ export default async function learningRoutes(app, { ctx }) {
     const { rows: [l] } = await db.query(`select * from lessons where id = $1`, [req.params.id]);
     if (!l) throw notFound('That lesson doesn’t exist.');
     const r = await loadCourse(req, l.course_id);
-    if (!r.learner && !r.manage) throw forbidden('Enrol in this course to open its lessons.', 'NOT_ENROLLED');
+    if (!r.learner && !r.grade) throw forbidden('Enrol in this course to open its lessons.', 'NOT_ENROLLED');
     const course = await present(req, r.c, r, { full: true });
     const order = course.modules.flatMap((m) => m.lessons.map((x) => x.id));
     const i = order.indexOf(l.id);
@@ -442,6 +455,66 @@ export default async function learningRoutes(app, { ctx }) {
     await db.query(`insert into lesson_progress (lesson_id, user_id, course_id) values ($1, $2, $3) on conflict do nothing`, [l.id, uid, l.course_id]);
     await assess.finish(req, l.course_id, uid);
     return fresh(req, l.course_id);
+  });
+
+  // ---- Teaching (v2 G7) ---------------------------------------------------------------------
+  // The learner list of one course: a working list for the people who teach it (its Instructors
+  // and Teaching Assistants) and the community's Owners and Admins, so it shows names. It isn't
+  // a report: learning analytics keep the under-5 rule (ANL-08). Learners who left aren't listed.
+  app.get('/courses/:id/learners', async (req) => {
+    const r = await loadCourse(req, req.params.id);
+    if (!r.grade) throw forbidden('Only this course’s Instructors and Teaching Assistants and the community’s Admins see its learners.', 'NOT_TEACHING');
+    const lessons = (await outline(r.c.id)).flatMap((m) => m.lessons);
+    const { rows } = await db.query(
+      `select e.user_id, u.name, e.status, e.enrolled_at, e.waitlisted_at, e.completed_at,
+              (select array_agg(p.lesson_id) from lesson_progress p where p.course_id = e.course_id and p.user_id = e.user_id) as done,
+              greatest(e.enrolled_at, e.completed_at,
+                (select max(p.completed_at) from lesson_progress p where p.course_id = e.course_id and p.user_id = e.user_id),
+                (select max(s.submitted_at) from submissions s where s.course_id = e.course_id and s.user_id = e.user_id),
+                (select max(coalesce(qa.submitted_at, qa.started_at)) from quiz_attempts qa join lessons l on l.id = qa.lesson_id where l.course_id = e.course_id and qa.user_id = e.user_id)) as last_activity,
+              (select json_build_object('lessonId', s.lesson_id, 'lessonTitle', l.title, 'grade', s.grade, 'points', s.graded_points, 'passed', s.passed, 'at', s.returned_at)
+                 from submissions s join lessons l on l.id = s.lesson_id where s.course_id = e.course_id and s.user_id = e.user_id and s.status = 'returned'
+                 order by s.returned_at desc nulls last, s.id desc limit 1) as latest_grade
+         from enrollments e join users u on u.id = e.user_id
+        where e.course_id = $1 and e.status in ('active', 'waitlist') and u.status = 'active'
+        order by lower(u.name), u.id`, [r.c.id]);
+    const learners = rows.map((x) => {
+      const counted = countedFor(lessons, x);
+      const done = new Set(x.done ?? []);
+      const status = x.status === 'waitlist' ? 'waitlist' : x.completed_at ? 'completed' : 'active';
+      return { user: { id: x.user_id, name: x.name }, status, lessonsDone: counted.filter((l) => done.has(l.id)).length, lessonsTotal: counted.length,
+        lastActivityAt: x.last_activity ? new Date(x.last_activity).toISOString() : (x.waitlisted_at ? new Date(x.waitlisted_at).toISOString() : null),
+        latestGrade: x.latest_grade ? { ...x.latest_grade, at: x.latest_grade.at ? new Date(x.latest_grade.at).toISOString() : null } : null };
+    });
+    return { course: { id: r.c.id, title: r.c.title, status: r.c.status }, learners };
+  });
+
+  // The courses this person teaches in a community (Instructor or Teaching Assistant), or every
+  // course for its Owners and Admins, with the numbers the Teaching view shows. Anyone who can
+  // open the community may ask; someone who teaches nothing gets an empty list.
+  app.get('/communities/:id/teaching', async (req) => {
+    const uid = signedIn(req);
+    const a = await access(db, req, req.params.id);
+    if (!a.canView) throw forbidden('Courses are for members.');
+    requireSection(a, 'learning');
+    const all = !!a.canAdmin;
+    const { rows } = await db.query(
+      `select c.id, c.title, c.status, c.visibility, c.capacity, i.role as teach_role,
+              (select count(*)::int from enrollments e where e.course_id = c.id and e.status = 'active') as enrolled,
+              (select count(*)::int from enrollments e where e.course_id = c.id and e.status = 'waitlist') as waitlist,
+              (select count(*)::int from enrollments e where e.course_id = c.id and e.status = 'active' and e.completed_at is not null) as completed,
+              (select count(*)::int from submissions s where s.course_id = c.id and s.status = 'submitted') as to_grade
+         from courses c left join course_instructors i on i.course_id = c.id and i.user_id = $2
+        where c.community_id = $1 and ($3::boolean or (i.user_id is not null and $4::boolean))
+        order by c.status = 'published' desc, lower(c.title), c.id`, [a.community.id, uid, all, a.state === 'active']);
+    const mine = a.isOwner ? 'owner' : 'admin';
+    return {
+      all,
+      courses: rows.map((c) => ({ id: c.id, title: c.title, status: c.status, visibility: c.visibility, capacity: c.capacity,
+        role: c.teach_role ?? mine, canEdit: all || c.teach_role === 'instructor',
+        enrolled: c.enrolled, waitlist: c.waitlist, completed: c.completed, toGrade: c.to_grade })),
+      toGrade: rows.reduce((n, c) => n + c.to_grade, 0),
+    };
   });
 
   // ---- My Learning (cross-community, no admin tools) -------------------------------------------

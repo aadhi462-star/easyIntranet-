@@ -1,9 +1,11 @@
 // v2 brief Part 11: system health for Platform Admin (GET /api/admin/health) and the job runs it
-// reads (lib/jobs.js records each run in job_runs and prunes those older than 7 days).
+// reads (lib/jobs.js records each run in job_runs and prunes those older than 14 days, G9).
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeUser, setup, signIn } from './helpers.js';
-import { JOBS, runJobs } from '../lib/jobs.js';
+import { JOBS, maskError, retryEmails, runJobs } from '../lib/jobs.js';
+import { maskEmail, storageOf } from '../routes/health.js';
+import path from 'node:path';
 
 let env; const c = {};
 const q = (s, p) => env.db.query(s, p);
@@ -73,14 +75,15 @@ describe('job runs', () => {
     await runJobs({}, log, { jobs: [['no-db', () => 1]] }); // no database at all: still resolves
   });
 
-  test('runs older than 7 days are pruned by the runner; newer ones stay', async () => {
+  test('G9 runs older than 14 days are pruned by the runner; newer ones (8 days included) stay', async () => {
     await q(`delete from job_runs`);
     await q(`insert into job_runs (job, started_at, finished_at, ok) values
+      ('posts', now() - interval '15 days', now() - interval '15 days', true),
       ('posts', now() - interval '8 days', now() - interval '8 days', true),
       ('posts', now() - interval '6 days', now() - interval '6 days', true)`);
     await runJobs(env.app.ctx, quiet(), { jobs: [] });
-    const { rows } = await q(`select started_at > now() - interval '7 days' as recent from job_runs`);
-    assert.deepEqual(rows.map((r) => r.recent), [true]);
+    const { rows } = await q(`select extract(day from now() - started_at)::int as days from job_runs order by started_at`);
+    assert.deepEqual(rows.map((r) => r.days), [8, 6]);
   });
 });
 
@@ -172,10 +175,101 @@ describe('report', () => {
     await runJobs(env.app.ctx, quiet(), { jobs: [['boom', () => { throw new Error('rejected for own@example.com'); }]] });
     const h = await health('sup');
     const text = JSON.stringify(h);
-    assert.doesNotMatch(text, EMAIL);
+    // G10: the only addresses are failed emails', masked to two letters and the domain.
+    assert.deepEqual((text.match(new RegExp(EMAIL.source, 'g')) ?? []).filter((m) => !/^[^@]{0,2}\*\*\*@/.test(m)), []);
     assert.doesNotMatch(text, /Olu Owner|Mei Member|Chess Club|Gone Club/);
     const { rows: secrets } = await q(`select id_hash as v from sessions union all select password_hash from users`);
     for (const s of secrets) assert.ok(!text.includes(s.v));
     assert.doesNotMatch(text, /password|token|secret|DATABASE_URL/i);
+  });
+});
+
+describe('G9 G10 G11 workstream G', () => {
+  test('G9 every job records a row: posts, reminders, emails, waitlists, restrictions, purge, stale reports', async () => {
+    assert.deepEqual(JOBS.map(([n]) => n), ['posts', 'reminders', 'emails', 'waitlists', 'restrictions', 'purge', 'stale-reports']);
+    await q(`delete from job_runs`);
+    await runJobs(env.app.ctx, quiet());
+    const { rows } = await q(`select job from job_runs order by id`);
+    assert.deepEqual(rows.map((r) => r.job), JOBS.map(([n]) => n));
+  });
+
+  test('G10 recorded job errors lose query strings, tokens and keys (SYS-04)', async () => {
+    const m = maskError(new Error('GET https://mail.example.org/send?token=abc123&x=1 failed for ann@example.com; reset at https://c1.test/#/reset/9f8e7d6c5b4a39281706f5e4d3c2b1a0ffeeddcc Bearer eyJhbGciOi.payload.sig key=sk_live_123'));
+    assert.doesNotMatch(m, /\?token|abc123|ann@example\.com|9f8e7d6c5b4a|eyJhbGciOi|sk_live_123/);
+    assert.match(m, /https:\/\/mail\.example\.org\/send failed for \[email\]/);
+    await q(`delete from job_runs`);
+    await runJobs(env.app.ctx, quiet(), { jobs: [['boom', () => { throw new Error('POST https://api.example.org/v1/mail?auth=s3cr3t-value refused'); }]] });
+    const { rows: [r] } = await q(`select error from job_runs`);
+    assert.equal(r.error, 'POST https://api.example.org/v1/mail refused');
+  });
+
+  test('G10 outbox.failures: the latest 20 that used 3 attempts, masked, no subject or body', async () => {
+    await q(`delete from email_outbox`);
+    await q(`insert into email_outbox (to_email, template, subject, body, status, attempts, last_error, created_at) values
+      ('anna.long@example.com', 'notification', 'Secret subject', 'Secret body https://x.test/#/invite/c/tok', 'failed', 3, 'refused at https://smtp.example.org/x?key=abc for anna.long@example.com', now() - interval '3 days'),
+      ('bo@example.com', 'verify_email', 's', 'b', 'failed', 1, 'timeout', now()),
+      ('cy@example.com', 'notification', 's', 'b', 'sent', 1, null, now())`);
+    for (let i = 0; i < 22; i += 1) await q(`insert into email_outbox (to_email, template, subject, body, status, attempts, created_at) values ($1, 't', 's', 'b', 'failed', 3, now() - make_interval(mins => $2))`, [`p${i}@example.net`, i]);
+    const h = await health();
+    assert.equal(h.outbox.failures.length, 20, 'the latest 20 only');
+    assert.ok(h.outbox.failures.every((f) => f.attempts >= 3));
+    assert.deepEqual(Object.keys(h.outbox.failures[0]).sort(), ['at', 'attempts', 'id', 'lastError', 'template', 'to']);
+    assert.equal(h.outbox.failures[0].to, 'p0***@example.net');
+    assert.equal(maskEmail('anna.long@example.com'), 'an***@example.com');
+    assert.equal(maskEmail('a@example.com'), 'a***@example.com');
+    await q(`delete from email_outbox where to_email like 'p%@example.net'`);
+    const [anna] = (await health()).outbox.failures;
+    assert.equal(anna.to, 'an***@example.com');
+    assert.equal(anna.lastError, 'refused at https://smtp.example.org/x for [email]');
+    assert.doesNotMatch(JSON.stringify(await health()), /Secret|anna\.long|bo@example|tok/);
+  });
+
+  test('G10 retry: health.view only, 409 unless it used its 3 attempts, audited; the job tries it once more', async () => {
+    const { rows: [f] } = await q(`select id from email_outbox where to_email = 'anna.long@example.com'`);
+    const { rows: [notFailed] } = await q(`select id from email_outbox where to_email = 'cy@example.com'`);
+    const { rows: [retrying] } = await q(`select id from email_outbox where to_email = 'bo@example.com'`);
+    for (const who of ['mem', 'own', 'cm']) assert.equal((await c[who].post(`/api/admin/health/emails/${f.id}/retry`)).status, 403, who);
+    assert.equal((await c.pa.post(`/api/admin/health/emails/${notFailed.id}/retry`)).body.error.code, 'NOT_FAILED');
+    assert.equal((await c.pa.post(`/api/admin/health/emails/${retrying.id}/retry`)).status, 409, 'still has attempts left');
+    assert.equal((await c.pa.post('/api/admin/health/emails/999999/retry')).status, 404);
+    const res = await c.pa.post(`/api/admin/health/emails/${f.id}/retry`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.email.attempts, 2);
+    assert.equal((await c.pa.post(`/api/admin/health/emails/${f.id}/retry`)).status, 409, 'once: it is waiting for the job now');
+    const { rows: [a] } = await q(`select actor_id, target_id, context from audit_log where action = 'email.retry' order by id desc limit 1`);
+    assert.equal(a.actor_id, 'pa');
+    assert.equal(a.target_id, String(f.id));
+    assert.ok(!(await health()).outbox.failures.some((x) => x.id === Number(f.id)), 'no longer listed as failed for good');
+    // Three days old, yet the retry job takes it, once.
+    const sent = [];
+    const ctx = { db: env.db, mailer: { retry: async (row) => { sent.push(row.id); await env.db.query(`update email_outbox set attempts = attempts + 1 where id = $1`, [row.id]); return false; } } };
+    await retryEmails(ctx);
+    assert.ok(sent.map(Number).includes(Number(f.id)));
+    sent.length = 0;
+    await retryEmails(ctx);
+    assert.ok(!sent.map(Number).includes(Number(f.id)), 'back to 3 attempts: not tried again');
+    assert.ok((await health()).outbox.failures.some((x) => x.id === Number(f.id)), 'listed again');
+  });
+
+  test('G11 database.storage and the data_not_persistent warning', async () => {
+    const root = path.resolve('/srv/app');
+    assert.equal(storageOf({ kind: 'postgres' }, root), 'postgres');
+    assert.equal(storageOf({ kind: 'pglite', dataDir: '/srv/app/server/.data/pg' }, root), 'pglite-app-folder');
+    assert.equal(storageOf({ kind: 'pglite', dataDir: '/var/data/pg' }, root), 'pglite-dir');
+    assert.equal(storageOf({ kind: 'pglite', dataDir: '/srv/application/pg' }, root), 'pglite-dir', 'a sibling folder with the same prefix is not the app folder');
+    assert.equal(storageOf({ kind: 'pglite', dataDir: 'memory://' }, root), 'pglite-dir');
+    let h = await health();
+    assert.equal(h.database.storage, 'pglite-dir');
+    assert.deepEqual(h.warnings, []);
+    const was = { dir: env.db.dataDir, env: process.env.NODE_ENV };
+    try {
+      env.db.dataDir = path.resolve('server/.data/pg-test-only');
+      h = await health();
+      assert.equal(h.database.storage, 'pglite-app-folder');
+      assert.deepEqual(h.warnings, [], 'only in production');
+      process.env.NODE_ENV = 'production';
+      h = await health();
+      assert.deepEqual(h.warnings, ['data_not_persistent']);
+    } finally { env.db.dataDir = was.dir; process.env.NODE_ENV = was.env; }
   });
 });

@@ -24,6 +24,8 @@ import { idempotent } from '../lib/session.js';
 
 const DAYS = 14;
 const PER_CALL = 50;
+// People invited by one "Invite people who match" (G2).
+const MATCH_LIMIT = 200;
 // Emails sent for one community (new invitations and resends, by every inviter together) over 24
 // hours: bulk invitations are a spam route.
 const PER_DAY = 200;
@@ -165,14 +167,62 @@ export default async function invitationRoutes(app, { ctx }) {
 
   // F10: "adding" people to a community invites them, through exactly the same path and with the
   // same answer as POST /communities/:id/invitations: nobody becomes a member without accepting.
-  // `source: 'rule'` (an automatic membership rule) also skips people who left on their own.
+  // G2: automatic membership rules are retired, so `source` is only 'admin' ('rule' is refused).
   app.post('/communities/:id/members', {
     ...limit(10, true),
     schema: { body: { type: 'object', required: ['userIds'], additionalProperties: false, properties: {
-      userIds: { type: 'array', items: { type: 'string', maxLength: 64 }, maxItems: PER_CALL }, source: { type: 'string', enum: ['admin', 'rule'] } } } },
-  }, async (req, reply) => idempotent(db, req, reply, () => invite(req, reply, { userIds: req.body.userIds, role: 'member' }, { rule: req.body.source === 'rule' })));
+      userIds: { type: 'array', items: { type: 'string', maxLength: 64 }, maxItems: PER_CALL }, source: { type: 'string', enum: ['admin'] } } } },
+  }, async (req, reply) => idempotent(db, req, reply, () => invite(req, reply, { userIds: req.body.userIds, role: 'member' })));
 
-  async function invite(req, reply, body, { rule = false } = {}) {
+  // G2: "Invite people who match", which replaces the automatic membership rule. Owners and Admins
+  // pick a batch (graduation year), a department (id or name) and/or a city; everyone whose
+  // profile matches is sent an invitation through the same path as above, and nobody joins
+  // without accepting. A profile is matched only on what its owner lets the community's admins
+  // see (a profile hidden from the directory is never matched), and never people who blocked the
+  // inviter (or whom the inviter blocked), people blocked or removed from the community, people
+  // who left it on their own, or members. Up to 200 a call; the daily invitation limit applies.
+  app.post('/communities/:id/invite-matching', {
+    ...limit(10, true),
+    schema: { body: { type: 'object', additionalProperties: false, properties: {
+      batch: { type: ['integer', 'null'] }, department: { type: ['string', 'null'], maxLength: 120 }, city: { type: ['string', 'null'], maxLength: 80 } } } },
+  }, async (req, reply) => idempotent(db, req, reply, () => inviteMatching(req, reply)));
+
+  async function inviteMatching(req, reply) {
+    signedIn(req);
+    const a = await inviterAccess(req, req.params.id);
+    const c = a.community;
+    const me = req.user;
+    const b = req.body ?? {};
+    const batch = b.batch ?? null;
+    if (batch != null && !(batch >= 1950 && batch <= 2100)) throw badRequest('INVALID_INPUT', 'Choose a batch between 1950 and 2100.', { field: 'batch' });
+    const department = text(b.department, 120)?.toLowerCase() ?? null;
+    const city = text(b.city, 80)?.toLowerCase() ?? null;
+    if (batch == null && !department && !city) throw badRequest('INVALID_INPUT', 'Choose a batch, a department or a city to match.');
+    const { rows } = await db.query(
+      `select u.id, exists (select 1 from community_invitations i where i.community_id = $1 and i.user_id = u.id and ${OPEN} and i.expires_at > now()) as open
+         from users u left join profiles p on p.user_id = u.id
+        where u.status = 'active' and coalesce(p.directory_visible, true) and u.id <> $2
+          and ($3::int is null and $4::text is null or exists (select 1 from education e left join departments d on d.id = e.department_id
+                where e.user_id = u.id and ($3::int is null or e.grad_year = $3) and ($4::text is null or lower(e.department_id) = $4 or lower(d.name) = $4)))
+          and ($5::text is null or lower(trim(p.city)) = $5)
+          and not exists (select 1 from blocks bl where (bl.blocker_id = u.id and bl.blocked_id = $2) or (bl.blocker_id = $2 and bl.blocked_id = u.id))
+          and not exists (select 1 from memberships m where m.community_id = $1 and m.user_id = u.id and m.state in ('active', 'restricted', 'blocked', 'removed', 'left'))
+        order by lower(u.name), u.id`, [c.id, me.id, batch, department, city]);
+    const chosen = rows.slice(0, MATCH_LIMIT);
+    // Only new invitations send an email; people with an open one get it back (MEM-12).
+    const fresh = chosen.filter((r) => !r.open).length;
+    const n = await sentToday(c.id);
+    if (fresh && n + fresh > PER_DAY) throw new HttpError(429, 'INVITE_LIMIT', `This community can send up to ${PER_DAY} invitations a day. Try again tomorrow, or narrow the match.`, { remaining: Math.max(0, PER_DAY - n), matched: rows.length });
+    const results = [];
+    for (const r of chosen) results.push(await inviteOne(req, a, { userId: r.id }, { role: 'member', message: null, source: 'matching' }));
+    await audit(db, { actorId: me.id, action: 'community.invite_matching', targetType: 'community', targetId: c.id, ip: req.ip,
+      context: { criteria: { batch, department, city }, matched: rows.length, invited: results.filter((x) => x.status === 'invited').length,
+        open: results.filter((x) => x.status === 'open').length, skipped: results.filter((x) => x.status === 'skipped').length } });
+    if (results.some((r) => r.status === 'invited')) reply.status(201);
+    return { matched: rows.length, results, limit: MATCH_LIMIT };
+  }
+
+  async function invite(req, reply, body) {
     signedIn(req);
     const a = await inviterAccess(req, req.params.id);
     const c = a.community;
@@ -193,13 +243,13 @@ export default async function invitationRoutes(app, { ctx }) {
     if (n + total > PER_DAY) throw new HttpError(429, 'INVITE_LIMIT', `This community can send up to ${PER_DAY} invitations a day. Try again tomorrow, or invite fewer people.`, { remaining: Math.max(0, PER_DAY - n) });
     const message = text(body.message, 500);
     const results = [];
-    for (const userId of userIds) results.push(await inviteOne(req, a, { userId }, { role, message, rule }));
+    for (const userId of userIds) results.push(await inviteOne(req, a, { userId }, { role, message }));
     for (const email of emails) results.push(await inviteOne(req, a, { email }, { role, message }));
     if (results.some((r) => r.status === 'invited')) reply.status(201);
     return { results };
   }
 
-  async function inviteOne(req, a, to, { role, message, rule = false }) {
+  async function inviteOne(req, a, to, { role, message, source = null }) {
     const c = a.community;
     const me = req.user;
     const skip = (code, msg) => ({ ...to, status: 'skipped', code, message: msg });
@@ -210,10 +260,6 @@ export default async function invitationRoutes(app, { ctx }) {
     if (to.userId) {
       const no = await ineligible(c.id, to.userId, me);
       if (no) return skip(no.code, no.message);
-      if (rule) {
-        const { rows: [m] } = await db.query(`select state from memberships where community_id = $1 and user_id = $2`, [c.id, to.userId]);
-        if (m?.state === 'left') return skip('LEFT', 'This person left the community, so a membership rule doesn’t invite them again.');
-      }
       userId = to.userId; notifyId = userId;
       address = (await db.query(`select email from users where id = $1`, [userId])).rows[0].email;
     } else {
@@ -246,7 +292,7 @@ export default async function invitationRoutes(app, { ctx }) {
     }
     const [i] = await load(`i.id = $1`, [id]);
     // The same entry whether or not anything is sent (an inviter's data export includes it).
-    await audit(db, { actorId: me.id, action: 'community.invite', targetType: 'community', targetId: c.id, context: { invitationId: id, userId, byEmail: !!email, role, ...(rule ? { source: 'rule' } : {}) }, ip: req.ip });
+    await audit(db, { actorId: me.id, action: 'community.invite', targetType: 'community', targetId: c.id, context: { invitationId: id, userId, byEmail: !!email, role, ...(source ? { source } : {}) }, ip: req.ip });
     if (send) await sendInvite(req, i, { to: address, token, inviter: me.name, communityName: c.name, notifyId });
     return { ...to, status: 'invited', invitation: present(i) };
   }

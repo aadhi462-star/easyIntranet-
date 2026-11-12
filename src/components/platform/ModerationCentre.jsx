@@ -1,7 +1,8 @@
 // Administration → Moderation centre (board S7Moderation, D5): only what communities can't settle
 // themselves. Reports about Owners, cases a community escalated, reports open 7 days with no
 // active moderator, and appeals nobody in the community can decide. Opening one is an
-// Administrative Mode visit: the request carries the header and the server logs it.
+// Administrative Mode visit: the request carries the header and the server logs it. Restyled
+// for v2 G (board V2GPlatformAdmin); on phones the list comes first, then the open item.
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { errorText } from '../../lib/communities.js';
@@ -9,8 +10,8 @@ import { ACTION_LABEL, REASON_LABEL, TARGET_LABEL } from '../../lib/manage.js';
 import { dateTimeText } from '../../lib/platform.js';
 import { timeAgo } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
-import { Field } from '../ui.jsx';
-import { Chips, Failed, Loading } from './bits.jsx';
+import { Badge, Button } from '../ui/Controls.jsx';
+import { Chips, Failed, Field, Loading, Note, Option } from './bits.jsx';
 
 const WHY = {
   owner: 'Report about an Owner: the community’s own staff can’t review it.',
@@ -47,22 +48,22 @@ export default function ModerationCentre({ onCount }) {
       <Chips label="Show" options={chips} value={show} onChange={(v) => { setShow(v); setSel(null); }} />
       {show === 'decided' ? (
         decided.length ? (
-          <ul className="list-rows glass px-4">{decided.map((d) => (
-            <li key={d.caseId} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="text-white">{ACTION_LABEL[d.action] ?? d.action} · {d.community}</span><span className="t-small">{d.actor ?? 'Someone'} · {dateTimeText(d.at)}</span></li>
+          <ul className="list-rows panel px-4">{decided.map((d) => (
+            <li key={d.caseId} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{ACTION_LABEL[d.action] ?? d.action} · {d.community}</span><span className="t-small">{d.actor ?? 'Someone'} · {dateTimeText(d.at)}</span></li>
           ))}</ul>
-        ) : <p className="band text-3 p-4 text-sm">Nothing has been decided here yet.</p>
-      ) : !items.length ? <p className="band text-2 p-4 text-sm">Nothing is waiting here.</p> : (
-        <div className="glass flex flex-wrap overflow-hidden">
+        ) : <p className="notice notice-info">Nothing has been decided here yet.</p>
+      ) : !items.length ? <p className="notice notice-ok">Nothing is waiting here.</p> : (
+        <div className="panel flex flex-wrap overflow-hidden">
           <nav aria-label="Waiting" className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 border-b border-[var(--az-hairline)] p-3 md:border-b-0 md:border-r">
             {items.map((i) => (
-              <button key={i.key} aria-current={current?.key === i.key} onClick={() => setSel(i.key)}
-                className={`rounded-lg px-3 py-2.5 text-left text-sm ${current?.key === i.key ? 'bg-[var(--az-surface)] text-white' : 'text-2 hover:text-white'}`}>
-                <b className="block">{i.kind === 'appeal' ? 'Appeal' : KIND[i.c.why]} · {(i.a ?? i.c).community.name}</b>
+              <button key={i.key} type="button" aria-current={current?.key === i.key} onClick={() => setSel(i.key)}
+                className={`rounded-lg px-3 py-2.5 text-left text-sm ${current?.key === i.key ? 'bg-[var(--az-sunken)] shadow-[inset_3px_0_0_var(--az-focus)]' : 'hover:bg-[var(--az-sunken)]'}`}>
+                <b className="block break-words font-semibold">{i.kind === 'appeal' ? 'Appeal' : KIND[i.c.why]} · {(i.a ?? i.c).community.name}</b>
                 <span className="t-small">{i.kind === 'appeal' ? `${ACTION_LABEL[i.a.decision] ?? i.a.decision} · ${timeAgo(Date.parse(i.a.createdAt))}` : `${Object.keys(i.c.reasons).map((r) => REASON_LABEL[r]).join(', ')} · open since ${timeAgo(Date.parse(i.c.openedAt))}`}</span>
               </button>
             ))}
           </nav>
-          <div className="min-w-0 flex-[3_1_480px] p-5">
+          <div className="min-w-0 flex-[3_1_480px] p-4 sm:p-5">
             {current.kind === 'appeal' ? <AppealDecision key={current.key} a={current.a} onDone={decidedNow} /> : <CaseDecision key={current.key} c={current.c} onDone={decidedNow} />}
           </div>
         </div>
@@ -76,14 +77,10 @@ export default function ModerationCentre({ onCount }) {
   );
 }
 
-function Note({ title, children }) {
-  return <section className="band flex flex-col gap-2 p-4"><h3 className="t-h3 text-white">{title}</h3><p className="text-2 text-sm">{children}</p></section>;
-}
-
 function AdminBanner({ community }) {
   return (
-    <p role="status" className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-      <b>Administrative Mode.</b> {community.name}{community.visibility !== 'public' ? ` is ${community.visibility === 'closed' ? 'Closed' : 'Private'}` : ''}. Opening and deciding this is recorded in the activity log.
+    <p role="status" className="notice notice-warn">
+      <b className="font-semibold">Administrative Mode.</b> {community.name}{community.visibility !== 'public' ? ` is ${community.visibility === 'closed' ? 'Closed' : 'Private'}` : ''}. Opening and deciding this is recorded in the activity log.
     </p>
   );
 }
@@ -105,32 +102,27 @@ function CaseDecision({ c, onDone }) {
   return (
     <form onSubmit={decide} className="flex flex-col gap-4">
       <AdminBanner community={c.community} />
-      <p className="t-small"><span className="mr-2 rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-semibold text-amber-200">{KIND[c.why]}</span>{WHY[c.why]}</p>
-      {c.escalationNote && <p className="band p-3 text-sm"><span className="t-small block">The community’s note</span>“{c.escalationNote}”</p>}
-      {!d && !error && <Loading label="Loading case" h="h-24" />}
+      <p className="flex flex-wrap items-center gap-2 text-sm"><Badge tone="info">{KIND[c.why]}</Badge><span className="text-2">{WHY[c.why]}</span></p>
+      {c.escalationNote && <p className="sunken p-3 text-sm"><span className="t-small block">The community’s note</span>“{c.escalationNote}”</p>}
+      {!d && !error && <Loading label="Loading case" lines={3} />}
       {d && (
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="band p-4 text-sm"><span className="t-label">As reported</span><p className="mt-1 whitespace-pre-wrap text-white">{d.snapshot?.title ? `${d.snapshot.title}\n` : ''}{d.snapshot?.body || '—'}</p>
+          <div className="sunken p-4 text-sm"><span className="t-label">As reported</span><p className="mt-1 whitespace-pre-wrap break-words">{d.snapshot?.title ? `${d.snapshot.title}\n` : ''}{d.snapshot?.body || '—'}</p>
             <p className="t-small mt-2">{TARGET_LABEL[d.targetType]} by {d.subject?.name ?? 'a deleted member'}</p></div>
-          <div className="band p-4 text-sm"><span className="t-label">Reports</span>
+          <div className="sunken p-4 text-sm"><span className="t-label">Reports</span>
             <ul className="mt-1 flex flex-col gap-1">{d.reports.map((r) => <li key={r.n} className="text-2">{r.n}. {REASON_LABEL[r.reason]}{r.note ? ` · “${r.note}”` : ''}</li>)}</ul></div>
         </div>
       )}
-      {c.conflicted ? <p role="status" className="text-sm text-amber-200">You hold a role in this community or took part, so another Platform Admin decides this.</p> : (
+      {c.conflicted ? <p role="status" className="notice notice-warn">You hold a role in this community or took part, so another Platform Admin decides this.</p> : (
         <>
           <fieldset className="flex flex-col gap-2"><legend className="t-label mb-2">Decision</legend>
-            {actions.map(([id, label, hint]) => (
-              <label key={id} className={`flex cursor-pointer gap-3 rounded-lg border p-3 text-sm ${action === id ? 'border-brand-400 bg-brand-400/5' : 'border-[var(--az-hairline)]'}`}>
-                <input type="radio" name="decision" checked={action === id} onChange={() => setAction(id)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand-400)]" />
-                <span><b className="text-white">{label}</b><span className="t-small block">{hint}</span></span>
-              </label>
-            ))}
+            {actions.map(([id, label, hint]) => <Option key={id} name="decision" checked={action === id} onChange={() => setAction(id)} label={label} hint={hint} />)}
           </fieldset>
           <Field label="Reason" hint={action === 'dismiss' ? 'Optional' : 'Required; the person sees it'}><textarea className="input min-h-20" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
         </>
       )}
-      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-      {!c.conflicted && <div className="flex justify-end"><button className="btn btn-primary" disabled={busy || (action !== 'dismiss' && !reason.trim())}>{busy ? 'Deciding…' : 'Decide'}</button></div>}
+      {error && <p role="alert" className="field-error">{error}</p>}
+      {!c.conflicted && <div className="flex justify-end"><Button type="submit" variant="primary" busy={busy} disabled={action !== 'dismiss' && !reason.trim()}>Decide</Button></div>}
     </form>
   );
 }
@@ -148,24 +140,19 @@ function AppealDecision({ a, onDone }) {
   return (
     <form onSubmit={decide} className="flex flex-col gap-4">
       <AdminBanner community={a.community} />
-      <p className="t-small"><span className="mr-2 rounded-full bg-amber-400/15 px-2.5 py-0.5 text-xs font-semibold text-amber-200">Appeal</span>Nobody in the community who didn’t take the action can decide it.</p>
+      <p className="flex flex-wrap items-center gap-2 text-sm"><Badge tone="info">Appeal</Badge><span className="text-2">Nobody in the community who didn’t take the action can decide it.</span></p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="band p-4 text-sm"><span className="t-label">The action</span>
-          <p className="mt-1 text-white">{a.decidedBy ?? 'Someone'}: {(ACTION_LABEL[a.decision] ?? a.decision).toLowerCase()} ({TARGET_LABEL[a.targetType]?.toLowerCase()})</p>
+        <div className="sunken p-4 text-sm"><span className="t-label">The action</span>
+          <p className="mt-1">{a.decidedBy ?? 'Someone'}: {(ACTION_LABEL[a.decision] ?? a.decision).toLowerCase()} ({TARGET_LABEL[a.targetType]?.toLowerCase()})</p>
           {a.decisionReason && <p className="text-2 mt-1">Reason given: “{a.decisionReason}”</p>}</div>
-        <div className="band p-4 text-sm"><span className="t-label">The appeal</span><p className="mt-1 text-white">“{a.body}”</p><p className="t-small mt-1">{a.appellant} · {dateTimeText(a.createdAt)}</p></div>
+        <div className="sunken p-4 text-sm"><span className="t-label">The appeal</span><p className="mt-1 break-words">“{a.body}”</p><p className="t-small mt-1">{a.appellant} · {dateTimeText(a.createdAt)}</p></div>
       </div>
       <fieldset className="flex flex-col gap-2"><legend className="t-label mb-2">Decision</legend>
-        {[['upheld', 'Keep the decision', 'The appeal is closed; nothing changes'], ['overturned', 'Undo it', 'Content comes back and sanctions from it are lifted']].map(([id, label, hint]) => (
-          <label key={id} className={`flex cursor-pointer gap-3 rounded-lg border p-3 text-sm ${outcome === id ? 'border-brand-400 bg-brand-400/5' : 'border-[var(--az-hairline)]'}`}>
-            <input type="radio" name="outcome" checked={outcome === id} onChange={() => setOutcome(id)} className="mt-0.5 h-4 w-4 accent-[var(--color-brand-400)]" />
-            <span><b className="text-white">{label}</b><span className="t-small block">{hint}</span></span>
-          </label>
-        ))}
+        {[['upheld', 'Keep the decision', 'The appeal is closed; nothing changes'], ['overturned', 'Undo it', 'Content comes back and sanctions from it are lifted']].map(([id, label, hint]) => <Option key={id} name="outcome" checked={outcome === id} onChange={() => setOutcome(id)} label={label} hint={hint} />)}
       </fieldset>
       <Field label={`Note to ${a.appellant} and ${a.decidedBy ?? 'the moderator'}`} hint="Required"><textarea className="input min-h-20" required maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-      <div className="flex justify-end"><button className="btn btn-primary" disabled={busy || !note.trim()}>{busy ? 'Deciding…' : 'Decide appeal'}</button></div>
+      {error && <p role="alert" className="field-error">{error}</p>}
+      <div className="flex justify-end"><Button type="submit" variant="primary" busy={busy} disabled={!note.trim()}>Decide appeal</Button></div>
     </form>
   );
 }

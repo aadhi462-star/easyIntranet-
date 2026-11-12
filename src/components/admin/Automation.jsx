@@ -1,4 +1,4 @@
-import { Glyph } from '../icons.jsx';
+import { Glyph, Icon } from '../icons.jsx';
 import { useState } from 'react';
 import { fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
 import { BADGES } from '../../lib/gamify.js';
@@ -24,25 +24,25 @@ export function Workflows() {
   return (
     <div className="space-y-3">
       <div className="flex justify-between gap-2">
-        <p className="text-sm text-slate-400">When something happens, do something automatically. Use <code>{'{user}'}</code> in text for the member who triggered it.</p>
+        <p className="text-sm text-2">When something happens, do something automatically. Use <code>{'{user}'}</code> in text for the member who triggered it.</p>
         <button className="btn btn-primary shrink-0" onClick={() => setEditing('new')}>+ New workflow</button>
       </div>
       {list.map((wf) => (
-        <article key={wf.id} className="glass p-4">
+        <article key={wf.id} className="panel p-4">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="flex-1 font-bold"><Glyph value="bolt" tile={false} size={16} /> {wf.name}</h3>
-            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={wf.enabled}
+            <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={wf.enabled}
               onChange={(e) => dispatch({ type: 'update', col: 'workflows', id: wf.id, patch: { enabled: e.target.checked } })} />Enabled</label>
             <button className="btn btn-ghost h-10" onClick={() => setEditing(wf)}>Edit</button>
             <button className="btn btn-ghost h-10" onClick={async () => (await confirmAction(`Delete “${wf.name}”?`)) && dispatch({ type: 'remove', col: 'workflows', id: wf.id })}>Delete</button>
           </div>
-          <p className="mt-1 text-sm text-slate-300">
+          <p className="mt-1 text-sm text-[var(--az-text)]">
             <b>When</b> {triggerLabel(wf.trigger).toLowerCase()}
             {wf.condition?.groupId && <> in <b>{state.groups.find((g) => g.id === wf.condition.groupId)?.name}</b></>}
             {wf.condition?.keyword && <> containing “<b>{wf.condition.keyword}</b>”</>}
             {' → '}{wf.actions.map((a) => ACTIONS.find(([v]) => v === a.kind)?.[1]).join(', ')}
           </p>
-          <details className="mt-2 text-xs text-slate-400">
+          <details className="mt-2 text-xs text-2">
             <summary className="cursor-pointer py-1">Run log · {wf.runs?.length ?? 0}</summary>
             {(wf.runs || []).length === 0 ? <p className="py-1">Hasn’t run yet.</p> : (
               <ul className="mt-1 space-y-1">{wf.runs.map((r, i) => <li key={i}>{timeAgo(r.at)} · {r.entryType} · {state.users.find((u) => u.id === r.userId)?.name ?? '—'}</li>)}</ul>
@@ -80,10 +80,10 @@ function WorkflowEditor({ wf, onClose }) {
           <Field label="Only if content contains (optional)"><input className="input" value={condition.keyword} onChange={(e) => setCondition({ ...condition, keyword: e.target.value })} placeholder="e.g. hiring" /></Field>
         </div>
         <div>
-          <div className="mb-2 text-xs font-semibold text-slate-300">Actions</div>
+          <div className="mb-2 text-xs font-semibold text-[var(--az-text)]">Actions</div>
           <ul className="space-y-2">
             {actions.map((a, i) => (
-              <li key={i} className="flex flex-wrap gap-2 rounded-xl bg-white/5 p-3">
+              <li key={i} className="flex flex-wrap gap-2 rounded-xl bg-[var(--az-sunken)] p-3">
                 <select className="input !w-48" value={a.kind} onChange={(e) => setAct(i, { kind: e.target.value })} aria-label="Action">{ACTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                 {a.kind === 'awardBadge' ? (
                   <select className="input min-w-40 flex-1" value={a.badgeId || ''} onChange={(e) => setAct(i, { badgeId: e.target.value })} aria-label="Badge">
@@ -99,7 +99,7 @@ function WorkflowEditor({ wf, onClose }) {
                   <select className="input !w-44" value={a.groupId || ''} onChange={(e) => setAct(i, { groupId: e.target.value })} aria-label="Where">
                     <option value="">Network wall</option>{state.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
                 )}
-                <button className="btn btn-ghost h-11 w-11 !p-0" onClick={() => setActions(actions.filter((_, j) => j !== i))} aria-label="Remove action">✕</button>
+                <button className="btn btn-ghost h-11 w-11 !p-0" onClick={() => setActions(actions.filter((_, j) => j !== i))} aria-label="Remove action"><Icon name="x" size={18} /></button>
               </li>
             ))}
           </ul>
@@ -120,22 +120,22 @@ export function Schedulers() {
   const upd = (id, patch) => dispatch({ type: 'update', col: 'schedulers', id, patch });
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-400">Recurring jobs run automatically while the app is open (checked every 30 seconds).</p>
+      <p className="text-sm text-2">Recurring jobs run automatically while the app is open (checked every 30 seconds).</p>
       {list.map((j) => (
-        <article key={j.id} className="glass flex flex-wrap items-center gap-3 p-4">
+        <article key={j.id} className="panel flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-56 flex-1">
             <h3 className="font-bold"><Glyph value="clock" tile={false} size={16} /> {j.name}</h3>
-            <p className="text-xs text-slate-400">{KINDS.find(([v]) => v === j.kind)?.[1]} · {j.interval}
+            <p className="text-xs text-2">{KINDS.find(([v]) => v === j.kind)?.[1]} · {j.interval}
               · last run {j.lastRun ? timeAgo(j.lastRun) : 'never'} · next {j.enabled && j.nextRun ? fmtDate(j.nextRun) : '—'}</p>
           </div>
           <select className="input !w-32" value={j.interval} onChange={(e) => upd(j.id, { interval: e.target.value, nextRun: (j.lastRun || Date.now()) + INTERVALS[e.target.value] })} aria-label="Interval">
             {Object.keys(INTERVALS).map((k) => <option key={k}>{k}</option>)}</select>
-          <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={j.enabled} onChange={(e) => upd(j.id, { enabled: e.target.checked })} />On</label>
+          <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={j.enabled} onChange={(e) => upd(j.id, { enabled: e.target.checked })} />On</label>
           <button className="btn btn-ghost h-10" onClick={() => runJob(j, state, dispatch)}>Run now</button>
-          <button className="btn btn-ghost h-10" onClick={async () => (await confirmAction(`Delete “${j.name}”?`)) && dispatch({ type: 'remove', col: 'schedulers', id: j.id })} aria-label={`Delete ${j.name}`}>✕</button>
+          <button className="btn btn-ghost h-10" onClick={async () => (await confirmAction(`Delete “${j.name}”?`)) && dispatch({ type: 'remove', col: 'schedulers', id: j.id })} aria-label={`Delete ${j.name}`}><Icon name="x" size={18} /></button>
         </article>
       ))}
-      <form className="glass grid gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => {
+      <form className="panel grid gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => {
         e.preventDefault();
         if (!draft.name.trim()) return;
         dispatch({ type: 'add', col: 'schedulers', item: { ...draft, name: draft.name.trim(), enabled: true, lastRun: null, nextRun: Date.now() + INTERVALS[draft.interval] } });

@@ -1,12 +1,13 @@
 // Administration → Activity log (board S7Activity; PER-10, MOD-10, D4, D6): every recorded action
 // with who, what, where and when, filterable, read-only. Export asks for the password again and
-// becomes an entry itself.
+// becomes an entry itself. Restyled for v2 G (board V2GPlatformAdmin; cards on phones).
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { errorText } from '../../lib/communities.js';
 import { dateTimeText, downloadCsv, usePasswordGate } from '../../lib/platform.js';
 import { toast } from '../../lib/toast.js';
-import { Chips, Failed, Loading, Table } from './bits.jsx';
+import { Badge, Button } from '../ui/Controls.jsx';
+import { Chips, DataTable, Failed, Loading } from './bits.jsx';
 
 const CATEGORIES = [['', 'Everything'], ['admin_mode', 'Administrative Mode visits'], ['roles', 'Roles and suspensions'], ['moderation', 'Moderation'],
   ['settings', 'Settings'], ['deletions', 'Deletions'], ['exports', 'Exports']];
@@ -24,9 +25,9 @@ const SAYS = {
   'moderation.remove_member': 'Removed someone from a community', 'moderation.block': 'Blocked someone', 'moderation.restore': 'Restored removed content',
   'appeal.upheld': 'Kept a decision on appeal', 'appeal.overturned': 'Undid a decision on appeal', 'report.create': 'Reported something',
   'announcement.publish': 'Published an announcement', 'announcement.end': 'Ended an announcement',
-  'audit.export': 'Exported the activity log', 'users.export': 'Exported users', 'analytics.export': 'Exported analytics',
+  'audit.export': 'Exported the activity log', 'email.retry': 'Retried a failed email', 'health.email_retry': 'Retried a failed email', 'users.export': 'Exported users', 'analytics.export': 'Exported analytics',
 };
-const says = (a) => SAYS[a] ?? a.replace(/[._]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+export const says = (a) => SAYS[a] ?? a.replace(/[._]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 const detail = (e) => {
   const x = e.context ?? {};
   if (x.reason) return `Reason: “${x.reason}”`;
@@ -57,38 +58,35 @@ export default function ActivityLog() {
   };
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
 
+  const where = (e) => e.community?.name ?? (e.targetName ? `Account · ${e.targetName}` : e.targetType === 'platform' ? 'Platform' : e.targetType === 'email' ? 'System health' : e.targetType ?? '—');
+  const columns = [
+    { head: 'Did', place: 'title', wrap: true, cell: (e) => (
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex flex-wrap items-center gap-2 font-semibold">{says(e.action)}{e.action === 'admin_mode.access' && <Badge tone="warn">Administrative Mode</Badge>}</span>
+        {detail(e) && <span className="t-small break-all font-normal">{detail(e)}</span>}
+      </span>
+    ) },
+    { head: 'When', cell: (e) => <span className="text-2">{dateTimeText(e.at)}</span> },
+    { head: 'Who', cell: (e) => e.actor ?? 'System' },
+    { head: 'Where', wrap: true, cell: where },
+  ];
+  // The board's order on wide screens: When, Who, Did, Where.
+  const wide = [columns[1], columns[2], columns[0], columns[3]];
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-0 flex-[1_1_200px]"><span className="t-small mb-1 block">Who</span><input type="search" className="input" placeholder="Name, or “system”" value={f.who} onChange={set('who')} /></label>
-        <label><span className="t-small mb-1 block">From</span><input type="date" className="input" value={f.from} onChange={set('from')} /></label>
-        <label><span className="t-small mb-1 block">To</span><input type="date" className="input" value={f.to} onChange={set('to')} /></label>
-        <button className="btn btn-ghost" onClick={exportCsv} disabled={busy}>{busy ? 'Exporting…' : 'Export CSV…'}</button>
+        <label className="min-w-0 flex-[1_1_140px]"><span className="t-small mb-1 block">From</span><input type="date" className="input" value={f.from} onChange={set('from')} /></label>
+        <label className="min-w-0 flex-[1_1_140px]"><span className="t-small mb-1 block">To</span><input type="date" className="input" value={f.to} onChange={set('to')} /></label>
+        <Button icon="download" onClick={exportCsv} busy={busy}>Export CSV…</Button>
       </div>
       <Chips label="Kind of action" value={f.category} onChange={(v) => setF((p) => ({ ...p, category: v }))} options={CATEGORIES.map(([id, label]) => ({ id, label }))} />
       {s.state === 'loading' ? <Loading label="Loading the activity log" /> : s.state === 'error' ? <Failed message={s.message} onRetry={() => load()} /> : (
         <>
-          <div className="hidden md:block">
-            <Table label="Activity log" head={['When', 'Who', 'Did', 'Where']} empty="No entries match."
-              rows={s.entries.map((e) => (
-                <tr key={e.id} className="border-b border-[var(--az-divider)] align-top last:border-0">
-                  <td className="text-3 whitespace-nowrap px-4 py-3">{dateTimeText(e.at)}</td>
-                  <td className="px-4 py-3 text-white">{e.actor ?? 'System'}</td>
-                  <td className="px-4 py-3"><span className="text-white">{says(e.action)}</span>{e.action === 'admin_mode.access' && <span className="ml-2 rounded-full bg-amber-400/15 px-2 py-0.5 text-xs font-semibold text-amber-200">Admin mode</span>}
-                    {detail(e) && <span className="t-small block break-all">{detail(e)}</span>}</td>
-                  <td className="text-2 px-4 py-3">{e.community?.name ?? (e.targetName ? `Account · ${e.targetName}` : e.targetType === 'platform' ? 'Platform' : e.targetType ?? '—')}</td>
-                </tr>
-              ))} />
-          </div>
-          <ul className="list-rows md:hidden">
-            {s.entries.map((e) => (
-              <li key={e.id} className="py-3 text-sm"><span className="block text-white">{says(e.action)}</span>
-                <span className="t-small block">{e.actor ?? 'System'} · {dateTimeText(e.at)}{e.community ? ` · ${e.community.name}` : e.targetName ? ` · ${e.targetName}` : ''}</span>
-                {detail(e) && <span className="t-small block break-all">{detail(e)}</span>}</li>
-            ))}
-            {!s.entries.length && <li className="text-3 py-3 text-sm">No entries match.</li>}
-          </ul>
-          {s.more && <button className="btn btn-ghost self-center" onClick={() => load(s.entries[s.entries.length - 1].id)}>Show older</button>}
+          <div className="hidden md:block"><DataTable label="Activity log" columns={wide} rows={s.entries} empty="No entries match." /></div>
+          <div className="md:hidden"><DataTable label="Activity log" columns={columns} rows={s.entries} cardLabel={(e) => says(e.action)} empty="No entries match." /></div>
+          {s.more && <Button className="self-center" onClick={() => load(s.entries[s.entries.length - 1].id)}>Show older</Button>}
           <p className="t-small">Every entry records who, what, where and when, with the reason or context. Entries can’t be edited or deleted from the app. Export asks for your password and becomes an entry itself.</p>
         </>
       )}

@@ -6,7 +6,7 @@ import { download, toCsv } from './charts.jsx';
 import { toast } from '../../lib/toast.js';
 import { confirmAction } from '../ui/Confirm.jsx';
 
-const DemoBadge = () => <span className="chip !bg-amber-400/15 !text-amber-200">Demo — not connected</span>;
+const DemoBadge = () => <span className="badge badge-warn">Demo · not connected</span>;
 
 export function AuditLog() {
   const { state, user } = useStore();
@@ -29,14 +29,14 @@ export function AuditLog() {
         <select className="input !w-48" value={type} onChange={(e) => setType(e.target.value)} aria-label="Filter by action"><option value="">All actions</option>{types.map((t) => <option key={t}>{t}</option>)}</select>
         <button className="btn btn-ghost ml-auto" onClick={exportCsv}>Export CSV</button>
       </div>
-      {rows.length === 0 ? <p className="glass p-6 text-sm text-slate-400">No activity recorded yet. Every action taken in the app appears here.</p> : (
-        <div className="glass overflow-x-auto">
+      {rows.length === 0 ? <p className="panel p-6 text-sm text-2">No activity recorded yet. Every action taken in the app appears here.</p> : (
+        <div className="panel overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wider text-slate-400"><tr><th className="p-3">Time</th><th className="p-3">Member</th><th className="p-3">Action</th><th className="p-3">Reference</th></tr></thead>
-            <tbody className="divide-y divide-white/5">
+            <thead className="text-xs uppercase tracking-wider text-2"><tr><th className="p-3">Time</th><th className="p-3">Member</th><th className="p-3">Action</th><th className="p-3">Reference</th></tr></thead>
+            <tbody className="divide-y divide-[var(--az-hairline)]">
               {rows.slice(0, limit).map((a) => (
-                <tr key={a.id}><td className="whitespace-nowrap p-3 text-slate-400">{fmtDate(a.at)}</td><td className="p-3">{user(a.userId)?.name ?? '—'}</td>
-                  <td className="p-3"><code className="text-xs text-brand-400">{a.type}</code></td><td className="p-3 font-mono text-xs text-slate-500">{a.ref ?? ''}</td></tr>
+                <tr key={a.id}><td className="whitespace-nowrap p-3 text-2">{fmtDate(a.at)}</td><td className="p-3">{user(a.userId)?.name ?? '—'}</td>
+                  <td className="p-3"><code className="text-xs text-[var(--az-link)]">{a.type}</code></td><td className="p-3 font-mono text-xs text-2">{a.ref ?? ''}</td></tr>
               ))}
             </tbody>
           </table>
@@ -114,19 +114,19 @@ export function DataExport() {
     try {
       const data = await decryptJson(await file.text(), decPass);
       download(file.name.replace(/\.azenc$/, '') + '.json', JSON.stringify(data, null, 2));
-      setDecMsg(`Decrypted ✓ — ${Object.keys(data).filter((k) => Array.isArray(data[k])).length} collections saved as JSON.`);
+      setDecMsg(`Decrypted: ${Object.keys(data).filter((k) => Array.isArray(data[k])).length} collections saved as JSON.`);
     } catch (e) { setDecMsg(e.name === 'OperationError' ? 'Wrong password or corrupted file.' : e.message); }
   };
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <section className="glass space-y-4 p-5">
+      <section className="panel space-y-4 p-5">
         <h3 className="font-bold">Export data</h3>
         <fieldset className="grid grid-cols-2 gap-1">
-          <legend className="mb-2 text-xs font-semibold text-slate-300">Modules</legend>
+          <legend className="mb-2 text-xs font-semibold text-[var(--az-text)]">Modules</legend>
           {avail.map(([k, l]) => (
-            <label key={k} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={picked.includes(k)}
-              onChange={(e) => setPicked(e.target.checked ? [...picked, k] : picked.filter((x) => x !== k))} />{l} <span className="text-xs text-slate-500">{state[k].length}</span></label>
+            <label key={k} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[var(--az-focus)]" checked={picked.includes(k)}
+              onChange={(e) => setPicked(e.target.checked ? [...picked, k] : picked.filter((x) => x !== k))} />{l} <span className="text-xs text-2">{state[k].length}</span></label>
           ))}
         </fieldset>
         <div className="flex flex-wrap gap-2">
@@ -134,25 +134,25 @@ export function DataExport() {
           <button className="btn btn-primary" disabled={!picked.length} onClick={() => download(`alumnizone-export-${stamp}.json`, JSON.stringify(payload(), null, 2))}>Download JSON</button>
         </div>
         <div>
-          <div className="mb-2 text-xs font-semibold text-slate-300">CSV per collection</div>
+          <div className="mb-2 text-xs font-semibold text-[var(--az-text)]">CSV per collection</div>
           <div className="flex flex-wrap gap-2">
             {picked.map((k) => <button key={k} className="btn btn-ghost h-10 text-xs" onClick={() => download(`${k}.csv`, toCsv(state[k] || []), 'text/csv')}>{k}.csv</button>)}
           </div>
         </div>
-        <div className="rounded-xl bg-white/5 p-4">
+        <div className="rounded-xl bg-[var(--az-sunken)] p-4">
           <Field label="Password-protected export" hint="AES-256-GCM, key derived with PBKDF2 (250,000 iterations). Lose the password and the file can’t be opened.">
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
           </Field>
           <button className="btn btn-primary mt-3" disabled={busy || !picked.length} onClick={encrypted}>{busy ? 'Encrypting…' : 'Download encrypted (.azenc)'}</button>
         </div>
       </section>
-      <section className="glass space-y-4 p-5">
+      <section className="panel space-y-4 p-5">
         <h3 className="font-bold">Open an encrypted export</h3>
         <Field label=".azenc file"><input className="input" type="file" accept=".azenc,application/octet-stream,application/json" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field>
         <Field label="Password"><input className="input" type="password" value={decPass} onChange={(e) => setDecPass(e.target.value)} /></Field>
         <button className="btn btn-primary" disabled={!file || !decPass} onClick={decrypt}>Decrypt and download JSON</button>
-        {decMsg && <p role="status" className="text-sm text-slate-300">{decMsg}</p>}
-        <p className="text-xs text-slate-500">Decryption happens entirely in your browser.</p>
+        {decMsg && <p role="status" className="text-sm text-[var(--az-text)]">{decMsg}</p>}
+        <p className="text-xs text-2">Decryption happens entirely in your browser.</p>
       </section>
     </div>
   );
@@ -199,31 +199,31 @@ export function Security() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <section className="glass space-y-3 p-5">
+      <section className="panel space-y-3 p-5">
         <div className="flex flex-wrap items-center gap-2"><h3 className="flex-1 font-bold">Single sign-on (SAML)</h3><DemoBadge /></div>
-        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={sec.sso.enabled} onChange={(e) => setSso({ enabled: e.target.checked })} />Enable SSO</label>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={sec.sso.enabled} onChange={(e) => setSso({ enabled: e.target.checked })} />Enable SSO</label>
         <Field label="Identity provider"><select className="input" value={sec.sso.provider} onChange={(e) => setSso({ provider: e.target.value })}>
           <option value="">Choose…</option><option>Okta</option><option>Azure AD / Entra ID</option><option>Google Workspace</option><option>OneLogin</option><option>Custom SAML 2.0</option></select></Field>
         <Field label="Entity ID / Issuer"><input className="input" value={sec.sso.entityId} onChange={(e) => setSso({ entityId: e.target.value })} placeholder="https://idp.example.edu/metadata" /></Field>
         <Field label="SSO login URL"><input className="input" value={sec.sso.ssoUrl} onChange={(e) => setSso({ ssoUrl: e.target.value })} placeholder="https://idp.example.edu/sso/saml" /></Field>
-        <p className="text-xs text-slate-500">Settings are saved, but sign-in still uses CommunityOne accounts in this demo.</p>
+        <p className="text-xs text-2">Settings are saved, but sign-in still uses CommunityOne accounts in this demo.</p>
       </section>
-      <section className="glass space-y-3 p-5">
+      <section className="panel space-y-3 p-5">
         <div className="flex flex-wrap items-center gap-2"><h3 className="flex-1 font-bold">Directory, domain & mobile</h3><DemoBadge /></div>
-        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={sec.directorySync} onChange={(e) => setSec({ directorySync: e.target.checked })} />Sync members from a directory (Active Directory / LDAP)</label>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={sec.directorySync} onChange={(e) => setSec({ directorySync: e.target.checked })} />Sync members from a directory (Active Directory / LDAP)</label>
         <Field label="Custom domain" hint="Point a CNAME to your community host"><input className="input" value={sec.customDomain} onChange={(e) => setSec({ customDomain: e.target.value })} placeholder="community.example.edu" /></Field>
         <Field label="White-labelled mobile app name"><input className="input" value={sec.mobileAppName} onChange={(e) => setSec({ mobileAppName: e.target.value })} placeholder={`${state.settings.networkName} Mobile`} /></Field>
-        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={sec.externalUsers} onChange={(e) => setSec({ externalUsers: e.target.checked })} />Allow external (guest) users</label>
-        <p className="text-xs text-slate-500">Data is encrypted in transit by HTTPS; exports can be password-protected under Data export.</p>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={sec.externalUsers} onChange={(e) => setSec({ externalUsers: e.target.checked })} />Allow external (guest) users</label>
+        <p className="text-xs text-2">Data is encrypted in transit by HTTPS; exports can be password-protected under Data export.</p>
       </section>
-      <section className="glass space-y-3 p-5 lg:col-span-2">
+      <section className="panel space-y-3 p-5 lg:col-span-2">
         <h3 className="font-bold">GDPR tools</h3>
-        <p className="text-sm text-slate-400">Respond to data-access and erasure requests from members.</p>
+        <p className="text-sm text-2">Respond to data-access and erasure requests from members.</p>
         <div className="flex flex-wrap gap-2">
           <select className="input max-w-xs" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Member">
             <option value="">Choose a member…</option>{state.users.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.email}</option>)}</select>
           <button className="btn btn-ghost" disabled={!member} onClick={() => download(`member-data-${member.id}.json`, JSON.stringify(memberData(member.id), null, 2))}>Export member’s data</button>
-          <button className="btn h-11 bg-rose-500/80 text-white hover:bg-rose-500" disabled={!member || member.id === me.id} onClick={erase}>Erase member’s content</button>
+          <button className="btn btn-danger" disabled={!member || member.id === me.id} onClick={erase}>Erase member’s content</button>
         </div>
       </section>
     </div>
@@ -237,16 +237,16 @@ export function AssistSettings() {
   const onDevice = typeof self !== 'undefined' && ('Summarizer' in self || 'Writer' in self);
   const opts = [['writer', 'Writing assistant in post and article editors'], ['summaries', 'Post, thread and town hall summaries'], ['translation', 'Translate posts and comments'], ['sentiment', 'Sentiment analysis in analytics']];
   return (
-    <section className="glass max-w-2xl space-y-3 p-5">
+    <section className="panel max-w-2xl space-y-3 p-5">
       <h3 className="font-bold"><Glyph value="sparkle" tile={false} size={16} /> Smart Assist</h3>
-      <p className="text-sm text-slate-400">
-        Smart Assist uses your browser’s built-in on-device AI when available ({onDevice ? 'detected ✓' : 'not detected — simple local fallbacks are used'}). No content is sent to an external service.
+      <p className="text-sm text-2">
+        Smart Assist uses your browser’s built-in on-device AI when available ({onDevice ? 'detected' : 'not detected — simple local fallbacks are used'}). No content is sent to an external service.
       </p>
-      <label className="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={assist.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Enable Smart Assist for this network</label>
+      <label className="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={assist.enabled} onChange={(e) => set({ enabled: e.target.checked })} />Enable Smart Assist for this network</label>
       <div className={`space-y-1 pl-7 ${assist.enabled ? '' : 'pointer-events-none opacity-50'}`}>
-        {opts.map(([k, l]) => <label key={k} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-500" checked={assist[k]} onChange={(e) => set({ [k]: e.target.checked })} />{l}</label>)}
+        {opts.map(([k, l]) => <label key={k} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[var(--az-focus)]" checked={assist[k]} onChange={(e) => set({ [k]: e.target.checked })} />{l}</label>)}
       </div>
-      <p className="text-xs text-slate-500">Modules read <code>settings.assist</code> to show or hide AI buttons.</p>
+      <p className="text-xs text-2">Modules read <code>settings.assist</code> to show or hide AI buttons.</p>
     </section>
   );
 }

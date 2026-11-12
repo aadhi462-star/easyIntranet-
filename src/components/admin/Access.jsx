@@ -1,3 +1,4 @@
+import { Icon } from '../icons.jsx';
 import { useState } from 'react';
 import { uid, useStore } from '../../lib/store.jsx';
 import { PERMS } from '../../data/modules/admin.js';
@@ -14,29 +15,29 @@ export function Roles() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-400">Network admins always have every permission. Changes apply immediately.</p>
-      <div className="glass overflow-x-auto">
+      <p className="text-sm text-2">Network admins always have every permission. Changes apply immediately.</p>
+      <div className="panel overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-wider text-slate-400">
+            <tr className="text-left text-xs uppercase tracking-wider text-2">
               <th className="p-3">Permission</th>
               {roles.map((r) => (
                 <th key={r.id} className="p-3 text-center">
-                  <span className="block normal-case text-white">{r.name}</span>
+                  <span className="block normal-case text-[var(--az-text)]">{r.name}</span>
                   <span className="font-normal normal-case">{countOf(r.id)} members</span>
-                  {!r.system && <button className="mt-1 block w-full text-[11px] normal-case text-rose-300 hover:underline"
+                  {!r.system && <button className="mt-1 block w-full text-[11px] normal-case text-[var(--az-danger)] hover:underline"
                     onClick={async () => countOf(r.id) ? alert('Move members to another role first.') : (await confirmAction(`Delete role “${r.name}”?`)) && dispatch({ type: 'remove', col: 'roles', id: r.id })}>Delete</button>}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-[var(--az-hairline)]">
             {PERMS.map(([perm, label]) => (
               <tr key={perm}>
-                <td className="p-3"><span className="text-slate-200">{label}</span><span className="block font-mono text-[11px] text-slate-500">{perm}</span></td>
+                <td className="p-3"><span className="text-[var(--az-text)]">{label}</span><span className="block font-mono text-[11px] text-2">{perm}</span></td>
                 {roles.map((r) => (
                   <td key={r.id} className="p-3 text-center">
-                    <input type="checkbox" className="h-5 w-5 accent-brand-500" checked={r.perms.includes(perm)} onChange={() => toggle(r, perm)} aria-label={`${label} for ${r.name}`} />
+                    <input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={r.perms.includes(perm)} onChange={() => toggle(r, perm)} aria-label={`${label} for ${r.name}`} />
                   </td>
                 ))}
               </tr>
@@ -44,7 +45,7 @@ export function Roles() {
           </tbody>
         </table>
       </div>
-      <form className="glass flex flex-wrap items-end gap-2 p-4" onSubmit={(e) => {
+      <form className="panel flex flex-wrap items-end gap-2 p-4" onSubmit={(e) => {
         e.preventDefault();
         if (!name.trim()) return;
         dispatch({ type: 'add', col: 'roles', prepend: false, item: { id: uid('role'), name: name.trim(), system: false, perms: ['post.create'] } });
@@ -63,15 +64,15 @@ export function Policies() {
   const set = (patch) => dispatch({ type: 'set', key: 'policies', value: (cur = {}) => ({ ...cur, ...patch }) });
   const who = [['everyone', 'All members'], ['moderators', 'Moderators and admins'], ['admins', 'Admins only']];
   return (
-    <div className="glass grid gap-5 p-5 md:grid-cols-2">
+    <div className="panel grid gap-5 p-5 md:grid-cols-2">
       <Field label="Who can create groups"><select className="input" value={p.groupCreation || 'everyone'} onChange={(e) => set({ groupCreation: e.target.value })}>{who.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
       <Field label="Who can create channels"><select className="input" value={p.channelCreation || 'everyone'} onChange={(e) => set({ channelCreation: e.target.value })}>{who.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
       <Field label="Maximum file size (MB)" hint="Applies to post, channel and file attachments"><input className="input" type="number" min="1" max="1024" value={p.maxFileSizeMb ?? 30} onChange={(e) => set({ maxFileSizeMb: Number(e.target.value) })} /></Field>
       <Field label="Content retention (days)" hint="0 keeps content forever"><input className="input" type="number" min="0" value={p.retentionDays ?? 0} onChange={(e) => set({ retentionDays: Number(e.target.value) })} /></Field>
       <Field label="Profile visibility"><select className="input" value={p.profileVisibility || 'members'} onChange={(e) => set({ profileVisibility: e.target.value })}>
         <option value="members">All network members</option><option value="connections">Followers and group mates only</option><option value="public">Public (anyone with the link)</option></select></Field>
-      <label className="flex min-h-11 items-center gap-2 self-end text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={p.allowExternalUsers !== false} onChange={(e) => set({ allowExternalUsers: e.target.checked })} />Allow external users (guests with restricted access)</label>
-      <p className="text-xs text-slate-500 md:col-span-2">Other modules read these policies from <code>state.policies</code>. The roles matrix still decides individual permissions.</p>
+      <label className="flex min-h-11 items-center gap-2 self-end text-sm"><input type="checkbox" className="h-5 w-5 accent-[var(--az-focus)]" checked={p.allowExternalUsers !== false} onChange={(e) => set({ allowExternalUsers: e.target.checked })} />Allow external users (guests with restricted access)</label>
+      <p className="text-xs text-2 md:col-span-2">Other modules read these policies from <code>state.policies</code>. The roles matrix still decides individual permissions.</p>
     </div>
   );
 }
@@ -85,8 +86,8 @@ export function ProfileFields() {
   const upd = (id, patch) => dispatch({ type: 'update', col: 'customFields', id, patch });
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-400">Extra fields shown on member profiles. “Admins only” fields are hidden from other members.</p>
-      <ul className="glass divide-y divide-white/5">
+      <p className="text-sm text-2">Extra fields shown on member profiles. “Admins only” fields are hidden from other members.</p>
+      <ul className="panel divide-y divide-[var(--az-hairline)]">
         {fields.map((f) => (
           <li key={f.id} className="flex flex-wrap items-center gap-2 p-3">
             <input className="input min-w-40 flex-1" value={f.label} onChange={(e) => upd(f.id, { label: e.target.value })} aria-label="Field label" />
@@ -95,11 +96,11 @@ export function ProfileFields() {
               <option value="everyone">Everyone</option><option value="admins">Admins only</option><option value="self">Only the member</option></select>
             {f.type === 'select' && <input className="input min-w-48 flex-1" value={f.options.join(', ')} placeholder="Options" aria-label="Options"
               onChange={(e) => upd(f.id, { options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />}
-            <button className="btn btn-ghost h-10 w-10 !p-0" onClick={async () => (await confirmAction(`Delete field “${f.label}”?`)) && dispatch({ type: 'remove', col: 'customFields', id: f.id })} aria-label={`Delete ${f.label}`}>✕</button>
+            <button className="btn btn-ghost h-10 w-10 !p-0" onClick={async () => (await confirmAction(`Delete field “${f.label}”?`)) && dispatch({ type: 'remove', col: 'customFields', id: f.id })} aria-label={`Delete ${f.label}`}><Icon name="x" size={18} /></button>
           </li>
         ))}
       </ul>
-      <form className="glass flex flex-wrap items-end gap-2 p-4" onSubmit={(e) => {
+      <form className="panel flex flex-wrap items-end gap-2 p-4" onSubmit={(e) => {
         e.preventDefault();
         if (!draft.label.trim()) return;
         dispatch({ type: 'add', col: 'customFields', prepend: false, item: { label: draft.label.trim(), type: draft.type, visibility: draft.visibility,

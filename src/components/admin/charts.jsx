@@ -29,8 +29,8 @@ export function BarList({ data, unit = '' }) {
     <ul className="space-y-2">
       {data.map((d, i) => (
         <li key={d.label} className="text-sm">
-          <div className="mb-1 flex justify-between gap-2"><span className="truncate text-slate-300">{d.label}</span><span className="font-semibold text-white">{d.value}{unit}</span></div>
-          <div className="h-2 rounded-full bg-white/5"><div className="h-2 rounded-full" style={{ width: `${(d.value / max) * 100}%`, background: colorAt(i) }} /></div>
+          <div className="mb-1 flex justify-between gap-2"><span className="truncate text-[var(--az-text)]">{d.label}</span><span className="font-semibold text-[var(--az-text)]">{d.value}{unit}</span></div>
+          <div className="h-2 rounded-full bg-[var(--az-hairline)]"><div className="h-2 rounded-full" style={{ width: `${(d.value / max) * 100}%`, background: colorAt(i) }} /></div>
         </li>
       ))}
     </ul>
@@ -59,7 +59,7 @@ export function PieChart({ data, size = 160, label }) {
     <div className="flex flex-wrap items-center gap-4">
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={label}>{arcs}<circle cx={c} cy={c} r={r * 0.55} style={{ fill: 'var(--color-ink-900)' }} /></svg>
       <ul className="space-y-1 text-sm">
-        {data.map((d, i) => <li key={d.label} className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ background: colorAt(i) }} />{d.label} <span className="text-slate-400">{d.value}</span></li>)}
+        {data.map((d, i) => <li key={d.label} className="flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ background: colorAt(i) }} />{d.label} <span className="text-2">{d.value}</span></li>)}
       </ul>
     </div>
   );
@@ -67,10 +67,10 @@ export function PieChart({ data, size = 160, label }) {
 
 export function Stat({ label, value, hint }) {
   return (
-    <div className="glass p-4">
-      <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</div>
-      <div className="mt-1 text-2xl font-extrabold text-white">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
+    <div className="panel p-4">
+      <div className="text-xs font-semibold uppercase tracking-wider text-2">{label}</div>
+      <div className="mt-1 text-2xl font-extrabold text-[var(--az-text)]">{value}</div>
+      {hint && <div className="mt-0.5 text-xs text-2">{hint}</div>}
     </div>
   );
 }

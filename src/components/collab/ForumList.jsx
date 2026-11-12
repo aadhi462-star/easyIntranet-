@@ -24,10 +24,10 @@ export default function ForumList({ groupId, categoryId, view = 'all', showCompo
         {!drafts.length && <Empty icon="drafts" title="No drafts">Closing the editor without publishing saves a draft here.</Empty>}
         {drafts.map((d) => (
           <div key={d.id} className="glass flex flex-wrap items-center gap-3 p-4">
-            <div className="min-w-0 flex-1"><div className="font-semibold">{d.title}</div><div className="text-xs text-slate-500">Saved {timeAgo(d.createdAt)}</div></div>
+            <div className="min-w-0 flex-1"><div className="font-semibold">{d.title}</div><div className="text-xs text-[var(--az-text-3)]">Saved {timeAgo(d.createdAt)}</div></div>
             <button className="btn btn-ghost" onClick={() => setEditing(d)}>Edit</button>
             <button className="btn btn-primary" onClick={() => dispatch({ type: 'forum/save', post: { id: d.id, status: 'published', createdAt: Date.now() } })}>Publish</button>
-            <button className="btn btn-ghost text-rose-300" onClick={async () => (await confirmAction('Delete this draft?')) && dispatch({ type: 'forum/delete', id: d.id })}>Delete</button>
+            <button className="btn btn-ghost text-[var(--az-danger)]" onClick={async () => (await confirmAction('Delete this draft?')) && dispatch({ type: 'forum/delete', id: d.id })}>Delete</button>
           </div>
         ))}
         {editing && <ForumEditor post={editing} onClose={() => setEditing(null)} />}

@@ -101,11 +101,11 @@ function FileView({ file }) {
         <Icon name={fileIcon(file)} size={26} />
         <input className="min-w-0 flex-1 bg-transparent text-xl font-bold outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-1" defaultValue={file.name} readOnly={!canEdit}
           aria-label="File name" onBlur={(e) => e.target.value.trim() && e.target.value !== file.name && dispatch({ type: 'update', col: 'files', id: file.id, patch: { name: e.target.value.trim() } })} />
-        {created && <span className="text-xs text-slate-400" role="status">{saved ? '✓ Saved' : 'Saving…'}</span>}
+        {created && <span className="text-xs text-[var(--az-text-2)]" role="status">{saved ? '✓ Saved' : 'Saving…'}</span>}
         <button className="btn btn-ghost" onClick={() => downloadFile(file)}>Download</button>
         {(file.authorId === me.id || me.admin) && <button className="btn btn-ghost" onClick={() => setShare(true)}>Share</button>}
       </div>
-      <p className="mb-4 text-xs text-slate-400">By {user(file.authorId)?.name} · updated {timeAgo(file.updatedAt ?? file.createdAt)}{file.sharedWith?.length ? ` · shared with ${file.sharedWith.map((i) => user(i)?.name).join(', ')}` : ''}</p>
+      <p className="mb-4 text-xs text-[var(--az-text-2)]">By {user(file.authorId)?.name} · updated {timeAgo(file.updatedAt ?? file.createdAt)}{file.sharedWith?.length ? ` · shared with ${file.sharedWith.map((i) => user(i)?.name).join(', ')}` : ''}</p>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
         <div>
@@ -139,7 +139,7 @@ function Preview({ file }) {
   }, [v?.key, file.type]); // eslint-disable-line react-hooks/exhaustive-deps
   const url = useObjectUrl(state.blob);
 
-  if (state.missing) return <div className="glass p-10 text-center text-slate-400">The file’s content isn’t stored in this browser. Uploads are kept locally in IndexedDB.</div>;
+  if (state.missing) return <div className="panel p-10 text-center text-[var(--az-text-2)]">The file’s content isn’t stored in this browser. Uploads are kept locally in IndexedDB.</div>;
   if (!url) return <div className="glass h-64 animate-pulse" />;
   const t = file.type;
   return (
@@ -147,10 +147,10 @@ function Preview({ file }) {
       {t.startsWith('image/') && <img src={url} alt={file.name} className="mx-auto max-h-[75vh] rounded-lg" />}
       {t.startsWith('video/') && <video src={url} controls className="mx-auto max-h-[75vh] w-full rounded-lg" />}
       {t.startsWith('audio/') && <audio src={url} controls className="w-full" />}
-      {t === 'application/pdf' && <iframe src={url} title={file.name} className="h-[75vh] w-full rounded-lg bg-white" />}
-      {state.text != null && <pre className="max-h-[75vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs text-slate-200 scroll-thin">{state.text}</pre>}
+      {t === 'application/pdf' && <iframe src={url} title={file.name} className="h-[75vh] w-full rounded-lg bg-[#fff]" />}
+      {state.text != null && <pre className="max-h-[75vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-xs text-[var(--az-text)] scroll-thin">{state.text}</pre>}
       {!/^(image|video|audio)\//.test(t) && t !== 'application/pdf' && state.text == null && (
-        <div className="p-10 text-center text-slate-400">No preview for this file type. <button className="text-brand-400 underline" onClick={() => downloadFile(file)}>Download it</button>.</div>
+        <div className="p-10 text-center text-[var(--az-text-2)]">No preview for this file type. <button className="text-brand-400 underline" onClick={() => downloadFile(file)}>Download it</button>.</div>
       )}
     </div>
   );
@@ -177,12 +177,12 @@ function Versions({ file, canEdit, flush }) {
           }} />
         </>
       )}
-      {!versions.length && <p className="text-sm text-slate-400">{created ? 'Snapshots are saved as you edit.' : 'No versions.'}</p>}
+      {!versions.length && <p className="text-sm text-[var(--az-text-2)]">{created ? 'Snapshots are saved as you edit.' : 'No versions.'}</p>}
       <ol className="space-y-2 text-sm">
         {[...versions].reverse().map((v, i) => (
-          <li key={v.key ?? v.at} className="rounded-lg bg-white/5 p-2">
+          <li key={v.key ?? v.at} className="rounded-lg bg-[var(--az-sunken)] p-2">
             <div className="font-medium">{created ? `Snapshot ${versions.length - i}` : `v${versions.length - i}`}{!created && i === 0 && <span className="chip ml-2">current</span>}</div>
-            <div className="text-xs text-slate-400">{user(v.by)?.name} · {fmtDate(v.at)}{v.size != null ? ` · ${fmtSize(v.size)}` : ''}</div>
+            <div className="text-xs text-[var(--az-text-2)]">{user(v.by)?.name} · {fmtDate(v.at)}{v.size != null ? ` · ${fmtSize(v.size)}` : ''}</div>
             {created && canEdit && v.content != null && (
               <button className="mt-1 text-xs text-brand-400 hover:underline" onClick={async () => {
                 if (!(await confirmAction('Restore this snapshot? Current content is kept as a new snapshot.'))) return;

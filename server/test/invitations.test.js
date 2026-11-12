@@ -601,12 +601,12 @@ describe('adding people becomes an invitation (F10)', () => {
     assert.ok(!actions.includes('community.add_members'));
   });
 
-  test('F10 a membership rule doesn’t invite people who left on their own; an admin still can', async () => {
+  test('G2 source: rule is refused (rules are retired); an admin can still invite someone who left', async () => {
     const x = await person('f3');
     await x.post('/api/communities/tmp/join');
     await x.post('/api/communities/tmp/leave');
     const rule = await c.adm.post('/api/communities/tmp/members', { userIds: ['f3'], source: 'rule' });
-    assert.deepEqual(rule.body.results.map((r) => [r.status, r.code]), [['skipped', 'LEFT']]);
+    assert.equal(rule.status, 400);
     const manual = await c.adm.post('/api/communities/tmp/members', { userIds: ['f3'] });
     assert.equal(manual.body.results[0].status, 'invited');
     assert.deepEqual(await stateIn('tmp', 'f3'), { state: 'left', role: 'member' }, 'still left until they accept');

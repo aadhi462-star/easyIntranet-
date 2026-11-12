@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream F)
+# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream G)
 
 Read this first in a new session, then **`docs/communityone/MASTER_BRIEF_V2.md` (the user's newest brief, 12 Nov 2026: it reverses AlumniZone-as-default and the lime theme; a proposal + ETA is owed before any work on it)**, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -175,7 +175,11 @@ The community header with logo and cover, section tabs that follow the switches,
 The creation wizard at `/communities/new`, template administration, invitations end to end (invite, accept, decline, revoke, resend), event and resource category lists, join questions, and the Alumni member filters. Details are in the progress log ("v2 — Workstream F").
 - Rules to keep: nothing is written before Publish; the server check (`/communities/validate`) runs first. Templates are copied into a community and never reach it again. Nobody joins without choosing to: adding people sends invitations. Browser tests run with `RATE_LIMITS=off` (development only).
 
-**Next:** workstream G (remaining community settings, role dashboards, system health screen, Administration menu, retiring `light-invert.css`), once its board is approved; then H, the final pass. The AppSail bundle on record is from after D; build a new one only when the user asks. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
+### v2 workstream G: built (12 Nov 2026)
+Community settings in eleven sections, the restyled Manage overview and the single queue, the Instructor Teaching view, the Platform Admin restyle with permission-based sections, System health, and `light-invert.css` retired. Details are in the progress log ("v2 — Workstream G").
+- Rules to keep: new UI uses the `--az-*` tokens only; `source-rules.test.js` fails on the stock white, slate, rose, emerald, amber and orange palettes. Each settings section saves only its own fields with the version. Nothing deletes a community at once. Administration shows by permission, not by "is admin".
+
+**Next:** workstream H, the final pass: responsive checks on every screen, a WCAG 2.2 AA audit, a permissions and security review, and the final QA report. The AppSail bundle on record is from after D; build a new one only when the user asks. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 

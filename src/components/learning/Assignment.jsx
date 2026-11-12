@@ -48,7 +48,7 @@ export default function Assignment({ lesson, assignment, communityId, learner, n
   return (
     <section aria-labelledby="as-h" className="raised flex flex-col gap-4 p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline gap-3">
-        <h2 id="as-h" className="t-h2 text-white">Your work</h2>
+        <h2 id="as-h" className="t-h2 text-[var(--az-text)]">Your work</h2>
         {mine?.status === 'returned' && <Pill tone={mine.passed ? 'done' : 'warn'}>{mine.passed ? 'Passed' : 'Not passed yet'}</Pill>}
         {mine?.status === 'submitted' && <Pill>{mine.beingGraded ? 'Being graded' : 'Waiting for grading'}</Pill>}
       </div>
@@ -56,8 +56,8 @@ export default function Assignment({ lesson, assignment, communityId, learner, n
 
       {mine?.status === 'returned' && (
         <div className="band flex flex-col gap-2 p-4">
-          <span className="text-lg font-semibold text-white">{mine.grade} of {mine.points}</span>
-          {mine.feedback ? <p className="whitespace-pre-line text-sm text-slate-200">{mine.feedback}</p> : <p className="t-small">No feedback was added.</p>}
+          <span className="text-lg font-semibold text-[var(--az-text)]">{mine.grade} of {mine.points}</span>
+          {mine.feedback ? <p className="whitespace-pre-line text-sm text-[var(--az-text)]">{mine.feedback}</p> : <p className="t-small">No feedback was added.</p>}
           <span className="t-small">Returned {whenText(mine.returnedAt)}</span>
         </div>
       )}
@@ -65,7 +65,7 @@ export default function Assignment({ lesson, assignment, communityId, learner, n
       {mine && !editing && (
         <div className="flex flex-col gap-2">
           <span className="t-label">What you sent · {whenText(mine.submittedAt)}{mine.late ? ' · late' : ''}</span>
-          {mine.body && <p className="whitespace-pre-line text-sm text-slate-200">{mine.body}</p>}
+          {mine.body && <p className="whitespace-pre-line text-sm text-[var(--az-text)]">{mine.body}</p>}
           {mine.files.map((f) => <a key={f.id} href={`/api/files/${f.id}`} download className="flex items-center gap-2 text-sm text-brand-300 hover:underline"><Icon name="paperclip" size={16} />{f.name} · {sizeText(f.size)}</a>)}
           <div className="flex flex-wrap gap-2 pt-2">
             {learner && !mine.passed && !mine.beingGraded && <button className="btn btn-ghost" onClick={() => setEditing(true)}>{mine.status === 'returned' ? 'Send it again' : 'Change and send again'}</button>}
@@ -83,7 +83,7 @@ export default function Assignment({ lesson, assignment, communityId, learner, n
               <ul className="sunken flex flex-col divide-y divide-[var(--az-divider)] text-sm">
                 {files.map((f) => (
                   <li key={f.id} className="flex items-center gap-3 px-3 py-2">
-                    <span className="min-w-0 flex-1 truncate text-white">{f.name}</span><span className="t-small">{sizeText(f.size)}</span>
+                    <span className="min-w-0 flex-1 truncate text-[var(--az-text)]">{f.name}</span><span className="t-small">{sizeText(f.size)}</span>
                     <button type="button" className="btn btn-ghost h-10 w-10 !p-0" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((x) => x.id !== f.id))}><Icon name="x" size={16} /></button>
                   </li>
                 ))}
@@ -93,7 +93,7 @@ export default function Assignment({ lesson, assignment, communityId, learner, n
             <button type="button" className="btn btn-ghost self-start" disabled={uploading || files.length >= 5} onClick={() => picker.current?.click()}><Icon name="paperclip" size={16} />{uploading ? 'Uploading…' : 'Attach a file'}</button>
             <span className="t-small">Up to 5 files, 10 MB each. Your instructors see your work; other learners don’t.</span>
           </div>
-          {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+          {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-primary" disabled={busy || uploading}>{busy ? 'Sending…' : 'Send your work'}</button>
             {mine && <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>Cancel</button>}

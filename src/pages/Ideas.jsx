@@ -18,7 +18,7 @@ export default function Ideas() {
           {IDEA_STATUSES.map((s) => (
             <div key={s.id} className="glass p-3 text-center">
               <div className="text-xl font-bold">{ideas.filter((i) => i.status === s.id).length}</div>
-              <div className="text-[11px] text-slate-400">{s.label}</div>
+              <div className="text-[11px] text-[var(--az-text-2)]">{s.label}</div>
             </div>
           ))}
         </div>
@@ -55,7 +55,7 @@ function IdeaDetail({ idea }) {
         <VoteBox idea={idea} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <IdeaStatus status={idea.status} /><span className="chip !bg-white/10 !text-slate-300">{idea.category}</span><ScopeBadge groupId={idea.groupId} />
+            <IdeaStatus status={idea.status} /><span className="chip !bg-[var(--az-sunken)] !text-[var(--az-text-2)]">{idea.category}</span><ScopeBadge groupId={idea.groupId} />
             <div className="ml-auto">
               <Menu items={[
                 { label: 'Edit', onClick: () => setEdit(true), hidden: !mine && !moderator },
@@ -64,12 +64,12 @@ function IdeaDetail({ idea }) {
             </div>
           </div>
           <h1 className="mt-3 text-2xl font-bold">{idea.title}</h1>
-          <div className="mt-1 text-sm text-slate-400"><UserLink id={idea.authorId} /> · {timeAgo(idea.createdAt)} · {up} up, {down} down</div>
-          <p className="mt-4 whitespace-pre-wrap text-slate-200">{idea.description}</p>
+          <div className="mt-1 text-sm text-[var(--az-text-2)]"><UserLink id={idea.authorId} /> · {timeAgo(idea.createdAt)} · {up} up, {down} down</div>
+          <p className="mt-4 whitespace-pre-wrap text-[var(--az-text)]">{idea.description}</p>
 
           {moderator && (
-            <div className="mt-6 rounded-xl bg-white/5 p-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Moderate · change status</div>
+            <div className="mt-6 rounded-xl bg-[var(--az-sunken)] p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--az-text-2)]">Moderate · change status</div>
               <div className="flex flex-wrap gap-2">
                 {IDEA_STATUSES.map((s) => (
                   <button key={s.id} className={`btn ${idea.status === s.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setStatus(s.id)} aria-pressed={idea.status === s.id}>{s.label}</button>
@@ -78,7 +78,7 @@ function IdeaDetail({ idea }) {
             </div>
           )}
           {!!idea.history?.length && (
-            <ol className="mt-4 space-y-1 text-xs text-slate-400">
+            <ol className="mt-4 space-y-1 text-xs text-[var(--az-text-2)]">
               {idea.history.map((h) => <li key={h.at}>→ {statusOf(h.status).label} by {user(h.by)?.name} · {timeAgo(h.at)}</li>)}
             </ol>
           )}
@@ -90,7 +90,7 @@ function IdeaDetail({ idea }) {
         {idea.comments.map((c) => (
           <div key={c.id} className="glass flex gap-3 p-4">
             <Avatar user={user(c.authorId)} size={32} />
-            <div><div className="text-sm"><UserLink id={c.authorId} /> <span className="text-slate-500">· {timeAgo(c.createdAt)}</span></div><p className="mt-1 text-sm text-slate-200">{c.text}</p></div>
+            <div><div className="text-sm"><UserLink id={c.authorId} /> <span className="text-[var(--az-text-3)]">· {timeAgo(c.createdAt)}</span></div><p className="mt-1 text-sm text-[var(--az-text)]">{c.text}</p></div>
           </div>
         ))}
         <form className="glass flex gap-2 p-3" onSubmit={(e) => {

@@ -63,12 +63,12 @@ export default function OrgChart() {
           ) : <span className="w-11 shrink-0" />}
           <Link to={`/people/${u.id}`} className="flex min-w-0 flex-1 items-center gap-3">
             <Avatar user={u} size={40} />
-            <div className="min-w-0"><div className="truncate font-semibold">{u.name}</div><div className="truncate text-xs text-slate-400">{u.title || u.role} · {u.city}</div></div>
+            <div className="min-w-0"><div className="truncate font-semibold">{u.name}</div><div className="truncate text-xs text-[var(--az-text-2)]">{u.title || u.role} · {u.city}</div></div>
           </Link>
           {kids.length > 0 && <span className="chip shrink-0">{kids.length}</span>}
         </div>
         {isOpen && kids.length > 0 && (
-          <ul className="ml-5 mt-2 space-y-2 border-l border-white/10 pl-4 sm:ml-8 sm:pl-6">
+          <ul className="ml-5 mt-2 space-y-2 border-l border-[var(--az-hairline)] pl-4 sm:ml-8 sm:pl-6">
             {kids.map(node)}
           </ul>
         )}
@@ -88,7 +88,7 @@ export default function OrgChart() {
         {matches.length > 0 && (
           <ul className="glass glass-strong absolute z-10 mt-1 w-full p-1">
             {matches.map((u) => (
-              <li key={u.id}><button className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-white/5" onClick={() => { setParams({ focus: u.id }); setQ(''); }}>
+              <li key={u.id}><button className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-[var(--az-sunken)]" onClick={() => { setParams({ focus: u.id }); setQ(''); }}>
                 <Avatar user={u} size={26} /> {u.name}</button></li>
             ))}
           </ul>

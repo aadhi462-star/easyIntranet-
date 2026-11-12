@@ -11,6 +11,7 @@ import { Field, Modal } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { Pill, Progress, STATUS_LABEL } from './bits.jsx';
 import { Badge, Button, Skeleton } from '../ui/Controls.jsx';
+import LearningNav from '../teaching/LearningNav.jsx';
 
 const FILTERS = [['all', 'All'], ['enrolled', 'Enrolled'], ['new', 'Not started'], ['done', 'Completed']];
 const enrolled = (c) => c.enrollment && c.enrollment.status !== 'left';
@@ -57,7 +58,11 @@ export default function Catalogue({ g }) {
     );
   }
 
+  // G7: people who teach here get Courses · Teaching · Grading above the catalogue.
+  const teaches = cat.canGrade || cat.canCreate;
   return (
+    <div className="flex min-w-0 flex-col gap-6">
+    {teaches && <LearningNav g={g} current="courses" toGrade={cat.toGrade || undefined} />}
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex min-w-0 flex-col gap-6">
         {current && <ContinueCard g={g} id={current.id} />}
@@ -129,6 +134,7 @@ export default function Catalogue({ g }) {
         </section>
       </aside>
       {creating && <NewCourse g={g} onClose={() => setCreating(false)} />}
+    </div>
     </div>
   );
 }

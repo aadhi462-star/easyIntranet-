@@ -59,7 +59,7 @@ function MyCalendar() {
         <div role="group" aria-label="View" className="inline-flex rounded-lg border border-[var(--az-hairline)] p-1">
           {[['month', 'Month'], ['week', 'Week']].map(([v, l]) => (
             <button key={v} aria-pressed={mode === v} onClick={() => setMode(v)}
-              className={`min-h-8 rounded-lg px-3 text-sm font-semibold ${mode === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2 hover:bg-white/5'}`}>{l}</button>
+              className={`min-h-8 rounded-lg px-3 text-sm font-semibold ${mode === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2 hover:bg-[var(--az-sunken)]'}`}>{l}</button>
           ))}
         </div>
       </div>
@@ -71,7 +71,7 @@ function MyCalendar() {
           </label>
         ))}
       </div>
-      {error && <p role="alert" className="mb-3 text-sm text-rose-300">Couldn’t load events: {error}</p>}
+      {error && <p role="alert" className="mb-3 text-sm text-[var(--az-danger)]">Couldn’t load events: {error}</p>}
       <CalendarGrid mode={mode} cursor={cursor} items={items} onDayClick={(d) => { const x = new Date(d); x.setHours(18, 0, 0, 0); setDraft(x.getTime()); }} />
       {draft && <EventForm initial={{ start: draft }} onClose={() => setDraft(null)} onSaved={(id) => { setDraft(null); nav(`/events/${id}`); }} />}
     </>
@@ -121,7 +121,7 @@ function TeamSchedule() {
           </thead>
           <tbody>
             {members.map((u) => (
-              <tr key={u.id} className="border-t border-white/5 align-top">
+              <tr key={u.id} className="border-t border-[var(--az-hairline)] align-top">
                 <th scope="row" className="p-3 text-left font-normal">
                   <Link to={`/people/${u.id}`} className="flex items-center gap-2 hover:underline"><Avatar user={u} size={28} /><span className="truncate font-semibold">{u.name}</span></Link>
                 </th>
@@ -129,7 +129,7 @@ function TeamSchedule() {
                   const list = cell(u.id, d);
                   return (
                     <td key={d} className="p-1.5">
-                      {list.length === 0 ? <span className="block h-8 rounded-md bg-white/[.02]" aria-label="Free" /> : (
+                      {list.length === 0 ? <span className="block h-8 rounded-md bg-[var(--az-sunken)]" aria-label="Free" /> : (
                         <div className="space-y-1">
                           {list.map((it) => (
                             <Link key={it.key} to={it.href} title={it.title} className="block truncate rounded-md px-1.5 py-1 text-[11px] font-medium hover:brightness-125"

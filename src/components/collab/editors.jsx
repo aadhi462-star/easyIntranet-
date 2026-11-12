@@ -59,17 +59,17 @@ export function DocEditor({ value, onChange, readOnly }) {
   return (
     <div className="glass overflow-hidden">
       {!readOnly && (
-        <div role="toolbar" aria-label="Formatting" className="flex flex-wrap gap-1 border-b border-white/5 p-2">
+        <div role="toolbar" aria-label="Formatting" className="flex flex-wrap gap-1 border-b border-[var(--az-hairline)] p-2">
           {TOOLS.map(([cmd, label, name]) => (
-            <button key={cmd} type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm font-semibold hover:bg-white/10" aria-label={name} title={name}
+            <button key={cmd} type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm font-semibold hover:bg-[var(--az-sunken)]" aria-label={name} title={name}
               onMouseDown={(e) => { e.preventDefault(); run(cmd); }}>{label}</button>
           ))}
-          <button type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm hover:bg-white/10" aria-label="Insert link" onMouseDown={(e) => { e.preventDefault(); link(); }}><Glyph value="link" tile={false} size={16} /></button>
+          <button type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm hover:bg-[var(--az-sunken)]" aria-label="Insert link" onMouseDown={(e) => { e.preventDefault(); link(); }}><Glyph value="link" tile={false} size={16} /></button>
         </div>
       )}
       <div ref={ref} contentEditable={!readOnly} suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Document"
         onInput={() => onChange(sanitize(ref.current.innerHTML))}
-        className="doc-body min-h-[60vh] space-y-3 bg-white/[0.02] p-6 leading-relaxed outline-none sm:p-10 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-500 [&_blockquote]:pl-4 [&_a]:text-brand-400 [&_a]:underline [&_h2]:text-xl [&_h2]:font-bold [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6" />
+        className="doc-body min-h-[60vh] space-y-3 bg-[var(--az-sunken)] p-6 leading-relaxed outline-none sm:p-10 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-500 [&_blockquote]:pl-4 [&_a]:text-brand-400 [&_a]:underline [&_h2]:text-xl [&_h2]:font-bold [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6" />
     </div>
   );
 }
@@ -137,18 +137,18 @@ export function SheetEditor({ value, onChange, readOnly }) {
   };
   return (
     <div className="glass overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/5 p-2 text-sm">
-        <span className="w-12 rounded bg-white/5 px-2 py-1.5 text-center font-mono text-xs">{sel}</span>
+      <div className="flex items-center gap-2 border-b border-[var(--az-hairline)] p-2 text-sm">
+        <span className="w-12 rounded bg-[var(--az-sunken)] px-2 py-1.5 text-center font-mono text-xs">{sel}</span>
         <input className="input !py-1.5 font-mono" value={cells[sel] ?? ''} readOnly={readOnly} onChange={(e) => put(sel, e.target.value)} aria-label={`Formula for ${sel}`}
           placeholder="Value or =SUM(A1:A3)" />
       </div>
       <div className="overflow-auto scroll-thin">
         <table className="border-collapse font-mono text-xs" role="grid" aria-label="Spreadsheet">
-          <thead><tr><th className="sticky left-0 w-10 bg-ink-850" />{COLS.map((c) => <th key={c} className="min-w-24 bg-ink-850 p-1.5 text-slate-400">{c}</th>)}</tr></thead>
+          <thead><tr><th className="sticky left-0 w-10 bg-ink-850" />{COLS.map((c) => <th key={c} className="min-w-24 bg-ink-850 p-1.5 text-[var(--az-text-2)]">{c}</th>)}</tr></thead>
           <tbody>
             {Array.from({ length: ROWS }, (_, i) => i + 1).map((r) => (
               <tr key={r}>
-                <th className="sticky left-0 bg-ink-850 p-1.5 text-slate-400">{r}</th>
+                <th className="sticky left-0 bg-ink-850 p-1.5 text-[var(--az-text-2)]">{r}</th>
                 {COLS.map((c) => {
                   const k = `${c}${r}`;
                   const v = evaluate(cells, k);
@@ -163,7 +163,7 @@ export function SheetEditor({ value, onChange, readOnly }) {
                         else if ((e.key === 'Delete' || e.key === 'Backspace') && !readOnly) put(k, '');
                       }}
                       data-cell={k}
-                      className={`h-8 border border-white/5 px-1.5 ${sel === k ? 'outline outline-2 outline-brand-500' : ''} ${typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(v) ? 'text-right' : ''}`}>
+                      className={`h-8 border border-[var(--az-hairline)] px-1.5 ${sel === k ? 'outline outline-2 outline-brand-500' : ''} ${typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(v) ? 'text-right' : ''}`}>
                       {editing === k ? (
                         <input autoFocus className="w-full bg-transparent outline-none" defaultValue={cells[k] ?? ''} aria-label={`Edit ${k}`}
                           onBlur={(e) => { put(k, e.target.value); setEditing(null); }}
@@ -177,7 +177,7 @@ export function SheetEditor({ value, onChange, readOnly }) {
           </tbody>
         </table>
       </div>
-      <p className="border-t border-white/5 p-2 text-[11px] text-slate-500">Double-click or press Enter to edit. Formulas: =SUM, =AVERAGE, =MIN, =MAX, =COUNT over ranges like B2:B4, and arithmetic like =B2*2+C3.</p>
+      <p className="border-t border-[var(--az-hairline)] p-2 text-[11px] text-[var(--az-text-3)]">Double-click or press Enter to edit. Formulas: =SUM, =AVERAGE, =MIN, =MAX, =COUNT over ranges like B2:B4, and arithmetic like =B2*2+C3.</p>
     </div>
   );
 }
@@ -203,7 +203,7 @@ export function SlidesEditor({ value, onChange, readOnly }) {
         {slides.map((x, i) => (
           <li key={x.id}>
             <button onClick={() => setCur(i)} aria-current={i === cur}
-              className={`brand-gradient flex aspect-video w-36 flex-col justify-center rounded-lg p-2 text-left text-[10px] md:w-full ${i === cur ? 'ring-2 ring-white' : 'opacity-70'}`}>
+              className={`brand-gradient flex aspect-video w-36 flex-col justify-center rounded-lg p-2 text-left text-[10px] md:w-full ${i === cur ? 'ring-2 ring-[var(--az-text)]' : 'opacity-70'}`}>
               <span className="font-bold">{i + 1}. {x.title}</span>
             </button>
           </li>
@@ -215,13 +215,13 @@ export function SlidesEditor({ value, onChange, readOnly }) {
           <button className="btn btn-primary" onClick={() => setPresent(true)}>Present</button>
           {!readOnly && <>
             <button className="btn btn-ghost" disabled={!cur} onClick={() => { const a = [...slides]; [a[cur - 1], a[cur]] = [a[cur], a[cur - 1]]; setSlides(a); setCur(cur - 1); }}>↑ Move up</button>
-            <button className="btn btn-ghost text-rose-300" disabled={slides.length < 2} onClick={() => { setSlides(slides.filter((_, i) => i !== cur)); setCur(Math.max(0, cur - 1)); }}>Delete slide</button>
+            <button className="btn btn-ghost text-[var(--az-danger)]" disabled={slides.length < 2} onClick={() => { setSlides(slides.filter((_, i) => i !== cur)); setCur(Math.max(0, cur - 1)); }}>Delete slide</button>
           </>}
         </div>
         <div className="brand-gradient flex aspect-video flex-col justify-center gap-4 rounded-2xl p-6 sm:p-12">
-          <input className="w-full bg-transparent text-2xl font-extrabold outline-none placeholder:text-white/50 sm:text-4xl" value={s.title} readOnly={readOnly}
+          <input className="w-full bg-transparent text-2xl font-extrabold outline-none placeholder:text-[var(--az-placeholder)] sm:text-4xl" value={s.title} readOnly={readOnly}
             onChange={(e) => patch({ title: e.target.value })} aria-label="Slide title" placeholder="Slide title" />
-          <textarea className="min-h-24 w-full resize-none bg-transparent text-base text-white/90 outline-none placeholder:text-white/50 sm:text-xl" value={s.body} readOnly={readOnly}
+          <textarea className="min-h-24 w-full resize-none bg-transparent text-base text-[var(--az-text)]/90 outline-none placeholder:text-[var(--az-placeholder)] sm:text-xl" value={s.body} readOnly={readOnly}
             onChange={(e) => patch({ body: e.target.value })} aria-label="Slide body" placeholder="Slide content" />
         </div>
       </div>
@@ -249,8 +249,8 @@ function Presenter({ slides, start, onClose }) {
   return (
     <div ref={ref} className="brand-gradient fixed inset-0 z-[60] flex flex-col justify-center p-10 sm:p-24" onClick={() => setI(Math.min(slides.length - 1, i + 1))}>
       <h2 className="text-4xl font-extrabold sm:text-6xl">{s.title}</h2>
-      <p className="mt-8 whitespace-pre-wrap text-xl text-white/90 sm:text-3xl">{s.body}</p>
-      <div className="absolute bottom-6 right-8 flex items-center gap-3 text-sm text-white/80">
+      <p className="mt-8 whitespace-pre-wrap text-xl text-[var(--az-text)]/90 sm:text-3xl">{s.body}</p>
+      <div className="absolute bottom-6 right-8 flex items-center gap-3 text-sm text-[var(--az-text-2)]">
         {i + 1} / {slides.length}
         <button className="btn bg-black/30" onClick={(e) => { e.stopPropagation(); onClose(); }}>Exit (Esc)</button>
       </div>

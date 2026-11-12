@@ -11,7 +11,7 @@ import { migrate } from '../db/migrate.js';
 import { hashPassword } from '../lib/crypto.js';
 import { mergeCommunity } from '../lib/merge.js';
 import { pickAccent } from '../lib/community.js';
-import { convertQuestionTypes, convertSectionLists, retireDefaultCommunity } from '../lib/data-migrations.js';
+import { convertQuestionTypes, convertSectionLists, retireDefaultCommunity, retireMembershipRules } from '../lib/data-migrations.js';
 
 export const DEV_PASSWORD = 'Community-Demo-2026';
 // The demo passwords are published in DEMO_ACCOUNTS.md, so a production seed must never use them:
@@ -62,7 +62,18 @@ export async function runSeed(database, { log = console.log } = {}) {
   // F12 (v2 workstream F): stored questionnaires use the five question types. Once, logged, undoable.
   const f12 = await convertQuestionTypes(db);
   if (f12?.versions) log('F12: template questionnaires converted', f12);
+  // G2 (v2 workstream G): automatic membership rules are switched off. Once, logged, undoable.
+  const g2 = await retireMembershipRules(db);
+  if (g2?.communities) log('G2: membership rules switched off', g2);
   return true;
+}
+
+// G2: the prototype's automatic membership rules aren't stored any more (nobody is added to a
+// community they didn't choose; Owners invite people who match instead).
+function withoutRule(settings) {
+  const rest = { ...(settings || {}) };
+  delete rest.dynamicRule;
+  return rest;
 }
 
 // Run directly: `npm run db:seed` (the server imports runSeed instead).
@@ -177,7 +188,7 @@ async function seedCommunities() {
   await db.tx(async (t) => {
     const add = async (c, members) => {
       await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings, accent) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [c.id, slug(c.name), c.name, c.description || null, c.category || null, null, c.visibility, c.owner, JSON.stringify(c.settings || {}), ACCENT[c.id] ?? await pickAccent(t)]);
+        [c.id, slug(c.name), c.name, c.description || null, c.category || null, null, c.visibility, c.owner, JSON.stringify(withoutRule(c.settings)), ACCENT[c.id] ?? await pickAccent(t)]);
       counts.communities += 1;
       for (const [uid, role] of members) {
         if (!active.has(uid)) continue;

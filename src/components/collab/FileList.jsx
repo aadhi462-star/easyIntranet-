@@ -160,8 +160,8 @@ export default function FileList({ groupId }) {
 
       {browsing && (
         <nav aria-label="Folder path" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
-          <button className="rounded px-2 py-1 hover:bg-white/5" onClick={() => setFolderId(null)}><Glyph value="home" tile={false} size={16} /> Files</button>
-          {path.map((p) => <span key={p.id} className="flex items-center gap-1">/<button className="rounded px-2 py-1 hover:bg-white/5" onClick={() => setFolderId(p.id)}>{p.name}</button></span>)}
+          <button className="rounded px-2 py-1 hover:bg-[var(--az-sunken)]" onClick={() => setFolderId(null)}><Glyph value="home" tile={false} size={16} /> Files</button>
+          {path.map((p) => <span key={p.id} className="flex items-center gap-1">/<button className="rounded px-2 py-1 hover:bg-[var(--az-sunken)]" onClick={() => setFolderId(p.id)}>{p.name}</button></span>)}
         </nav>
       )}
       {busy && <p role="status" className="mb-3 text-sm text-brand-400">{busy}</p>}
@@ -169,12 +169,12 @@ export default function FileList({ groupId }) {
       {!subfolders.length && !files.length ? (
         <Empty icon="files" title="Nothing here yet">Upload files (drag & drop works), or create a document, spreadsheet or presentation.</Empty>
       ) : (
-        <div className="glass divide-y divide-white/5">
+        <div className="panel divide-y divide-[var(--az-divider)]">
           {subfolders.map((fo) => (
             <div key={fo.id} className="flex items-center gap-3 p-3">
               <button className="flex min-h-10 flex-1 items-center gap-3 text-left" onClick={() => setFolderId(fo.id)}>
                 <span className="text-xl" aria-hidden="true"><Glyph value="files" tile={false} size={16} /></span><span className="font-medium">{fo.name}</span>
-                <span className="text-xs text-slate-500">{(state.files ?? []).filter((f) => f.folderId === fo.id).length} items</span>
+                <span className="text-xs text-[var(--az-text-3)]">{(state.files ?? []).filter((f) => f.folderId === fo.id).length} items</span>
               </button>
               <Menu label={`Actions for folder ${fo.name}`} items={[
                 { label: 'Rename', hidden: fo.authorId !== me.id && !me.admin, onClick: () => setModal({ type: 'renameFolder', folder: fo }) },
@@ -192,7 +192,7 @@ export default function FileList({ groupId }) {
               <Link to={`/files/${f.id}`} className="flex min-h-10 min-w-0 flex-1 items-center gap-3">
                 <Icon name={fileIcon(f)} size={20} />
                 <span className="min-w-0"><span className="block truncate font-medium">{f.name}</span>
-                  <span className="text-xs text-slate-500">{state.users.find((u) => u.id === f.authorId)?.name} · {timeAgo(f.updatedAt ?? f.createdAt)}
+                  <span className="text-xs text-[var(--az-text-3)]">{state.users.find((u) => u.id === f.authorId)?.name} · {timeAgo(f.updatedAt ?? f.createdAt)}
                     {f.kind === 'upload' ? ` · ${fmtSize(f.size)}` : ''}{f.versions?.length > 1 ? ` · v${f.versions.length}` : ''}{f.sharedWith?.length ? ' · shared' : ''}</span></span>
               </Link>
               <FileActions f={f} folders={folders} onShare={() => setModal({ type: 'share', file: f })}
@@ -201,7 +201,7 @@ export default function FileList({ groupId }) {
           ))}
         </div>
       )}
-      <p className="mt-2 text-xs text-slate-500">Files are stored in this browser (IndexedDB). Max 30 MB per file.</p>
+      <p className="mt-2 text-xs text-[var(--az-text-3)]">Files are stored in this browser (IndexedDB). Max 30 MB per file.</p>
 
       {modal?.type === 'folder' && <NameModal title="New folder" onClose={() => setModal(null)}
         onSave={(name) => dispatch({ type: 'add', col: 'folders', item: { name, parentId: folderId, groupId: groupId ?? null } })} />}

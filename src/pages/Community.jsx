@@ -35,6 +35,7 @@ import Catalogue from '../components/learning/Catalogue.jsx';
 import CoursePage from '../components/learning/CoursePage.jsx';
 import Builder from '../components/learning/Builder.jsx';
 import Grading from '../components/learning/Grading.jsx';
+import Teaching from '../components/teaching/Teaching.jsx';
 import Manage, { useQueueCounts } from '../components/manage/Manage.jsx';
 import { Progress } from '../components/learning/bits.jsx';
 
@@ -143,7 +144,9 @@ function CommunityView({ g, tab, sub, mode, admin }) {
 
   // One address per community: an id or an old tab name in the URL becomes the slug and tab.
   // A course (and its builder) lives under the Learning tab: /c/:slug/learning/:course[/edit].
-  const rest = (current === 'learning' || current === 'manage') && sub ? `/${encodeURIComponent(sub)}${mode === 'edit' ? '/edit' : ''}` : '';
+  // Manage keeps a settings section too: /c/:slug/manage/settings/:section (G1).
+  const tail = current === 'manage' ? (mode ? `/${encodeURIComponent(mode)}` : '') : mode === 'edit' ? '/edit' : '';
+  const rest = (current === 'learning' || current === 'manage') && sub ? `/${encodeURIComponent(sub)}${tail}` : '';
   const canonical = communityPath(g, current) + rest;
   const q = admin ? '?admin=1' : '';
   const { pathname, search } = useLocation();
@@ -172,12 +175,13 @@ function CommunityView({ g, tab, sub, mode, admin }) {
       {current === 'overview' && (perms.canView ? <Overview g={g} perms={perms} /> : <MembersOnly g={g} />)}
       {current === 'discussions' && <Discussions g={g} perms={perms} />}
       {current === 'learning' && (!sub ? <Catalogue key={g.id} g={g} /> : sub === 'grading' ? <Grading key={g.id} g={g} />
+        : sub === 'teaching' ? <Teaching key={g.id} g={g} perms={perms} />
         : mode === 'edit' ? <Builder key={sub} g={g} id={sub} /> : <CoursePage key={sub} g={g} perms={perms} id={sub} />)}
       {current === 'events' && <EventList groupId={g.id} member={!!role && !archived} />}
       {current === 'resources' && <Resources g={g} />}
       {current === 'members' && <Members group={g} perms={perms} />}
       {current === 'about' && <About g={g} />}
-      {current === 'manage' && <Manage g={g} perms={perms} section={sub} />}
+      {current === 'manage' && <Manage g={g} perms={perms} section={sub} sub={mode} />}
     </div>
   );
 }
@@ -227,7 +231,7 @@ function Header({ g, perms, role, tabs, current, queue, q }) {
               ref={current === t.id ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) : undefined}
               className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm ${current === t.id ? 'border-[var(--cm-ink)] font-semibold text-[var(--az-text)]' : 'border-transparent font-medium text-[var(--az-text-2)] hover:text-[var(--az-text)]'}`}>
               {t.label}
-              {t.id === 'manage' && queue.total > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--az-ok)] px-1.5 text-xs font-bold text-[var(--az-on-fill)]"><span className="sr-only">waiting: </span>{queue.total}</span>}
+              {t.id === 'manage' && queue.total > 0 && <span className="relative grid h-5 min-w-5 place-items-center rounded-full bg-[var(--az-ok)] px-1.5 text-xs font-bold text-[var(--az-on-fill)]"><span className="sr-only">waiting: </span>{queue.total}</span>}
             </Link>
           ))}
         </nav>

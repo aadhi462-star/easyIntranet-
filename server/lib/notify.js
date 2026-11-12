@@ -6,7 +6,12 @@
 // - one row per (recipient, dedupe key): retries and repeats never notify twice (NTF-02)
 // - never to the person who acted, to blocked pairs, or to accounts that aren't active (NTF-09)
 // - only to people who can see the community, except replies about their own join request
-// - email per category (decision S4-5), sent to the address on file at send time (NTF-07),
+// - email per category (decision S4-5): the member's own saved choice for the category wins;
+//   otherwise the community's default (settings.notifyDefaults, v2 G5); otherwise the category's
+//   default below (NTF-01). Moderation notices about you are always emailed: neither a member's
+//   choice nor a community's default switches them off. Account emails (sign-in, password,
+//   suspension) don't go through here and are always sent.
+// - sent to the address on file at send time (NTF-07),
 //   naming who did what and where, never quoting the content (NTF-06, CNT-15). A failed email
 //   stays recorded in the outbox; the in-app notification is kept either way (NTF-03).
 
@@ -59,6 +64,24 @@ export const TYPES = {
   invite_declined: { cat: 'joins', line: (x) => `${x.actor} declined your invitation to join ${x.community}` },
 };
 
+// G5: the categories a community sets a default for, by the name its settings use.
+export const NOTIFY_DEFAULTS = { replies: 'replies', mentions: 'mentions', joinDecisions: 'joins', events: 'events', announcements: 'announcements', learning: 'learning' };
+export const NOTIFY_DEFAULT_KEYS = Object.keys(NOTIFY_DEFAULTS);
+const DEFAULT_KEY_OF = Object.fromEntries(Object.entries(NOTIFY_DEFAULTS).map(([k, cat]) => [cat, k]));
+
+/**
+ * Whether one person gets an email for a notification of type `t`: their own saved choice
+ * (`mine`, true/false/undefined), else the community's default, else the category's (NTF-01).
+ */
+export function wantsEmail(t, mine, communitySettings) {
+  if (t.cat === 'moderation' && t.own) return true;
+  if (typeof mine === 'boolean') return mine;
+  const key = DEFAULT_KEY_OF[t.cat];
+  const communityDefault = key ? communitySettings?.notifyDefaults?.[key] : undefined;
+  if (typeof communityDefault === 'boolean') return communityDefault;
+  return CATEGORIES[t.cat].email;
+}
+
 export const PLATFORM_NOTICES = new Set(['member_sanction', 'community_deleted', 'community_restored', 'community_suspended', 'deletion_declined']);
 
 const origin = (ctx, req) => ctx.appOrigin || (req ? `${req.protocol}://${req.headers.host}` : '');
@@ -89,14 +112,14 @@ export async function notify(ctx, req, { to, type, actorId = null, communityId =
   }
   if (!notified.length || !mailer || !email) return notified.map((u) => u.id);
   const [{ rows: [c] }, { rows: [a] }, { rows: prefs }] = await Promise.all([
-    db.query(`select name from communities where id = $1`, [communityId]),
+    db.query(`select name, settings from communities where id = $1`, [communityId]),
     db.query(`select name from users where id = $1`, [actorId]),
     db.query(`select user_id, email from notification_prefs where kind = $1 and user_id = any($2)`, [t.cat, notified.map((u) => u.id)]),
   ]);
   const wants = Object.fromEntries(prefs.map((p) => [p.user_id, p.email]));
   const line = t.line({ actor: a?.name ?? 'Someone', community: c?.name ?? 'CommunityOne' });
   for (const u of notified) {
-    if (!(wants[u.id] ?? CATEGORIES[t.cat].email)) continue; // NTF-01
+    if (!wantsEmail(t, wants[u.id], c?.settings)) continue; // NTF-01, G5
     try {
       await mailer.send(u.email, 'notification', { name: u.name, line, link: `${origin(ctx, req)}/#/notifications` }, { req });
       await db.query(`update notifications set emailed_at = now() where id = $1`, [u.nid]);

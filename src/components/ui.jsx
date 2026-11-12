@@ -65,7 +65,7 @@ export function AvatarStack({ ids, max = 4, size = 26 }) {
 export function UserLink({ id, className = '' }) {
   const { user } = useStore();
   const u = user(id);
-  return <Link to={`/people/${id}`} className={`font-semibold text-white hover:underline ${className}`}>{u?.name ?? 'Unknown'}</Link>;
+  return <Link to={`/people/${id}`} className={`font-semibold text-[var(--az-text)] hover:underline ${className}`}>{u?.name ?? 'Unknown'}</Link>;
 }
 
 // Open modals, innermost last, so Esc and the focus trap only act on the topmost one.
@@ -131,9 +131,9 @@ export function Modal({ title, onClose, children, wide = false }) {
 export function Field({ label, children, hint }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold text-slate-300">{label}</span>
+      <span className="mb-1.5 block text-xs font-semibold text-[var(--az-text-2)]">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+      {hint && <span className="mt-1 block text-xs text-[var(--az-text-3)]">{hint}</span>}
     </label>
   );
 }
@@ -143,7 +143,7 @@ export function Empty({ icon = 'sparkle', title, children }) {
     <div className="glass p-10 text-center">
       <Glyph value={icon} size={56} className="mx-auto" />
       <p className="mt-3 font-semibold">{title}</p>
-      {children && <p className="mt-1 text-sm text-slate-400">{children}</p>}
+      {children && <p className="mt-1 text-sm text-[var(--az-text-2)]">{children}</p>}
     </div>
   );
 }
@@ -152,7 +152,7 @@ export function PageHeader({ title, subtitle, actions }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="t-h1 text-white">{title}</h1>
+        <h1 className="t-h1 text-[var(--az-text)]">{title}</h1>
         {subtitle && <p className="text-2 mt-1 text-[15px]">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -165,7 +165,7 @@ export function Tabs({ tabs, value, onChange }) {
     <div role="tablist" className="no-scrollbar mb-5 flex overflow-x-auto border-b border-[var(--az-hairline)]">
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
-          className={`min-h-11 shrink-0 border-b-2 px-3.5 text-sm transition ${value === t.id ? 'border-brand-400 font-semibold text-white' : 'text-2 border-transparent font-medium hover:text-white'}`}>
+          className={`min-h-11 shrink-0 border-b-2 px-3.5 text-sm transition ${value === t.id ? 'border-brand-400 font-semibold text-[var(--az-text)]' : 'text-2 border-transparent font-medium hover:text-[var(--az-text)]'}`}>
           {t.label}{t.count != null && <span className="text-3 ml-1.5 tabular-nums">{t.count}</span>}
         </button>
       ))}

@@ -50,7 +50,7 @@ const InvitationPage = page('InvitationPage');
 const CreateCommunity = page('CreateCommunity');
 
 function Missing({ name }) {
-  return <div className="glass p-8 text-slate-300">The <b>{name}</b> module isn’t available yet.</div>;
+  return <div className="panel p-8 text-[var(--az-text-2)]">The <b>{name}</b> module isn’t available yet.</div>;
 }
 
 class Boundary extends Component {
@@ -60,14 +60,14 @@ class Boundary extends Component {
     const { error } = this.state;
     if (error && /dynamically imported module|Importing a module script failed|error loading dynamically/i.test(error.message)) {
       return (
-        <div className="glass p-8">
+        <div className="panel p-8">
           <p className="font-semibold">CommunityOne was updated.</p>
-          <p className="mt-1 text-sm text-slate-400">This page is from the new version. Reload to open it.</p>
+          <p className="mt-1 text-sm text-[var(--az-text-2)]">This page is from the new version. Reload to open it.</p>
           <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Reload</button>
         </div>
       );
     }
-    if (error) return <div className="glass p-8"><p className="font-semibold">Something went wrong on this page.</p><pre className="mt-3 whitespace-pre-wrap text-xs text-rose-300">{String(error.message)}</pre></div>;
+    if (error) return <div className="panel p-8"><p className="font-semibold">Something went wrong on this page.</p><pre className="mt-3 whitespace-pre-wrap text-xs text-[var(--az-danger)]">{String(error.message)}</pre></div>;
     return this.props.children;
   }
 }

@@ -13,8 +13,8 @@ function BoardCard({ board }) {
   return (
     <>
       <div className="flex items-start justify-between gap-2"><h3 className="font-semibold">{board.name}</h3><ScopeBadge scope={board.scope} groupId={board.groupId} /></div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${tasks.length ? (done / tasks.length) * 100 : 0}%` }} /></div>
-      <div className="mt-3 flex items-center justify-between text-xs text-slate-400"><span>{done}/{tasks.length} tasks done</span><AvatarStack ids={board.members} size={22} /></div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--az-sunken)]"><div className="h-full rounded-full bg-[var(--az-ok)]" style={{ width: `${tasks.length ? (done / tasks.length) * 100 : 0}%` }} /></div>
+      <div className="mt-3 flex items-center justify-between text-xs text-[var(--az-text-2)]"><span>{done}/{tasks.length} tasks done</span><AvatarStack ids={board.members} size={22} /></div>
     </>
   );
 }

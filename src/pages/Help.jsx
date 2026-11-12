@@ -17,9 +17,9 @@ export default function Help() {
       </Section>
       <Section title="Joining communities">
         <ul className="flex list-disc flex-col gap-2 pl-5">
-          <li><b className="text-white">Public:</b> join instantly from the community’s card.</li>
-          <li><b className="text-white">Private:</b> request to join; a community admin approves or declines. You can withdraw a request while it’s pending.</li>
-          <li><b className="text-white">Closed:</b> invitation only. Closed communities don’t appear in search or listings.</li>
+          <li><b className="text-[var(--az-text)]">Public:</b> join instantly from the community’s card.</li>
+          <li><b className="text-[var(--az-text)]">Private:</b> request to join; a community admin approves or declines. You can withdraw a request while it’s pending.</li>
+          <li><b className="text-[var(--az-text)]">Closed:</b> invitation only. Closed communities don’t appear in search or listings.</li>
         </ul>
         <p>You can leave a community at any time from its page.</p>
       </Section>

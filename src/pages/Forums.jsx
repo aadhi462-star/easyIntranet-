@@ -27,7 +27,7 @@ export default function Forums() {
     return { ...prev, [uid]: mine.includes(cid) ? mine.filter((x) => x !== cid) : [...mine, cid] };
   } });
 
-  const link = (v) => `px-3 min-h-10 flex items-center gap-2 rounded-xl text-sm ${v ? 'bg-brand-500/20 text-white ring-1 ring-brand-500/40' : 'text-slate-300 hover:bg-white/5'}`;
+  const link = (v) => `px-3 min-h-10 flex items-center gap-2 rounded-xl text-sm ${v ? 'bg-brand-500/20 text-[var(--az-text)] ring-1 ring-brand-500/40' : 'text-[var(--az-text-2)] hover:bg-[var(--az-sunken)]'}`;
   const count = (cid) => state.forumPosts.filter((f) => f.status !== 'draft' && f.categories.includes(cid) && canSeeGroupItem(state, me, f)).length;
 
   return (
@@ -40,13 +40,13 @@ export default function Forums() {
           <button className={`${link(false)} w-full`} onClick={() => setMore(!more)} aria-expanded={more}>⋯ See more</button>
           {more && <Link to="/forums?view=drafts" className={link(view === 'drafts')}><Glyph value="drafts" tile={false} size={16} /> My Drafts</Link>}
         </nav>
-        <div className="mt-4 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Categories</div>
+        <div className="mt-4 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--az-text-3)]">Categories</div>
         <nav className="space-y-1">
           {state.forumCategories.map((c) => (
             <Link key={c.id} to={`/forums/${c.slug || c.id}`} className={link(category?.id === c.id)}>
               <span className="flex-1 truncate">{c.name}</span>
               {(follows.includes(c.id) || c.autoFollow) && <span aria-label="Following" title="Following"><Glyph value="star" tile={false} size={16} /></span>}
-              <span className="text-xs text-slate-500">{count(c.id)}</span>
+              <span className="text-xs text-[var(--az-text-3)]">{count(c.id)}</span>
             </Link>
           ))}
         </nav>
@@ -68,7 +68,7 @@ export default function Forums() {
                   </button>
                   {can('forum.category') && <button className="btn btn-ghost" onClick={() => setCatModal(category)}>Edit</button>}
                   {can('forum.category') && (
-                    <button className="btn btn-ghost text-rose-300" onClick={async () => {
+                    <button className="btn btn-ghost text-[var(--az-danger)]" onClick={async () => {
                       if (!(await confirmAction(`Delete the “${category.name}” category? Posts stay but lose this category.`))) return;
                       dispatch({ type: 'remove', col: 'forumCategories', id: category.id });
                       nav('/forums');

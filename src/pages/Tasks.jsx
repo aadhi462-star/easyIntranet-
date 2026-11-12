@@ -45,9 +45,9 @@ export default function Tasks() {
           {myTasks.map(({ t, board }) => {
             const overdue = t.dueAt && t.dueAt < Date.now();
             return (
-              <Link key={t.id} to={`/tasks/${board.id}`} className="glass flex flex-wrap items-center gap-3 p-4 hover:bg-white/5">
-                <div className="min-w-0 flex-1"><div className="font-semibold">{t.title}</div><div className="text-xs text-slate-400">{board.name} · {board.sections.find((s) => s.id === t.status)?.name}</div></div>
-                {t.dueAt && <span className={`text-sm ${overdue ? 'text-rose-300' : 'text-slate-300'}`}><Glyph value="events" tile={false} size={16} /> {fmtDate(t.dueAt, { day: 'numeric', month: 'short' })}</span>}
+              <Link key={t.id} to={`/tasks/${board.id}`} className="panel flex flex-wrap items-center gap-3 p-4 hover:bg-[var(--az-sunken)]">
+                <div className="min-w-0 flex-1"><div className="font-semibold">{t.title}</div><div className="text-xs text-[var(--az-text-2)]">{board.name} · {board.sections.find((s) => s.id === t.status)?.name}</div></div>
+                {t.dueAt && <span className={`text-sm ${overdue ? 'text-[var(--az-danger)]' : 'text-[var(--az-text-2)]'}`}><Glyph value="events" tile={false} size={16} /> {fmtDate(t.dueAt, { day: 'numeric', month: 'short' })}</span>}
               </Link>
             );
           })}

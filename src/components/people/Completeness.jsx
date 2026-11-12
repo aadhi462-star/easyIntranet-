@@ -34,7 +34,7 @@ export function completeness(u, customFields = []) {
 
 function Bar({ pct, label }) {
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={label}>
+    <div className="h-2 overflow-hidden rounded-full bg-[var(--az-hairline)]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={label}>
       <div className="brand-gradient h-full transition-[width]" style={{ width: `${pct}%` }} />
     </div>
   );
@@ -49,26 +49,26 @@ export function CompletenessMeter({ user, onEdit }) {
     <section className="glass p-5" aria-labelledby="completeness-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="completeness-h" className="font-bold">Profile strength</h2>
-        <span className="text-sm font-semibold text-slate-300">{c.pct}% · {c.done}/{c.total}</span>
+        <span className="text-sm font-semibold text-[var(--az-text-2)]">{c.pct}% · {c.done}/{c.total}</span>
       </div>
       <div className="mt-3"><Bar pct={c.pct} label="Profile completeness" /></div>
       {missing.length ? (
         <>
-          <p className="mt-3 text-sm text-slate-400">Complete profiles get found by classmates and mentors more often.</p>
+          <p className="mt-3 text-sm text-[var(--az-text-2)]">Complete profiles get found by classmates and mentors more often.</p>
           <ul className="mt-2 space-y-1" aria-label="Missing profile details">
             {missing.map((i) => (
               <li key={i.id}>
-                <button type="button" onClick={() => onEdit(i.id)} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm hover:bg-white/5">
-                  <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-white/20 text-[10px] text-slate-500">○</span>
+                <button type="button" onClick={() => onEdit(i.id)} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm hover:bg-[var(--az-sunken)]">
+                  <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[var(--az-control)] text-[10px] text-[var(--az-text-3)]">○</span>
                   <span className="min-w-0 flex-1">{i.label}</span>
-                  {i.hint && <span className="text-xs text-slate-500">{i.hint}</span>}
+                  {i.hint && <span className="text-xs text-[var(--az-text-3)]">{i.hint}</span>}
                   <span aria-hidden="true" className="text-brand-400">→</span>
                 </button>
               </li>
             ))}
           </ul>
         </>
-      ) : <p className="mt-3 text-sm text-slate-300" role="status">✓ Your profile is complete. Nice work!</p>}
+      ) : <p className="mt-3 text-sm text-[var(--az-text-2)]" role="status">✓ Your profile is complete. Nice work!</p>}
     </section>
   );
 }
@@ -96,8 +96,8 @@ export function CompletenessCard() {
       <ul className="mt-2 space-y-0.5">
         {next.map((i) => (
           <li key={i.id}>
-            <Link to={`/people/${me.id}?edit=${i.id}`} className="flex min-h-9 items-center gap-2 rounded-lg px-1 text-xs text-slate-300 hover:bg-white/5">
-              <span aria-hidden="true" className="text-slate-500">○</span><span className="min-w-0 flex-1">{i.label}</span><span aria-hidden="true" className="text-brand-400">→</span>
+            <Link to={`/people/${me.id}?edit=${i.id}`} className="flex min-h-9 items-center gap-2 rounded-lg px-1 text-xs text-[var(--az-text-2)] hover:bg-[var(--az-sunken)]">
+              <span aria-hidden="true" className="text-[var(--az-text-3)]">○</span><span className="min-w-0 flex-1">{i.label}</span><span aria-hidden="true" className="text-[var(--az-link)]">→</span>
             </Link>
           </li>
         ))}

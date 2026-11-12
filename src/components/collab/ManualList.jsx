@@ -50,11 +50,11 @@ export default function ManualList({ groupId }) {
               <Link key={m.id} to={`/manuals/${m.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
                 <div className="flex items-start justify-between gap-2">
                   <span className="brand-gradient grid h-11 w-11 place-items-center rounded-xl text-xl" aria-hidden="true"><Glyph value="manuals" tile={false} size={16} /></span>
-                  <div className="flex flex-wrap justify-end gap-1">{!m.published && <span className="chip !bg-amber-400/15 !text-amber-200">Unpublished</span>}{m.groupId && <ScopeBadge groupId={m.groupId} />}</div>
+                  <div className="flex flex-wrap justify-end gap-1">{!m.published && <span className="chip !bg-[var(--az-warn-soft)] !text-[var(--az-warning)]">Unpublished</span>}{m.groupId && <ScopeBadge groupId={m.groupId} />}</div>
                 </div>
                 <h3 className="mt-3 font-semibold">{m.title}</h3>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-400">{m.description}</p>
-                <p className="mt-3 text-xs text-slate-500">{m.chapters.length} chapters · {articles.length} articles</p>
+                <p className="mt-1 line-clamp-2 text-sm text-[var(--az-text-2)]">{m.description}</p>
+                <p className="mt-3 text-xs text-[var(--az-text-3)]">{m.chapters.length} chapters · {articles.length} articles</p>
               </Link>
             );
           })}

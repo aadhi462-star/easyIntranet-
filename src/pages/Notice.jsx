@@ -37,32 +37,32 @@ export default function Notice() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
         <span className="t-label">Moderation notice · {c.community?.name}</span>
-        <h1 className="t-h1 mt-1 text-white">{(SAYS[c.decision] ?? (() => ACTION_LABEL[c.decision]))(noun)}</h1>
+        <h1 className="t-h1 mt-1 text-[var(--az-text)]">{(SAYS[c.decision] ?? (() => ACTION_LABEL[c.decision]))(noun)}</h1>
         <p className="t-small mt-1">{fmtDate(Date.parse(c.resolvedAt))}{c.restoredAt ? ' · since undone' : ''}</p>
       </div>
       <section aria-labelledby="why-h" className="raised flex flex-col gap-2 p-5">
         <h2 id="why-h" className="t-label">The reason given</h2>
-        <p className="t-body whitespace-pre-line text-white">{c.decisionReason}</p>
+        <p className="t-body whitespace-pre-line text-[var(--az-text)]">{c.decisionReason}</p>
       </section>
       {c.targetType !== 'member' && (
         <section aria-labelledby="what-h" className="band flex flex-col gap-2 p-5">
           <h2 id="what-h" className="t-label">Your {noun}, as it was reported</h2>
-          {c.snapshot.title && <p className="font-semibold text-white">{c.snapshot.title}</p>}
-          <p className="whitespace-pre-line text-sm text-slate-200">{c.snapshot.body}</p>
+          {c.snapshot.title && <p className="font-semibold text-[var(--az-text)]">{c.snapshot.title}</p>}
+          <p className="whitespace-pre-line text-sm text-[var(--az-text)]">{c.snapshot.body}</p>
         </section>
       )}
       {c.appeal ? (
         <section aria-labelledby="ap-h" className="glass flex flex-col gap-2 p-5">
-          <h2 id="ap-h" className="t-h3 text-white">Your appeal</h2>
+          <h2 id="ap-h" className="t-h3 text-[var(--az-text)]">Your appeal</h2>
           <p className="text-2 text-sm">“{c.appeal.body}”</p>
-          <p className="text-sm text-slate-200">{c.appeal.status === 'open' ? 'Waiting for someone who didn’t take the action to decide.'
+          <p className="text-sm text-[var(--az-text)]">{c.appeal.status === 'open' ? 'Waiting for someone who didn’t take the action to decide.'
             : c.appeal.status === 'overturned' ? 'Decided: the decision was undone.' : 'Decided: the decision stands.'}{c.appeal.note ? ` “${c.appeal.note}”` : ''}</p>
         </section>
       ) : c.canAppeal ? (
         <form onSubmit={appeal} aria-labelledby="new-ap-h" className="glass flex flex-col gap-3 p-5">
-          <h2 id="new-ap-h" className="t-h3 text-white">Appeal this decision</h2>
+          <h2 id="new-ap-h" className="t-h3 text-[var(--az-text)]">Appeal this decision</h2>
           <p className="text-2 text-sm">You can appeal once, until {fmtDate(Date.parse(c.appealBy), { day: 'numeric', month: 'long' })}. Someone who didn’t take the action will decide.</p>
-          <label className="block"><span className="mb-1.5 block text-xs font-semibold text-slate-300">Why should it change?</span>
+          <label className="block"><span className="mb-1.5 block text-xs font-semibold text-[var(--az-text-2)]">Why should it change?</span>
             <textarea className="input min-h-28" required maxLength={2000} value={body} onChange={(e) => setBody(e.target.value)} /></label>
           <button className="btn btn-primary self-end" disabled={busy || !body.trim()}>{busy ? 'Sending…' : 'Send appeal'}</button>
         </form>

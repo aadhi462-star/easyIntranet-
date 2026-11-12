@@ -1,87 +1,90 @@
-// Platform Admin overview (refined designs, board R1Admin): live totals, what's waiting, recent
-// activity and a table of every community. All of it comes from GET /api/admin/overview, which
-// only returns the parts this staff member's role grants.
+// Platform Admin overview (refined designs, board R1Admin; v2 G board V2GPlatformAdmin): live
+// totals, what needs attention, recent activity and every community, most members first, with
+// AlumniZone sorted like the rest. Totals come from GET /api/admin/overview, which only returns the
+// parts this staff member's role grants; the email and job counts come from System health, for
+// those who may see it (passed in by Administration, never fetched twice).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
-import { communityPath } from '../../lib/communities.js';
+import { communityPath, errorText } from '../../lib/communities.js';
 import { timeAgo } from '../../lib/store.jsx';
 import { CommunityTile, VisibilityBadge } from '../public/CommunityCards.jsx';
+import { Badge } from '../ui/Controls.jsx';
+import { DataTable, Failed, Loading, Stat } from '../platform/bits.jsx';
+import { says } from '../platform/ActivityLog.jsx';
 
-const ACTIONS = {
-  'community.create': 'Community created', 'community.merge': 'Community merged', 'community.merge_undone': 'Merge undone',
-  'community.update': 'Community edited', 'community.archive': 'Community archived', 'community.delete': 'Community deleted',
-  'admin_mode.access': 'Administrative Mode visit', 'settings.update': 'Setting changed', 'user.suspend': 'Account suspended',
-  'user.reactivate': 'Account reactivated', 'user.approve': 'Account approved', 'user.decline': 'Account declined', 'user.roles': 'Roles changed',
-  'community.suspend': 'Community suspended', 'community.restore': 'Community restored', 'community.purged': 'Community removed for good',
-  'role.grant': 'Platform role granted', 'role.revoke': 'Platform role removed', 'announcement.publish': 'Announcement published',
-};
-const actionText = (a) => ACTIONS[a] ?? a.replace(/[._]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 const n = (x, one, many = `${one}s`) => `${x} ${x === 1 ? one : many}`;
+const lower = (t) => t.replace(/^\w/, (c) => c.toLowerCase());
 
-export default function Overview() {
+export default function Overview({ health }) {
   const [s, setS] = useState({ status: 'loading' });
   const load = useCallback(() => {
     setS((p) => ({ ...p, status: p.data ? 'ready' : 'loading' }));
-    api('/admin/overview').then((data) => setS({ status: 'ready', data })).catch((e) => setS({ status: 'error', message: e.message }));
+    api('/admin/overview').then((data) => setS({ status: 'ready', data })).catch((e) => setS({ status: 'error', message: errorText(e) }));
   }, []);
   useEffect(load, [load]);
   const [waitingNow, setWaitingNow] = useState({});
   useEffect(() => { api('/admin/waiting').then((d) => setWaitingNow(d.waiting)).catch(() => {}); }, []);
 
-  if (s.status === 'loading') return <div aria-busy="true" aria-label="Loading overview" className="glass h-40 animate-pulse" />;
-  if (s.status === 'error') {
-    return <div role="alert" className="glass p-5 text-sm"><p className="text-rose-300">{s.message}</p><button className="btn btn-ghost mt-3" onClick={load}>Try again</button></div>;
-  }
-  const { totals, communities, pendingAccounts, activity } = s.data;
-  const t = totals;
-  const otherStatuses = Object.entries(t.accounts.byStatus).filter(([k, v]) => k !== 'active' && v);
-  const waiting = [
-    pendingAccounts != null && { label: 'Accounts waiting for approval', value: pendingAccounts, to: '/admin/users' },
-    waitingNow.deletionRequests != null && { label: 'Deletion requests', value: waitingNow.deletionRequests, to: '/admin/communities' },
-    waitingNow.moderationCentre != null && { label: 'In the moderation centre', value: waitingNow.moderationCentre, to: '/admin/moderation' },
-    t.communities.suspended > 0 && { label: 'Suspended communities', value: t.communities.suspended, to: '/admin/communities' },
+  if (s.status === 'loading') return <Loading label="Loading overview" lines={5} />;
+  if (s.status === 'error') return <Failed message={s.message} onRetry={load} />;
+  const { totals: t, communities, pendingAccounts, activity } = s.data;
+  const by = t.accounts.byStatus;
+  const accountNote = [`${by.active ?? 0} active`, by.pending_approval ? `${by.pending_approval} waiting` : null, by.suspended ? `${by.suspended} suspended` : null].filter(Boolean).join(' · ');
+  // Failed emails: the outbox's failure list when the server sends it, else the 24-hour count.
+  const h = health?.data;
+  const outbox = h && (h.email || h.outbox) ? { ...(h.email ?? {}), ...(h.outbox ?? {}) } : null;
+  const emailsFailed = outbox ? (Array.isArray(outbox.failures) ? outbox.failures.length : outbox.failed24h ?? null) : null;
+  const jobsFailed = Array.isArray(h?.jobs) ? h.jobs.reduce((sum, j) => sum + (j.failures24h ?? 0), 0) : null;
+  const rows = [
+    pendingAccounts != null && { label: 'Accounts waiting for approval', value: pendingAccounts, to: '/admin/users', tone: 'warn' },
+    waitingNow.deletionRequests != null && { label: 'Deletion requests', value: waitingNow.deletionRequests, to: '/admin/communities', tone: 'warn' },
+    waitingNow.moderationCentre != null && { label: 'Moderation centre', value: waitingNow.moderationCentre, to: '/admin/moderation', tone: 'warn' },
+    t.communities.suspended > 0 && { label: 'Suspended communities', value: t.communities.suspended, to: '/admin/communities', tone: 'warn' },
+    emailsFailed != null && { label: 'Emails that failed 3 times', value: emailsFailed, to: '/admin/health', tone: 'bad' },
+    jobsFailed != null && { label: 'Jobs that failed in 24 hours', value: jobsFailed, to: '/admin/health', tone: 'bad' },
   ].filter(Boolean);
 
   return (
     <div className="flex flex-col gap-8">
-      <p className="t-small -mt-2">Counts are live from the database.</p>
-      <section aria-label="Platform totals" className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--az-hairline)] bg-[var(--az-hairline)] lg:grid-cols-4">
-        <Stat label="Accounts" value={t.accounts.total} note={otherStatuses.length ? otherStatuses.map(([k, v]) => `${v} ${k}`).join(' · ') : 'all active'} />
+      <section aria-label="Platform totals" className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-[var(--az-hairline)] bg-[var(--az-hairline)] min-[420px]:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Accounts" value={t.accounts.total} note={accountNote} />
         <Stat label="Communities" value={t.communities.total} note={`${t.communities.public} Public · ${t.communities.private} Private · ${t.communities.closed} Closed`} />
-        <Stat label="Events" value={t.events} note="across all communities" />
-        <Stat label="Published posts" value={t.posts} note="across all communities" />
+        <Stat label="Events" value={t.events} note="not deleted" />
+        <Stat label="Posts" value={t.posts} note="published" />
       </section>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section aria-labelledby="att-h">
-          <h2 id="att-h" className="t-h2 mb-3 text-white">Needs attention</h2>
-          {waiting.some((w) => w.value > 0)
-            ? (
-              <ul className="band list-rows px-4">
-                {waiting.filter((w) => w.value > 0).map((w) => (
-                  <li key={w.label} className="flex items-center justify-between gap-3 py-3 text-sm">
-                    <span className="text-white">{w.label}</span>
-                    {w.to ? <Link to={w.to} className="font-semibold text-brand-300 hover:underline">{w.value} · Review</Link> : <span className="text-2">{w.value}</span>}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section aria-labelledby="att-h" className="panel flex min-w-0 flex-col gap-1 p-5">
+          <h3 id="att-h" className="t-h3 pb-2">Needs attention</h3>
+          {rows.length ? (
+            <ul className="list-rows">
+              {rows.map((w) => (
+                <li key={w.label}>
+                  <Link to={w.to} className="flex min-h-11 items-center gap-3 py-2 text-[15px] text-[var(--az-text)] hover:underline">
+                    <span className="min-w-0 flex-1">{w.label}</span>
+                    <Badge tone={w.value > 0 ? w.tone : 'neutral'}>{w.value}</Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-2 text-sm">Nothing needs you right now.</p>}
+        </section>
+        {activity && (
+          <section aria-labelledby="act-h" className="panel flex min-w-0 flex-col gap-1 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+              <h3 id="act-h" className="t-h3">Recent activity</h3>
+              <Link to="/admin/activity" className="link text-sm">Activity log</Link>
+            </div>
+            {activity.length === 0 ? <p className="text-2 text-sm">No activity recorded yet.</p> : (
+              <ul className="list-rows">
+                {activity.map((a) => (
+                  <li key={a.id} className="flex flex-col py-2.5">
+                    <span className="break-words text-sm"><b className="font-semibold">{a.actor ?? 'System'}</b> {lower(says(a.action))}</span>
+                    <span className="t-small">{timeAgo(Date.parse(a.at))}</span>
                   </li>
                 ))}
               </ul>
-            )
-            : <p className="band text-2 p-4 text-sm">Nothing needs you right now.</p>}
-        </section>
-        {activity && (
-          <section aria-labelledby="act-h">
-            <h2 id="act-h" className="t-h2 mb-3 text-white">Recent activity</h2>
-            {activity.length === 0 ? <p className="text-3 text-sm">No activity recorded yet.</p> : (
-              <ol className="flex flex-col border-l border-[var(--az-hairline)] pl-5">
-                {activity.map((a) => (
-                  <li key={a.id} className="relative pb-4 last:pb-0">
-                    <span aria-hidden="true" className="absolute -left-[25px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-ink-950)] bg-[var(--az-text-3)]" />
-                    <span className="block text-sm text-white">{actionText(a.action)}{a.targetId ? <span className="text-3"> · {a.targetType} {a.targetId}</span> : null}</span>
-                    <span className="t-small">{a.actor ?? 'System'} · {timeAgo(Date.parse(a.at))}</span>
-                  </li>
-                ))}
-              </ol>
             )}
           </section>
         )}
@@ -92,80 +95,41 @@ export default function Overview() {
   );
 }
 
-function Stat({ label, value, note }) {
-  return (
-    <div className="bg-[var(--az-surface)] p-5">
-      <div className="t-small">{label}</div>
-      <div className="mt-1 text-[28px] font-bold leading-9 text-white">{value}</div>
-      <div className="t-small">{note}</div>
-    </div>
-  );
-}
-
-/** Every community, filterable. A table on wide screens; a list of rows on phones. */
+/** Every community, filterable. A table from 768 px; one card per community below that. */
 function CommunityTable({ list }) {
   const [q, setQ] = useState('');
   const [vis, setVis] = useState('');
   const shown = useMemo(() => list.filter((c) => (!vis || c.visibility === vis) && (!q || c.name.toLowerCase().includes(q.trim().toLowerCase()))), [list, q, vis]);
+  const columns = [
+    { head: 'Community', place: 'title', cell: (c) => <span className="flex min-w-0 items-center gap-2.5"><CommunityTile c={c} size={28} /><b className="min-w-0 break-words font-semibold">{c.name}</b></span> },
+    { head: 'Visibility', cell: (c) => <VisibilityBadge visibility={c.visibility} /> },
+    { head: 'Members', num: true, cell: (c) => c.memberCount },
+    { head: 'Owner', cell: (c) => c.owner ?? <span className="text-2">No active Owner</span> },
+    { head: 'Status', place: 'badge', cell: (c) => (c.status === 'suspended' ? <Badge tone="bad">Suspended</Badge> : c.status === 'archived' ? <Badge>Archived</Badge>
+      : !c.owner ? <Badge tone="warn">Needs an Owner</Badge> : <Badge tone="ok">Active</Badge>) },
+    { head: 'Actions', sr: true, place: 'action', cell: (c) => (
+      !c.owner ? <Link to={`/admin/communities?open=${encodeURIComponent(c.id)}`} className="btn btn-secondary btn-sm" aria-label={`Choose an Owner for ${c.name}`}>Choose an Owner</Link>
+        : c.canOpen ? <Link to={communityPath(c)} className="btn btn-secondary btn-sm" aria-label={`Open ${c.name}`}>Open</Link>
+          : <Link to={`${communityPath(c)}?admin=1`} className="btn btn-secondary btn-sm" aria-label={`Open ${c.name} in Administrative Mode`}>Open in Administrative Mode</Link>
+    ) },
+  ];
   return (
-    <section aria-labelledby="ct-h">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 id="ct-h" className="t-h2 text-white">Communities</h2>
-        <div className="flex flex-wrap gap-2">
-          <input type="search" className="input !w-56" placeholder="Filter communities" aria-label="Filter communities" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="input !w-40" aria-label="Visibility" value={vis} onChange={(e) => setVis(e.target.value)}>
+    <section aria-labelledby="ct-h" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 id="ct-h" className="t-h3">Communities</h3>
+        <span className="t-small">Most members first. AlumniZone sorts with the rest.</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <label className="min-w-0 flex-[1_1_200px]"><span className="sr-only">Search communities</span>
+          <input type="search" className="input" placeholder="Search communities" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+        <label className="min-w-0 flex-[0_1_180px]"><span className="sr-only">Visibility</span>
+          <select className="input" value={vis} onChange={(e) => setVis(e.target.value)}>
             <option value="">All visibility</option><option value="public">Public</option><option value="private">Private</option><option value="closed">Closed</option>
-          </select>
-        </div>
+          </select></label>
       </div>
       <p className="sr-only" role="status">{n(shown.length, 'community', 'communities')}</p>
-      {shown.length === 0 ? <p className="text-3 text-sm">No communities match.</p> : (
-        <>
-          <div className="glass hidden overflow-x-auto md:block">
-            <table className="w-full border-collapse text-sm">
-              <thead><tr className="bg-[var(--az-band)] text-left">
-                {['Community', 'Visibility', 'Members', 'Owner', 'Status'].map((h) => <th key={h} scope="col" className="t-label whitespace-nowrap border-b border-[var(--az-hairline)] px-4 py-3">{h}</th>)}
-                <th scope="col" className="border-b border-[var(--az-hairline)] px-4 py-3"><span className="sr-only">Actions</span></th>
-              </tr></thead>
-              <tbody>
-                {shown.map((c) => (
-                  <tr key={c.id} className="border-b border-[var(--az-divider)] last:border-0">
-                    <td className="px-4 py-3"><span className="flex items-center gap-3"><CommunityTile c={c} size={28} /><span className="font-semibold text-white">{c.name}</span></span></td>
-                    <td className="px-4 py-3"><VisibilityBadge visibility={c.visibility} /></td>
-                    <td className="text-2 px-4 py-3 tabular-nums">{c.memberCount}</td>
-                    <td className="text-2 px-4 py-3">{c.owner ?? <span className="text-3">No owner</span>}</td>
-                    <td className="text-2 px-4 py-3 capitalize">{c.status}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {c.canOpen && <Link to={communityPath(c)} className="text-brand-300 hover:underline" aria-label={`View ${c.name}`}>View</Link>}
-                      <Link to={`${communityPath(c)}?admin=1`} className="text-2 ml-4 hover:text-white hover:underline" aria-label={`Open ${c.name} in Administrative Mode`}>Admin Mode</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <ul className="list-rows md:hidden">
-            {shown.map((c) => (
-              <li key={c.id}>
-                <Row c={c} />
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <DataTable label="Communities" columns={columns} rows={shown} cardLabel={(c) => c.name} empty="No communities match." />
+      <p className="t-small">A Closed community you aren’t in opens only in Administrative Mode, which is recorded.</p>
     </section>
   );
 }
-
-function Row({ c }) {
-  const body = (
-    <>
-      <CommunityTile c={c} size={36} />
-      <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-white">{c.name}</span>
-        <span className="t-small">{n(c.memberCount, 'member')}{c.owner ? ` · ${c.owner}` : ''}{c.status !== 'active' ? ` · ${c.status}` : ''}</span></span>
-      <VisibilityBadge visibility={c.visibility} />
-    </>
-  );
-  return <Link to={c.canOpen ? communityPath(c) : `${communityPath(c)}?admin=1`} className="flex items-center gap-3 py-3">{body}</Link>;
-}
-

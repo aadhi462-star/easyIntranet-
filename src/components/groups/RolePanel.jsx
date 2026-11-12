@@ -10,9 +10,12 @@ import { api } from '../../lib/api.js';
 import { communityApi, communityPath, errorText } from '../../lib/communities.js';
 import { managePath } from '../../lib/manage.js';
 import { approvePost, removePost, useServerFeed } from '../../lib/feed.js';
+import { toast } from '../../lib/toast.js';
 import { timeAgo } from '../../lib/store.jsx';
 import { useCommunityWrite } from './useCommunity.js';
 import { Icon } from '../icons.jsx';
+import { Badge, Button, Skeleton } from '../ui/Controls.jsx';
+import Split, { ActionBar } from '../queue/Split.jsx';
 
 const count = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -116,61 +119,77 @@ function DecisionQueue({ g, hideWhenEmpty = false }) {
   );
 }
 
-/** Moderator: held posts in a split view: the list, and the selected post in full with its actions. */
+/** Moderator: held posts in a split view: the list, and the selected post in full with its actions
+ * (v2 board V2GDashboards). On a phone, the list and then the post full-width (V2GPhoneQueue). */
 export function ReviewQueue({ g, feed, framed = false }) {
   const own = useServerFeed({ view: 'pending', community: g.id, keep: (p) => p.status === 'pending', enabled: !feed });
   const f = feed ?? own;
   const posts = f.posts.filter((p) => p.status === 'pending');
   const [sel, setSel] = useState(null);
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const current = posts.find((p) => p.id === sel) ?? posts[0];
-  useEffect(() => { setReason(''); setError(''); }, [current?.id]);
-  const act = async (fn) => {
-    setBusy(true); setError('');
-    try { await fn(); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
-  };
-  const body = f.status === 'loading' && !posts.length ? <p className="t-small py-3">Loading…</p>
-    : f.status === 'error' ? <p className="notice notice-bad my-3">{f.error} <button type="button" className="link" onClick={f.reload}>Try again</button></p>
-      : !current ? <p className="t-small py-3">Nothing to review. Posts held for approval show here; reports are in Manage → Queue.</p>
-        : (
-          <div className="grid gap-4 py-2 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <ul aria-label="Held posts" className="list-rows">
-              {posts.map((p) => (
-                <li key={p.id}>
-                  <button type="button" onClick={() => setSel(p.id)} aria-current={p.id === current.id ? 'true' : undefined}
-                    className={`block w-full rounded-lg px-3 py-2.5 text-left ${p.id === current.id ? 'bg-[var(--az-sunken)] shadow-[inset_3px_0_0_var(--az-ok)]' : 'hover:bg-[var(--az-sunken)]'}`}>
-                    <span className="block text-sm font-semibold">{p.author?.name ?? 'Member'}</span>
-                    <span className="t-small">Held for approval · {timeAgo(typeof p.createdAt === 'string' ? Date.parse(p.createdAt) : p.createdAt ?? Date.now())}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <article aria-label="Selected post" className="sunken flex flex-col gap-3 p-4">
-              <span className="t-label">Held for approval</span>
-              <p className="t-body whitespace-pre-line">{current.body}</p>
-              <label className="text-sm font-semibold">Reason if you remove it <span className="font-normal text-[var(--az-text-2)]">(the author sees this)</span>
-                <textarea className="input mt-1 min-h-20" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
-              </label>
-              {error && <p role="alert" className="field-error">{error}</p>}
-              <div className="flex flex-wrap justify-end gap-2">
-                <button type="button" className="btn btn-danger" disabled={busy || !reason.trim()} onClick={() => act(() => removePost(current.id, reason.trim()))}
-                  title={reason.trim() ? undefined : 'Give the author a reason first'}>Remove</button>
-                <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => approvePost(current.id))}>Approve and publish</button>
-              </div>
-            </article>
-          </div>
-        );
-  if (!framed) return body;
+  const body = f.status === 'loading' && !posts.length ? <div className="py-3"><Skeleton lines={3} label="Loading held posts" /></div>
+    : f.status === 'error' ? <div role="alert" className="notice notice-bad my-3 flex flex-wrap items-center justify-between gap-3"><span><strong>Couldn’t load held posts.</strong> {f.error}</span><Button size="sm" onClick={f.reload}>Try again</Button></div>
+      : !posts.length ? (
+        <section className="panel flex flex-col items-center gap-2 p-8 text-center">
+          <span className="text-[var(--az-text-3)]"><Icon name="inbox" size={28} /></span>
+          <h3 className="t-h3">Nothing held for approval</h3>
+          <p className="text-2 max-w-md text-sm">Posts that wait for approval show here and in your notifications.</p>
+        </section>
+      ) : (
+        <Split label="Held posts" items={posts} selected={sel} onSelect={setSel} backLabel="Back to held posts"
+          rowTitle={(p) => `Post by ${p.author?.name ?? 'a member'}`}
+          rowMeta={(p) => `Held for approval · ${timeAgo(typeof p.createdAt === 'string' ? Date.parse(p.createdAt) : p.createdAt ?? Date.now())}`}
+          note="Oldest first."
+          itemMeta={`${g.name} · Held posts`}
+          detail={(p, { wide }) => <HeldPost key={p.id} p={p} pinned={!wide} onDone={() => setSel(null)} />} />
+      );
+  if (!framed) return <div className="py-2">{body}</div>;
   return (
-    <section aria-labelledby="rev-h" className="panel flex flex-col px-5 py-4">
+    <section aria-labelledby="rev-h" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="rev-h" className="t-h2">Review queue</h2>
-        <span className="t-label">You’re a moderator · {count(posts.length, 'item')}</span>
+        <span className="t-label">{count(posts.length, 'post')} held</span>
       </div>
       {body}
     </section>
+  );
+}
+
+function HeldPost({ p, pinned, onDone }) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [reasonError, setReasonError] = useState('');
+  const act = async (fn, ok) => {
+    setBusy(true); setError('');
+    try { await fn(); toast(ok); onDone(); } catch (e) {
+      if (e.extra?.field === 'reason') setReasonError(errorText(e)); else setError(errorText(e));
+    } finally { setBusy(false); }
+  };
+  const remove = () => {
+    if (!reason.trim()) { setReasonError('Give the author a reason first.'); document.getElementById(`hr-${p.id}`)?.focus(); return; }
+    act(() => removePost(p.id, reason.trim()), 'Post removed. The author sees your reason.');
+  };
+  return (
+    <article aria-label={`Post by ${p.author?.name ?? 'a member'}`} className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2"><Badge tone="warn">Held for approval</Badge><span className="t-small">{p.author?.name ?? 'Member'}</span></div>
+      <div className="flex min-w-0 flex-col gap-1.5 rounded-[10px] bg-[var(--az-sunken)] p-4">
+        {p.title && <p className="font-semibold break-words">{p.title}</p>}
+        <p className="t-body whitespace-pre-line break-words">{p.body || <span className="text-3">No text</span>}</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={`hr-${p.id}`} className="text-sm font-medium">Reason if you remove it</label>
+        <span id={`hr-hint-${p.id}`} className="t-small -mt-1">The author sees this. Up to 500 characters.</span>
+        <textarea id={`hr-${p.id}`} className="input min-h-20" value={reason} maxLength={500} onChange={(e) => { setReason(e.target.value); if (reasonError) setReasonError(''); }}
+          aria-invalid={!!reasonError || undefined} aria-describedby={reasonError ? `hr-hint-${p.id} hr-err-${p.id}` : `hr-hint-${p.id}`} />
+        {reasonError && <p id={`hr-err-${p.id}`} className="field-error !mt-0">{reasonError}</p>}
+      </div>
+      {error && <p role="alert" className="notice notice-bad">{error}</p>}
+      <ActionBar pinned={pinned}>
+        <span className="flex-1" />
+        <Button variant="danger" disabled={busy} onClick={remove}>Remove</Button>
+        <Button variant="primary" disabled={busy} onClick={() => act(() => approvePost(p.id), 'Published')}>Approve and publish</Button>
+      </ActionBar>
+    </article>
   );
 }
 
@@ -200,14 +219,26 @@ function JoinRequests({ reqs, busy, decide }) {
 export function RequestQueue({ g }) {
   const { run } = useCommunityWrite();
   const [reqs, setReqs] = useState(null);
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState(null);
-  const load = useCallback(() => api(`/communities/${encodeURIComponent(g.id)}/requests`).then((r) => setReqs(r.requests)).catch(() => setReqs([])), [g.id]);
+  const load = useCallback(() => api(`/communities/${encodeURIComponent(g.id)}/requests`).then((r) => { setReqs(r.requests); setError(''); })
+    .catch((e) => { setReqs([]); setError(errorText(e)); }), [g.id]);
   useEffect(() => { load(); }, [load]);
   const decide = async (r, approve) => {
     setBusy(r.id);
     try { if (await run(g.id, () => communityApi.decide(g.id, r.id, approve), { ok: approve ? `${r.name} can now take part` : 'Request declined' })) await load(); }
     finally { setBusy(null); }
   };
-  if (reqs === null) return <div aria-busy="true" aria-label="Loading requests" className="skeleton h-32 !rounded-2xl" />;
-  return <section aria-label="Join requests" className="panel px-5 py-2"><JoinRequests reqs={reqs} busy={busy} decide={decide} /></section>;
+  if (reqs === null) return <div className="panel p-5"><Skeleton lines={3} label="Loading requests" /></div>;
+  if (error) return <div role="alert" className="notice notice-bad flex flex-wrap items-center justify-between gap-3"><span><strong>Couldn’t load join requests.</strong> {error}</span><Button size="sm" onClick={load}>Try again</Button></div>;
+  if (!reqs.length) {
+    return (
+      <section className="panel flex flex-col items-center gap-2 p-8 text-center">
+        <span className="text-[var(--az-text-3)]"><Icon name="inbox" size={28} /></span>
+        <h3 className="t-h3">No join requests</h3>
+        <p className="text-2 max-w-md text-sm">Nothing waiting. New requests show here and in your notifications.</p>
+      </section>
+    );
+  }
+  return <section aria-label="Join requests" className="panel px-4 py-1 sm:px-5"><JoinRequests reqs={reqs} busy={busy} decide={decide} /></section>;
 }

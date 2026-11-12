@@ -8,7 +8,7 @@ import { PraiseModal, PRAISE_BADGES, praiseBadge, isActiveUser } from '../compon
 
 const day = 86400e3;
 // Gold, silver and bronze tints for the top three ranks.
-const MEDAL = ['text-amber-300', 'text-slate-300', 'text-orange-400'];
+const MEDAL = ['text-[var(--az-warning)]', 'text-[var(--az-text-2)]', 'text-[color-mix(in_srgb,var(--az-warning)_55%,var(--az-danger))]'];
 const PERIODS = [{ id: 'week', label: 'This week', ms: 7 * day }, { id: 'month', label: 'This month', ms: 30 * day }, { id: 'all', label: 'All time', ms: null }];
 
 // Arcade: challenges computed from scoring activity (see challengeCounts).
@@ -85,10 +85,10 @@ export default function Leaderboard() {
         <Avatar user={me} size={52} />
         <div className="flex-1">
           <div className="font-semibold">You’re a <span className="text-brand-gradient">{mine.level.name}</span></div>
-          <div className="text-sm text-slate-400">{mine.points} points · {mine.badges.length} badges</div>
-          {mine.nextLevel && <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-white/10"><div className="brand-gradient h-full" style={{ width: `${Math.round(((mine.points - mine.level.min) / (mine.nextLevel.min - mine.level.min)) * 100)}%` }} /></div>}
+          <div className="text-sm text-[var(--az-text-2)]">{mine.points} points · {mine.badges.length} badges</div>
+          {mine.nextLevel && <div className="mt-2 h-2 max-w-sm overflow-hidden rounded-full bg-[var(--az-sunken)]"><div className="brand-gradient h-full" style={{ width: `${Math.round(((mine.points - mine.level.min) / (mine.nextLevel.min - mine.level.min)) * 100)}%` }} /></div>}
         </div>
-        {mine.nextLevel && <div className="text-sm text-slate-400">{mine.nextLevel.min - mine.points} pts to {mine.nextLevel.name}</div>}
+        {mine.nextLevel && <div className="text-sm text-[var(--az-text-2)]">{mine.nextLevel.min - mine.points} pts to {mine.nextLevel.name}</div>}
       </section>
 
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'board', label: 'Leaderboard' }, { id: 'praise', label: 'Praise wall' }, { id: 'badges', label: 'Badges' }, { id: 'arcade', label: 'Arcade' }, { id: 'how', label: 'Points & levels' }]} />
@@ -101,14 +101,14 @@ export default function Leaderboard() {
           <div className="grid gap-4 lg:grid-cols-3">
             <section className="glass p-5 lg:col-span-2">
               <h2 className="font-bold">Top contributors</h2>
-              {contributors.length === 0 && <p className="mt-2 text-sm text-slate-500">No one has earned points in this period yet.</p>}
+              {contributors.length === 0 && <p className="mt-2 text-sm text-[var(--az-text-3)]">No one has earned points in this period yet.</p>}
               <ol className="mt-3 space-y-1">
                 {contributors.map((r) => (
                   <li key={r.user.id} className={`flex items-center gap-3 rounded-xl p-2 ${r.user.id === me.id ? 'bg-brand-500/15' : ''}`}>
                     <span className={`flex w-8 items-center justify-center gap-0.5 text-sm font-bold ${MEDAL[r.rank - 1] ?? ''}`} aria-label={`Rank ${r.rank}`}>{r.rank <= 3 && <Icon name="medal" size={16} />}{r.rank}</span>
                     <Avatar user={r.user} size={36} />
-                    <Link to={`/people/${r.user.id}`} className="min-w-0 flex-1"><div className="truncate font-semibold">{r.user.name}</div><div className="text-xs text-slate-400">{r.level.name}</div></Link>
-                    <span className="font-bold text-amber-200">{r.points}</span>
+                    <Link to={`/people/${r.user.id}`} className="min-w-0 flex-1"><div className="truncate font-semibold">{r.user.name}</div><div className="text-xs text-[var(--az-text-2)]">{r.level.name}</div></Link>
+                    <span className="font-bold text-[var(--az-warning)]">{r.points}</span>
                   </li>
                 ))}
               </ol>
@@ -117,7 +117,7 @@ export default function Leaderboard() {
               <h2 className="font-bold">Top awardees</h2>
               {awardees.length ? <ol className="mt-3 space-y-2">{awardees.slice(0, 8).map((a) => (
                 <li key={a.user.id} className="flex items-center gap-3"><Avatar user={a.user} size={32} /><Link to={`/people/${a.user.id}`} className="flex-1 truncate text-sm font-semibold">{a.user.name}</Link><span className="chip">{a.n}</span></li>
-              ))}</ol> : <p className="mt-2 text-sm text-slate-500">No praise in this period yet.</p>}
+              ))}</ol> : <p className="mt-2 text-sm text-[var(--az-text-3)]">No praise in this period yet.</p>}
             </section>
           </div>
         </>
@@ -127,9 +127,9 @@ export default function Leaderboard() {
         <div className="grid gap-3 sm:grid-cols-2">
           {[...(state.praise || [])].sort((a, b) => b.createdAt - a.createdAt).map((p) => { const b = praiseBadge(p.badge); return (
             <article key={p.id} className="glass p-5">
-              <div className="flex items-center gap-2 text-sm"><Icon name={b.icon} size={24} className="text-brand-300" /><b>{b.name}</b><span className="ml-auto text-xs text-slate-500">{timeAgo(p.createdAt)}</span></div>
-              <p className="mt-3 text-slate-200">“{p.message}”</p>
-              <p className="mt-3 text-sm text-slate-400"><Link className="font-semibold text-white hover:underline" to={`/people/${p.fromId}`}>{user(p.fromId)?.name}</Link> → <Link className="font-semibold text-white hover:underline" to={`/people/${p.toId}`}>{user(p.toId)?.name}</Link></p>
+              <div className="flex items-center gap-2 text-sm"><Icon name={b.icon} size={24} className="text-brand-300" /><b>{b.name}</b><span className="ml-auto text-xs text-[var(--az-text-3)]">{timeAgo(p.createdAt)}</span></div>
+              <p className="mt-3 text-[var(--az-text)]">“{p.message}”</p>
+              <p className="mt-3 text-sm text-[var(--az-text-2)]"><Link className="font-semibold text-[var(--az-text)] hover:underline" to={`/people/${p.fromId}`}>{user(p.fromId)?.name}</Link> → <Link className="font-semibold text-[var(--az-text)] hover:underline" to={`/people/${p.toId}`}>{user(p.toId)?.name}</Link></p>
             </article>); })}
         </div>
       )}
@@ -140,7 +140,7 @@ export default function Leaderboard() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {BADGES.map((b) => { const got = mine.badges.includes(b.id); return (
                 <div key={b.id} className={`glass p-4 text-center ${got ? '' : 'opacity-45 grayscale'}`}>
-                  <Icon name={b.icon} size={30} className="mx-auto text-brand-300" /><div className="mt-2 font-semibold">{b.name}</div><div className="text-xs text-slate-400">{b.desc}</div>
+                  <Icon name={b.icon} size={30} className="mx-auto text-brand-300" /><div className="mt-2 font-semibold">{b.name}</div><div className="text-xs text-[var(--az-text-2)]">{b.desc}</div>
                   <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider">{got ? '✓ Earned' : 'Locked'}</div>
                 </div>); })}
             </div>
@@ -162,11 +162,11 @@ export default function Leaderboard() {
                 <Icon name={c.icon} size={30} className="text-brand-300" />
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold">{c.title}</div>
-                  <div className="text-xs text-slate-400">Reward: {c.reward} badge</div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={c.goal} aria-valuenow={n}><div className="brand-gradient h-full" style={{ width: `${(n / c.goal) * 100}%` }} /></div>
-                  <div className="mt-1 text-[11px] text-slate-500">{n}/{c.goal}</div>
+                  <div className="text-xs text-[var(--az-text-2)]">Reward: {c.reward} badge</div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--az-sunken)]" role="progressbar" aria-valuemin={0} aria-valuemax={c.goal} aria-valuenow={n}><div className="brand-gradient h-full" style={{ width: `${(n / c.goal) * 100}%` }} /></div>
+                  <div className="mt-1 text-[11px] text-[var(--az-text-3)]">{n}/{c.goal}</div>
                 </div>
-                {has ? <span className="chip !bg-emerald-500/15 !text-emerald-200">✓ Claimed</span>
+                {has ? <span className="chip !bg-[var(--az-ok-soft)] !text-[var(--az-ok)]">✓ Claimed</span>
                   : <button className="btn btn-primary min-h-11" disabled={!done} onClick={() => claim(c)}>Claim</button>}
               </article>
             );
@@ -178,13 +178,13 @@ export default function Leaderboard() {
         <div className="grid gap-4 lg:grid-cols-2">
           <section className="glass p-5">
             <h2 className="font-bold">Levels</h2>
-            <ol className="mt-3 space-y-2">{LEVELS.map((l) => <li key={l.name} className={`flex justify-between rounded-xl px-3 py-2 ${mine.level.name === l.name ? 'bg-brand-500/20' : ''}`}><span className="font-semibold">{l.name}</span><span className="text-slate-400">{l.min}+ pts</span></li>)}</ol>
+            <ol className="mt-3 space-y-2">{LEVELS.map((l) => <li key={l.name} className={`flex justify-between rounded-xl px-3 py-2 ${mine.level.name === l.name ? 'bg-brand-500/20' : ''}`}><span className="font-semibold">{l.name}</span><span className="text-[var(--az-text-2)]">{l.min}+ pts</span></li>)}</ol>
           </section>
           <section className="glass p-5">
             <h2 className="font-bold">How to earn points</h2>
             <ul className="mt-3 grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
-              {Object.entries(POINTS).filter(([, v]) => v > 0).map(([k, v]) => <li key={k} className="flex justify-between rounded-lg px-2 py-1 hover:bg-white/5"><span className="text-slate-300">{labelFor(k)}</span><b className="text-amber-200">+{v}</b></li>)}
-              <li className="flex justify-between rounded-lg px-2 py-1"><span className="text-slate-300">Receiving praise</span><b className="text-amber-200">+5</b></li>
+              {Object.entries(POINTS).filter(([, v]) => v > 0).map(([k, v]) => <li key={k} className="flex justify-between rounded-lg px-2 py-1 hover:bg-[var(--az-sunken)]"><span className="text-[var(--az-text-2)]">{labelFor(k)}</span><b className="text-[var(--az-warning)]">+{v}</b></li>)}
+              <li className="flex justify-between rounded-lg px-2 py-1"><span className="text-[var(--az-text-2)]">Receiving praise</span><b className="text-[var(--az-warning)]">+5</b></li>
             </ul>
           </section>
         </div>

@@ -337,15 +337,19 @@ describe('creating and managing communities', () => {
     assert.equal((await c.out.post(`/api/communities/${id}/members`, { userIds: ['adm'] })).status, 404, 'removed member sees nothing');
   });
 
-  test('DEL-01 / TC-03 community admins can archive but not delete; platform staff can delete', async () => {
+  test('DEL-01 / TC-03 / G6 community admins can archive; nobody deletes at once (only through the deletion review)', async () => {
     const id = (await c.mem.post('/api/communities', { name: 'Temporary Group', visibility: 'public' })).body.community.id;
     const del = await c.mem.delete(`/api/communities/${id}`);
-    assert.equal(del.status, 403);
-    assert.equal(del.body.error.code, 'DELETE_NOT_ALLOWED');
+    assert.equal(del.status, 410);
+    assert.equal(del.body.error.code, 'DELETE_RETIRED');
+    assert.match(del.body.error.message, /request deletion/);
     assert.equal((await c.mem.post(`/api/communities/${id}/archive`, { archived: true })).status, 200);
     assert.equal((await post('mem', id)).status, 403, 'archived communities take no new posts');
     assert.ok(!(await c.out.get('/api/communities')).body.communities.some((x) => x.id === id), 'archived ones leave discovery (VIS-14)');
-    assert.equal((await c.pa.delete(`/api/communities/${id}`)).status, 200);
+    const staff = await c.pa.delete(`/api/communities/${id}`);
+    assert.equal(staff.status, 410, 'platform staff too: deletion goes through Administration with the 30-day restore');
+    assert.equal((await env.db.query(`select status from communities where id = $1`, [id])).rows[0].status, 'archived', 'nothing was deleted');
+    assert.ok(!(await env.db.query(`select 1 from audit_log where action = 'community.delete' and target_id = $1`, [id])).rows.length);
   });
 });
 
@@ -357,12 +361,12 @@ describe('member lists and rules', () => {
     assert.ok(memberView.every((m) => ['active', 'restricted'].includes(m.state)));
   });
 
-  test('F10 rule-based adds never invite someone who left; an admin can still invite them on purpose', async () => {
+  test('G2 rule-based adds are retired (source: rule is refused); an admin can still invite someone who left on purpose', async () => {
     const id = (await c.mem.post('/api/communities', { name: 'Rule Club', visibility: 'public' })).body.community.id;
     await c.out.post(`/api/communities/${id}/join`);
     await c.out.post(`/api/communities/${id}/leave`);
-    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'], source: 'rule' })).body.results.map((r) => r.code), ['LEFT']);
-    assert.equal((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.results[0].status, 'invited', 'an admin can still invite them on purpose');
+    assert.equal((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'], source: 'rule' })).status, 400);
+    assert.equal((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'], source: 'admin' })).body.results[0].status, 'invited', 'an admin can still invite them on purpose');
     assert.equal((await env.db.query(`select state from memberships where community_id = $1 and user_id = 'out'`, [id])).rows[0].state, 'left');
   });
 

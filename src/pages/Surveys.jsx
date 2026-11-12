@@ -47,14 +47,14 @@ function SurveyList() {
             return (
               <Link key={s.id} to={`/surveys/${s.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
                 <div className="flex flex-wrap gap-1.5">
-                  <span className={`chip ${isOpen(s) ? '!bg-emerald-500/15 !text-emerald-200' : s.status === 'draft' ? '' : '!bg-white/10 !text-slate-300'}`}>{s.status === 'draft' ? 'Draft' : isOpen(s) ? 'Active' : 'Closed'}</span>
+                  <span className={`chip ${isOpen(s) ? '!bg-[var(--az-ok-soft)] !text-[var(--az-ok)]' : s.status === 'draft' ? '' : '!bg-[var(--az-sunken)] !text-[var(--az-text-2)]'}`}>{s.status === 'draft' ? 'Draft' : isOpen(s) ? 'Active' : 'Closed'}</span>
                   {s.anonymous && <span className="chip"><Glyph value="eyeoff" tile={false} size={16} /> Anonymous</span>}
                   {s.audience?.type === 'group' && <span className="chip"><Glyph value="groups" tile={false} size={16} /> {state.groups.find((g) => g.id === s.audience.id)?.name}</span>}
                   {responded(s) && <span className="chip">✓ Responded</span>}
                 </div>
                 <h2 className="mt-3 font-bold">{s.title}</h2>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-400">{s.description}</p>
-                <p className="mt-3 text-xs text-slate-500">{s.questions.length} questions · {n} responses{s.deadline && ` · ${isOpen(s) ? 'closes' : 'closed'} ${fmtDate(s.deadline, { day: 'numeric', month: 'short' })}`}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-[var(--az-text-2)]">{s.description}</p>
+                <p className="mt-3 text-xs text-[var(--az-text-3)]">{s.questions.length} questions · {n} responses{s.deadline && ` · ${isOpen(s) ? 'closes' : 'closed'} ${fmtDate(s.deadline, { day: 'numeric', month: 'short' })}`}</p>
               </Link>
             );
           })}
@@ -64,8 +64,8 @@ function SurveyList() {
         <Modal title="Start from a template" onClose={() => setPickTemplate(false)}>
           <ul className="space-y-2">
             {(state.surveyTemplates || []).map((t) => (
-              <li key={t.id}><button className="w-full rounded-xl border border-white/10 p-4 text-left hover:bg-white/5" onClick={() => { setPickTemplate(false); setCreating(t); }}>
-                <div className="font-semibold">{t.title}</div><div className="text-sm text-slate-400">{t.description}</div><div className="mt-1 text-xs text-slate-500">{t.questions.length} questions</div>
+              <li key={t.id}><button className="w-full rounded-xl border border-[var(--az-hairline)] p-4 text-left hover:bg-[var(--az-sunken)]" onClick={() => { setPickTemplate(false); setCreating(t); }}>
+                <div className="font-semibold">{t.title}</div><div className="text-sm text-[var(--az-text-2)]">{t.description}</div><div className="mt-1 text-xs text-[var(--az-text-3)]">{t.questions.length} questions</div>
               </button></li>
             ))}
           </ul>
@@ -119,9 +119,9 @@ function SurveyBuilder({ template, onClose }) {
 
         <ol className="space-y-3">
           {d.questions.map((q, i) => (
-            <li key={q.id} className="rounded-xl border border-white/10 p-3">
+            <li key={q.id} className="rounded-xl border border-[var(--az-hairline)] p-3">
               <div className="flex flex-wrap gap-2">
-                <span className="grid h-11 w-8 place-items-center text-sm font-bold text-slate-500">{i + 1}</span>
+                <span className="grid h-11 w-8 place-items-center text-sm font-bold text-[var(--az-text-3)]">{i + 1}</span>
                 <input className="input min-w-0 flex-1" aria-label={`Question ${i + 1}`} placeholder="Question" value={q.text} onChange={(e) => setQ(i, { text: e.target.value })} />
                 <select className="input !w-auto" aria-label="Question type" value={q.type} onChange={(e) => setQ(i, { type: e.target.value, options: hasOptions(e.target.value) ? (q.options?.length ? q.options : ['', '']) : undefined })}>
                   {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -145,8 +145,8 @@ function SurveyBuilder({ template, onClose }) {
           ))}
         </ol>
         <button type="button" className="btn btn-ghost min-h-11" onClick={() => setD({ ...d, questions: [...d.questions, { id: uid('q'), type: 'single', text: '', options: ['', ''] }] })}>+ Add question</button>
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-        <div className="flex flex-wrap justify-end gap-2 border-t border-white/5 pt-4">
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
+        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--az-hairline)] pt-4">
           <button className="btn btn-ghost min-h-11" onClick={() => save('draft')}>Save draft</button>
           <button className="btn btn-primary min-h-11" onClick={() => save('active')}>Publish</button>
         </div>
@@ -178,14 +178,14 @@ function SurveyDetail({ id }) {
 
   return (
     <div>
-      <Link to="/surveys" className="text-sm text-slate-400 hover:text-white">← Surveys</Link>
+      <Link to="/surveys" className="text-sm text-[var(--az-text-2)] hover:text-[var(--az-text)]">← Surveys</Link>
       <PageHeader title={s.title} subtitle={`${s.description ? `${s.description} · ` : ''}by ${user(s.authorId)?.name ?? 'Unknown'} · ${responses.length} responses`}
         actions={isOwner && <>
           {s.status === 'draft' && <button className="btn btn-primary min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'active' } })}>Publish</button>}
           {open && <button className="btn btn-ghost min-h-11" onClick={async () => { if (await confirmAction('Close this survey to new responses?')) dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'closed' } }); }}>Close survey</button>}
           {!open && s.status !== 'draft' && <button className="btn btn-ghost min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: (x) => ({ ...x, status: 'active', deadline: x.deadline && x.deadline > Date.now() ? x.deadline : Date.now() + 7 * 86400e3 }) })}>Reopen</button>}
           <button className="btn btn-ghost min-h-11" onClick={exportCsv} disabled={!responses.length}>Export CSV</button>
-          <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={async () => { if (await confirmAction('Delete this survey and its responses?')) { responses.forEach((r) => dispatch({ type: 'remove', col: 'surveyResponses', id: r.id, silent: true })); dispatch({ type: 'remove', col: 'surveys', id }); nav('/surveys'); } }}>Delete</button>
+          <button className="btn min-h-11 bg-[var(--az-danger-soft)] text-[var(--az-danger)]" onClick={async () => { if (await confirmAction('Delete this survey and its responses?')) { responses.forEach((r) => dispatch({ type: 'remove', col: 'surveyResponses', id: r.id, silent: true })); dispatch({ type: 'remove', col: 'surveys', id }); nav('/surveys'); } }}>Delete</button>
         </>} />
       <div className="mb-4 flex flex-wrap gap-1.5 text-xs">
         <span className="chip">{s.status === 'draft' ? 'Draft' : open ? 'Active' : 'Closed'}</span>
@@ -214,29 +214,29 @@ function Respond({ survey, onDone }) {
   };
   return (
     <form onSubmit={submit} className="space-y-4">
-      {survey.anonymous && <p className="glass p-3 text-sm text-slate-300"><Glyph value="eyeoff" tile={false} size={16} /> This survey is anonymous. Your name won’t appear with your answers.</p>}
+      {survey.anonymous && <p className="panel p-3 text-sm text-[var(--az-text-2)]"><Glyph value="eyeoff" tile={false} size={16} /> This survey is anonymous. Your name won’t appear with your answers.</p>}
       {survey.questions.map((q, i) => (
         <fieldset key={q.id} className="glass p-5">
           <legend className="sr-only">{q.text}</legend>
-          <p className="font-semibold"><span className="text-slate-500">{i + 1}.</span> {q.text}</p>
+          <p className="font-semibold"><span className="text-[var(--az-text-3)]">{i + 1}.</span> {q.text}</p>
           <div className="mt-3">
             {q.type === 'single' && q.options.map((o) => (
-              <label key={o} className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-white/5"><input type="radio" name={q.id} checked={answers[q.id] === o} onChange={() => set(q.id, o)} /> {o}</label>
+              <label key={o} className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-[var(--az-sunken)]"><input type="radio" name={q.id} checked={answers[q.id] === o} onChange={() => set(q.id, o)} /> {o}</label>
             ))}
             {q.type === 'multi' && q.options.map((o) => {
               const cur = answers[q.id] || [];
-              return <label key={o} className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-white/5"><input type="checkbox" checked={cur.includes(o)} onChange={() => set(q.id, cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o])} /> {o}</label>;
+              return <label key={o} className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-[var(--az-sunken)]"><input type="checkbox" checked={cur.includes(o)} onChange={() => set(q.id, cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o])} /> {o}</label>;
             })}
             {(q.type === 'rating' || q.type === 'nps') && (
               <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={q.text}>
                 {(q.type === 'rating' ? [1, 2, 3, 4, 5] : [...Array(11).keys()]).map((n) => (
                   <button type="button" key={n} role="radio" aria-checked={answers[q.id] === n} onClick={() => set(q.id, n)}
                     aria-label={q.type === 'rating' ? `${n} star${n > 1 ? 's' : ''}` : undefined}
-                    className={`inline-flex h-11 min-w-11 items-center justify-center gap-0.5 rounded-xl border px-2 text-sm font-semibold ${answers[q.id] === n ? 'border-brand-500 bg-brand-500 text-white' : 'border-white/10 hover:bg-white/5'}`}>
+                    className={`inline-flex h-11 min-w-11 items-center justify-center gap-0.5 rounded-xl border px-2 text-sm font-semibold ${answers[q.id] === n ? 'border-brand-500 bg-brand-500 text-[var(--az-text)]' : 'border-[var(--az-hairline)] hover:bg-[var(--az-sunken)]'}`}>
                     {q.type === 'rating' ? [...Array(n)].map((_, i) => <Icon key={i} name="star" size={14} />) : n}
                   </button>
                 ))}
-                {q.type === 'nps' && <div className="mt-1 flex w-full justify-between text-xs text-slate-500"><span>Not likely</span><span>Very likely</span></div>}
+                {q.type === 'nps' && <div className="mt-1 flex w-full justify-between text-xs text-[var(--az-text-3)]"><span>Not likely</span><span>Very likely</span></div>}
               </div>
             )}
             {q.type === 'short' && <input className="input" value={answers[q.id] || ''} onChange={(e) => set(q.id, e.target.value)} aria-label={q.text} />}
@@ -244,7 +244,7 @@ function Respond({ survey, onDone }) {
           </div>
         </fieldset>
       ))}
-      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+      {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
       <button className="btn btn-primary min-h-11 w-full sm:w-auto">Submit response</button>
     </form>
   );
@@ -254,8 +254,8 @@ function Bar({ label, n, total }) {
   const pct = total ? Math.round((n / total) * 100) : 0;
   return (
     <div>
-      <div className="flex justify-between text-sm"><span>{label}</span><span className="text-slate-400">{n} · {pct}%</span></div>
-      <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-white/10"><div className="brand-gradient h-full rounded-full" style={{ width: `${pct}%` }} /></div>
+      <div className="flex justify-between text-sm"><span>{label}</span><span className="text-[var(--az-text-2)]">{n} · {pct}%</span></div>
+      <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-[var(--az-sunken)]"><div className="brand-gradient h-full rounded-full" style={{ width: `${pct}%` }} /></div>
     </div>
   );
 }
@@ -269,19 +269,19 @@ function Results({ survey, responses }) {
         const vals = responses.map((r) => r.answers[q.id]).filter((v) => v != null && v !== '' && !(Array.isArray(v) && !v.length));
         return (
           <section key={q.id} className="glass p-5">
-            <h2 className="font-semibold"><span className="text-slate-500">{i + 1}.</span> {q.text}</h2>
-            <p className="text-xs text-slate-500">{vals.length} answers</p>
+            <h2 className="font-semibold"><span className="text-[var(--az-text-3)]">{i + 1}.</span> {q.text}</h2>
+            <p className="text-xs text-[var(--az-text-3)]">{vals.length} answers</p>
             <div className="mt-4 space-y-3">
               {hasOptions(q.type) && q.options.map((o) => <Bar key={o} label={o} n={vals.filter((v) => (Array.isArray(v) ? v.includes(o) : v === o)).length} total={vals.length} />)}
               {q.type === 'rating' && <>
-                <p className="text-2xl font-extrabold">{(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)} <span className="text-base font-normal text-amber-300">average</span></p>
+                <p className="text-2xl font-extrabold">{(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)} <span className="text-base font-normal text-[var(--az-warning)]">average</span></p>
                 {[5, 4, 3, 2, 1].map((n) => <Bar key={n} label={`${n} star${n > 1 ? 's' : ''}`} n={vals.filter((v) => v === n).length} total={vals.length} />)}
               </>}
               {q.type === 'nps' && <Nps vals={vals} />}
               {(q.type === 'short' || q.type === 'long') && (
                 <ul className="space-y-2">{responses.filter((r) => r.answers[q.id]).map((r) => (
-                  <li key={r.id} className="rounded-xl bg-white/5 p-3 text-sm"><p>{r.answers[q.id]}</p>
-                    <p className="mt-1 text-xs text-slate-500">{survey.anonymous || r.anonymous ? 'Anonymous' : user(r.authorId)?.name} · {timeAgo(r.createdAt)}</p></li>
+                  <li key={r.id} className="rounded-xl bg-[var(--az-sunken)] p-3 text-sm"><p>{r.answers[q.id]}</p>
+                    <p className="mt-1 text-xs text-[var(--az-text-3)]">{survey.anonymous || r.anonymous ? 'Anonymous' : user(r.authorId)?.name} · {timeAgo(r.createdAt)}</p></li>
                 ))}</ul>
               )}
             </div>
@@ -299,11 +299,11 @@ function Nps({ vals }) {
   const score = Math.round(((promoters - detractors) / vals.length) * 100);
   return (
     <>
-      <p className="text-3xl font-extrabold">{score > 0 ? '+' : ''}{score} <span className="text-base font-normal text-slate-400">NPS</span></p>
+      <p className="text-3xl font-extrabold">{score > 0 ? '+' : ''}{score} <span className="text-base font-normal text-[var(--az-text-2)]">NPS</span></p>
       <div className="flex h-3 overflow-hidden rounded-full" aria-hidden="true">
-        <div className="bg-emerald-500" style={{ width: `${(promoters / vals.length) * 100}%` }} />
-        <div className="bg-slate-500" style={{ width: `${(passives / vals.length) * 100}%` }} />
-        <div className="bg-rose-500" style={{ width: `${(detractors / vals.length) * 100}%` }} />
+        <div className="bg-[var(--az-ok)]" style={{ width: `${(promoters / vals.length) * 100}%` }} />
+        <div className="bg-[var(--az-text-3)]" style={{ width: `${(passives / vals.length) * 100}%` }} />
+        <div className="bg-[var(--az-danger)]" style={{ width: `${(detractors / vals.length) * 100}%` }} />
       </div>
       <Bar label="Promoters (9–10)" n={promoters} total={vals.length} />
       <Bar label="Passives (7–8)" n={passives} total={vals.length} />

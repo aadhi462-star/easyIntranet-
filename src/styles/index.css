@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "./light-invert.css";
 
 /*
  * CommunityOne design tokens, v2 (MASTER_BRIEF_V2.md; board "v2 — Design system", decisions
@@ -9,8 +8,9 @@
  * The semantic --az-* tokens are what new components use. The Tailwind scales below keep the
  * older rule so screens not yet moved onto src/components/ui keep their contrast in both modes:
  * low stops (50–400) are "readable on the page", high stops (500+) are fills; light mode flips
- * them (and light-invert.css flips the stock scales) so `text-white` reads as near-black.
- * light-invert.css goes once every screen uses the components (end of workstream G).
+ * them. The stock Tailwind palettes (white, slate, rose, emerald, amber, orange) aren't flipped
+ * any more: light-invert.css was retired at the end of workstream G, and
+ * server/test/source-rules.test.js keeps them out of src.
  */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;

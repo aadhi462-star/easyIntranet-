@@ -346,15 +346,15 @@ export default function assessmentRoutes(app, { ctx, loadCourse, outline, counte
     return { submission: await submissionOut(s, { own: true }) };
   });
 
-  // ---- Grading (managers, ASM-06/07) ----------------------------------------------------------
-  /** Submissions in the courses this person manages in a community, oldest first. */
+  // ---- Grading (managers and Teaching Assistants, ASM-06/07, G7) -----------------------------
+  /** Submissions in the courses this person grades in a community, oldest first. */
   app.get('/communities/:id/grading', async (req) => {
     const uid = signedIn(req);
     const status = ['to_grade', 'graded', 'all'].includes(req.query.status) ? req.query.status : 'to_grade';
     const { rows: courses } = await db.query(`select id from courses where community_id = (select id from communities where id = $1 or slug = $1 limit 1)`, [req.params.id]);
     const mine = [];
-    for (const c of courses) { const r = await loadCourse(req, c.id).catch(() => null); if (r?.manage) mine.push(r.c); }
-    if (!mine.length) throw forbidden('Only Instructors and Admins grade work.', 'NOT_A_GRADER');
+    for (const c of courses) { const r = await loadCourse(req, c.id).catch(() => null); if (r?.grade) mine.push(r.c); }
+    if (!mine.length) throw forbidden('Only Instructors, Teaching Assistants and Admins grade work.', 'NOT_A_GRADER');
     const ids = mine.map((c) => c.id).filter((id) => !req.query.course || id === req.query.course);
     const { rows } = await db.query(
       `select s.*, u.name as learner_name, l.title as lesson_title, c.title as course_title, lk.name as lock_name
@@ -371,13 +371,13 @@ export default function assessmentRoutes(app, { ctx, loadCourse, outline, counte
     };
   });
 
-  /** One submission: its learner or the course's managers only (ASM-12, ASM-07). */
+  /** One submission: its learner or the course's graders only (ASM-12, ASM-07): managers and its Teaching Assistants (G7). */
   async function submissionFor(req, id) {
     const uid = signedIn(req);
     const { rows: [s] } = await db.query(`select * from submissions where id = $1`, [id]);
     if (!s) throw notFound('That submission doesn’t exist.');
     const r = await loadCourse(req, s.course_id).catch(() => null);
-    if (s.user_id !== uid && !r?.manage) throw notFound('That submission doesn’t exist.');
+    if (s.user_id !== uid && !r?.grade) throw notFound('That submission doesn’t exist.');
     return { s, r, uid };
   }
   const gradingView = async (s, uid) => {
@@ -391,7 +391,7 @@ export default function assessmentRoutes(app, { ctx, loadCourse, outline, counte
   };
   app.get('/submissions/:id', async (req) => {
     const { s, r, uid } = await submissionFor(req, req.params.id);
-    if (!r?.manage) return { submission: await submissionOut(s, { own: true }) };
+    if (!r?.grade) return { submission: await submissionOut(s, { own: true }) };
     return gradingView(s, uid);
   });
 
@@ -399,7 +399,7 @@ export default function assessmentRoutes(app, { ctx, loadCourse, outline, counte
   // or released, or the lock is older than 30 minutes (ASM-06).
   app.post('/submissions/:id/claim', async (req) => {
     const { s, r, uid } = await submissionFor(req, req.params.id);
-    if (!r?.manage) throw forbidden('Only this course’s Instructors and the community’s Admins grade it.', 'NOT_A_GRADER');
+    if (!r?.grade) throw forbidden('Only this course’s Instructors and Teaching Assistants and the community’s Admins grade it.', 'NOT_A_GRADER');
     if (s.status !== 'submitted') throw conflict('ALREADY_RETURNED', 'This work has already been returned.');
     const claimed = await db.tx(async (t) => {
       const { rows: [cur] } = await t.query(`select s.*, u.name as lock_name from submissions s left join users u on u.id = s.lock_by where s.id = $1 for update of s`, [s.id]);
@@ -420,7 +420,7 @@ export default function assessmentRoutes(app, { ctx, loadCourse, outline, counte
   /** Changes that need the grading lock, held by the caller. */
   async function withLock(req, id, fn) {
     const { s, r, uid } = await submissionFor(req, id);
-    if (!r?.manage) throw forbidden('Only this course’s Instructors and the community’s Admins grade it.', 'NOT_A_GRADER');
+    if (!r?.grade) throw forbidden('Only this course’s Instructors and Teaching Assistants and the community’s Admins grade it.', 'NOT_A_GRADER');
     const { rows: [a] } = await db.query(`select * from assignments where lesson_id = $1`, [s.lesson_id]);
     const out = await db.tx(async (t) => {
       const { rows: [cur] } = await t.query(`select * from submissions where id = $1 for update`, [s.id]);

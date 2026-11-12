@@ -125,7 +125,7 @@ function Directory() {
           </ul>
         </section>
       )}
-      {result.error && <p role="alert" className="mb-4 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">Couldn’t load the directory: {result.error}</p>}
+      {result.error && <p role="alert" className="notice notice-bad mb-4">Couldn’t load the directory: {result.error}</p>}
       {result.loading && !list.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="glass h-40 animate-pulse" />)}</div>
         : !list.length ? <Empty icon="search" title="No one matches those filters">Try removing a filter.</Empty> : view === 'grid' ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -145,7 +145,7 @@ function Directory() {
           ))}
         </div>
       ) : (
-        <div className="glass divide-y divide-white/5">
+        <div className="panel divide-y divide-[var(--az-hairline)]">
           {list.map((u) => (
             <div key={u.id} className="flex flex-wrap items-center gap-3 p-3">
               <Link to={`/people/${u.id}`} className="flex min-w-0 flex-1 items-center gap-3">

@@ -30,8 +30,8 @@ function AppList() {
               <Link key={a.id} to={`/apps/${a.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
                 <Glyph value={a.icon || 'apps'} size={48} className="text-xl" />
                 <h2 className="mt-3 font-bold">{a.name}</h2>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-400">{a.description}</p>
-                <p className="mt-3 text-xs text-slate-500">{a.fields.length} fields · {n} records · owner {user(a.ownerId)?.name ?? '—'}{a.ownerId === me.id ? ' (you)' : ''}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-[var(--az-text-2)]">{a.description}</p>
+                <p className="mt-3 text-xs text-[var(--az-text-3)]">{a.fields.length} fields · {n} records · owner {user(a.ownerId)?.name ?? '—'}{a.ownerId === me.id ? ' (you)' : ''}</p>
               </Link>
             );
           })}
@@ -75,10 +75,10 @@ function AppEditor({ app, onClose }) {
         <Field label="Description"><input className="input" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={notifyOwner} onChange={(e) => setNotifyOwner(e.target.checked)} />Notify me when a new record is submitted (workflow)</label>
         <div>
-          <div className="mb-2 text-xs font-semibold text-slate-300">Fields</div>
+          <div className="mb-2 text-xs font-semibold text-[var(--az-text-2)]">Fields</div>
           <ul className="space-y-2">
             {fields.map((f, i) => (
-              <li key={f.id} className="rounded-xl bg-white/5 p-3">
+              <li key={f.id} className="rounded-xl bg-[var(--az-sunken)] p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <input className="input min-w-40 flex-1" value={f.label} onChange={(e) => setField(i, { label: e.target.value })} aria-label="Field label" placeholder="Field label" />
                   <select className="input !w-36" value={f.type} onChange={(e) => setField(i, { type: e.target.value })} aria-label="Field type">
@@ -154,14 +154,14 @@ function AppView({ id }) {
           {records.length === 0 ? <Empty icon="inbox" title="No records yet" /> : (
             <div className="glass overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="text-xs uppercase tracking-wider text-slate-400">
+                <thead className="text-xs uppercase tracking-wider text-[var(--az-text-2)]">
                   <tr>{app.fields.map((f) => <th key={f.id} className="p-3">{f.label}</th>)}<th className="p-3">Submitted</th><th className="p-3"><span className="sr-only">Actions</span></th></tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-[var(--az-divider)]">
                   {records.map((r) => (
-                    <tr key={r.id} className="hover:bg-white/[.03]">
-                      {app.fields.map((f) => <td key={f.id} className="max-w-56 truncate p-3 text-slate-200">{display(f, r.values[f.id], user)}</td>)}
-                      <td className="whitespace-nowrap p-3 text-xs text-slate-400"><UserLink id={r.authorId} className="!font-medium" /> · {timeAgo(r.createdAt)}</td>
+                    <tr key={r.id} className="hover:bg-[var(--az-sunken)]">
+                      {app.fields.map((f) => <td key={f.id} className="max-w-56 truncate p-3 text-[var(--az-text)]">{display(f, r.values[f.id], user)}</td>)}
+                      <td className="whitespace-nowrap p-3 text-xs text-[var(--az-text-2)]"><UserLink id={r.authorId} className="!font-medium" /> · {timeAgo(r.createdAt)}</td>
                       <td className="whitespace-nowrap p-3 text-right">
                         {(r.authorId === me.id || isOwner) && <>
                           <button className="btn btn-ghost h-9 text-xs" onClick={() => setRecord(r)}>Edit</button>
@@ -209,14 +209,14 @@ function Reports({ app, records, onExport }) {
           </div>
           <button className="btn btn-ghost h-11" onClick={onExport}>Export CSV</button>
         </div>
-        {data.length === 0 ? <p className="text-sm text-slate-400">No records to report on.</p>
+        {data.length === 0 ? <p className="text-sm text-[var(--az-text-2)]">No records to report on.</p>
           : kind === 'bar' ? <BarList data={data} /> : <PieChart data={data} label={`Records by ${field?.label}`} />}
       </section>
       <section className="glass p-5">
         <h2 className="mb-3 font-bold">Summary</h2>
         <p className="text-3xl font-extrabold">{records.length}</p>
-        <p className="text-sm text-slate-400">total records</p>
-        <h3 className="mb-2 mt-5 text-sm font-semibold text-slate-300">Submissions by day</h3>
+        <p className="text-sm text-[var(--az-text-2)]">total records</p>
+        <h3 className="mb-2 mt-5 text-sm font-semibold text-[var(--az-text-2)]">Submissions by day</h3>
         <BarList data={Object.entries(byDay).map(([label, value]) => ({ label, value }))} />
       </section>
     </div>
@@ -252,7 +252,7 @@ function RecordForm({ app, record, onClose }) {
             </Field>
           );
         })}
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
         <button className="btn btn-primary w-full">{record ? 'Save' : 'Submit'}</button>
       </form>
     </Modal>

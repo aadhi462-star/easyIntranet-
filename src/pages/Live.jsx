@@ -55,12 +55,12 @@ function LiveHome() {
         <div className="grid gap-4 md:grid-cols-2">
           {broadcasts.map((b) => (
             <Link key={b.id} to={`/live/${b.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
-              <span className={`chip ${b.status === 'live' ? '!bg-rose-500/20 !text-rose-200' : b.status === 'ended' ? '!bg-white/10 !text-slate-400' : ''}`}>
+              <span className={`chip ${b.status === 'live' ? '!bg-[var(--az-danger-soft)] !text-[var(--az-danger)]' : b.status === 'ended' ? '!bg-[var(--az-sunken)] !text-[var(--az-text-2)]' : ''}`}>
                 {b.status === 'live' ? '● Live now' : b.status === 'ended' ? 'Ended' : 'Scheduled'}
               </span>
               <h3 className="mt-3 font-bold"><Glyph value="live" tile={false} size={16} /> {b.title}</h3>
-              <p className="mt-1 line-clamp-2 text-sm text-slate-400">{b.description}</p>
-              <p className="mt-3 text-xs text-slate-400">
+              <p className="mt-1 line-clamp-2 text-sm text-[var(--az-text-2)]">{b.description}</p>
+              <p className="mt-3 text-xs text-[var(--az-text-2)]">
                 {new Date(b.scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · Host {state.users.find((u) => u.id === b.hostId)?.name}
                 {b.status === 'ended' && b.peakViewers ? ` · ${b.peakViewers} peak viewers` : ''}
               </p>
@@ -74,7 +74,7 @@ function LiveHome() {
             <Link key={m.id} to={`/live/${m.id}`} className="glass flex flex-wrap items-center gap-4 p-4">
               <div className="flex-1">
                 <h3 className="font-bold"><Glyph value="video" tile={false} size={16} /> {m.title}</h3>
-                <p className="text-xs text-slate-400">{new Date(m.scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · code <code>{m.id}</code></p>
+                <p className="text-xs text-[var(--az-text-2)]">{new Date(m.scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · code <code>{m.id}</code></p>
               </div>
               <AvatarStack ids={m.participants} />
               <span className="btn btn-primary">Join</span>
@@ -116,7 +116,7 @@ function CreateModal({ kind, onClose }) {
         {kind === 'broadcast' && <Field label="Description"><textarea className="input min-h-20" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>}
         <Field label="When"><input className="input" type="datetime-local" value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} /></Field>
         {kind === 'meeting' && <Field label="Invite"><PeoplePicker value={f.people} onChange={(people) => setF({ ...f, people })} exclude={[me.id]} /></Field>}
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
         <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary">Create</button></div>
       </form>
     </Modal>
@@ -147,11 +147,11 @@ function Broadcast({ bc }) {
 
   return (
     <div className="space-y-4">
-      <Link to="/live" className="text-sm text-slate-400 hover:text-white">← Live & Meetings</Link>
+      <Link to="/live" className="text-sm text-[var(--az-text-2)] hover:text-[var(--az-text)]">← Live & Meetings</Link>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-extrabold tracking-tight"><Glyph value="live" tile={false} size={16} /> {bc.title}</h1>
-        <span className={`chip ${live ? '!bg-rose-500/20 !text-rose-200' : bc.status === 'ended' ? '!bg-white/10 !text-slate-400' : ''}`}>{live ? '● Live' : bc.status === 'ended' ? 'Ended' : 'Scheduled'}</span>
-        {live && <span className="chip !bg-white/10 !text-slate-200"><Glyph value="eye" tile={false} size={16} /> {viewers} watching <span className="opacity-60">(simulated)</span></span>}
+        <span className={`chip ${live ? '!bg-[var(--az-danger-soft)] !text-[var(--az-danger)]' : bc.status === 'ended' ? '!bg-[var(--az-sunken)] !text-[var(--az-text-2)]' : ''}`}>{live ? '● Live' : bc.status === 'ended' ? 'Ended' : 'Scheduled'}</span>
+        {live && <span className="chip !bg-[var(--az-sunken)] !text-[var(--az-text)]"><Glyph value="eye" tile={false} size={16} /> {viewers} watching <span className="opacity-60">(simulated)</span></span>}
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         {isHost ? <Studio bc={bc} setBc={setBc} viewers={viewers} /> : <Viewer bc={bc} />}
@@ -192,23 +192,23 @@ function Studio({ bc, setBc, viewers }) {
 
   return (
     <section className="space-y-3" aria-label="Broadcast studio">
-      <div className="relative aspect-video overflow-hidden rounded-2xl bg-black ring-1 ring-white/10">
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-[#0e1311] text-[#fff] ring-1 ring-[var(--az-hairline)]">
         {showScreen && <Video stream={media.screen} className="!object-contain" />}
         {showCam && (
-          <div className={showScreen ? (layout === 'side' ? 'absolute inset-y-0 right-0 w-1/3 border-l border-white/10' : 'absolute bottom-3 right-3 aspect-video w-1/4 overflow-hidden rounded-xl ring-2 ring-white/30') : 'absolute inset-0'}>
+          <div className={showScreen ? (layout === 'side' ? 'absolute inset-y-0 right-0 w-1/3 border-l border-[#ffffff1a]' : 'absolute bottom-3 right-3 aspect-video w-1/4 overflow-hidden rounded-xl ring-2 ring-[#ffffff4d]') : 'absolute inset-0'}>
             <Video stream={media.stream} mirror />
           </div>
         )}
         {!showScreen && !showCam && (
           <div className="absolute inset-0 grid place-items-center text-center">
-            <div><Avatar user={me} size={88} /><p className="mt-3 text-sm text-slate-400">{media.stream ? 'Camera is off' : ended ? 'This broadcast has ended.' : 'Start your camera to preview the stage.'}</p></div>
+            <div><Avatar user={me} size={88} /><p className="mt-3 text-sm text-[#fff]/70">{media.stream ? 'Camera is off' : ended ? 'This broadcast has ended.' : 'Start your camera to preview the stage.'}</p></div>
           </div>
         )}
-        {live && <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-bold">● LIVE <Elapsed since={bc.startedAt || Date.now()} /></span>}
-        {recorder.recording && <span className="absolute right-3 top-3 rounded-md bg-black/70 px-2 py-1 text-xs font-bold text-rose-300"><Glyph value="record" tile={false} size={16} /> REC <Elapsed since={recorder.startedAt} /></span>}
+        {live && <span className="absolute left-3 top-3 rounded-md bg-[#b42318] px-2 py-1 text-xs font-bold text-[#fff]">● LIVE <Elapsed since={bc.startedAt || Date.now()} /></span>}
+        {recorder.recording && <span className="absolute right-3 top-3 rounded-md bg-black/70 px-2 py-1 text-xs font-bold text-[#f08a80]"><Glyph value="record" tile={false} size={16} /> REC <Elapsed since={recorder.startedAt} /></span>}
       </div>
 
-      {(media.error || recorder.error) && <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{media.error || recorder.error}</p>}
+      {(media.error || recorder.error) && <p role="alert" className="notice notice-bad">{media.error || recorder.error}</p>}
 
       {!ended && (
         <div className="glass flex flex-wrap items-center justify-center gap-3 p-3">
@@ -220,9 +220,9 @@ function Studio({ bc, setBc, viewers }) {
           <select className="input !w-auto" value={layout} onChange={(e) => setLayout(e.target.value)} aria-label="Stage layout">
             <option value="auto">Layout: Screen + camera</option><option value="side">Layout: Side by side</option><option value="screen">Layout: Screen only</option><option value="camera">Layout: Camera only</option>
           </select>
-          {recorder.recording ? <button className="btn btn-ghost !text-rose-300" onClick={recorder.stop}>Stop recording</button>
+          {recorder.recording ? <button className="btn btn-ghost !text-[var(--az-danger)]" onClick={recorder.stop}>Stop recording</button>
             : <button className="btn btn-ghost" onClick={() => recorder.start(recordStream())} disabled={!media.stream && !media.screen}><Glyph value="record" tile={false} size={16} /> Record</button>}
-          {live ? <button className="btn bg-rose-600 text-white hover:bg-rose-500" onClick={end}>End broadcast</button>
+          {live ? <button className="btn btn-danger" onClick={end}>End broadcast</button>
             : <button className="btn btn-primary" onClick={goLive}>● Go live</button>}
         </div>
       )}
@@ -231,12 +231,12 @@ function Studio({ bc, setBc, viewers }) {
         <div className="glass p-4">
           <h3 className="mb-2 font-bold">Recordings</h3>
           <ul className="space-y-2 text-sm">
-            {recorder.clips.map((c) => <li key={c.url} className="flex items-center gap-3"><span className="flex-1 truncate">{c.name}</span><span className="text-xs text-slate-500">{fmtSize(c.size)}</span><a className="btn btn-ghost !py-1.5" href={c.url} download={c.name}>Download</a></li>)}
+            {recorder.clips.map((c) => <li key={c.url} className="flex items-center gap-3"><span className="flex-1 truncate">{c.name}</span><span className="text-xs text-[var(--az-text-3)]">{fmtSize(c.size)}</span><a className="btn btn-ghost !py-1.5" href={c.url} download={c.name}>Download</a></li>)}
           </ul>
         </div>
       )}
-      {ended && <p className="text-sm text-slate-400">Ended {new Date(bc.endedAt).toLocaleString()} · peak {bc.peakViewers} viewers (simulated).</p>}
-      <p className="text-xs text-slate-500">{SIMULATED_NOTE}</p>
+      {ended && <p className="text-sm text-[var(--az-text-2)]">Ended {new Date(bc.endedAt).toLocaleString()} · peak {bc.peakViewers} viewers (simulated).</p>}
+      <p className="text-xs text-[var(--az-text-3)]">{SIMULATED_NOTE}</p>
     </section>
   );
 }
@@ -247,21 +247,21 @@ function Viewer({ bc }) {
   const subscribed = (bc.subscribers || []).includes(me.id);
   return (
     <section className="space-y-3" aria-label="Broadcast">
-      <div className="relative grid aspect-video place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-900/60 via-black to-leaf-900/50 ring-1 ring-white/10">
+      <div className="relative grid aspect-video place-items-center overflow-hidden rounded-2xl bg-[#0e1311] bg-gradient-to-br from-[#062c23]/60 via-black to-[#141614]/50 text-[#fff] ring-1 ring-[var(--az-hairline)]">
         <div className="text-center">
           <Avatar user={host} size={96} />
           <p className="mt-3 font-semibold">{host?.name}</p>
-          <p className="mt-1 max-w-sm px-4 text-sm text-slate-400">
+          <p className="mt-1 max-w-sm px-4 text-sm text-[#fff]/70">
             {bc.status === 'live' ? 'Live now. The host’s video isn’t available in this demo because there’s no media server.'
               : bc.status === 'ended' ? 'This broadcast has ended.'
                 : `Starts ${new Date(bc.scheduledAt).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
           </p>
         </div>
-        {bc.status === 'live' && <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-bold">● LIVE</span>}
+        {bc.status === 'live' && <span className="absolute left-3 top-3 rounded-md bg-[#b42318] px-2 py-1 text-xs font-bold text-[#fff]">● LIVE</span>}
       </div>
       <div className="glass p-4">
-        <p className="text-slate-200">{bc.description}</p>
-        <p className="mt-2 text-sm text-slate-400">Hosted by <UserLink id={bc.hostId} /></p>
+        <p className="text-[var(--az-text)]">{bc.description}</p>
+        <p className="mt-2 text-sm text-[var(--az-text-2)]">Hosted by <UserLink id={bc.hostId} /></p>
         {bc.status === 'scheduled' && (
           <button className="btn btn-ghost mt-3" aria-pressed={subscribed}
             onClick={() => dispatch({ type: 'update', col: 'broadcasts', id: bc.id, patch: (x, m) => ({ ...x, subscribers: subscribed ? x.subscribers.filter((s) => s !== m) : [...(x.subscribers || []), m] }) })}>
@@ -303,14 +303,14 @@ function MeetingRoom({ mt }) {
   if (!joined) {
     return (
       <div className="mx-auto max-w-xl space-y-4">
-        <Link to="/live" className="text-sm text-slate-400 hover:text-white">← Live & Meetings</Link>
+        <Link to="/live" className="text-sm text-[var(--az-text-2)] hover:text-[var(--az-text)]">← Live & Meetings</Link>
         <section className="glass p-6 text-center">
           <h1 className="text-2xl font-extrabold"><Glyph value="video" tile={false} size={16} /> {mt.title}</h1>
-          <p className="mt-1 text-sm text-slate-400">Hosted by {state.users.find((u) => u.id === mt.hostId)?.name} · code <code>{mt.id}</code></p>
+          <p className="mt-1 text-sm text-[var(--az-text-2)]">Hosted by {state.users.find((u) => u.id === mt.hostId)?.name} · code <code>{mt.id}</code></p>
           <div className="mt-5 flex justify-center"><AvatarStack ids={mt.participants} max={6} size={36} /></div>
-          <p className="mt-2 text-sm text-slate-400">{mt.participants.length} invited</p>
+          <p className="mt-2 text-sm text-[var(--az-text-2)]">{mt.participants.length} invited</p>
           <button className="btn btn-primary mt-6 h-12 px-8" onClick={join} disabled={media.starting}>{media.starting ? 'Starting camera…' : 'Join meeting'}</button>
-          <p className="mt-4 text-xs text-slate-500">{SIMULATED_NOTE}</p>
+          <p className="mt-4 text-xs text-[var(--az-text-3)]">{SIMULATED_NOTE}</p>
         </section>
       </div>
     );
@@ -328,11 +328,11 @@ function MeetingRoom({ mt }) {
         <h1 className="text-xl font-extrabold"><Glyph value="video" tile={false} size={16} /> {mt.title}</h1>
         <button className="btn btn-ghost" onClick={copy}>{copied ? '✓ Link copied' : 'Copy invite link'}</button>
       </div>
-      {media.error && <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{media.error} You’re in the meeting without audio or video.</p>}
+      {media.error && <p role="alert" className="notice notice-bad">{media.error} You’re in the meeting without audio or video.</p>}
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <section aria-label="Participants video" className={`grid gap-3 ${tiles.length > 4 ? 'grid-cols-2 md:grid-cols-3' : tiles.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
           {tiles.map((t) => (
-            <div key={t.id} className={`relative aspect-video overflow-hidden rounded-2xl bg-ink-850 ring-2 transition ${speaking === t.id ? 'ring-emerald-400' : 'ring-white/10'} ${t.screen ? 'col-span-full' : ''}`}>
+            <div key={t.id} className={`relative aspect-video overflow-hidden rounded-2xl bg-[#0e1311] text-[#fff] ring-2 transition ${speaking === t.id ? 'ring-[var(--az-ok)]' : 'ring-[var(--az-hairline)]'} ${t.screen ? 'col-span-full' : ''}`}>
               {t.screen ? <Video stream={media.screen} className="!object-contain" />
                 : t.local && media.stream && media.cam ? <Video stream={media.stream} mirror />
                   : <div className="grid h-full place-items-center"><Avatar user={t.user} size={72} /></div>}
@@ -350,7 +350,7 @@ function MeetingRoom({ mt }) {
                 <li key={u.id} className="flex items-center gap-2 text-sm">
                   <Avatar user={u} size={30} /><span className="flex-1">{u.name}{u.id === me.id && ' (you)'}{u.id === mt.hostId && <span className="ml-1 text-xs text-brand-400">Host</span>}</span>
                   {u.id === me.id && !media.mic ? <Icon name="micoff" size={16} label="Muted" />
-                    : speaking === u.id ? <Icon name="speaker" size={16} label="Speaking" /> : <Icon name="mic" size={16} className="text-slate-500" />}
+                    : speaking === u.id ? <Icon name="speaker" size={16} label="Speaking" /> : <Icon name="mic" size={16} className="text-[var(--az-text-3)]" />}
                 </li>
               ))}
             </ul>
@@ -365,7 +365,7 @@ function MeetingRoom({ mt }) {
         <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing' : 'Share screen'} icon="screen" offIcon="screenoff" />
         <ControlButton danger onClick={leave} label="Leave meeting" icon="hangup" />
       </div>
-      <p className="text-xs text-slate-500">{SIMULATED_NOTE}</p>
+      <p className="text-xs text-[var(--az-text-3)]">{SIMULATED_NOTE}</p>
     </div>
   );
 }

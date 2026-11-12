@@ -40,6 +40,8 @@ export async function createDb({ url = process.env.DATABASE_URL, dataDir = proce
   try { await db.waitReady; } finally { clearInterval(hold); }
   return {
     kind: 'pglite',
+    // Where the data lives (System health says whether it survives a redeploy, G11).
+    dataDir: dataDir || 'memory://',
     query: (text, params) => db.query(text, params),
     // PGlite runs one statement at a time, so its transaction gives the same all-or-nothing
     // guarantee as a pooled PostgreSQL transaction.

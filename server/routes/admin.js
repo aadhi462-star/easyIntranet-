@@ -229,7 +229,8 @@ export default async function adminRoutes(app, { ctx }) {
         // Whether its page opens for you without Administrative Mode (Closed ones are members only).
         canOpen: c.status !== 'suspended' && (c.visibility !== 'closed' || c.is_member) })),
     };
-    if (can(req.user, 'users.approve')) out.pendingAccounts = byStatus.pending ?? 0;
+    // Accounts waiting for a CommunityOne administrator's approval (status pending_approval).
+    if (can(req.user, 'users.approve')) out.pendingAccounts = byStatus.pending_approval ?? 0;
     if (can(req.user, 'audit.view')) {
       out.activity = (await db.query(`select a.id, a.action, a.target_type, a.target_id, a.at, u.name as actor_name
           from audit_log a left join users u on u.id = a.actor_id order by a.at desc, a.id desc limit 6`)).rows
@@ -249,7 +250,7 @@ export default async function adminRoutes(app, { ctx }) {
 
   app.get('/me/permissions', async (req) => {
     if (!req.user) throw forbidden();
-    const actions = ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'users.export', 'settings.platform', 'audit.view', 'audit.export', 'analytics.platform', 'analytics.export', 'roles.assign.critical', 'communities.manage', 'moderation.manage', 'announcements.manage', 'health.view'];
+    const actions = ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'users.export', 'settings.platform', 'audit.view', 'audit.export', 'analytics.platform', 'analytics.export', 'roles.assign.critical', 'communities.manage', 'moderation.manage', 'announcements.manage', 'health.view', 'templates.manage', 'institutions.manage'];
     return { roles: req.user.roles, can: Object.fromEntries(actions.map((a) => [a, can(req.user, a)])) };
   });
 }

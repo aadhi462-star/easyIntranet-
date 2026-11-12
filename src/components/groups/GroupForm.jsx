@@ -46,22 +46,22 @@ export default function GroupForm({ initial, onSave, onClose }) {
           </select>
         </Field>
         <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Access</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-[var(--az-text-2)]">Access</legend>
           <div className="grid gap-2 sm:grid-cols-3">
             {Object.entries(ACCESS).map(([k, a]) => (
-              <label key={k} className={`cursor-pointer rounded-xl border p-3 text-sm transition ${v.accessType === k ? 'border-brand-500 bg-brand-500/10' : 'border-white/10 hover:bg-white/5'}`}>
+              <label key={k} className={`cursor-pointer rounded-xl border p-3 text-sm transition ${v.accessType === k ? 'border-[var(--az-focus)] bg-brand-500/10' : 'border-[var(--az-hairline)] hover:bg-[var(--az-sunken)]'}`}>
                 <input type="radio" name="access" className="sr-only" checked={v.accessType === k} onChange={() => setV({ ...v, accessType: k })} />
                 <div className="font-semibold"><span className="inline-flex items-center gap-2"><Glyph value={a.icon} size={22} />{a.label}</span></div>
-                <div className="mt-1 text-xs text-slate-400">{a.desc}</div>
+                <div className="mt-1 text-xs text-[var(--az-text-2)]">{a.desc}</div>
               </label>
             ))}
           </div>
         </fieldset>
         <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-slate-300">Built-in apps</legend>
+          <legend className="mb-1.5 text-xs font-semibold text-[var(--az-text-2)]">Built-in apps</legend>
           <div className="flex flex-wrap gap-2">
             {APPS.map((a) => (
-              <label key={a.id} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm ${v.apps.includes(a.id) ? 'border-brand-500 bg-brand-500/15' : 'border-white/10'} ${a.id === 'members' ? 'opacity-60' : ''}`}>
+              <label key={a.id} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm ${v.apps.includes(a.id) ? 'border-[var(--az-focus)] bg-brand-500/15' : 'border-[var(--az-hairline)]'} ${a.id === 'members' ? 'opacity-60' : ''}`}>
                 <input type="checkbox" checked={v.apps.includes(a.id)} disabled={a.id === 'members'} onChange={() => toggleApp(a.id)} className="accent-brand-500" />
                 <span className="inline-flex items-center gap-2"><Glyph value={a.icon} size={22} />{a.label}</span>
               </label>
@@ -69,12 +69,12 @@ export default function GroupForm({ initial, onSave, onClose }) {
           </div>
         </fieldset>
         {!editing && (
-          <label className="flex items-start gap-3 rounded-xl bg-white/5 p-3 text-sm">
+          <label className="flex items-start gap-3 rounded-xl bg-[var(--az-sunken)] p-3 text-sm">
             <input type="checkbox" className="mt-1 accent-brand-500" checked={createChannel} onChange={(e) => setCreateChannel(e.target.checked)} />
-            <span><b>Associate a channel</b><span className="block text-xs text-slate-400">Creates a chat channel. Everyone who joins this group is added to it automatically.</span></span>
+            <span><b>Associate a channel</b><span className="block text-xs text-[var(--az-text-2)]">Creates a chat channel. Everyone who joins this group is added to it automatically.</span></span>
           </label>
         )}
-        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-[var(--az-danger)]">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" disabled={busy}>{busy ? (editing ? 'Saving…' : 'Creating…') : editing ? 'Save' : 'Create'}</button>

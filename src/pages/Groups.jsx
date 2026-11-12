@@ -93,7 +93,7 @@ function Directory() {
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
             {[['', 'All'], ...categories.map((c) => [c, c])].map(([value, label]) => (
               <button key={value || 'all'} type="button" aria-pressed={category === value} onClick={() => setCategory(value)}
-                className={`min-h-9 rounded-full px-3.5 text-sm transition ${category === value ? 'bg-[var(--az-text)] font-semibold text-[var(--color-ink-950)]' : 'border border-[var(--az-hairline)] font-medium text-slate-300 hover:text-white'}`}>
+                className={`min-h-9 rounded-full px-3.5 text-sm transition ${category === value ? 'bg-[var(--az-text)] font-semibold text-[var(--color-ink-950)]' : 'border border-[var(--az-hairline)] font-medium text-[var(--az-text-2)] hover:text-[var(--az-text)]'}`}>
                 {label}
               </button>
             ))}
@@ -104,7 +104,7 @@ function Directory() {
       {status === 'loading' && tab !== 'requests' ? <CardSkeletons n={6} />
         : status === 'error' && tab !== 'requests' ? (
           <div role="alert" className="glass p-6 text-center text-sm">
-            <p className="text-rose-300">{message}</p>
+            <p className="text-[var(--az-danger)]">{message}</p>
             <button className="btn btn-ghost mt-3" onClick={retry}>Try again</button>
           </div>
         ) : shown.length === 0 ? (
@@ -126,15 +126,15 @@ function CommunityCard({ g }) {
       <div className="flex items-center gap-3">
         <CommunityTile c={g} />
         <div className="min-w-0">
-          <h3 className="truncate font-semibold text-white"><Link to={communityPath(g)} className="hover:underline">{g.name}</Link></h3>
-          <p className="text-xs text-slate-400">{[g.type, `${n} ${n === 1 ? 'member' : 'members'}`].filter(Boolean).join(' · ')}</p>
+          <h3 className="truncate font-semibold text-[var(--az-text)]"><Link to={communityPath(g)} className="hover:underline">{g.name}</Link></h3>
+          <p className="text-xs text-[var(--az-text-2)]">{[g.type, `${n} ${n === 1 ? 'member' : 'members'}`].filter(Boolean).join(' · ')}</p>
         </div>
       </div>
-      {g.description && <p className="line-clamp-3 text-sm leading-relaxed text-slate-300">{g.description}</p>}
+      {g.description && <p className="line-clamp-3 text-sm leading-relaxed text-[var(--az-text-2)]">{g.description}</p>}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-1">
         <span className="flex flex-wrap items-center gap-2">
           <VisibilityBadge visibility={visibilityOf(g.accessType)} />
-          {g.status === 'archived' && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-200">Archived</span>}
+          {g.status === 'archived' && <span className="badge badge-warn">Archived</span>}
           {pending > 0 && <Link to={communityPath(g, 'members')} className="text-xs font-semibold text-brand-300 hover:underline">{pending} waiting</Link>}
         </span>
         <JoinButton g={g} className="min-h-10 !px-4 text-sm" />

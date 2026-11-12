@@ -38,27 +38,27 @@ export default function Channels() {
 
   const list = (
     <aside className="ext-menu glass flex flex-col overflow-hidden lg:h-[calc(100vh-8.5rem)]" aria-label="Conversations">
-      <div className="border-b border-white/5 p-3"><input className="input" type="search" placeholder="Filter conversations" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter conversations" /></div>
+      <div className="border-b border-[var(--az-hairline)] p-3"><input className="input" type="search" placeholder="Filter conversations" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter conversations" /></div>
       <div className="flex-1 overflow-y-auto p-2 scroll-thin">
         <div className="flex items-center justify-between px-2 py-1">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Channels</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--az-text-3)]">Channels</h2>
           {can('channel.create') && <button className="btn btn-ghost h-9 w-9 !p-0" aria-label="Create channel" onClick={() => setCreating(true)}>+</button>}
         </div>
         {channels.filter((c) => c.name.toLowerCase().includes(f)).map((c) => (
-          <Link key={c.id} to={`/channels/${c.id}`} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm ${!isDm && id === c.id ? 'bg-brand-500/20 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
-            <span className="text-slate-500">#</span><span className="truncate">{c.name}</span>{c.groupId && <span className="ml-auto text-[10px] text-slate-500">group</span>}
+          <Link key={c.id} to={`/channels/${c.id}`} className={`flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm ${!isDm && id === c.id ? 'bg-brand-500/20 text-[var(--az-text)]' : 'text-[var(--az-text-2)] hover:bg-[var(--az-sunken)]'}`}>
+            <span className="text-[var(--az-text-3)]">#</span><span className="truncate">{c.name}</span>{c.groupId && <span className="ml-auto text-[10px] text-[var(--az-text-3)]">group</span>}
           </Link>
         ))}
         <div className="mt-3 flex items-center justify-between px-2 py-1">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Direct messages</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--az-text-3)]">Direct messages</h2>
           <button className="btn btn-ghost h-9 w-9 !p-0" aria-label="New message" onClick={() => setNewChat(true)}><Glyph value="pen" tile={false} size={16} /></button>
         </div>
         {dms.filter((d) => dmName(d).toLowerCase().includes(f)).map((d) => {
           const others = d.members.filter((m) => m !== me.id);
           return (
-            <Link key={d.id} to={`/messages/${d.id}`} className={`flex min-h-12 items-center gap-2 rounded-xl px-3 py-1.5 text-sm ${isDm && id === d.id ? 'bg-brand-500/20 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
+            <Link key={d.id} to={`/messages/${d.id}`} className={`flex min-h-12 items-center gap-2 rounded-xl px-3 py-1.5 text-sm ${isDm && id === d.id ? 'bg-brand-500/20 text-[var(--az-text)]' : 'text-[var(--az-text-2)] hover:bg-[var(--az-sunken)]'}`}>
               {others.length === 1 ? <Avatar user={user(others[0])} size={28} /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-ink-700 text-xs">{others.length}</span>}
-              <span className="min-w-0 flex-1"><span className="block truncate">{dmName(d)}</span><span className="block truncate text-xs text-slate-500">{d.messages.at(-1)?.text || 'No messages yet'}</span></span>
+              <span className="min-w-0 flex-1"><span className="block truncate">{dmName(d)}</span><span className="block truncate text-xs text-[var(--az-text-3)]">{d.messages.at(-1)?.text || 'No messages yet'}</span></span>
             </Link>
           );
         })}
@@ -128,11 +128,11 @@ function Conversation({ kind, convo, title, onBack }) {
 
   return (
     <section className="glass flex min-h-[70vh] flex-col overflow-hidden lg:h-[calc(100vh-8.5rem)]" aria-label={title}>
-      <header className="flex flex-wrap items-center gap-2 border-b border-white/5 p-3">
+      <header className="flex flex-wrap items-center gap-2 border-b border-[var(--az-hairline)] p-3">
         <button className="btn btn-ghost h-11 w-11 !p-0 lg:hidden" onClick={onBack} aria-label="Back to conversations">←</button>
         <div className="min-w-0 flex-1">
           <h1 className="truncate font-bold">{title}</h1>
-          <p className="truncate text-xs text-slate-400">{kind === 'channel' ? (convo.description || `${convo.members.length} members`) : `${convo.members.length} people`}
+          <p className="truncate text-xs text-[var(--az-text-2)]">{kind === 'channel' ? (convo.description || `${convo.members.length} members`) : `${convo.members.length} people`}
             {convo.groupId && <> · linked to <Link className="underline" to={`/groups/${convo.groupId}`}>{state.groups.find((g) => g.id === convo.groupId)?.name}</Link></>}</p>
         </div>
         <AvatarStack ids={convo.members} max={3} />
@@ -143,15 +143,15 @@ function Conversation({ kind, convo, title, onBack }) {
       </header>
 
       {showPins && (
-        <div className="border-b border-white/5 bg-amber-400/5 p-3 text-sm">
-          {pinned.length ? pinned.map((m) => <p key={m.id} className="truncate"><Glyph value="pinned" tile={false} size={16} /> <b>{user(m.authorId)?.name}:</b> {m.text}</p>) : <p className="text-slate-400">No pinned messages.</p>}
+        <div className="border-b border-[var(--az-hairline)] bg-[var(--az-warn-soft)] p-3 text-sm">
+          {pinned.length ? pinned.map((m) => <p key={m.id} className="truncate"><Glyph value="pinned" tile={false} size={16} /> <b>{user(m.authorId)?.name}:</b> {m.text}</p>) : <p className="text-[var(--az-text-2)]">No pinned messages.</p>}
         </div>
       )}
 
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <ol className="flex-1 space-y-1 overflow-y-auto p-3 scroll-thin" aria-live="polite">
-            {!visible.length && <li className="p-8 text-center text-sm text-slate-500">{search ? 'No messages match your search.' : 'No messages yet. Say hello.'}</li>}
+            {!visible.length && <li className="p-8 text-center text-sm text-[var(--az-text-3)]">{search ? 'No messages match your search.' : 'No messages yet. Say hello.'}</li>}
             {visible.map((m) => <Message key={m.id} m={m} replies={replies(m.id).length} onReact={react} onPin={() => patchMsg(m.id, (x) => ({ ...x, pinned: !x.pinned }))} onThread={() => setThreadId(m.id)} />)}
             <li ref={endRef} />
           </ol>
@@ -172,28 +172,28 @@ function Message({ m, replies, onReact, onPin, onThread, compact }) {
   const [picker, setPicker] = useState(false);
   const a = user(m.authorId);
   return (
-    <li className="group relative flex gap-3 rounded-xl p-2 hover:bg-white/[0.03]">
+    <li className="group relative flex gap-3 rounded-xl p-2 hover:bg-[var(--az-sunken)]">
       <Avatar user={a} size={34} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 text-sm"><Link to={`/people/${m.authorId}`} className="font-semibold hover:underline">{a?.name}</Link><time className="text-xs text-slate-500" title={fmtDate(m.createdAt)}>{timeAgo(m.createdAt)}</time>{m.pinned && <span className="text-xs" title="Pinned"><Glyph value="pinned" tile={false} size={16} /></span>}</div>
-        {m.text && <p className="whitespace-pre-wrap break-words text-sm text-slate-200">{highlight(m.text)}</p>}
+        <div className="flex items-baseline gap-2 text-sm"><Link to={`/people/${m.authorId}`} className="font-semibold hover:underline">{a?.name}</Link><time className="text-xs text-[var(--az-text-3)]" title={fmtDate(m.createdAt)}>{timeAgo(m.createdAt)}</time>{m.pinned && <span className="text-xs" title="Pinned"><Glyph value="pinned" tile={false} size={16} /></span>}</div>
+        {m.text && <p className="whitespace-pre-wrap break-words text-sm text-[var(--az-text)]">{highlight(m.text)}</p>}
         {m.attachment && <span className="chip mt-1 !rounded-lg !py-1"><Glyph value="paperclip" tile={false} size={16} /> {m.attachment.name} <span className="opacity-60">{(m.attachment.size / 1024).toFixed(0)} KB</span></span>}
         <div className="mt-1 flex flex-wrap gap-1">
           {Object.entries(m.reactions || {}).map(([e, who]) => (
             <button key={e} onClick={() => onReact(m.id, e)} aria-pressed={who.includes(me.id)} aria-label={`${reactionLabel(e)}: ${who.length}`}
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${who.includes(me.id) ? 'border-brand-500 bg-brand-500/20' : 'border-white/10'}`}><Glyph value={e} tile={false} size={14} /> {who.length}</button>
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${who.includes(me.id) ? 'border-brand-500 bg-brand-500/20' : 'border-[var(--az-hairline)]'}`}><Glyph value={e} tile={false} size={14} /> {who.length}</button>
           ))}
           {!compact && replies > 0 && <button onClick={onThread} className="text-xs font-semibold text-brand-400 hover:underline">{replies} repl{replies > 1 ? 'ies' : 'y'}</button>}
         </div>
       </div>
       <div className="absolute right-2 top-1 hidden gap-1 rounded-lg bg-ink-800 p-1 shadow group-focus-within:flex group-hover:flex">
-        <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Add reaction" aria-expanded={picker} onClick={() => setPicker(!picker)}><Icon name="happy" size={16} className="mx-auto" /></button>
-        {!compact && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Reply in thread" onClick={onThread}><Icon name="reply" size={16} className="mx-auto" /></button>}
-        {onPin && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label={m.pinned ? 'Unpin' : 'Pin'} onClick={onPin}><Glyph value="pinned" tile={false} size={16} /></button>}
+        <button className="h-8 w-8 rounded hover:bg-[var(--az-sunken)]" aria-label="Add reaction" aria-expanded={picker} onClick={() => setPicker(!picker)}><Icon name="happy" size={16} className="mx-auto" /></button>
+        {!compact && <button className="h-8 w-8 rounded hover:bg-[var(--az-sunken)]" aria-label="Reply in thread" onClick={onThread}><Icon name="reply" size={16} className="mx-auto" /></button>}
+        {onPin && <button className="h-8 w-8 rounded hover:bg-[var(--az-sunken)]" aria-label={m.pinned ? 'Unpin' : 'Pin'} onClick={onPin}><Glyph value="pinned" tile={false} size={16} /></button>}
       </div>
       {picker && (
-        <div className="absolute right-2 top-10 z-10 flex gap-1 rounded-xl bg-ink-800 p-1 shadow-lg ring-1 ring-white/10">
-          {REACTIONS.map((r) => <button key={r.id} className="grid h-9 w-9 place-items-center rounded hover:bg-white/10" onClick={() => { onReact(m.id, r.id); setPicker(false); }} aria-label={`React: ${r.label}`} title={r.label}><Icon name={r.id} size={18} /></button>)}
+        <div className="absolute right-2 top-10 z-10 flex gap-1 rounded-xl bg-[var(--az-raised)] p-1 shadow-lg ring-1 ring-[var(--az-hairline)]">
+          {REACTIONS.map((r) => <button key={r.id} className="grid h-9 w-9 place-items-center rounded hover:bg-[var(--az-sunken)]" onClick={() => { onReact(m.id, r.id); setPicker(false); }} aria-label={`React: ${r.label}`} title={r.label}><Icon name={r.id} size={18} /></button>)}
         </div>
       )}
     </li>
@@ -217,14 +217,14 @@ function Composer({ value, onChange, onSend, file, clearFile, onAttach, error, p
   const mention = value.match(/@(\w*)$/);
   const suggestions = mention ? members.map(user).filter((u) => u && u.name.toLowerCase().startsWith(mention[1].toLowerCase())).slice(0, 5) : [];
   return (
-    <div className="relative border-t border-white/5 p-3">
+    <div className="relative border-t border-[var(--az-hairline)] p-3">
       {suggestions.length > 0 && (
-        <ul className="absolute bottom-full left-3 mb-1 w-64 overflow-hidden rounded-xl bg-ink-800 shadow-lg ring-1 ring-white/10">
-          {suggestions.map((u) => <li key={u.id}><button className="flex min-h-10 w-full items-center gap-2 px-3 text-left text-sm hover:bg-white/5" onClick={() => onChange(value.replace(/@\w*$/, `@${u.name} `))}><Avatar user={u} size={22} />{u.name}</button></li>)}
+        <ul className="absolute bottom-full left-3 mb-1 w-64 overflow-hidden rounded-xl bg-[var(--az-raised)] shadow-lg ring-1 ring-[var(--az-hairline)]">
+          {suggestions.map((u) => <li key={u.id}><button className="flex min-h-10 w-full items-center gap-2 px-3 text-left text-sm hover:bg-[var(--az-sunken)]" onClick={() => onChange(value.replace(/@\w*$/, `@${u.name} `))}><Avatar user={u} size={22} />{u.name}</button></li>)}
         </ul>
       )}
       {file && <div className="mb-2"><span className="chip !rounded-lg !py-1"><Glyph value="paperclip" tile={false} size={16} /> {file.name}<button className="ml-2" aria-label="Remove attachment" onClick={clearFile}>✕</button></span></div>}
-      {error && <p role="alert" className="mb-2 text-xs text-rose-300">{error}</p>}
+      {error && <p role="alert" className="mb-2 text-xs text-[var(--az-danger)]">{error}</p>}
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); onSend(); }}>
         <button type="button" className="btn btn-ghost h-11 w-11 shrink-0 !p-0" onClick={onAttach} aria-label="Attach a file (max 30 MB)"><Glyph value="paperclip" tile={false} size={16} /></button>
         <textarea rows={1} className="input min-h-11 resize-none" value={value} placeholder={placeholder} aria-label={placeholder} onChange={(e) => onChange(e.target.value)}
@@ -241,11 +241,11 @@ function Thread({ parent, replies, onClose, onSend, onReact, members }) {
   const [error, setError] = useState('');
   const fileRef = useRef(null);
   return (
-    <aside className="fixed inset-0 z-40 flex flex-col bg-ink-900 md:static md:z-auto md:w-80 md:border-l md:border-white/5 md:bg-transparent" aria-label="Thread">
-      <div className="flex items-center justify-between border-b border-white/5 p-3"><h2 className="font-bold">Thread</h2><button className="btn btn-ghost h-10 w-10 !p-0" onClick={onClose} aria-label="Close thread">✕</button></div>
+    <aside className="fixed inset-0 z-40 flex flex-col bg-ink-900 md:static md:z-auto md:w-80 md:border-l md:border-[var(--az-hairline)] md:bg-transparent" aria-label="Thread">
+      <div className="flex items-center justify-between border-b border-[var(--az-hairline)] p-3"><h2 className="font-bold">Thread</h2><button className="btn btn-ghost h-10 w-10 !p-0" onClick={onClose} aria-label="Close thread">✕</button></div>
       <ol className="flex-1 overflow-y-auto p-2 scroll-thin">
         <Message m={parent} compact onReact={onReact} />
-        <li className="px-3 py-1 text-xs text-slate-500">{replies.length} repl{replies.length === 1 ? 'y' : 'ies'}</li>
+        <li className="px-3 py-1 text-xs text-[var(--az-text-3)]">{replies.length} repl{replies.length === 1 ? 'y' : 'ies'}</li>
         {replies.map((r) => <Message key={r.id} m={r} compact onReact={onReact} />)}
       </ol>
       <Composer value={text} onChange={setText} onSend={() => { if (onSend(text, file)) { setText(''); setFile(null); } }} placeholder="Reply…" members={members}
@@ -342,10 +342,10 @@ function ChannelSettings({ channel, isAdmin, onClose, onGone }) {
               <li key={u.id} className="flex items-center gap-2 text-sm"><Avatar user={u} size={28} /><span className="flex-1">{u.name}</span>
                 {channel.admins.includes(u.id) && <span className="chip">Admin</span>}
                 {isAdmin && u.id !== me.id && !channel.admins.includes(u.id) && (
-                  <button className="text-xs text-slate-400 hover:text-brand-400" onClick={() => { setLeaveError(''); dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, admins: [...new Set([...(c.admins || []), u.id])] }) }); }}>Make admin</button>
+                  <button className="text-xs text-[var(--az-text-2)] hover:text-brand-400" onClick={() => { setLeaveError(''); dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, admins: [...new Set([...(c.admins || []), u.id])] }) }); }}>Make admin</button>
                 )}
                 {isAdmin && u.id !== me.id && !channel.admins.includes(u.id) && (
-                  <button className="text-xs text-slate-400 hover:text-rose-300" onClick={() => dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, members: c.members.filter((m) => m !== u.id) }) })}>Remove</button>
+                  <button className="text-xs text-[var(--az-text-2)] hover:text-[var(--az-danger)]" onClick={() => dispatch({ type: 'update', col: 'channels', id: channel.id, patch: (c) => ({ ...c, members: c.members.filter((m) => m !== u.id) }) })}>Remove</button>
                 )}
               </li>
             ))}
@@ -358,21 +358,21 @@ function ChannelSettings({ channel, isAdmin, onClose, onGone }) {
             <button className="btn btn-primary mt-2 min-h-11" disabled={!add.length} onClick={addMembers}>Add to Channel</button>
           </section>
         )}
-        <section className="border-t border-white/5 pt-4">
+        <section className="border-t border-[var(--az-hairline)] pt-4">
           <h3 className="mb-2 text-sm font-semibold">Advanced</h3>
           <div className="flex flex-wrap gap-2">
             <button className="btn btn-ghost min-h-11" onClick={leave}>Leave channel</button>
-            {isAdmin && !confirmDelete && <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={() => setConfirmDelete(true)}>Delete channel</button>}
+            {isAdmin && !confirmDelete && <button className="btn min-h-11 bg-[var(--az-danger-soft)] text-[var(--az-danger)]" onClick={() => setConfirmDelete(true)}>Delete channel</button>}
           </div>
-          {leaveError && <p role="alert" className="mt-3 text-sm text-rose-300">{leaveError}</p>}
+          {leaveError && <p role="alert" className="mt-3 text-sm text-[var(--az-danger)]">{leaveError}</p>}
           {confirmDelete && (
-            <div role="alert" className="mt-3 rounded-xl bg-rose-500/10 p-3 text-sm">
+            <div role="alert" className="mt-3 rounded-xl bg-[var(--az-danger-soft)] p-3 text-sm">
               <p>Delete <b>#{channel.name}</b>? Conversations can’t be recovered.</p>
               <div className="mt-2 flex gap-2"><button className="btn btn-ghost min-h-11" onClick={() => setConfirmDelete(false)}>Cancel</button>
-                <button className="btn min-h-11 bg-rose-600 text-white" onClick={() => { dispatch({ type: 'channel/delete', id: channel.id }); onClose(); onGone(); }}>Delete</button></div>
+                <button className="btn btn-danger min-h-11" onClick={() => { dispatch({ type: 'channel/delete', id: channel.id }); onClose(); onGone(); }}>Delete</button></div>
             </div>
           )}
-          {channel.groupId && <p className="mt-3 text-xs text-slate-500">Leaving this channel doesn’t remove you from its group. Only admins can add you back.</p>}
+          {channel.groupId && <p className="mt-3 text-xs text-[var(--az-text-3)]">Leaving this channel doesn’t remove you from its group. Only admins can add you back.</p>}
         </section>
       </div>
     </Modal>

@@ -39,7 +39,7 @@ export default function Lesson() {
   if (l.status === 'loading') return <div aria-busy="true" aria-label="Loading lesson" className="mx-auto max-w-[760px] space-y-4"><div className="glass h-12 animate-pulse" /><div className="glass h-80 animate-pulse" /></div>;
   if (l.status === 'missing') return <Empty icon="search" title="Lesson not found">It may have been removed from its course. <Link to="/learning" className="text-brand-300 underline">My Learning</Link></Empty>;
   if (l.status === 'locked') return <Empty icon="lock" title="Enrol to open this lesson">{l.message} <button className="text-brand-300 underline" onClick={() => nav(-1)}>Go back</button></Empty>;
-  if (l.status === 'error') return <div role="alert" className="glass p-6 text-center text-sm"><p className="text-rose-300">{l.message}</p><button className="btn btn-ghost mt-3" onClick={l.reload}>Try again</button></div>;
+  if (l.status === 'error') return <div role="alert" className="panel p-6 text-center text-sm"><p className="text-[var(--az-danger)]">{l.message}</p><button className="btn btn-ghost mt-3" onClick={l.reload}>Try again</button></div>;
 
   const { lesson, course, community } = l;
   const flat = course.modules.flatMap((m) => m.lessons.map((x) => ({ ...x, module: m })));
@@ -80,13 +80,13 @@ export default function Lesson() {
 
       <article className="flex min-w-0 max-w-[720px] flex-col gap-6">
         <nav aria-label="Breadcrumb" className="t-small flex flex-wrap items-center gap-2">
-          <Link to={communityPath(community)} className="hover:text-white">{community.name}</Link><span aria-hidden="true">/</span>
-          <Link to={back} className="hover:text-white">{course.title}</Link>
+          <Link to={communityPath(community)} className="hover:text-[var(--az-text)]">{community.name}</Link><span aria-hidden="true">/</span>
+          <Link to={back} className="hover:text-[var(--az-text)]">{course.title}</Link>
           <button className="btn btn-ghost ml-auto min-h-10 lg:hidden" onClick={() => setOutline(true)}><Icon name="list" size={18} />Outline</button>
         </nav>
         <header className="flex flex-col gap-2">
           <span className="t-label cm-ink">{mod?.title} · Lesson {index + 1} of {flat.length}</span>
-          <h1 className="t-h1 text-white">{lesson.title}</h1>
+          <h1 className="t-h1 text-[var(--az-text)]">{lesson.title}</h1>
           <p className="t-small">{[course.instructors.length ? `By ${course.instructors.map((i) => i.name).join(', ')}` : null, durationText(lesson.durationMin), !lesson.required && 'Optional'].filter(Boolean).join(' · ')}</p>
         </header>
 
@@ -94,20 +94,20 @@ export default function Lesson() {
 
         {(lesson.files.length > 0 || lesson.missingFiles > 0 || lesson.url) && (
           <section aria-labelledby="files-h" className="flex flex-col gap-2">
-            <h2 id="files-h" className="t-h3 text-white">Lesson files and links</h2>
+            <h2 id="files-h" className="t-h3 text-[var(--az-text)]">Lesson files and links</h2>
             <ul className="list-rows border-t border-[var(--az-divider)]">
               {lesson.files.map((f) => <FileRow key={f.id} f={f} />)}
               {lesson.missingFiles > 0 && (
                 <li className="flex items-center gap-3 py-3 text-sm">
                   <KindBadge kind="file" />
-                  <span className="text-amber-200">{lesson.missingFiles === 1 ? 'A file' : `${lesson.missingFiles} files`} in this lesson {lesson.missingFiles === 1 ? 'isn’t' : 'aren’t'} available any more. Ask the course’s instructors.</span>
+                  <span className="text-[var(--az-warning)]">{lesson.missingFiles === 1 ? 'A file' : `${lesson.missingFiles} files`} in this lesson {lesson.missingFiles === 1 ? 'isn’t' : 'aren’t'} available any more. Ask the course’s instructors.</span>
                 </li>
               )}
               {lesson.url && (
                 <li>
-                  <a href={lesson.url} target="_blank" rel="noopener noreferrer nofollow" className="flex min-h-14 items-center gap-3 py-3 text-sm hover:bg-white/[.02]">
+                  <a href={lesson.url} target="_blank" rel="noopener noreferrer nofollow" className="flex min-h-14 items-center gap-3 py-3 text-sm hover:bg-[var(--az-sunken)]">
                     <KindBadge kind="link" />
-                    <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-white">{host(lesson.url)}</span><span className="t-small">Opens in a new tab, outside CommunityOne</span></span>
+                    <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-[var(--az-text)]">{host(lesson.url)}</span><span className="t-small">Opens in a new tab, outside CommunityOne</span></span>
                     <span className="btn btn-ghost pointer-events-none">Open</span>
                   </a>
                 </li>
@@ -122,7 +122,7 @@ export default function Lesson() {
           <Assignment key={lesson.id} lesson={lesson} assignment={l.assignment} communityId={community.id} learner={learner} nextId={lesson.nextId} onChanged={l.reload} />
         )}
 
-        {!learner && <p className="band p-4 text-sm text-slate-300">You’re viewing this lesson as one of the course’s managers, so your progress isn’t tracked.</p>}
+        {!learner && <p className="band p-4 text-sm text-[var(--az-text-2)]">You’re viewing this lesson as one of the course’s managers, so your progress isn’t tracked.</p>}
 
         {/* Actions: inline on wide screens, pinned within thumb reach on phones (S5Mobile). */}
         <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-[var(--az-hairline)] bg-[var(--az-sidebar)] p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pt-4">
@@ -151,8 +151,8 @@ function Outline({ course, current, onPick }) {
             {m.lessons.map((x) => (
               <li key={x.id}>
                 <Link to={lessonPath(x.id)} onClick={onPick} aria-current={x.id === current ? 'page' : undefined}
-                  className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm ${x.id === current ? 'bg-white/[.08] font-semibold text-white' : 'text-slate-300 hover:bg-white/[.04] hover:text-white'}`}>
-                  <span aria-hidden="true" className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${x.done ? 'bg-brand-400 text-ink-950' : x.id === current ? 'border-2 border-slate-400' : 'border-2 border-[var(--az-hairline)]'}`}>{x.done && <Icon name="check" size={12} />}</span>
+                  className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm ${x.id === current ? 'bg-[var(--az-sunken)] font-semibold text-[var(--az-text)]' : 'text-[var(--az-text-2)] hover:bg-[var(--az-sunken)] hover:text-[var(--az-text)]'}`}>
+                  <span aria-hidden="true" className={`grid h-5 w-5 shrink-0 place-items-center rounded-full ${x.done ? 'bg-brand-400 text-ink-950' : x.id === current ? 'border-2 border-[var(--az-control)]' : 'border-2 border-[var(--az-hairline)]'}`}>{x.done && <Icon name="check" size={12} />}</span>
                   <span className="min-w-0 flex-1 truncate">{x.title}</span>
                   {x.isNew && <span className="t-small">New</span>}
                   <span className="sr-only">{x.done ? '(done)' : ''}</span>
@@ -189,10 +189,10 @@ function FileRow({ f }) {
   return (
     <li className="flex flex-col gap-3 py-3">
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--az-sunken)] text-[10px] font-bold text-white">{FILE_BADGE[f.kind] ?? 'FILE'}</span>
+        <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--az-sunken)] text-[10px] font-bold text-[var(--az-text)]">{FILE_BADGE[f.kind] ?? 'FILE'}</span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold text-white">{f.name}</span>
-          {state === 'failed' ? <span role="alert" className="text-xs text-rose-300">This file didn’t load.</span> : <span className="t-small">{sizeText(f.size)}</span>}
+          <span className="block truncate font-semibold text-[var(--az-text)]">{f.name}</span>
+          {state === 'failed' ? <span role="alert" className="text-xs text-[var(--az-danger)]">This file didn’t load.</span> : <span className="t-small">{sizeText(f.size)}</span>}
         </span>
         {state === 'failed'
           ? <button className="btn btn-ghost" onClick={retry}>Try again</button>

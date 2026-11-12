@@ -13,7 +13,7 @@ import { createDb } from './db/index.js';
 import { migrate } from './db/migrate.js';
 import { runJobs } from './lib/jobs.js';
 import { runSeed } from './scripts/seed.mjs';
-import { convertQuestionTypes, convertSectionLists } from './lib/data-migrations.js';
+import { convertQuestionTypes, convertSectionLists, retireMembershipRules } from './lib/data-migrations.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Links in emails (confirm, reset) use APP_ORIGIN; without it they'd come from the request's Host
@@ -38,10 +38,12 @@ if (!process.env.DATABASE_URL && !(await exists(path.join(dataDir, 'PG_VERSION')
 const db = await createDb({ dataDir });
 await migrate(db, { log: (m) => console.log(m) });
 // Data migrations that must reach every database, not only freshly seeded ones (each runs once,
-// logged and undoable): older section lists become the section switches (v2 E2), and stored
-// template questionnaires move to the five question types (v2 F12).
+// logged and undoable): older section lists become the section switches (v2 E2), stored
+// template questionnaires move to the five question types (v2 F12), and automatic membership
+// rules are switched off (v2 G2).
 await convertSectionLists(db);
 await convertQuestionTypes(db);
+await retireMembershipRules(db);
 if (process.env.SEED_PASSWORD || process.env.SEED_ON_START === '1') await runSeed(db);
 
 // RATE_LIMITS=off is for the browser tests, which sign in many times a minute; production always

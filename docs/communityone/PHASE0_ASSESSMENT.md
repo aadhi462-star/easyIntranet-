@@ -1294,3 +1294,53 @@ The boards were approved as drawn (F1–F14: the user said "start" on the unchan
   - Community Managers can't open Administration in the web app yet (`me.admin` only covers Platform and Super Admins; workstream G).
   - The seed doesn't record template ids on demo communities.
   - `mergeCommunity` still adds members directly. It's only used by the seed's All Hands merge.
+
+### v2 — Workstream G: management and administration (12 Nov 2026)
+
+The boards were approved as drawn (G1–G12: the user said "start" on the unchanged boards). Five agents built it in parallel, each owning its own files, and two more did the colour pass. I wired the routes and filled the gaps between them.
+
+- **Server (agent 1):**
+  - `g2-retire-membership-rules` removes stored automatic rules. It's logged, undoable, and runs at start; nobody is removed. `POST /communities/:id/invite-matching` replaces the rules; `source: 'rule'` and new `dynamicRule` values are refused.
+  - `GET /communities/:id/visibility-impact?to=` gives the real counts for the G4 confirm, and visibility changes are audited before and after.
+  - `settings.notifyDefaults` (G5): a member's own choice wins. Moderation and account notices are always sent.
+  - `DELETE /communities/:id` answers 410 DELETE_RETIRED (G6).
+  - Migration 020 adds course Teaching Assistants. `GET /courses/:id/learners` and `GET /communities/:id/teaching` serve G7.
+  - Job runs are kept 14 days. System health lists failed emails with masked addresses, offers `POST /admin/health/emails/:id/retry`, reports `database.storage`, and warns `data_not_persistent` for PGlite in the app folder in production (G11).
+- **Community settings (agent 2):**
+  - Eleven sections at `/c/:slug/manage/settings/:section`, each with its own Save and Discard. Only that section's fields are sent, a 409 lets you reload the section, and leaving asks first.
+  - The visibility confirm shows real counts, there's a roles matrix with the four switches, notification defaults, and the Danger Zone (no instant delete).
+  - On phones, Manage is a list.
+  - Overview and Queue are restyled. `groups/Settings.jsx` is now a thin wrapper.
+- **Queue and Teaching (agent 3):**
+  - One queue for reports, held posts, join requests, appeals and decided items (`queue/Queue.jsx`): a split view, and on phones a list, then the item with Apply pinned.
+  - Analytics and the report dialog are restyled.
+  - Teaching is at `/c/:slug/learning/teaching`, and course pages show Teaching Assistants.
+- **Platform Admin and System health (agent 4):**
+  - Every screen is restyled. Tables become cards on phones, and on phones the menu is a searchable section list.
+  - Sections show by permission (`useStaffAccess()`).
+  - The older browser-only tools sit behind the new `admin.legacy` flag (migration 021, off).
+  - The System health screen.
+- **Colour pass (agents 5 and 6):** every use of the stock white, slate, rose, emerald, amber and orange palettes in `src` moved to the `--az-*` tokens: 31 live files and 24 parked-module files. Video surfaces in Live stay dark on purpose. **`light-invert.css` is retired.** `source-rules.test.js` now fails if those palettes come back.
+- **Mine:**
+  - Settings sections keep their address in `Community.jsx`.
+  - The Teaching route and the new Queue in Manage.
+  - The Administration link for every staff role.
+  - `/me/permissions` lists `templates.manage` and `institutions.manage`.
+  - The Overview's waiting-accounts count read the wrong status, so it was always 0. Fixed.
+  - Health gained the applied migrations, 14-day failure counts per job, and the environment.
+  - Settings, General shows the template a community came from and who last changed it (F6; server sends it to Owners and Admins only; test in `g-management.test.js`).
+  - Teaching Assistants can open lessons.
+  - Manage pages no longer scroll sideways on phones: the hidden "waiting:" label escaped its tab.
+  - Selected tiles use the focus colour.
+- **Checked:**
+  - Full `npm run test:server`: 432 of 432.
+  - `npm run test:e2e`: 23 passed, 1 skipped.
+  - `vite build` passes, and `source-rules.test.js` passes 3 of 3.
+  - Browser: the Calendar in light and dark mode, and the People directory in dark mode, at phone width, with no sideways scroll at 375 px.
+  - Each agent checked its own screens on its own server.
+- **Not done:**
+  - "Roles in use" can be edited, but nothing reads it yet.
+  - The Moderator view and Administrative Mode in the new settings weren't exercised (no seeded Moderator).
+  - The parked modules' new colours weren't looked at in a browser.
+  - Retry on a failed email and the `data_not_persistent` warning weren't seen live: there's no failed email in the seed, and the warning only appears in production.
+  - No test for the waiting-accounts fix.

@@ -7,11 +7,11 @@ import { Select, canSeeGroupItem, myGroups } from './common.jsx';
 
 export const IDEA_STATUSES = [
   { id: 'new', label: 'New', cls: '!bg-leaf-500/15 !text-leaf-200' },
-  { id: 'under-review', label: 'Under Review', cls: '!bg-amber-400/15 !text-amber-200' },
+  { id: 'under-review', label: 'Under Review', cls: '!bg-[var(--az-warn-soft)] !text-[var(--az-warning)]' },
   { id: 'planned', label: 'Planned', cls: '!bg-brand-500/20 !text-brand-200' },
   { id: 'in-progress', label: 'In Progress', cls: '!bg-brand-500/20 !text-brand-200' },
-  { id: 'implemented', label: 'Implemented', cls: '!bg-emerald-500/15 !text-emerald-200' },
-  { id: 'declined', label: 'Declined', cls: '!bg-rose-500/15 !text-rose-200' },
+  { id: 'implemented', label: 'Implemented', cls: '!bg-[var(--az-ok-soft)] !text-[var(--az-ok)]' },
+  { id: 'declined', label: 'Declined', cls: '!bg-[var(--az-danger-soft)] !text-[var(--az-danger)]' },
 ];
 export const statusOf = (id) => IDEA_STATUSES.find((s) => s.id === id) ?? IDEA_STATUSES[0];
 export const score = (idea) => Object.values(idea.votes || {}).reduce((n, v) => n + v, 0);
@@ -30,10 +30,10 @@ export function VoteBox({ idea }) {
     return { ...x, votes };
   } });
   return (
-    <div className="flex w-12 shrink-0 flex-col items-center rounded-xl ring-1 ring-white/10">
-      <button className={`h-9 w-full rounded-t-xl ${mine === 1 ? 'bg-brand-500/30 text-white' : 'hover:bg-white/5'}`} onClick={() => vote(1)} aria-pressed={mine === 1} aria-label="Upvote">▲</button>
+    <div className="flex w-12 shrink-0 flex-col items-center rounded-xl ring-1 ring-[var(--az-hairline)]">
+      <button className={`h-9 w-full rounded-t-xl ${mine === 1 ? 'bg-brand-500/30 text-[var(--az-text)]' : 'hover:bg-[var(--az-sunken)]'}`} onClick={() => vote(1)} aria-pressed={mine === 1} aria-label="Upvote">▲</button>
       <span className="text-sm font-bold" aria-label={`Score ${score(idea)}`}>{score(idea)}</span>
-      <button className={`h-9 w-full rounded-b-xl ${mine === -1 ? 'bg-rose-500/30 text-white' : 'hover:bg-white/5'}`} onClick={() => vote(-1)} aria-pressed={mine === -1} aria-label="Downvote">▼</button>
+      <button className={`h-9 w-full rounded-b-xl ${mine === -1 ? 'bg-[var(--az-danger-soft)] text-[var(--az-text)]' : 'hover:bg-[var(--az-sunken)]'}`} onClick={() => vote(-1)} aria-pressed={mine === -1} aria-label="Downvote">▼</button>
     </div>
   );
 }
@@ -83,14 +83,14 @@ export function TopContributors({ ideas }) {
         <ol className="space-y-3">
           {top.map(([uid, t], i) => (
             <li key={uid} className="flex items-center gap-3 text-sm">
-              <span className="w-4 text-slate-500">{i + 1}</span>
+              <span className="w-4 text-[var(--az-text-3)]">{i + 1}</span>
               <Avatar user={user(uid)} size={32} />
               <div className="min-w-0 flex-1"><Link to={`/people/${uid}`} className="font-semibold hover:underline">{user(uid)?.name}</Link>
-                <div className="text-xs text-slate-400">{t.ideas} ideas · {t.votes} votes{t.implemented ? ` · ${t.implemented} shipped` : ''}</div></div>
+                <div className="text-xs text-[var(--az-text-2)]">{t.ideas} ideas · {t.votes} votes{t.implemented ? ` · ${t.implemented} shipped` : ''}</div></div>
             </li>
           ))}
         </ol>
-      ) : <p className="text-sm text-slate-400">No ideas yet.</p>}
+      ) : <p className="text-sm text-[var(--az-text-2)]">No ideas yet.</p>}
     </aside>
   );
 }
@@ -101,10 +101,10 @@ export function IdeaCard({ idea }) {
     <article className="glass flex gap-4 p-4">
       <VoteBox idea={idea} />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2"><IdeaStatus status={idea.status} /><span className="chip !bg-white/10 !text-slate-300">{idea.category}</span></div>
+        <div className="flex flex-wrap items-center gap-2"><IdeaStatus status={idea.status} /><span className="chip !bg-[var(--az-sunken)] !text-[var(--az-text-2)]">{idea.category}</span></div>
         <Link to={`/ideas/${idea.id}`} className="mt-2 block font-semibold hover:underline">{idea.title}</Link>
-        <p className="mt-1 line-clamp-2 text-sm text-slate-400">{idea.description}</p>
-        <div className="mt-2 text-xs text-slate-500">{user(idea.authorId)?.name} · {timeAgo(idea.createdAt)} · <Glyph value="channels" tile={false} size={12} /> {idea.comments.length}<span className="sr-only"> comments</span></div>
+        <p className="mt-1 line-clamp-2 text-sm text-[var(--az-text-2)]">{idea.description}</p>
+        <div className="mt-2 text-xs text-[var(--az-text-3)]">{user(idea.authorId)?.name} · {timeAgo(idea.createdAt)} · <Glyph value="channels" tile={false} size={12} /> {idea.comments.length}<span className="sr-only"> comments</span></div>
       </div>
     </article>
   );
