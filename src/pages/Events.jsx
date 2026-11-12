@@ -73,8 +73,8 @@ function EventsHome() {
         </>} />
 
       <Tabs value={section} onChange={(v) => setParam('section', v === 'all' ? null : v)}
-        tabs={[{ id: 'all', label: 'All Events', count: count('all') }, { id: 'private', label: 'Private', count: count('private') },
-          { id: 'company', label: 'AlumniZone', count: count('company') }, { id: 'group', label: 'Other communities', count: count('group') }]} />
+        tabs={[{ id: 'all', label: 'All Events', count: count('all') }, { id: 'group', label: 'Communities', count: count('group') },
+          { id: 'private', label: 'Invite-only', count: count('private') }]} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {view === 'list' ? <h2 className="text-lg font-bold">Upcoming</h2> : <RangeNav mode={view} cursor={cursor} onChange={setCursor} />}

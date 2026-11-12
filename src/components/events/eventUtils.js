@@ -69,9 +69,9 @@ export function recurrenceText(r) {
   return `Repeats ${r.freq}${until}`;
 }
 
-export const scopeLabel = (e, groups) => (e.scope?.type === 'network' ? 'AlumniZone event'
+export const scopeLabel = (e, groups) => (e.scope?.type === 'network' ? 'Network event'
   : e.scope?.type === 'group' ? (e.community?.name ?? groups.find((g) => g.id === e.scope.id)?.name ?? 'Group event')
-    : `Invite-only${e.community && e.communityId !== 'alumnizone' ? ` · ${e.community.name}` : ''}`);
+    : `Invite-only${e.community ? ` · ${e.community.name}` : ''}`);
 
 export const isUrl = (s = '') => /^https?:\/\//i.test(s.trim());
 
@@ -88,7 +88,7 @@ const icsText = (s = '') => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replac
 /** Download an .ics file so the event can be added to any calendar app. */
 export function downloadIcs(e) {
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CommunityOne//Events//EN', 'BEGIN:VEVENT',
-    `UID:${e.id}@alumnizone`, `DTSTAMP:${icsDate(Date.now())}`];
+    `UID:${e.id}@communityone`, `DTSTAMP:${icsDate(Date.now())}`];
   if (e.allDay) lines.push(`DTSTART;VALUE=DATE:${icsDay(e.start)}`, `DTEND;VALUE=DATE:${icsDay(addDays(e.end, 1))}`);
   else lines.push(`DTSTART:${icsDate(e.start)}`, `DTEND:${icsDate(e.end)}`);
   if (e.recurrence?.freq && e.recurrence.freq !== 'none') {

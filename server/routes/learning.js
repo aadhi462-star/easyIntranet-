@@ -8,7 +8,7 @@
 //   - open a lesson: an active enrolment while still a member, or a manager (LMS-08, D4).
 import { audit } from '../lib/audit.js';
 import { access } from '../lib/community.js';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { idempotent } from '../lib/session.js';
 import assessmentRoutes, { ASSESSMENT_FIELDS } from './assessment.js';
@@ -24,6 +24,13 @@ const text = (v, max, field, { required = false } = {}) => {
 
 export default async function learningRoutes(app, { ctx }) {
   const { db } = ctx;
+  // The platform's Learning switch (feature flag `learning`, v2 brief): off means every learning
+  // route answers 404 LEARNING_OFF and keeps its data. Certificates keep verifying either way.
+  app.addHook('onRequest', async (req) => {
+    if (req.url.startsWith('/api/certificates/')) return;
+    const { rows: [f] } = await db.query(`select enabled from feature_flags where key = 'learning'`);
+    if (f && !f.enabled) throw new HttpError(404, 'LEARNING_OFF', 'Learning is switched off on this platform.');
+  });
   let assess; // Stage 5b helpers, set up at the end once the course helpers exist
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
 

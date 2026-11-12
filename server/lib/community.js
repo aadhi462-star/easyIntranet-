@@ -60,19 +60,6 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   };
 }
 
-/** The platform's default community (decision D3): every account joins it when it becomes active. */
-export const DEFAULT_COMMUNITY = 'alumnizone';
-
-/**
- * Adds an activated account to the default community as a member (decision R5). Never
- * overrides an existing membership: someone who left, was removed or blocked stays that way.
- */
-export async function joinDefaultCommunity(q, userId) {
-  await q.query(`insert into memberships (community_id, user_id, role, state, joined_at)
-    select $1, $2, 'member', 'active', now() where exists (select 1 from communities where id = $1 and status = 'active')
-    on conflict (community_id, user_id) do nothing`, [DEFAULT_COMMUNITY, userId]);
-}
-
 /**
  * Community id for an address that may hold the id or the slug (/c/:slug). The id wins when
  * both match, so a community named like another's id can't take over its address.
@@ -95,9 +82,9 @@ export const publicCommunity = (c, extra = {}) => ({
   accent: c.accent, visibility: c.visibility, status: c.status, ...extra,
 });
 
-// Accents a new community can get (sky is AlumniZone's). The least-used one, so neighbours in
-// a list rarely share a colour.
-const PICKABLE = ['violet', 'amber', 'teal', 'rose', 'orange'];
+// Accents a new community can get: the least-used one, so neighbours in a list rarely share a
+// colour. (v2 brief: no community is special, so sky is pickable like the rest.)
+const PICKABLE = ['violet', 'amber', 'teal', 'rose', 'orange', 'sky'];
 export async function pickAccent(db) {
   const { rows } = await db.query(`select accent, count(*)::int as n from communities group by accent`);
   const used = Object.fromEntries(rows.map((r) => [r.accent, r.n]));

@@ -2,6 +2,7 @@ import { lazy, Suspense, Component } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useStore } from './lib/store.jsx';
 import { MODULES, EXTRA_ROUTES } from './lib/modules.js';
+import { isOn, useFeatures } from './lib/features.js';
 import Layout from './components/Layout.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
@@ -83,12 +84,20 @@ function Protected({ children }) {
   return children;
 }
 
+const CertificatePage = page('Verify');
+function VerifyOrCertificate() {
+  const loc = useLocation();
+  return new URLSearchParams(loc.search).has('token') ? <VerifyEmail /> : <Suspense fallback={null}><CertificatePage /></Suspense>;
+}
+
 export default function App() {
   const { me, state } = useStore();
   // Hidden modules lose their routes too (admins keep them so they can preview before showing).
   const hidden = me?.admin ? [] : (state.settings.hiddenModules || []);
+  // Parked modules have no routes unless their switch is on, for everyone (P4).
+  const features = useFeatures();
   const routes = [
-    ...MODULES.filter((m) => !hidden.includes(m.id)).flatMap((m) => [m.path, ...(m.routes || [])].map((path) => ({ path, page: m.page }))),
+    ...MODULES.filter((m) => !hidden.includes(m.id) && (!m.flag || isOn(features, m.flag))).flatMap((m) => [m.path, ...(m.routes || [])].map((path) => ({ path, page: m.page }))),
     ...EXTRA_ROUTES,
   ];
   return (
@@ -100,18 +109,16 @@ export default function App() {
         <Route path="/login" element={me ? <Navigate to="/dashboard" replace /> : <Login />} />
         <Route path="/signup" element={me ? <Navigate to="/dashboard" replace /> : <Signup />} />
         <Route path="/explore" element={<Explore />} />
-        {/* Certificate checks are public (Stage 5b, D8): no sign-in needed. */}
-        {['/verify', '/verify/:code'].map((path) => {
-          const Page = page('Verify');
-          return <Route key={path} path={path} element={<Suspense fallback={null}><Page /></Suspense>} />;
-        })}
+        {/* Certificate checks are public (Stage 5b, D8): no sign-in needed. /verify is shared with
+            the email confirmation link (/verify?token=…), which must win when it has a token. */}
+        <Route path="/verify" element={<VerifyOrCertificate />} />
+        <Route path="/verify/:code" element={<Suspense fallback={null}><CertificatePage /></Suspense>} />
         {['About', 'Help', 'Privacy', 'Terms', 'Contact'].map((name) => {
           const Page = page(name);
           return <Route key={name} path={`/${name.toLowerCase()}`} element={<Suspense fallback={null}><Page /></Suspense>} />;
         })}
         <Route path="/welcome" element={me ? <Suspense fallback={null}><Welcome /></Suspense> : <Navigate to="/login" replace />} />
         <Route path="/invite/:code" element={<Invite />} />
-        <Route path="/verify" element={<VerifyEmail />} />
         <Route path="/reset" element={<ResetPassword />} />
         <Route path="/confirm-email" element={<ConfirmEmail />} />
         <Route element={<Protected><Layout /></Protected>}>

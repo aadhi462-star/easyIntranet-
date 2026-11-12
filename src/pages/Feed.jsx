@@ -1,14 +1,13 @@
 import { Glyph } from '../components/icons.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
-import { communityPath } from '../lib/communities.js';
 import { bookmarksOf, useStore } from '../lib/store.jsx';
 import { Avatar, Empty, UserLink } from '../components/ui.jsx';
 import Composer from '../components/feed/Composer.jsx';
 import PostCard from '../components/feed/PostCard.jsx';
 import { CelebrateClassmates, CommunityMood, CompletenessCard, MandatoryPending, TrendingTags } from '../components/feed/Widgets.jsx';
 import { followingIds, tagsOf, VIEWS } from '../components/feed/utils.js';
-import { errorText, fetchMyCommunities, fetchPost, isCommunityModerator, NETWORK_ID, onFeedEvent, useLivePost, useServerFeed } from '../lib/feed.js';
+import { errorText, fetchMyCommunities, fetchPost, isCommunityModerator, onFeedEvent, useLivePost, useServerFeed } from '../lib/feed.js';
 
 const COMPOSER_VIEWS = ['my', 'wall', 'questions', 'announcements'];
 const EMPTY = {
@@ -27,7 +26,6 @@ const EMPTY = {
  */
 const SERVER = {
   my: { view: 'all' },
-  wall: { view: 'all', community: NETWORK_ID },
   announcements: { view: 'announcements', keep: (p) => p.type === 'announcement' },
   mandatory: { view: 'mandatory', keep: (p) => !!p.mandatory },
   questions: { view: 'questions', keep: (p) => p.type === 'question' },
@@ -40,8 +38,8 @@ const SERVER = {
 
 export default function Feed() {
   const { id, view = 'my' } = useParams();
-  // AlumniZone's wall became its community page (Stage 3).
-  if (view === 'wall') return <Navigate to={communityPath(NETWORK_ID, 'discussions')} replace />;
+  // The old "wall" (AlumniZone's) is gone: no community is platform-wide (v2 brief).
+  if (view === 'wall') return <Navigate to="/feed" replace />;
   // Bookmarks became Saved, kept on the account (Stage 4).
   if (view === 'bookmarks') return <Navigate to="/saved" replace />;
   // Keyed by view so paging ("Load more") starts over on each view.
@@ -156,7 +154,7 @@ function FeedView({ view }) {
             {following.map((f) => <span key={f.id} className="flex items-center gap-1.5"><Avatar user={user(f.targetId)} size={24} /><UserLink id={f.targetId} /></span>)}
           </div>
         )}
-        {COMPOSER_VIEWS.includes(v.id) && <Composer compact communityId={v.id === 'wall' ? NETWORK_ID : undefined}
+        {COMPOSER_VIEWS.includes(v.id) && <Composer compact communityId={undefined}
           defaultType={v.id === 'questions' ? 'question' : v.id === 'announcements' ? 'announcement' : undefined} />}
         {/* Below xl the sidebar is hidden, so the personal cards sit above the posts instead. */}
         {v.id === 'my' && <div className="space-y-4 xl:hidden"><CompletenessCard /><CelebrateClassmates /></div>}

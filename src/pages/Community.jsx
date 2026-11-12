@@ -1,12 +1,13 @@
 // A community's page (redesign Stage 3): /c/:slug with Overview, Discussions, Learning, Events, Members,
-// About and, for its Owners, Admins and Moderators, Manage (Stage 6). Every community has one, AlumniZone included. The page reads
+// About and, for its Owners, Admins and Moderators, Manage (Stage 6). Every community has one. The page reads
 // the community straight from the server (by slug or id) and re-reads it after every change, so
 // what it shows is what the server stored and what this person may see.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { setAdminScope } from '../lib/api.js';
+import { isOn, useFeatures } from '../lib/features.js';
 import { useStore } from '../lib/store.jsx';
-import { accentOf, communityPath, errorText, loadCommunity, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
+import { accentOf, communityPath, errorText, loadCommunity, onCommunityChange, visibilityOf } from '../lib/communities.js';
 import { useServerFeed } from '../lib/feed.js';
 import { useEvents } from '../lib/events.js';
 import { isUrl, occurrences, whenText } from '../components/events/eventUtils.js';
@@ -114,7 +115,9 @@ function CommunityView({ g, tab, sub, mode, admin }) {
   const perms = permsOf(g, me.id);
   const role = roleOf(g, me.id);
   const archived = g.status === 'archived';
-  const tabs = TABS.filter((t) => (!t.members || perms.canView) && (!t.admins || perms.canAdmin) && (!t.mods || perms.canModerate));
+  const features = useFeatures();
+  const tabs = TABS.filter((t) => (!t.members || perms.canView) && (!t.admins || perms.canAdmin) && (!t.mods || perms.canModerate)
+    && (t.id !== 'learning' || isOn(features, 'learning')));
   const queue = useQueueCounts(g, perms);
   const current = tabs.some((t) => t.id === tab) ? tab : 'overview';
 
@@ -209,8 +212,8 @@ function ActionsMenu({ g, perms, role }) {
     perms.canAdmin && !archived && ['Add members', () => setModal('add')],
     perms.canAdmin && ['Edit community', () => setModal('edit')],
     role && !g.allHands && ['Leave community', () => leave(g)],
-    perms.canAdmin && !g.allHands && g.id !== NETWORK_COMMUNITY && (archived ? ['Restore community', () => lifecycle.archive(g, false)] : ['Archive community', () => lifecycle.archive(g, true), true]),
-    me.admin && !g.allHands && g.id !== NETWORK_COMMUNITY && ['Delete community', () => lifecycle.remove(g), true],
+    perms.canAdmin && !g.allHands && (archived ? ['Restore community', () => lifecycle.archive(g, false)] : ['Archive community', () => lifecycle.archive(g, true), true]),
+    me.admin && !g.allHands && ['Delete community', () => lifecycle.remove(g), true],
   ].filter(Boolean);
   if (!items.length) return null;
   return (

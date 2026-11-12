@@ -11,6 +11,7 @@ import { migrate } from '../db/migrate.js';
 import { hashPassword } from '../lib/crypto.js';
 import { mergeCommunity } from '../lib/merge.js';
 import { pickAccent } from '../lib/community.js';
+import { retireDefaultCommunity } from '../lib/data-migrations.js';
 
 export const DEV_PASSWORD = 'Community-Demo-2026';
 // The demo passwords are published in DEMO_ACCOUNTS.md, so a production seed must never use them:
@@ -52,6 +53,9 @@ export async function runSeed(database, { log = console.log } = {}) {
   await seedCommunities();
   await seedEvents();
   await mergeAllHands();
+  // P1 (v2 brief): AlumniZone becomes an ordinary community. Runs once, logged, undoable.
+  const p1 = await retireDefaultCommunity(db);
+  if (p1) log('P1: AlumniZone is an ordinary community', p1);
   return true;
 }
 
@@ -153,8 +157,9 @@ async function seedConnections() {
   console.log('connections', { fromFollows: made });
 }
 
-// Groups → communities (same ids; public→public, restricted→private, private→closed), plus the
-// default "AlumniZone" community for network-wide content (decision D3). Posts, comments,
+// Groups → communities (same ids; public→public, restricted→private, private→closed), plus an
+// "AlumniZone" community for the prototype's network-wide content. It starts with every account
+// (as the prototype had it), and P1 below then keeps only the members who took part. Posts, comments,
 // likes, moods, polls and Mandatory Read acknowledgements come across. Runs once.
 
 async function seedCommunities() {

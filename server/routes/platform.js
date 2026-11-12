@@ -5,7 +5,6 @@
 //
 // PGlite has one connection: inside db.tx only `t` is used, and permission checks run first.
 import { audit } from '../lib/audit.js';
-import { DEFAULT_COMMUNITY } from '../lib/community.js';
 import { verifyPassword, newId } from '../lib/crypto.js';
 import { badRequest, conflict, notFound, unauthorized } from '../lib/errors.js';
 import { notify } from '../lib/notify.js';
@@ -135,7 +134,7 @@ export default async function platformRoutes(app, { ctx }) {
     ]);
     return {
       community: { id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility, status: c.status, statusReason: c.status_reason,
-        memberCount: c.member_count, deletedAt: c.deleted_at, purgeAfter: c.purge_after, purging: !!c.purge_step, isDefault: c.id === DEFAULT_COMMUNITY },
+        memberCount: c.member_count, deletedAt: c.deleted_at, purgeAfter: c.purge_after, purging: !!c.purge_step },
       staff: staff.map((s) => ({ id: s.id, name: s.name, role: s.role, accountStatus: s.status })),
       impact: effect,
       request: request ? { id: request.id, status: request.status, reason: request.reason, createdAt: request.created_at, requestedBy: request.requested_by_name,
@@ -147,7 +146,6 @@ export default async function platformRoutes(app, { ctx }) {
   app.post('/communities/:id/suspend', { schema: { body: { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string' } } } } }, async (req) => {
     authorize(req.user, 'communities.manage');
     const c = await loadCommunity(req.params.id);
-    if (c.id === DEFAULT_COMMUNITY) throw conflict('DEFAULT_COMMUNITY', 'AlumniZone is the platform’s default community and can’t be suspended.');
     const reason = text(req.body.reason, 1000);
     if (!reason) throw badRequest('REASON_REQUIRED', 'Give a reason; its staff see it.', { field: 'reason' });
     const { rows } = await db.query(`update communities set status = 'suspended', status_before = status, status_reason = $2, version = version + 1
@@ -205,7 +203,6 @@ export default async function platformRoutes(app, { ctx }) {
   // ---- Deleting (D1, D2) -----------------------------------------------------------------------
   /** The checks every deletion passes: typed name, a reason, nothing left undecided (DEL-09). */
   async function checkDeletable(c, body) {
-    if (c.id === DEFAULT_COMMUNITY) throw conflict('DEFAULT_COMMUNITY', 'AlumniZone is the platform’s default community and can’t be deleted.');
     if (c.status === 'deleted') throw conflict('ALREADY_DELETED', 'This community has already been deleted.');
     const { rows: [merged] } = await db.query(`select 1 from communities where merged_into = $1 limit 1`, [c.id]);
     if (merged) throw conflict('HAS_MERGES', 'Other communities were merged into this one. Undo those merges first.');
@@ -571,6 +568,12 @@ export default async function platformRoutes(app, { ctx }) {
 // ---- For everyone: the current announcement on Home (D7) ---------------------------------------
 export async function announcementRoutes(app, { ctx }) {
   const { db } = ctx;
+  // Which modules are switched on (v2 brief). Anyone may read it: it says nothing private, and
+  // the server enforces each switch on its own routes.
+  app.get('/features', async () => {
+    const { rows } = await db.query(`select key, enabled from feature_flags order by key`);
+    return { features: Object.fromEntries(rows.map((r) => [r.key, r.enabled])) };
+  });
   app.get('/announcements/current', async (req) => {
     if (!req.user) throw unauthorized();
     const { rows: [a] } = await db.query(`select a.id, a.message, a.link from announcements a

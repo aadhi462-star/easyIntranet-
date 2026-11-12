@@ -134,7 +134,13 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 7 — platform administration")
 - **Test runner quirk:** every file passes on its own (platform 23/23, all others as before), but the full `npm run test:server` run sometimes stalls with an idle child process (seen in assessment and platform). Not resolved: 253 tests pass with each file run as its own process (12 Nov, after the Stage 7 commit), and the pre-Stage-7 commit's full run passed once (230). If `npm run test:server` stalls, run the files one at a time; a stalled child sits idle at under 1 s of CPU, so suspect a PGlite wait early in setup.
 - Preview for this session: launch entry `communityone-7` (port **5184**) in the Portfolio folder's `.claude/launch.json`.
 
-**Next:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
+### v2 workstream A: done (12 Nov 2026)
+Proposal approved with the recommended P1–P5. No default community; the P1 data migration (logged, undoable, rehearsed); feature flags enforced; the `/verify` route clash fixed; Playwright journeys (`npm run test:e2e`). Details are in the progress log ("v2 brief — workstream A").
+- Rules to keep: never add anyone to a community they didn't choose. Data changes go through `lib/data-migrations.js` (once, logged, undoable). New parked pages get a `flag` in `lib/modules.js`.
+
+**Next:** workstream B (design system). First show the token and component board for approval, before restyling any screen. Order and estimates are in `PROPOSAL_V2.md` §12–13.
+
+**Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 
 ## Working style that's been effective
 

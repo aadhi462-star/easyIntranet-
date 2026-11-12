@@ -7,7 +7,7 @@ import { fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
 import { setSaved, useIsSaved } from '../../lib/engage.js';
 import { toast } from '../../lib/toast.js';
 import {
-  acknowledge, approvePost, authorUser, deletePost, errorText, MOODS, NETWORK_ID, pinPost, publishPost, removePost, setReaction, vote,
+  acknowledge, approvePost, authorUser, deletePost, errorText, MOODS, pinPost, publishPost, removePost, setReaction, vote,
 } from '../../lib/feed.js';
 import { Avatar, Modal } from '../ui.jsx';
 import Comments from './Comments.jsx';
@@ -77,7 +77,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
   // Saved lives on the account (Stage 4).
   const bookmarked = useIsSaved('post', post.id) && !guest;
   const authorProfile = authorUser(author, user);
-  const where = post.community && post.communityId !== NETWORK_ID ? post.community : null;
+  const where = post.community ?? null;
 
   return (
     <article className={`${embedded ? 'rounded-xl border border-white/10 bg-white/[.03] p-4' : 'glass p-4 sm:p-5'} ${post.pinned && !embedded ? 'ring-1 ring-brand-500/40' : ''}`} aria-label={`Post by ${author.deleted ? 'Deleted member' : author.name ?? 'member'}`}>

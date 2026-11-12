@@ -1,8 +1,8 @@
-// Public discovery and joining the default community (EDGE_CASE_REGISTER.md IDs in each name).
+// Public discovery, and no default community (v2 brief P1). EDGE_CASE_REGISTER.md IDs in each name.
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { client, lastToken, makeUser, setup, signIn } from './helpers.js';
-import { joinDefaultCommunity } from '../lib/community.js';
+import { P1, retireDefaultCommunity, undoDataMigration } from '../lib/data-migrations.js';
 
 let env; let visitor;
 const q = (s, p) => env.db.query(s, p);
@@ -66,42 +66,55 @@ describe('public discovery', () => {
   });
 });
 
-describe('joining the default community (R5)', () => {
-  test('confirming your email makes you an AlumniZone member', async () => {
+describe('no default community (v2 brief, P1)', () => {
+  test('confirming your email or being approved joins no community', async () => {
     const c = client(env.app);
     assert.equal((await c.post('/api/auth/register', { name: 'Riya Menon', email: 'riya@example.com', password: 'a-good-password' })).status, 201);
-    const { rows: [u] } = await q(`select id from users where email = 'riya@example.com'`);
-    assert.equal((await q(`select count(*)::int n from memberships where user_id = $1`, [u.id])).rows[0].n, 0, 'not before confirming');
     assert.equal((await c.post('/api/auth/verify', { token: await lastToken(env.db, 'riya@example.com') })).status, 200);
-    const { rows } = await q(`select role, state from memberships where community_id = 'alumnizone' and user_id = $1`, [u.id]);
-    assert.deepEqual(rows, [{ role: 'member', state: 'active' }]);
-    const dash = (await c.get('/api/dashboard')).body;
-    assert.ok(dash.communities.some((x) => x.id === 'alumnizone'), 'their Home isn’t empty');
-  });
-
-  test('with approval required, membership waits for the admin’s approval', async () => {
+    const { rows: [u] } = await q(`select id, status from users where email = 'riya@example.com'`);
+    assert.equal(u.status, 'active');
+    assert.equal((await q(`select count(*)::int n from memberships where user_id = $1`, [u.id])).rows[0].n, 0);
     await q(`update platform_settings set value = value || '{"requireApproval": true}' where key = 'registration'`);
     try {
-      const c = client(env.app);
-      await c.post('/api/auth/register', { name: 'Waiting Person', email: 'wait@example.com', password: 'a-good-password' });
-      await c.post('/api/auth/verify', { token: await lastToken(env.db, 'wait@example.com') });
-      const { rows: [u] } = await q(`select id, status from users where email = 'wait@example.com'`);
-      assert.equal(u.status, 'pending_approval');
-      assert.equal((await q(`select count(*)::int n from memberships where user_id = $1`, [u.id])).rows[0].n, 0);
+      const w = client(env.app);
+      await w.post('/api/auth/register', { name: 'Waiting Person', email: 'wait@example.com', password: 'a-good-password' });
+      await w.post('/api/auth/verify', { token: await lastToken(env.db, 'wait@example.com') });
+      const { rows: [p] } = await q(`select id from users where email = 'wait@example.com'`);
       await makeUser(env.db, { id: 'pa', email: 'pa@example.com', roles: ['platform_admin'] });
       const admin = await signIn(env.app, { email: 'pa@example.com', password: 'correct-horse-battery' });
-      assert.equal((await admin.post(`/api/admin/users/${u.id}/approve`)).status, 200);
-      assert.equal((await q(`select state from memberships where community_id = 'alumnizone' and user_id = $1`, [u.id])).rows[0].state, 'active');
+      assert.equal((await admin.post(`/api/admin/users/${p.id}/approve`)).status, 200);
+      assert.equal((await q(`select count(*)::int n from memberships where user_id = $1`, [p.id])).rows[0].n, 0);
     } finally {
       await q(`update platform_settings set value = value || '{"requireApproval": false}' where key = 'registration'`);
     }
   });
 
-  test('R5 someone who left, was removed or blocked is never re-added (the MEM-05 rule)', async () => {
-    for (const state of ['left', 'removed', 'blocked']) {
-      await q(`update memberships set state = $1 where community_id = 'alumnizone' and user_id = 'mem'`, [state]);
-      await joinDefaultCommunity(env.db, 'mem');
-      assert.equal((await q(`select state from memberships where community_id = 'alumnizone' and user_id = 'mem'`)).rows[0].state, state);
+  test('P1 keeps members who took part and staff, moves the rest to "left", once, logged and undoable', async () => {
+    for (const id of ['lurker', 'poster', 'goer']) {
+      await makeUser(env.db, { id, email: `${id}@example.com`, name: id });
+      await q(`insert into memberships (community_id, user_id, role, state, joined_at) values ('alumnizone', $1, 'member', 'active', now())`, [id]);
     }
+    await q(`insert into posts (id, community_id, author_id, body, status, published_at) values ('p-poster', 'alumnizone', 'poster', 'hello', 'published', now())`);
+    await q(`insert into event_rsvps (event_id, user_id, status) values ('e6', 'goer', 'going')`);
+    const summary = await retireDefaultCommunity(env.db);
+    const state = async (uid) => (await q(`select state from memberships where community_id = 'alumnizone' and user_id = $1`, [uid])).rows[0].state;
+    assert.equal(await state('lurker'), 'left');
+    assert.equal(await state('poster'), 'active');
+    assert.equal(await state('goer'), 'active');
+    assert.equal(await state('own'), 'active', 'the Owner keeps their role');
+    assert.ok(summary.movedToLeft >= 1);
+    assert.equal(await retireDefaultCommunity(env.db), null, 'runs once');
+    assert.ok((await q(`select 1 from migration_log where migration = $1 and row_key->>'user_id' = 'lurker'`, [P1])).rows.length);
+    // A "left" member can rejoin in one click.
+    const lurker = await signIn(env.app, { email: 'lurker@example.com', password: 'correct-horse-battery' });
+    assert.equal((await lurker.post('/api/communities/alumnizone/join')).status, 200);
+    assert.equal(await state('lurker'), 'active');
+    // Undo restores only rows still as P1 left them.
+    await q(`update memberships set state = 'left' where community_id = 'alumnizone' and user_id = 'lurker'`);
+    await q(`update memberships set state = 'removed' where community_id = 'alumnizone' and user_id = 'mem'`);
+    const undo = await undoDataMigration(env.db, P1);
+    assert.equal(await state('lurker'), 'active');
+    assert.ok(undo.restored >= 1);
+    assert.equal((await undoDataMigration(env.db, P1)).alreadyUndone, true);
   });
 });

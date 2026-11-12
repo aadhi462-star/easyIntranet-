@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { uid, useStore } from '../../lib/store.jsx';
 import { api, newKey, uploadFile } from '../../lib/api.js';
 import { toast } from '../../lib/toast.js';
-import { createPost, editPost, errorText, fetchMyCommunities, isCommunityAdmin, NETWORK_ID, publishPost } from '../../lib/feed.js';
+import { createPost, editPost, errorText, fetchMyCommunities, isCommunityAdmin, publishPost } from '../../lib/feed.js';
 import { Avatar } from '../ui.jsx';
 import { MandatoryConfig } from './Mandatory.jsx';
 
@@ -54,7 +54,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
     fetchMyCommunities().then((cs) => {
       if (!live) return;
       setCommunities(cs);
-      setCommunityId((cur) => cur || (cs.some((c) => c.id === NETWORK_ID) ? NETWORK_ID : cs[0]?.id) || '');
+      setCommunityId((cur) => cur || cs[0]?.id || '');
     }, (e) => live && (setCommunities([]), setError(errorText(e))));
     return () => { live = false; };
   }, [editing]);

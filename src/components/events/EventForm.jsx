@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../lib/store.jsx';
 import { api, newKey } from '../../lib/api.js';
-import { NETWORK_ID, fetchMyCommunities, isCommunityAdmin } from '../../lib/feed.js';
+import { fetchMyCommunities } from '../../lib/feed.js';
 import { createEvent, editEvent, fetchEvent } from '../../lib/events.js';
 import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
@@ -39,8 +39,8 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const sorted = (l) => [...(l || [])].sort();
 
 /**
- * Create or edit an event on the server. Creating picks the community: the AlumniZone wall
- * (company event), one of your groups, or an invite-only event in either. Editing keeps the
+ * Create or edit an event on the server. Creating picks the community (one you belong to), or an
+ * invite-only event in one. No community is platform-wide (v2 brief). Editing keeps the
  * event's community and sends only the fields that changed, from the version that was opened.
  */
 export default function EventForm({ initial = {}, onClose, onSaved }) {
@@ -49,7 +49,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
   const [communities, setCommunities] = useState(null);
   const [base, setBase] = useState(initial); // the version edits are compared against and sent from
   const [f, setF] = useState(() => formOf(initial,
-    initial.inviteOnly ? 'private' : initial.scope?.type ?? (initial.groupId ? 'group' : 'network'),
+    initial.inviteOnly ? 'private' : 'group',
     initial.communityId ?? initial.scope?.id ?? initial.groupId ?? ''));
   const [members, setMembers] = useState(null);
   const [error, setError] = useState('');
@@ -61,24 +61,20 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
   useEffect(() => {
     fetchMyCommunities().then(setCommunities).catch((e) => setError(e.message));
   }, []);
-  const network = communities?.find((c) => c.id === NETWORK_ID);
-  const groups = (communities || []).filter((c) => c.id !== NETWORK_ID);
-  // AlumniZone keeps open ("company") events to its admins; invite-only events are for anyone.
-  const canNetwork = !!network && isCommunityAdmin(network);
+  const groups = communities || [];
 
   // Once communities load, settle on a share option the person can actually use.
   useEffect(() => {
     if (!communities || editing) return;
     setF((x) => {
       let share = x.share;
-      if (share === 'network' && !canNetwork) share = x.groupId && groups.some((g) => g.id === x.groupId) ? 'group' : 'private';
       if (share === 'group' && !groups.length) share = 'private';
-      const groupId = x.groupId && communities.some((c) => c.id === x.groupId) ? x.groupId : (share === 'group' ? groups[0]?.id : network?.id ?? groups[0]?.id) ?? '';
+      const groupId = x.groupId && communities.some((c) => c.id === x.groupId) ? x.groupId : groups[0]?.id ?? '';
       return { ...x, share, groupId, inviteOnly: share === 'private' };
     });
   }, [communities]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const communityId = editing ? initial.communityId : f.share === 'network' ? NETWORK_ID : f.groupId;
+  const communityId = editing ? initial.communityId : f.groupId;
   const communityName = (communities || []).find((c) => c.id === communityId)?.name ?? initial.community?.name ?? '';
 
   // Guests and co-hosts must be members of the event's community, so only those are offered.
@@ -108,7 +104,6 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
     if (Number.isNaN(start) || Number.isNaN(end)) return setError('Choose a start and end time.');
     if (end < start) return setError('The event can’t end before it starts.');
     if (!communityId) return setError('Choose where to share this event.');
-    if (f.share === 'network' && !editing && !canNetwork) return setError('Only AlumniZone admins can create events open to all of AlumniZone. Choose a group or invite people instead.');
     const until = f.freq !== 'none' && f.until ? fromInput(f.until) + DAY - 1 : null;
     if (until != null && until < start) return setError('“Repeat until” can’t be before the start date.');
     const capacity = f.capacity.trim() ? Number(f.capacity) : null;
@@ -168,8 +163,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
   };
 
   const shareOptions = [
-    ['network', 'All of AlumniZone', !canNetwork],
-    ['group', 'A group', groups.length === 0],
+    ['group', 'A community', groups.length === 0],
     ['private', 'Invited members only', !communities?.length],
   ];
   const pickable = members ?? [];
@@ -228,11 +222,10 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
                 <label key={v} className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm ${f.share === v ? 'border-brand-500 bg-brand-500/15' : 'border-white/10'} ${disabled ? 'opacity-40' : 'cursor-pointer'}`}>
                   <input type="radio" name="share" className="accent-brand-500" disabled={disabled} checked={f.share === v}
                     onChange={() => setF((x) => ({ ...x, share: v, inviteOnly: v === 'private',
-                      groupId: v === 'group' ? (groups.some((g) => g.id === x.groupId) ? x.groupId : groups[0]?.id ?? '') : v === 'private' ? (x.groupId || network?.id || '') : x.groupId }))} />{l}
+                      groupId: v === 'group' ? (groups.some((g) => g.id === x.groupId) ? x.groupId : groups[0]?.id ?? '') : v === 'private' ? (x.groupId || groups[0]?.id || '') : x.groupId }))} />{l}
                 </label>
               ))}
             </div>
-            {communities && !canNetwork && <p className="mt-1 text-xs text-3">Only AlumniZone admins can create events open to all of AlumniZone.</p>}
             {f.share === 'group' && (
               <select className="input mt-2" value={f.groupId} onChange={(e) => set('groupId', e.target.value)} aria-label="Group">
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}

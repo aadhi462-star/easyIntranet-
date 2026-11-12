@@ -804,3 +804,43 @@ Built to the approved boards (design canvas page "Stage 7 — Platform administr
   - Custom platform roles.
   - Notifications about a community that was removed for good disappear with it, because their rows cascade.
   - The conflict rule counts staff roles, not plain membership: every account is a member of AlumniZone, so the stricter reading would block everyone there.
+
+### v2 brief — workstream A: architecture and data (12 Nov 2026)
+
+The proposal (`PROPOSAL_V2.md`) was approved with the recommended answers to P1–P5.
+
+- **No default community.**
+  - Email confirmation and account approval no longer add anyone to AlumniZone. `joinDefaultCommunity` and `DEFAULT_COMMUNITY` are gone.
+  - AlumniZone can be suspended or deleted like any community, and sky is an accent any community can get.
+  - In the client, the "network" community is gone:
+    - `NETWORK_ID` and `NETWORK_COMMUNITY` are removed.
+    - The Feed's "wall" now redirects to `/feed`.
+    - The Composer defaults to your first community.
+    - Events lose the "All of AlumniZone" scope and the AlumniZone tab.
+    - AlumniZone is listed with the other groups, and no longer pinned first in My Communities or on Landing.
+    - Landing's AlumniZone section is removed.
+    - About and Welcome are reworded.
+- **P1 data migration.** `013_data_migrations.sql` adds `data_migrations` and `migration_log`.
+  - `lib/data-migrations.js` `retireDefaultCommunity` runs once from the seed. Owners, Admins, Moderators, Instructors and TAs keep their memberships, as does anyone who posted, replied, reacted, voted, acknowledged, hosted or went to an event, or enrolled. Everyone else becomes "left" and can rejoin in one click. Every change is logged.
+  - `server/scripts/undo-data-migration.mjs` undoes it, restoring only rows still as P1 left them.
+  - **Rehearsed** on a copy of the preview database. Before: 34 active memberships, 6 posts, 3 events. After: 10 kept (4 staff, 6 who took part), 24 left, 6 posts, 3 events, 24 log rows. Undo restored all 24.
+- **Feature flags enforced (P4).**
+  - `014_module_flags.sql` adds switches for Forums, Files, Manuals and Org chart.
+  - `GET /api/features` returns the switches; `src/lib/features.js` reads them.
+  - A parked module's routes exist only while its switch is on (`flag` in `lib/modules.js`), for admins too.
+  - Learning off: learning routes answer 404 `LEARNING_OFF` (certificates still verify); the Learning tab and My Learning disappear.
+- **Bug found by the new browser tests and fixed.** The email confirmation link (`#/verify?token=…`) opened the certificate check page. Stage 5b had registered `/verify` ahead of the email page. `/verify` now opens email confirmation when there's a token, and the certificate check otherwise.
+- **Playwright (P3).**
+  - Added `@playwright/test` 1.64.1; it uses the installed Google Chrome, so no browser download.
+  - `npm run test:e2e` builds and starts the server on a throwaway seeded database (`e2e/start-server.mjs`).
+  - Journeys at 1280 and 375 px: sign up, confirm and start with no communities; join a Public community and post; Platform Admin deletes and restores a community. Result: 5 passed, 1 skipped (admin journey at desktop only).
+- **Server tests:** 253 pass in two full runs (113 s and 169 s), with no stall. Earlier stalls all happened while another test run or a build ran at the same time. Not reproduced, so not fixed: if it comes back, run the files one at a time.
+- **Browser** (preview, port 5184):
+  - `/forums` no longer opens.
+  - `/api/features` lists every parked module as off.
+  - Switching Learning off removed every Learning link and sent `/c/alumnizone/learning` to the Overview; it was switched back on afterwards.
+- **Not done here** (later workstreams):
+  - Emoji and theme (B).
+  - Landing redesign, which is still the old layout without the AlumniZone section (C).
+  - Moving batch filters into Alumni-template communities (F).
+  - The seed still creates the prototype's AlumniZone from old data. P1 trims it; workstream F replaces it with a template-made demo community.

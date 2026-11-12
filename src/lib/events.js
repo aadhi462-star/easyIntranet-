@@ -4,7 +4,6 @@
 // `scope` ({type:'network'|'group'|'private'}) so labels and sections keep working.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, newKey } from './api.js';
-import { NETWORK_ID } from './feed.js';
 
 // ---- Change broadcast -------------------------------------------------------------------------
 // {type:'event', event} changed · {type:'removed', id} gone for this viewer · {type:'created', event}
@@ -19,7 +18,7 @@ export const localTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZ
 /** Server event → the client model. */
 export function fromServer(e) {
   if (!e) return e;
-  const scope = e.inviteOnly ? { type: 'private' } : e.communityId === NETWORK_ID ? { type: 'network' } : { type: 'group', id: e.communityId };
+  const scope = e.inviteOnly ? { type: 'private' } : { type: 'group', id: e.communityId };
   return {
     ...e,
     scope,

@@ -5,3 +5,5 @@ server/.data
 appsail-build
 appsail-build.zip
 server/db-template
+test-results
+playwright-report

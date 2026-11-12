@@ -1,4 +1,4 @@
-// Merging one community into another (decision R4: All Hands → AlumniZone), and undoing it.
+// Merging one community into another (decision R4 used it for All Hands → AlumniZone), and undoing it.
 // The merge moves posts and events, adds the source's active members who have no membership in
 // the target yet (never re-adding someone who left, was removed or blocked: the MEM-05 rule),
 // then hides the source. Everything moved is recorded, so undo moves back exactly that.
@@ -33,7 +33,7 @@ export async function mergeCommunity(db, { from, to, actorId = null }) {
 /**
  * Undoes a merge: the recorded posts and events that are still in the target move back, and the
  * source comes back with its old status. Posts written in the target since stay there. Members
- * the merge added stay in the target: it's the default community everyone joins (R5) anyway.
+ * the merge added stay in the target; they can leave it like any community.
  */
 export async function undoMerge(db, { from, actorId = null }) {
   return db.tx(async (t) => {

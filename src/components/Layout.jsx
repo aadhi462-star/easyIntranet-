@@ -4,6 +4,7 @@
 // Only platform-level destinations live here; each community keeps its own navigation inside
 // its page. Features that aren't re-homed yet (Feed, People, Calendar) sit under "More" until
 // Stages 3–4 move them into communities; parked modules (decision D2) are reachable by URL only.
+import { isOn, useFeatures } from '../lib/features.js';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
@@ -70,6 +71,7 @@ export default function Layout() {
   const [q, setQ] = useState('');
   const nav = useNavigate();
   const loc = useLocation();
+  const features = useFeatures();
   const query = new URLSearchParams(loc.search);
   const communities = useMyCommunities(me);
   // Notifications come from the server (Stage 4).
@@ -155,7 +157,7 @@ export default function Layout() {
           <Link to="/dashboard" className="px-2 py-1" aria-label="CommunityOne home"><Logo size={30} /></Link>
           <div className="flex flex-col gap-0.5">
             {PRIMARY.map((m) => <NavItem key={m.id} item={m} active={isActive(m)} />)}
-            <NavItem item={LEARNING} active={isActive(LEARNING)} />
+            {isOn(features, 'learning') && <NavItem item={LEARNING} active={isActive(LEARNING)} />}
             <NavItem item={{ label: 'Create Community', icon: 'create', to: '/groups?new=1' }} active={false} />
           </div>
           {communities.length > 0 && (
@@ -214,7 +216,7 @@ export default function Layout() {
                     <Link role="menuitem" className={menuLink} to={`/people/${me.id}`}>Profile</Link>
                     <Link role="menuitem" className={menuLink} to="/feed/bookmarks">Bookmarks</Link>
                     <div className="lg:hidden">
-                      {[LEARNING, ...more].map((m) => <Link key={m.id} role="menuitem" className={menuLink} to={m.to}>{m.label}</Link>)}
+                      {[...(isOn(features, 'learning') ? [LEARNING] : []), ...more].map((m) => <Link key={m.id} role="menuitem" className={menuLink} to={m.to}>{m.label}</Link>)}
                       {me.admin && <Link role="menuitem" className={menuLink} to="/admin">Platform Admin</Link>}
                     </div>
                     <div className="flex items-center justify-between px-3 py-1.5"><span>Theme</span><ThemeToggle /></div>

@@ -182,12 +182,12 @@ describe('onboarding', () => {
 });
 
 describe('community accents (refined design system)', () => {
-  test('a new community gets the least-used accent, never lime or AlumniZone’s sky, and every view returns it', async () => {
+  test('a new community gets the least-used accent (never lime), and every view returns it', async () => {
     const used = async () => Object.fromEntries((await q(`select accent, count(*)::int as n from communities group by accent`)).rows.map((r) => [r.accent, r.n]));
     const before = await used();
     const a = await ana.post('/api/communities', { name: 'Harbour Rowers', visibility: 'public' });
     assert.equal(a.status, 201);
-    const pickable = ['violet', 'amber', 'teal', 'rose', 'orange'];
+    const pickable = ['violet', 'amber', 'teal', 'rose', 'orange', 'sky'];
     const least = Math.min(...pickable.map((x) => before[x] ?? 0));
     assert.ok(pickable.includes(a.body.community.accent));
     assert.equal(before[a.body.community.accent] ?? 0, least);

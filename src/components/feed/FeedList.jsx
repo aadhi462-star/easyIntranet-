@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
-import { fetchMyCommunities, isCommunityAdmin, NETWORK_ID, useServerFeed } from '../../lib/feed.js';
+import { fetchMyCommunities, isCommunityAdmin, useServerFeed } from '../../lib/feed.js';
 import { Empty } from '../ui.jsx';
 import Composer from './Composer.jsx';
 import PostCard from './PostCard.jsx';
@@ -15,7 +15,7 @@ import PostCard from './PostCard.jsx';
 export default function FeedList({ scope, composer = true, readOnly = false, groupId }) {
   const { me } = useStore();
   const s = scope ?? (groupId ? { type: 'group', id: groupId } : { type: 'network' });
-  const community = s.type === 'group' ? s.id : s.type === 'network' ? NETWORK_ID : undefined;
+  const community = s.type === 'group' ? s.id : undefined;
   const own = s.type === 'user' && s.id === me?.id;
   const view = own ? 'mine' : 'all';
   const feed = useServerFeed({ view, community, enabled: !!me, keep: (p) => !['draft', 'scheduled'].includes(p.status) });

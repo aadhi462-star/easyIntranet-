@@ -10,8 +10,8 @@ export default function About() {
         <p>You create one CommunityOne account. With it you can join as many communities as you like, and you can have a different role in each: a member in one, a moderator in another, the owner of a third.</p>
         <p>Each community has its own members, discussions, events and settings, and decides who can see what. Public communities are open to everyone. Private communities show their name and description but keep their content for members, who join by request. Closed communities are invitation-only and never listed.</p>
       </Section>
-      <Section title="CommunityOne and AlumniZone">
-        <p>CommunityOne is the platform. AlumniZone is one community on it: the alumni community of The Institute. Its members keep their profiles, connections, discussions and events, and can join other communities with the same account.</p>
+      <Section title="Communities of every kind">
+        <p>CommunityOne is the platform; communities are the spaces on it. Alumni networks, schools, professional groups, technology and business communities, organisations and hobby groups each run their own space, with their own members, rules and look. None is the default, and nobody is added to one without choosing it.</p>
       </Section>
       <Section title="How it works" id="how-it-works">
         <ol className="flex flex-col gap-3">

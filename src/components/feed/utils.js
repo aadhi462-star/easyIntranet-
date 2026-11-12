@@ -3,7 +3,6 @@ import { sentiment } from '../../lib/assist.js';
 
 export const VIEWS = [
   { id: 'my', label: 'My Feed', icon: 'myfeed' },
-  { id: 'wall', label: 'AlumniZone', icon: '🏛️' },
   { id: 'announcements', label: 'Announcements', icon: '📢' },
   { id: 'mandatory', label: 'Mandatory Reads', icon: '✅' },
   { id: 'questions', label: 'Questions', icon: '❓' },
@@ -145,7 +144,7 @@ export function publishPost(state, dispatch, post, opts) {
 }
 
 export function scopeLabel(state, scope) {
-  if (!scope || scope.type === 'network') return 'AlumniZone';
+  if (!scope || scope.type === 'network') return 'All communities';
   if (scope.type === 'group') return state.groups.find((g) => g.id === scope.id)?.name ?? 'Group';
   if (scope.type === 'user') return `${state.users.find((u) => u.id === scope.id)?.name ?? 'Member'}'s wall`;
   return '';

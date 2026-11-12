@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
-import { fetchCommunityList, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
+import { fetchCommunityList, onCommunityChange, visibilityOf } from '../lib/communities.js';
 import { Field, Logo, ThemeToggle } from '../components/ui.jsx';
 import { CommunityTile, VisibilityBadge } from '../components/public/CommunityCards.jsx';
 import JoinButton from '../components/groups/JoinButton.jsx';
@@ -121,8 +121,7 @@ function CommunitiesStep({ me }) {
   const load = () => fetchCommunityList(me.id).then((list) => setS({ status: 'ready', list }), (err) => setS({ status: 'error', list: [], message: err.message }));
   useEffect(() => { load(); return onCommunityChange(load); }, [me.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const mine = (g) => ['active', 'restricted'].includes(g.myMembership?.state);
-  const inAlumniZone = s.list.some((g) => g.id === NETWORK_COMMUNITY && mine(g));
-  const candidates = s.list.filter((g) => g.id !== NETWORK_COMMUNITY && g.status === 'active');
+  const candidates = s.list.filter((g) => g.status === 'active');
   useEffect(() => {
     if (!order && s.status === 'ready') setOrder([...candidates].sort((a, b) => b.memberCount - a.memberCount).slice(0, 8).map((g) => g.id));
   }, [s.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,8 +131,7 @@ function CommunitiesStep({ me }) {
     <section aria-labelledby="pick">
       <h1 id="pick" className="mt-2 text-2xl font-semibold">Choose your communities</h1>
       <p className="mt-2 text-sm text-slate-300">
-        {inAlumniZone ? 'You’re already in AlumniZone, the community everyone here belongs to. ' : ''}
-        Join others for your batch, city or interests. Private ones send a request to their admins.
+        Join the ones that fit you: your school or workplace, your city, your interests. Private ones send a request to their admins.
       </p>
       {s.status === 'loading' ? <div className="mt-6 h-48 animate-pulse rounded-xl bg-white/5" aria-busy="true" />
         : s.status === 'error' ? <div role="alert" className="mt-6 text-sm"><p className="text-rose-300">{s.message}</p><button type="button" className="btn btn-ghost mt-3" onClick={load}>Try again</button></div>

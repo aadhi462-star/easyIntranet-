@@ -4,8 +4,6 @@
 // group ids, so every module that links to a group keeps working.
 import { api, ApiError, widenAdminScope } from './api.js';
 
-/** The network-wide community (the main wall). It isn't listed as a group. */
-export const NETWORK_COMMUNITY = 'alumnizone';
 /**
  * Where a community opens: /c/<slug>, optionally a tab (/c/<slug>/events). Takes a community
  * (uses its slug) or just an id (the page accepts ids too and swaps in the slug).
@@ -31,7 +29,6 @@ const enc = encodeURIComponent;
 export const ACCENTS = ['sky', 'violet', 'amber', 'teal', 'rose', 'orange'];
 export function accentOf(c) {
   if (ACCENTS.includes(c?.accent)) return c.accent;
-  if (c?.id === NETWORK_COMMUNITY) return 'sky';
   const n = [...String(c?.id ?? '')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
   return ACCENTS[1 + (n % (ACCENTS.length - 1))];
 }
@@ -118,10 +115,10 @@ const peopleOf = (members) => members.map((m) => ({ id: m.id, name: m.name }));
  */
 export async function syncCommunities(dispatch, { me, localIds = [] } = {}) {
   const { communities } = await api('/communities');
-  const listed = communities.filter((c) => c.id !== NETWORK_COMMUNITY).map((c) => c.id);
+  const listed = communities.map((c) => c.id);
   // Discovery leaves out archived communities; ones this browser already knows are checked
   // one by one so members keep seeing them.
-  const extra = localIds.filter((id) => id !== NETWORK_COMMUNITY && !listed.includes(id));
+  const extra = localIds.filter((id) => !listed.includes(id));
   const results = await Promise.all([...listed, ...extra].map((id) => loadCommunity(id, me).then((r) => [id, r])));
   const groups = []; const drop = []; const people = [];
   for (const [id, r] of results) {
@@ -142,16 +139,12 @@ export function onCommunityChange(fn) {
   return () => window.removeEventListener('c1-community-changed', h);
 }
 
-/**
- * Re-reads one community after a write. Returns the merged group, or null when it's gone.
- * AlumniZone isn't kept with the groups (older screens treat those as optional groups), so its
- * page hears about the change through the event instead.
- */
+/** Re-reads one community after a write. Returns the merged group, or null when it's gone. */
 export async function refreshCommunity(id, dispatch, { me } = {}) {
   const r = await loadCommunity(id, me);
   if (!r || r.merged) { dispatch({ type: 'communities/merge', groups: [], drop: [id], silent: true }); changed(id); return null; }
   if (r.members.length) dispatch({ type: 'users/merge', users: peopleOf(r.members), silent: true });
-  if (id !== NETWORK_COMMUNITY) dispatch({ type: 'communities/merge', groups: [r.group], silent: true });
+  dispatch({ type: 'communities/merge', groups: [r.group], silent: true });
   changed(id);
   return r.group;
 }

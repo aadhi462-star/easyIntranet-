@@ -1,6 +1,6 @@
 # CommunityOne — Proposal and ETA for the v2 master brief
 
-12 Nov 2026. Answers Part 1, step 4 of `MASTER_BRIEF_V2.md`. Based on an inspection of the code at commit `9b0ca15`; every count below was measured, not estimated. **Nothing in this proposal has been built. It waits for your approval.**
+12 Nov 2026. Answers Part 1, step 4 of `MASTER_BRIEF_V2.md`. Based on an inspection of the code at commit `9b0ca15`; every count below was measured, not estimated. **Approved by the user on 12 Nov 2026 ("Approve, recommended"), with the recommended answers to P1–P5.** Work starts with workstream A.
 
 ## 1. Existing task: Stage 7 is complete
 

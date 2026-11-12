@@ -7,7 +7,7 @@ import { useStore } from '../lib/store.jsx';
 import { toast } from '../lib/toast.js';
 import { Empty, PageHeader, Tabs } from '../components/ui.jsx';
 import { permsOf } from '../components/groups/helpers.js';
-import { communityApi, communityPath, errorText, fetchCommunityList, NETWORK_COMMUNITY, onCommunityChange, visibilityOf } from '../lib/communities.js';
+import { communityApi, communityPath, errorText, fetchCommunityList, onCommunityChange, visibilityOf } from '../lib/communities.js';
 import { useCommunityWrite } from '../components/groups/useCommunity.js';
 import { CardSkeletons, CommunityTile, VisibilityBadge } from '../components/public/CommunityCards.jsx';
 import JoinButton from '../components/groups/JoinButton.jsx';
@@ -67,7 +67,7 @@ function Directory() {
 
   // Join requests come with the full community detail, which only admins' groups carry.
   const managed = state.groups.filter((g) => permsOf(g, me.id).canAdmin && (g.joinRequests || []).length);
-  const mine = list.filter(isMine).sort((a, b) => (b.id === NETWORK_COMMUNITY) - (a.id === NETWORK_COMMUNITY) || a.name.localeCompare(b.name));
+  const mine = list.filter(isMine).sort((a, b) => a.name.localeCompare(b.name));
   const discover = list.filter((g) => !isMine(g) && g.status !== 'archived');
   const base = tab === 'mine' ? mine : tab === 'requests' ? managed : discover;
   const categories = [...new Set(base.map((g) => g.type).filter(Boolean))].sort();

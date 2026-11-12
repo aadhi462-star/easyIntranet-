@@ -1,7 +1,6 @@
 // Platform administration (Phase 1): users, approvals, suspension, platform roles, settings, audit.
 // Every route authorises on the server; staff roles only reach what their role grants (PER-16).
 import { audit } from '../lib/audit.js';
-import { joinDefaultCommunity } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { authorize, can, canAssignRole, PLATFORM_ROLES } from '../lib/permissions.js';
 import { requireFreshPassword, revokeAllSessions } from '../lib/session.js';
@@ -134,7 +133,6 @@ export default async function adminRoutes(app, { ctx }) {
     // Conditional update: approving twice, or after a decline, is a clean no-op (MEM-03/04 pattern).
     const { rows } = await db.query(`update users set status = 'active', updated_at = now(), version = version + 1 where id = $1 and status = 'pending_approval' returning id`, [req.params.id]);
     if (!rows.length) throw conflict('INVALID_STATE', 'This account isn’t waiting for approval any more.');
-    await joinDefaultCommunity(db, req.params.id);
     await audit(db, { actorId: req.user.id, action: 'user.approve', targetType: 'user', targetId: req.params.id, ip: req.ip });
     return { ok: true };
   });

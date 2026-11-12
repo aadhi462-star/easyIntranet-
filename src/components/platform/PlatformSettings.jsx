@@ -3,6 +3,7 @@
 // save is refused, never silently merged (SET-03).
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
+import { refreshFeatures } from '../../lib/features.js';
 import { errorText } from '../../lib/communities.js';
 import { dateText, ROLE_LABEL } from '../../lib/platform.js';
 import { toast } from '../../lib/toast.js';
@@ -13,7 +14,7 @@ const SECTIONS = [['registration', 'Registration'], ['communities', 'Communities
 const TYPES = [['pdf', 'PDF'], ['image', 'Images'], ['office', 'Word, Excel, PowerPoint'], ['text', 'Plain text and CSV']];
 const MODULES = {
   'module.tasks': 'Tasks and boards', 'module.apps': 'Custom apps', 'module.webtabs': 'Web tabs', 'module.live': 'Live and meetings', 'module.townhalls': 'Town halls',
-  'module.channels': 'Channels and chats', 'module.surveys': 'Surveys', 'module.ideas': 'Ideas', 'module.leaderboard': 'Recognition leaderboard', 'module.assist': 'Smart Assist', learning: 'Learning in communities',
+  'module.channels': 'Channels and chats', 'module.surveys': 'Surveys', 'module.forums': 'Forums', 'module.files': 'Files', 'module.manuals': 'Manuals', 'module.orgchart': 'Community structure chart', 'module.ideas': 'Ideas', 'module.leaderboard': 'Recognition leaderboard', 'module.assist': 'Smart Assist', learning: 'Learning in communities',
 };
 
 export default function PlatformSettings() {
@@ -103,7 +104,7 @@ function Features({ list, onSaved }) {
   const [busy, setBusy] = useState(null);
   const flip = async (f) => {
     setBusy(f.key);
-    try { await api(`/admin/features/${encodeURIComponent(f.key)}`, { method: 'PUT', body: { enabled: !f.enabled } }); toast(f.enabled ? 'Turned off · data kept' : 'Turned on'); onSaved(); } catch (e) { toast(errorText(e), 'error'); }
+    try { await api(`/admin/features/${encodeURIComponent(f.key)}`, { method: 'PUT', body: { enabled: !f.enabled } }); toast(f.enabled ? 'Turned off · data kept' : 'Turned on'); refreshFeatures(); onSaved(); } catch (e) { toast(errorText(e), 'error'); }
     setBusy(null);
   };
   return (

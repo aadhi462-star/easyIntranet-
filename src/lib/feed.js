@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, newKey } from './api.js';
 
 /** The old "network / Company Wall" scope. Group scopes keep their ids (g0…g7). */
-export const NETWORK_ID = 'alumnizone';
+
 export const PAGE = 15;
 
 /** Server mood kinds → emoji. */

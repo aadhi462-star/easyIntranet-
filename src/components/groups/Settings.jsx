@@ -6,7 +6,7 @@ import { ACCESS, APPS, RULE_FIELDS, matchesRule } from './helpers.js';
 import { errorText, visibilityOf } from '../../lib/communities.js';
 import { useCommunityLifecycle, useCommunityWrite } from './useCommunity.js';
 
-// A community with no stored module list (AlumniZone) has every module on, as its tabs show.
+// A community with no stored module list has every module on, as its tabs show.
 export default function Settings({ group }) {
   const { state, me } = useStore();
   const { patch } = useCommunityWrite();

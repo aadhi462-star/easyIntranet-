@@ -1,11 +1,11 @@
 // Public landing page (refined design system, board R1Landing): finding a community is the main
-// action, real communities in their own colours carry the visuals, and AlumniZone is shown as
-// one community on CommunityOne. Every community, count and event comes from
+// action, and real communities in their own colours carry the visuals; no community is pinned or
+// featured above the others (v2 brief). Every community, count and event comes from
 // GET /api/public/communities.
 import { useEffect, useId, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../components/icons.jsx';
-import { accentOf, NETWORK_COMMUNITY } from '../lib/communities.js';
+import { accentOf } from '../lib/communities.js';
 import { PublicFooter, PublicHeader, usePageTitle } from '../components/public/PublicChrome.jsx';
 import { CardSkeletons, CommunityCard, CommunityTile, eventWhen, LoadError, NoCommunities, usePublicCommunities } from '../components/public/CommunityCards.jsx';
 
@@ -36,9 +36,7 @@ export default function Landing() {
   usePageTitle(null);
   const loc = useLocation();
   const { status, communities, categories, message, retry } = usePublicCommunities({ limit: 7 });
-  const alumni = communities.find((c) => c.id === NETWORK_COMMUNITY);
-  const others = communities.filter((c) => c.id !== NETWORK_COMMUNITY);
-  const shown = (alumni ? [alumni, ...others] : others).slice(0, 6);
+  const shown = communities.slice(0, 6);
 
   // "How It Works" from another public page lands here and scrolls to the section.
   useEffect(() => {
@@ -62,7 +60,7 @@ export default function Landing() {
               {' · '}Have an account? <Link to="/login" className="text-brand-300 hover:underline">Sign in</Link>
             </p>
           </div>
-          <Mosaic status={status} alumni={alumni} others={others} />
+          <Mosaic status={status} list={communities} />
         </section>
 
         <section id="discover" aria-labelledby="discover-h" className="bg-[var(--az-band)]">
@@ -88,7 +86,6 @@ export default function Landing() {
           </div>
         </section>
 
-        {alumni && <AlumniZoneSection c={alumni} />}
 
         <section aria-labelledby="parts-h" className="bg-[var(--az-band)]">
           <div className={`${wrap} py-16 sm:py-20`}>
@@ -156,12 +153,12 @@ function FindCommunity({ categories }) {
 }
 
 /** Real communities in their own colours: one large tile for the biggest, smaller ones round it. */
-function Mosaic({ status, alumni, others }) {
-  if (status !== 'ready' || (!alumni && !others.length)) {
+function Mosaic({ status, list }) {
+  if (status !== 'ready' || !list.length) {
     return <div aria-hidden="true" className="hidden min-h-[360px] min-w-0 flex-[2_1_380px] rounded-2xl border border-dashed border-[var(--az-hairline)] lg:block" />;
   }
-  const lead = alumni ?? others[0];
-  const rest = others.filter((c) => c.id !== lead.id).slice(0, 4);
+  const [lead, ...others] = list;
+  const rest = others.slice(0, 4);
   const next = lead.upcomingEvents?.[0];
   return (
     <div aria-label="Some of the communities on CommunityOne" className="grid min-w-0 flex-[2_1_380px] grid-cols-2 gap-3">
@@ -179,41 +176,6 @@ function Mosaic({ status, alumni, others }) {
         </Link>
       ))}
     </div>
-  );
-}
-
-/** AlumniZone as one community among many: its own members, admins and events. */
-function AlumniZoneSection({ c }) {
-  const next = c.upcomingEvents?.[0];
-  return (
-    <section aria-labelledby="az-h" className={`${wrap} flex flex-wrap items-center gap-x-14 gap-y-8 py-16 sm:py-20`}>
-      <div className="min-w-0 flex-[1_1_420px]">
-        <p className="t-label">One community among many</p>
-        <h2 id="az-h" className="t-h1 mt-2 text-white">{c.name} is a community on CommunityOne</h2>
-        <p className="text-2 mt-3 max-w-xl leading-relaxed">
-          Like every community here, {c.name} has its own members, admins, discussions and events. Your CommunityOne account gets you in, and lets you join any other community too.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-2">
-          <Link to={`/signup?next=${encodeURIComponent(`/c/${c.slug || c.id}`)}`} className="btn btn-ghost">Join {c.name}</Link>
-          <Link to="/explore" className="btn text-2 hover:text-white">See other communities</Link>
-        </div>
-      </div>
-      <div className={`cm-${accentOf(c)} glass min-w-0 flex-[1_1_380px] overflow-hidden`}>
-        <div aria-hidden="true" className="cm-cover h-20" />
-        <div className="-mt-7 flex items-end gap-3 px-5">
-          <span className="rounded-[14px] border-4 border-[var(--az-surface)]"><CommunityTile c={c} size={52} /></span>
-          <span className="pb-1"><span className="block font-semibold text-white">{c.name}</span><span className="t-small">on CommunityOne · {c.visibility === 'private' ? 'Private' : 'Public'} · {plural(c.memberCount)}</span></span>
-        </div>
-        <div aria-hidden="true" className="text-2 mt-4 flex gap-5 border-b border-[var(--az-divider)] px-5 text-sm">
-          {['Overview', 'Discussions', 'Events', 'Members'].map((t, i) => <span key={t} className={`pb-2.5 ${i === 0 ? 'border-b-2 border-[var(--cm)] font-semibold text-white' : ''}`}>{t}</span>)}
-        </div>
-        <div className="p-5 text-sm">
-          {next
-            ? <span className="flex items-center gap-3"><Icon name="events" size={18} /><span><span className="block font-semibold text-white">{next.title}</span><span className="t-small">{eventWhen(next)}</span></span></span>
-            : <span className="text-3">No upcoming public events right now.</span>}
-        </div>
-      </div>
-    </section>
   );
 }
 

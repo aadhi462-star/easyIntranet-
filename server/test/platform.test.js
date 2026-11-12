@@ -95,7 +95,6 @@ describe('communities and deletion', () => {
     assert.equal(staffView.status, 200, 'its Owner can still read it');
     assert.equal(staffView.body.permissions.canParticipate, false);
     assert.equal((await c.pa.get('/api/admin/communities?show=suspended')).body.communities[0].statusReason, 'Under review');
-    assert.equal((await c.pa.post('/api/admin/communities/alumnizone/suspend', { reason: 'x' })).body.error.code, 'DEFAULT_COMMUNITY');
     assert.equal((await c.pa.post('/api/admin/communities/club/unsuspend')).status, 200);
     assert.equal((await c.mem.get('/api/communities/club')).status, 200);
   });
@@ -171,9 +170,9 @@ describe('communities and deletion', () => {
     assert.equal(await purgeDeletedCommunities(env.db), 0, 'safe to run twice');
   });
 
-  test('AlumniZone can’t be deleted', async () => {
-    await c.pa.post('/api/admin/confirm-password', { password: PW });
-    assert.equal((await c.pa.post('/api/admin/communities/alumnizone/delete', { note: 'x', confirmName: 'AlumniZone' })).body.error.code, 'DEFAULT_COMMUNITY');
+  test('AlumniZone is an ordinary community: it can be suspended like any other (v2 brief)', async () => {
+    assert.equal((await c.pa.post('/api/admin/communities/alumnizone/suspend', { reason: 'Checking it is ordinary' })).status, 200);
+    assert.equal((await c.pa.post('/api/admin/communities/alumnizone/unsuspend')).status, 200);
   });
 });
 
@@ -256,6 +255,22 @@ describe('settings, announcements, activity and analytics', () => {
     assert.equal((await c.pa.put('/api/admin/features/module.ideas', { enabled: true })).body.feature.enabled, true);
     assert.equal((await c.pa.put('/api/admin/features/module.assist', { enabled: true })).body.error.code, 'NOT_BUILT');
     assert.equal((await c.mem.put('/api/admin/features/module.ideas', { enabled: false })).status, 403);
+  });
+
+  test('P4 feature switches: parked modules start off, Learning off refuses learning routes but certificates still verify', async () => {
+    const f = (await c.mem.get('/api/features')).body.features;
+    for (const k of ['module.forums', 'module.files', 'module.manuals', 'module.orgchart', 'module.tasks']) assert.equal(f[k], false, k);
+    assert.equal(f.learning, true);
+    assert.equal((await c.mem.get('/api/me/learning')).status, 200);
+    await c.pa.put('/api/admin/features/learning', { enabled: false });
+    try {
+      const off = await c.mem.get('/api/me/learning');
+      assert.equal(off.status, 404);
+      assert.equal(off.body.error.code, 'LEARNING_OFF');
+      assert.notEqual((await c.out.get('/api/certificates/ABCD-2345')).body?.error?.code, 'LEARNING_OFF');
+    } finally {
+      await c.pa.put('/api/admin/features/learning', { enabled: true });
+    }
   });
 
   test('communities.whoCanCreate = staff stops members creating communities', async () => {
