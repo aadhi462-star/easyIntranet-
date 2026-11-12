@@ -1106,3 +1106,55 @@ Server only, on branch `v2-e-branding` (PROPOSAL_V2 §3.2 and §9; MASTER_BRIEF_
   - `npm run test:e2e`: 7 passed, 1 skipped (the delete-and-restore journey runs on desktop only, as before).
   - No browser `confirm()` is left in `src`.
 - **Not done:** the screens for templates, invitations, branding and health. They wait for the C–G boards to be approved.
+
+### v2 — Workstream C: public website and sign-in (12 Nov 2026)
+
+The boards were approved as drawn (C1–C14; the user said "start" on the unchanged boards).
+
+- **Public chrome** (`components/public/PublicChrome.jsx`):
+  - Nav: About, Explore Communities, Features, Learning, Sign In, Get Started. Signed-in visitors see Open CommunityOne.
+  - Features and Learning scroll to landing sections, and focus them (C1).
+  - On phones: a Menu button that closes with Escape.
+  - The theme choice is in the footer.
+  - The text-page frame is on the `--az-*` tokens.
+- **Landing** (`pages/Landing.jsx`):
+  - The brief's order: hero, live discovery, features, how it works, discussions, events and resources, learning, benefits, final call to action.
+  - Each product picture is a static drawing marked Example, which reads as one image for screen readers (C2).
+  - Discovery shows `GET /public/communities` in the server's order. Its chips come from the unfiltered response and filter the cards in place. It has loading, error and empty states (C3).
+  - No totals, testimonials or logos (C5).
+- **About** (`pages/About.jsx`): rewritten from the board, covering visibility, roles and starting a community (C13).
+- **Sign-in screens** (`components/auth/AuthParts.jsx`):
+  - One centred card with footer links (C6).
+  - One password field with Show (C12).
+  - Notices and `SendLinkForm`.
+- **Sign in** (`pages/Login.jsx`): one notice per account state, each with its own way forward. The demo-accounts line appears only when the server reports a development mailbox (C11).
+- **Create account** (`pages/Signup.jsx`):
+  - Errors appear next to their own field, and focus moves to the first one.
+  - "Email already used" links to Sign in and to reset.
+  - The agreement links to the Terms and Privacy pages, and the inline guidelines text is gone (C14).
+  - "You were looking at X" uses router state from the card's Join link.
+  - Paused sign-ups and domain limits are shown in the platform's wording.
+  - "Check your email" has Send it again, Start again, and the outbox link in development only.
+- **Forgot password** (`pages/Forgot.jsx`, `/forgot`): a page instead of a dialog. The email already typed comes over in router state, never in the address (C7).
+- **Email links** (`components/auth/TokenPages.jsx`): an expired or used confirmation or reset link offers Send a new link on the same screen (C8). Each token is now confirmed once per token rather than once per page: a second link opened in the same tab used to be ignored, and the C8 journey caught it.
+- **Welcome steps** (`pages/Welcome.jsx`):
+  - They list only Public and Private communities, with search, category chips and Show more. Nothing is pre-selected.
+  - When the person signed up from a community's Join, that community shows first under "You were looking at", not joined (C9).
+  - A live Joined and Requested count.
+  - Start a community appears only when `GET /templates` doesn't answer `CREATE_RESTRICTED`.
+- **Server, wording only (C10):**
+  - Sign-ups closed: "CommunityOne isn’t accepting new accounts right now."
+  - Approval after confirming: "Email confirmed. A CommunityOne administrator will review your account."
+  - Approval at sign-in: "Your account is waiting for approval from a CommunityOne administrator."
+  - `auth.test.js` checks all three.
+- **Shared styles:** the `--az-link` token, plus `.link`, `.panel`, `.filter-chip`, `.notice-*` and `.field-error`. In light mode, community tiles use their accent tint. `VisibilityBadge` is now built on `Badge`.
+- **Checked:**
+  - `e2e/public.spec.js`, at 1280 and 375 px: the landing sections, filtering in place and no side scroll. Join from a card, through sign-up and confirmation, to the welcome steps with that community shown and not joined; finishing leaves no memberships. A spent link, then Send a new link, then the new link works.
+  - Full `npm run test:e2e`: 13 passed, 1 skipped (desktop-only, as before).
+  - `auth.test.js` 24 and `source-rules.test.js` 2 pass; `vite build` passes.
+  - Browser: the landing page at desktop and phone width, Sign in with wrong details, Forgot with the email carried over, Create account errors, and welcome step 2.
+- **Not done here:**
+  - No browser journey covers the reset-link journey. Only the confirmation link is covered.
+  - The Terms of Service text and a contact address are still waiting on the user.
+  - Explore and Home's empty state belong to D. Invitation pages belong to F.
+  - Help, Privacy, Terms and Contact have the new frame, but their inner text still uses older classes, which `light-invert.css` covers.

@@ -54,7 +54,10 @@ describe('registration', () => {
     assert.equal(r.status, 403);
     assert.equal(r.body.error.code, 'DOMAIN_NOT_ALLOWED');
     await env.db.query(`update platform_settings set value = value || '{"allowedDomains":[], "open": false}' where key = 'registration'`);
-    assert.equal((await register(client(env.app), 'closed@example.com')).body.error.code, 'REGISTRATION_CLOSED');
+    const closed = await register(client(env.app), 'closed@example.com');
+    assert.equal(closed.body.error.code, 'REGISTRATION_CLOSED');
+    // Sign-ups are a platform setting, so the wording names the platform (v2 C10).
+    assert.equal(closed.body.error.message, 'CommunityOne isn’t accepting new accounts right now.');
     await env.db.query(`update platform_settings set value = value || '{"open": true}' where key = 'registration'`);
   });
 });
@@ -90,9 +93,11 @@ describe('verification', () => {
     await register(c, 'approve-me@example.com');
     const v = await c.post('/api/auth/verify', { token: await lastToken(env.db, 'approve-me@example.com') });
     assert.equal(v.body.user.status, 'pending_approval');
+    assert.equal(v.body.message, 'Email confirmed. A CommunityOne administrator will review your account.');
     assert.equal(c.jar.c1_sid, undefined, 'no session until approved');
     const login = await c.post('/api/auth/login', { email: 'approve-me@example.com', password: 'a-good-password' });
     assert.equal(login.body.error.code, 'PENDING_APPROVAL');
+    assert.equal(login.body.error.message, 'Your account is waiting for approval from a CommunityOne administrator.');
     await env.db.query(`update platform_settings set value = value || '{"requireApproval": false}' where key = 'registration'`);
   });
 });

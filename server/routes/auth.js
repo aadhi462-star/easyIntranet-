@@ -68,7 +68,7 @@ export default async function authRoutes(app, { ctx }) {
     const pwProblem = passwordProblem(req.body.password);
     if (pwProblem) throw badRequest('WEAK_PASSWORD', pwProblem, { field: 'password' });
     const reg = await getSetting(db, 'registration');
-    if (!reg.open) throw forbidden('Sign-ups are closed right now. Ask a community admin for an invitation.', 'REGISTRATION_CLOSED');
+    if (!reg.open) throw forbidden('CommunityOne isn’t accepting new accounts right now.', 'REGISTRATION_CLOSED');
     const domain = email.split('@')[1].toLowerCase();
     if (reg.allowedDomains?.length && !reg.allowedDomains.includes(domain)) {
       throw forbidden(`Sign-ups are limited to: ${reg.allowedDomains.join(', ')}.`, 'DOMAIN_NOT_ALLOWED');
@@ -106,7 +106,7 @@ export default async function authRoutes(app, { ctx }) {
         return rows[0];
       });
       await audit(db, { actorId: user.id, action: 'account.verify_email', targetType: 'user', targetId: user.id, ip: req.ip });
-      if (user.status === 'pending_approval') return { user: publicUser(user), message: 'Email confirmed. A community admin will review your membership.' };
+      if (user.status === 'pending_approval') return { user: publicUser(user), message: 'Email confirmed. A CommunityOne administrator will review your account.' };
       if (user.status !== 'active') return { user: publicUser(user) };
       return signIn(reply, req, user);
     });
@@ -148,7 +148,7 @@ export default async function authRoutes(app, { ctx }) {
     // Status messages only after the password is proven, so they can't be used to probe accounts.
     const blocked = {
       unverified: ['EMAIL_NOT_VERIFIED', 'Confirm your email first. We can send the link again.'],
-      pending_approval: ['PENDING_APPROVAL', 'Your membership is waiting for approval from a community admin.'],
+      pending_approval: ['PENDING_APPROVAL', 'Your account is waiting for approval from a CommunityOne administrator.'],
       suspended: ['ACCOUNT_SUSPENDED', 'This account is suspended. Contact support if you think this is a mistake.'],
       deactivated: ['ACCOUNT_DEACTIVATED', 'This account is deactivated. You can reactivate it.'],
     }[u.status];

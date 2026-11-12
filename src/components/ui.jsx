@@ -29,7 +29,7 @@ export function Logo({ size = 40, withText = true, tagline = false }) {
       <LogoMark size={size} />
       {withText && (
         <span className="flex flex-col leading-none">
-          <span className="font-bold tracking-tight text-white" style={{ fontSize: Math.max(16, size * 0.52) }}>Community<span className="text-brand-300">One</span></span>
+          <span className="font-bold tracking-tight text-[var(--az-text)]" style={{ fontSize: Math.max(16, size * 0.52) }}>Community<span className="text-[var(--az-link)]">One</span></span>
           {tagline && <span className="text-2 mt-1 text-[13px] font-medium">One Platform. Every Community.</span>}
         </span>
       )}

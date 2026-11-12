@@ -155,7 +155,11 @@ After the merge, templates write `settings.sections` (the one list `sectionOn` r
 
 Boards for C, D, E, F and G are on the design canvas, one page each ("v2 C: …" to "v2 G: …"). Each board's plan lists its decisions (C1–C14, D1–D12, E1–E13, F1–F14, G1–G12).
 
-**Next:** get the boards approved, then build the screens: C first, then D, E, F and G, as in `PROPOSAL_V2.md` §12–13. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
+### v2 workstream C: built (12 Nov 2026)
+The landing page, About, the public header and footer, Sign in, Create account, `/forgot`, the email-link pages and the welcome steps are on the boards' one-card layout and the `--az-*` tokens. Three server messages now use platform wording (C10). Browser journeys are in `e2e/public.spec.js`. Details are in the progress log ("v2 — Workstream C").
+- Rules to keep: public pages show only numbers from the API, and product pictures are labelled Example. Nothing on these screens joins anyone to a community. Emails pass between pages in router state, never in the address.
+
+**Next:** workstream D (shell, Home, Explore, Profile), once its board is approved; then E, F and G, as in `PROPOSAL_V2.md` §12–13. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 

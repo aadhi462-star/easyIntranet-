@@ -1,16 +1,19 @@
 // Community cards for the public pages, fed by GET /api/public/communities. Every number shown
-// comes from that response; nothing is estimated.
+// comes from that response; nothing is estimated (C5).
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchPublicCommunities } from '../../lib/public.js';
 import { accentOf, communityPath } from '../../lib/communities.js';
 import { Icon } from '../icons.jsx';
+import { Badge } from '../ui/Controls.jsx';
 
 // Lettered tile until communities have uploaded logos: "Bengaluru Chapter" → BC, "AlumniZone" → AZ.
 export const initials = (name) => name.split(/\s+|(?=[A-Z][a-z])/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-const members = (n) => `${n} ${n === 1 ? 'member' : 'members'}`;
+export const members = (n) => `${n} ${n === 1 ? 'member' : 'members'}`;
 /** Sign-up first, then on to the community. */
 export const joinPath = (id) => `/signup?next=${encodeURIComponent(communityPath(id))}`;
+/** Router state for a Join link, so Create account can say which community it returns to. */
+export const joinState = (c) => ({ community: c.name });
 
 export function eventWhen(e) {
   const d = new Date(e.start);
@@ -34,11 +37,10 @@ export function usePublicCommunities({ q = '', category = '', limit = 24 } = {})
   return { ...state, retry };
 }
 
+const VISIBILITY = { public: ['ok', 'globe', 'Public'], private: ['info', 'lock', 'Private'], closed: ['neutral', 'eyeoff', 'Closed'] };
 export function VisibilityBadge({ visibility }) {
-  if (visibility === 'closed') return <span className="inline-flex h-6 items-center gap-1 rounded-full bg-white/10 px-2.5 text-xs font-semibold text-slate-200"><Icon name="eyeoff" size={13} />Closed</span>;
-  return visibility === 'private'
-    ? <span className="inline-flex h-6 items-center gap-1 rounded-full bg-sky-500/15 px-2.5 text-xs font-semibold text-sky-300"><Icon name="lock" size={13} />Private</span>
-    : <span className="inline-flex h-6 items-center gap-1 rounded-full bg-brand-400/15 px-2.5 text-xs font-semibold text-brand-300"><Icon name="globe" size={13} />Public</span>;
+  const [tone, icon, label] = VISIBILITY[visibility] ?? VISIBILITY.public;
+  return <Badge tone={tone} icon={icon}>{label}</Badge>;
 }
 
 export function CommunityTile({ c, size = 44 }) {
@@ -51,22 +53,21 @@ export function CommunityTile({ c, size = 44 }) {
 }
 
 export function CommunityCard({ c }) {
+  const label = c.visibility === 'private' ? 'Request to join' : 'Join';
   return (
-    <article className="glass flex flex-col gap-3 p-5">
+    <article className="panel flex min-w-0 flex-col gap-3 p-5">
       <div className="flex items-center gap-3">
         <CommunityTile c={c} />
         <div className="min-w-0">
-          <h3 className="truncate font-semibold text-white">{c.name}</h3>
-          <p className="text-xs text-slate-400">{[c.category, members(c.memberCount)].filter(Boolean).join(' · ')}</p>
+          <h3 className="t-h3 truncate">{c.name}</h3>
+          <p className="t-small">{[c.category, members(c.memberCount)].filter(Boolean).join(' · ')}</p>
         </div>
       </div>
-      {c.description && <p className="text-2 line-clamp-3 text-sm leading-relaxed">{c.description}</p>}
+      {c.description && <p className="line-clamp-3 text-sm leading-relaxed text-[var(--az-text-2)]">{c.description}</p>}
       {c.upcomingEvents?.[0] && <p className="t-small truncate">Next event · {eventWhen(c.upcomingEvents[0])} · {c.upcomingEvents[0].title}</p>}
       <div className="mt-auto flex items-center justify-between gap-3 pt-1">
         <VisibilityBadge visibility={c.visibility} />
-        {c.visibility === 'private'
-          ? <Link className="btn btn-ghost min-h-11 !px-4 text-sm" to={joinPath(c.id)} aria-label={`Request to join ${c.name}`}>Request to join</Link>
-          : <Link className="btn btn-ghost min-h-11 !px-4 text-sm" to={joinPath(c.id)} aria-label={`Join ${c.name}`}>Join</Link>}
+        <Link className="btn btn-secondary btn-sm" to={joinPath(c.id)} state={joinState(c)} aria-label={`${label}: ${c.name}`}>{label}</Link>
       </div>
     </article>
   );
@@ -76,31 +77,34 @@ export function CardSkeletons({ n = 6 }) {
   return (
     <div role="status" aria-label="Loading communities" className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
       {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="glass flex animate-pulse flex-col gap-3 p-5">
-          <div className="flex items-center gap-3"><div className="h-11 w-11 rounded-[10px] bg-white/5" /><div className="h-4 w-1/2 rounded bg-white/5" /></div>
-          <div className="h-3 w-11/12 rounded bg-white/5" /><div className="h-3 w-3/4 rounded bg-white/5" />
-          <div className="mt-2 h-8 w-24 self-end rounded-lg bg-white/5" />
+        <div key={i} className="panel flex flex-col gap-3 p-5">
+          <div className="flex items-center gap-3"><span className="skeleton h-11 w-11 !rounded-[10px]" /><span className="skeleton h-4 w-1/2" /></div>
+          <span className="skeleton h-3 w-11/12" /><span className="skeleton h-3 w-3/4" />
+          <span className="skeleton mt-2 h-9 w-24 self-end !rounded-lg" />
         </div>
       ))}
     </div>
   );
 }
 
-export function LoadError({ message, onRetry }) {
+export function LoadError({ onRetry }) {
   return (
-    <div role="alert" className="glass flex flex-wrap items-center justify-between gap-3 border-rose-400/30 p-5 text-sm">
-      <span className="text-rose-200">Couldn’t load communities. {message}</span>
-      <button type="button" className="btn btn-ghost min-h-11" onClick={onRetry}>Try again</button>
+    <div role="alert" className="panel flex flex-wrap items-center justify-between gap-3 p-5">
+      <div>
+        <p className="font-semibold">Couldn’t load communities</p>
+        <p className="t-small">Check your connection, then try again.</p>
+      </div>
+      <button type="button" className="btn btn-secondary" onClick={onRetry}>Try again</button>
     </div>
   );
 }
 
-export function NoCommunities({ children }) {
+export function NoCommunities({ title = 'No communities found', children }) {
   return (
-    <div className="glass flex flex-col items-center gap-2 p-10 text-center">
-      <Icon name="search" size={28} className="text-slate-400" />
-      <p className="font-semibold text-white">No communities found</p>
-      <p className="max-w-md text-sm text-slate-400">{children}</p>
+    <div className="panel flex flex-col items-center gap-2 p-10 text-center">
+      <Icon name="search" size={28} className="text-[var(--az-text-2)]" />
+      <p className="font-semibold">{title}</p>
+      <div className="max-w-md text-sm text-[var(--az-text-2)]">{children}</div>
     </div>
   );
 }

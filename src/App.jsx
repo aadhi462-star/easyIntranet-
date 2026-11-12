@@ -45,6 +45,7 @@ window.addEventListener('vite:preloadError', (e) => { if (claimReload()) { e.pre
 window.addEventListener('load', () => { setTimeout(() => { try { sessionStorage.removeItem(RELOAD_FLAG); } catch { /* ignore */ } }, 5000); });
 
 const Welcome = page('Welcome');
+const ForgotPage = page('Forgot');
 
 function Missing({ name }) {
   return <div className="glass p-8 text-slate-300">The <b>{name}</b> module isn’t available yet.</div>;
@@ -122,6 +123,7 @@ export default function App() {
         <Route path="/welcome" element={me ? <Suspense fallback={null}><Welcome /></Suspense> : <Navigate to="/login" replace />} />
         <Route path="/invite/:code" element={<Invite />} />
         <Route path="/reset" element={<ResetPassword />} />
+        <Route path="/forgot" element={<Suspense fallback={null}><ForgotPage /></Suspense>} />
         <Route path="/confirm-email" element={<ConfirmEmail />} />
         <Route element={<Protected><Layout /></Protected>}>
           {routes.map(({ path, page: name }) => {

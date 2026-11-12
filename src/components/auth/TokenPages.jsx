@@ -1,21 +1,41 @@
-// Pages opened from email links: confirm email (/verify), choose a new password (/reset) and
-// confirm a changed email (/confirm-email). Each token works once; the server says if it's spent.
-import { useEffect, useRef, useState } from 'react';
+// Pages opened from email links (v2 workstream C, board V2CAuth frames 8–11 and 14–16): confirm
+// email (/verify), choose a new password (/reset) and confirm a changed email (/confirm-email).
+// Each token works once; when the server says one is spent, the page offers "Send a new link"
+// on the spot (C8) instead of sending the person to sign in first.
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { useStore } from '../../lib/store.jsx';
-import { Field } from '../ui.jsx';
-import { AuthShell, takeNext, takeProfile } from '../../pages/Login.jsx';
+import { AuthShell, AuthTitle, Notice, PasswordField, SendLinkForm } from './AuthParts.jsx';
+import { takeNext, takeProfile } from '../../pages/Login.jsx';
 
 const tokenFrom = (search) => new URLSearchParams(search).get('token') || '';
+const spent = (err) => err?.code === 'INVALID_TOKEN';
 
-function Panel({ title, children }) {
+function Working({ title }) {
+  return <AuthShell title={title}><div role="status"><AuthTitle lede="One moment.">{title}</AuthTitle></div></AuthShell>;
+}
+
+/** A confirmation link that expired, was used or arrived incomplete. */
+function NewConfirmationLink() {
   return (
-    <AuthShell>
-      <div className="p-8">
-        <h2 className="text-2xl font-bold">{title}</h2>
-        {children}
-      </div>
+    <AuthShell title="Send a new link">
+      <SendLinkForm route="/auth/verify/resend" title="This link has expired or was already used"
+        lede="Confirmation links work once and expire after 24 hours. Enter your email and we’ll send a new one."
+        sentNote="The new link expires in 24 hours. Earlier links no longer work."
+        footer={<>Already confirmed? <Link to="/login" className="link">Sign in</Link></>} />
+    </AuthShell>
+  );
+}
+
+/** A reset link that expired, was used or arrived incomplete. */
+function NewResetLink() {
+  return (
+    <AuthShell title="Send a new link">
+      <SendLinkForm route="/auth/password/forgot" title="This reset link has expired or was already used"
+        lede="Reset links work once and expire after an hour. Enter your email and we’ll send a new one."
+        sentNote="The link works once and expires in an hour."
+        footer={<>Remembered it? <Link to="/login" className="link">Sign in</Link></>} />
     </AuthShell>
   );
 }
@@ -25,61 +45,85 @@ export function VerifyEmail() {
   const nav = useNavigate();
   const token = tokenFrom(useLocation().search);
   const [state, setState] = useState({ phase: 'working' });
-  const ran = useRef(false); // StrictMode runs effects twice; the token is single-use
+  // Once per token: StrictMode runs effects twice and a token is single-use, but a new link
+  // opened in the same tab (only the token changes) must still be confirmed.
+  const ran = useRef(null);
 
-  useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
-    if (!token) { setState({ phase: 'error', message: 'This confirmation link is incomplete. Open the link from your email again.' }); return; }
+  const confirmLink = () => {
+    setState({ phase: 'working' });
     api('/auth/verify', { method: 'POST', body: { token } })
-      .then(({ user, message }) => {
+      .then(({ user }) => {
         if (user.status === 'active') {
+          // Signed in; the welcome steps come next (nothing is joined for them, C9).
           dispatch({ type: 'session/adopt', user, profile: takeProfile(user.email) });
           nav(takeNext(user.email) ?? '/dashboard', { replace: true });
-        } else setState({ phase: 'pending', message });
+        } else setState({ phase: 'pending' });
       })
-      .catch((err) => setState({ phase: 'error', message: err.message }));
-  }, [token, dispatch, nav]);
+      .catch((err) => setState({ phase: spent(err) ? 'spent' : 'error', message: err.message }));
+  };
+  useEffect(() => {
+    if (ran.current === token) return;
+    ran.current = token;
+    if (!token) setState({ phase: 'spent' });
+    else confirmLink();
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (state.phase === 'working') return <Panel title="Confirming your email…"><p className="mt-2 text-sm text-slate-300" role="status">One moment.</p></Panel>;
-  if (state.phase === 'pending') return <Panel title="Email confirmed"><p className="mt-2 text-sm text-slate-300" role="status">{state.message}</p><Link to="/explore" className="btn btn-primary mt-6 w-full">Look around while you wait</Link></Panel>;
+  if (state.phase === 'working') return <Working title="Confirming your email…" />;
+  if (state.phase === 'spent') return <NewConfirmationLink />;
+  if (state.phase === 'pending') {
+    return (
+      <AuthShell title="Email confirmed">
+        <div role="status"><AuthTitle lede="A CommunityOne administrator will review your account. You can sign in once it’s approved.">Email confirmed</AuthTitle></div>
+        <Link to="/explore" className="btn btn-primary mt-6 w-full">Explore communities while you wait</Link>
+      </AuthShell>
+    );
+  }
   return (
-    <Panel title="That link didn’t work">
-      <p role="alert" className="mt-2 text-sm text-slate-300">{state.message}</p>
-      <p className="mt-2 text-sm text-slate-400">Sign in with your email and password and we’ll offer to send a fresh link.</p>
-      <Link to="/login" className="btn btn-primary mt-6 w-full">Go to sign in</Link>
-    </Panel>
+    <AuthShell title="Couldn’t confirm your email">
+      <AuthTitle>Couldn’t confirm your email</AuthTitle>
+      <div className="mt-5"><Notice>{state.message}</Notice></div>
+      <button type="button" className="btn btn-primary w-full" onClick={confirmLink}>Try again</button>
+    </AuthShell>
   );
 }
 
 export function ResetPassword() {
   const token = tokenFrom(useLocation().search);
+  const id = useId();
+  const inputRef = useRef(null);
   const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
   const [error, setError] = useState('');
-  const [done, setDone] = useState('');
+  const [phase, setPhase] = useState(token ? 'form' : 'spent');
+  useEffect(() => { setPhase(token ? 'form' : 'spent'); setPw(''); setError(''); }, [token]);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (pw.length < 8) { setError('Use a password of at least 8 characters.'); return; }
-    if (pw !== pw2) { setError('The two passwords don’t match.'); return; }
-    setBusy(true); setError('');
-    try { setDone((await api('/auth/password/reset', { method: 'POST', body: { token, password: pw } })).message); } catch (err) { setError(err.message); } finally { setBusy(false); }
+    if (busyRef.current) return;
+    if (pw.length < 8) { setError('Use a password of at least 8 characters.'); inputRef.current?.focus(); return; }
+    busyRef.current = true; setBusy(true); setError('');
+    try { await api('/auth/password/reset', { method: 'POST', body: { token, password: pw } }); setPhase('done'); } catch (err) { if (spent(err)) setPhase('spent'); else { setError(err.message); inputRef.current?.focus(); } } finally { busyRef.current = false; setBusy(false); }
   };
 
-  if (done) return <Panel title="Password updated"><p className="mt-2 text-sm text-slate-300" role="status">{done} You’ve been signed out everywhere else for safety.</p><Link to="/login" className="btn btn-primary mt-6 w-full">Sign in</Link></Panel>;
+  if (phase === 'spent') return <NewResetLink />;
+  if (phase === 'done') {
+    return (
+      <AuthShell title="Password updated">
+        <div role="status"><AuthTitle lede="Sign in with your new password. You’ve been signed out everywhere else for safety.">Password updated</AuthTitle></div>
+        <Link to="/login" className="btn btn-primary mt-6 w-full">Sign in</Link>
+      </AuthShell>
+    );
+  }
   return (
-    <AuthShell>
-      <form className="p-8" onSubmit={submit} noValidate>
-        <h2 className="text-2xl font-bold">Choose a new password</h2>
-        <div className="mt-5 space-y-4">
-          <Field label="New password" hint="At least 8 characters"><input className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => { setPw(e.target.value); setError(''); }} /></Field>
-          <Field label="Confirm new password"><input className="input" type="password" autoComplete="new-password" value={pw2} onChange={(e) => { setPw2(e.target.value); setError(''); }} /></Field>
+    <AuthShell title="Choose a new password">
+      <form onSubmit={submit} noValidate>
+        <AuthTitle lede="Saving signs you out on your other devices.">Choose a new password</AuthTitle>
+        <div className="mt-6">
+          <PasswordField id={id} inputRef={inputRef} label="New password" value={pw} autoComplete="new-password" hint="At least 8 characters." error={error}
+            onChange={(e) => { setPw(e.target.value); setError(''); }} />
         </div>
-        {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
-        <button className="btn btn-primary mt-5 h-11 w-full" disabled={busy || !token}>{busy ? 'Saving…' : 'Save new password'}</button>
-        {!token && <p role="alert" className="mt-3 text-sm text-rose-300">This reset link is incomplete. Request a new one from the sign-in page.</p>}
+        <button className="btn btn-primary mt-6 w-full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'}</button>
       </form>
     </AuthShell>
   );
@@ -89,15 +133,30 @@ export function ConfirmEmail() {
   const { dispatch } = useStore();
   const token = tokenFrom(useLocation().search);
   const [state, setState] = useState({ phase: 'working' });
-  const ran = useRef(false);
+  const ran = useRef(null);
   useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
+    if (ran.current === token) return;
+    ran.current = token;
+    setState({ phase: 'working' });
     api('/auth/email/confirm', { method: 'POST', body: { token } })
       .then(({ user }) => { dispatch({ type: 'profile/sync-email', id: user.id, email: user.email }); setState({ phase: 'done', email: user.email }); })
       .catch((err) => setState({ phase: 'error', message: err.message }));
   }, [token, dispatch]);
-  if (state.phase === 'working') return <Panel title="Confirming your new email…"><p className="mt-2 text-sm text-slate-300" role="status">One moment.</p></Panel>;
-  if (state.phase === 'done') return <Panel title="Email changed"><p className="mt-2 text-sm text-slate-300" role="status">You’ll sign in with <b className="text-white">{state.email}</b> from now on.</p><Link to="/feed" className="btn btn-primary mt-6 w-full">Continue</Link></Panel>;
-  return <Panel title="That link didn’t work"><p role="alert" className="mt-2 text-sm text-slate-300">{state.message}</p><Link to="/feed" className="btn btn-primary mt-6 w-full">Continue</Link></Panel>;
+  if (state.phase === 'working') return <Working title="Confirming your new email…" />;
+  if (state.phase === 'done') {
+    return (
+      <AuthShell title="Email changed">
+        <div role="status"><AuthTitle>Email changed</AuthTitle><p className="mt-2 text-[15px] leading-6 text-[var(--az-text-2)]">You’ll sign in with <b className="text-[var(--az-text)]">{state.email}</b> from now on.</p></div>
+        <Link to="/dashboard" className="btn btn-primary mt-6 w-full">Continue</Link>
+      </AuthShell>
+    );
+  }
+  return (
+    <AuthShell title="That link didn’t work">
+      <AuthTitle>That link didn’t work</AuthTitle>
+      <div className="mt-5"><Notice>{state.message}</Notice></div>
+      <p className="t-small">Change your email again from your account settings to get a new link.</p>
+      <Link to="/dashboard" className="btn btn-primary mt-6 w-full">Continue</Link>
+    </AuthShell>
+  );
 }

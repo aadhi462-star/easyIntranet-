@@ -10,7 +10,7 @@ test('sign up, confirm the email, and start with no communities (v2 brief: no de
   await page.getByLabel('Password').fill('a-good-password-1');
   const terms = page.getByRole('checkbox');
   if (await terms.count()) await terms.first().check();
-  await page.getByRole('button', { name: 'Create my account' }).click();
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await expect.poll(async () => (await lastEmail(request, email))?.template).toBe('verify_email');
   const link = new URL(linkIn((await lastEmail(request, email)).body));
   await page.goto(`/${link.hash}`);
