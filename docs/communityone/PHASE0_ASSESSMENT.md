@@ -874,3 +874,41 @@ The board was approved with B1–B5 (canvas page "v2 — Design system").
   - Restyling each screen onto the components (workstreams C–G).
   - The 1,617 hardcoded colour classes.
   - Emoji in the parked modules.
+
+### v2 — System health (server) (built in parallel, 12 Nov 2026)
+
+Brief Part 11 "system health", `PROPOSAL_V2.md` §3.5. Server only; the Platform Admin screen comes with workstream G.
+
+- **Job runs.**
+  - `018_health.sql` adds `job_runs`: job, started and finished times, ok, error text, and the count the job returned.
+  - `runJobs` in `lib/jobs.js` records every run. Error text is the message only, with email addresses masked, cut to 500 characters.
+  - Runs older than 7 days are pruned on each pass.
+  - Jobs stay independent, as before: one failing doesn't stop the next. `runJobs` never throws, even when the database can't be reached.
+  - The job list is exported as `JOBS`. Tests pass their own list.
+- **`GET /api/admin/health`** (`routes/health.js`). A new permission, `health.view`, is given to Platform Admin; Super Admin has everything. It's also in `/admin/me/permissions`.
+  - Database: kind, whether it answers, ping time, `pg_database_size` (PGlite supports it), server version, and row counts of 19 main tables.
+  - Jobs: for each job, the last run (with duration and count), last success, failures in the last 24 h, and the last error. Jobs that have never run are listed with `lastRun: null`.
+  - Email outbox: queued, sent and failed in the last 24 h, failed emails still being retried, and the oldest queued.
+  - File storage: bytes and count, with soft-deleted files shown separately (their bytes are still stored).
+  - Active sessions, and deleted communities waiting for removal: how many, how many are overdue, and the next removal time.
+  - Server: start time, uptime, Node version and `process.memoryUsage()`. App version comes from `version.json` if present, else `package.json`; only version, commit and build time are shown.
+  - `attention` codes for the page to turn into sentences: `database_unreachable`, `jobs_not_running` (no run for 5 minutes), `job_failing`, `emails_failed`, `emails_stuck` (queued for over an hour), `removal_overdue`.
+  - Each part is read on its own and is `null` if it can't be read, so one missing number never fails the page.
+  - The output has only counts and times: no emails, names, tokens or settings values.
+- **Checked:**
+  - `server/test/health.test.js`: 8 pass. They cover:
+    - Permissions: Platform Admin and Super Admin 200; member, Owner and Community Manager 403; signed out 401.
+    - The shape of the report.
+    - Recording on success and on an injected failure: the next job still runs, the error is masked and truncated.
+    - `runJobs` with a broken database: it resolves.
+    - Pruning at 7 days, and failures counted in the last 24 h.
+    - Outbox, storage and removal counts.
+    - No email addresses, names, password hashes or session ids in the output.
+  - Every server test file run on its own: 261 pass (the 253 before plus these 8), including platform 24, admin 12, stage4 26 and auth 24.
+  - `events.test.js` stalled once (the known idle-child stall, while other worktrees ran tests at the same time). It passed 21 of 21 on the rerun.
+  - No client changes, so no build was needed. The emoji scan is unchanged from `main`.
+- **Not done here:**
+  - The Platform Admin screen (workstream G).
+  - `version.json` isn't written by `scripts/appsail-bundle.sh` yet, so the version shown is `package.json`'s 0.1.0, with no commit.
+  - Overlapping runs are not prevented: if a pass takes over a minute, the next interval starts another, as before.
+  - No edge-case row in the register is specifically about system health, so none were marked. INT-01 (degraded providers) is only partly covered: email failures are now visible to staff.
