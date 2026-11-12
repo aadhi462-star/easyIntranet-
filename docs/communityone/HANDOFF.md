@@ -100,7 +100,7 @@ Stage 4 (engagement) is built: Resources, Discussions with topics and attachment
 
 Stage 4 leftovers done (`5d975aa`): `server/lib/jobs.js` runs each minute from `server/index.js`. It handles scheduled posts, event reminders (NTF-04), email retries up to 3 attempts (NTF-03), and a waitlist sweep that gives a removed member's place to the next person. The tests call `sendReminders` / `retryEmails` / `sweepWaitlists` directly.
 
-Pushed up to `d268355` (Stage 5b).
+Pushed up to `efd9d90` (Stage 6).
 
 ### Stage 5a: built and browser-checked
 Details and what was checked are in PHASE0_ASSESSMENT.md ("Redesign Stage 5a — learning"); LMS-01–15 in the register.
@@ -116,7 +116,7 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 5b — assessment"); ASM-01–1
 - Limits: no revoke action, no rubrics, no deadline grace, PDF = browser print.
 
 ### Stages 6 and 7: layouts drawn, waiting for approval (12 Nov 2026)
-On the design canvas, pages "Stage 6 — Management" (S6Plan, S6Manage, S6Moderation, S6Members, S6Settings, S6Analytics, S6Mobile) and "Stage 7 — Platform administration" (S7Plan, S7Users, S7Communities, S7Moderation, S7Settings, S7Activity). **Stage 6 decisions D1–D8 approved by the user on 12 Nov 2026** ("Approve, build 6"), as written on S6Plan. Stage 7's D1–D8 are still waiting: build nothing for Stage 7 until approved.
+On the design canvas, pages "Stage 6 — Management" (S6Plan, S6Manage, S6Moderation, S6Members, S6Settings, S6Analytics, S6Mobile) and "Stage 7 — Platform administration" (S7Plan, S7Users, S7Communities, S7Moderation, S7Settings, S7Activity). **Stage 6 decisions D1–D8 approved by the user on 12 Nov 2026** ("Approve, build 6"), as written on S6Plan. **Stage 7 decisions D1–D8 approved by the user on 12 Nov 2026** ("approve build 7"), as written on S7Plan (board unchanged since it was drawn).
 - Stage 6 needs new server tables: reports, cases (snapshot + history), sanctions, appeals, deletion_requests, daily community_stats. There is no reporting at all yet.
 - Stage 7 replaces the old local-data admin screens (Members, Moderation, Analytics) and adds the deletion job (30-day restore), announcements, sessions and fresh-password checks.
 
@@ -126,7 +126,7 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 6 — community management"); M
 - Client: `src/components/manage/` (Manage, Cases, ManageMembers, Analytics, Report), `src/pages/Notice.jsx`, `src/lib/manage.js`. The community page's Settings tab became Manage (`/c/:slug/manage/:section`); `CommunityView` now compares the real address to rewrite old ones.
 - Rules to keep: a case's audience is fixed at the first report (D1); moderators' removals of replies/events set `deleted_at` too, so existing queries hide them; reporters are never named in the review.
 
-**Next:** Stage 7 (platform administration). Its decisions D1–D8 on S7Plan still need the user's approval before building. Then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
+**Next:** Stage 7 (platform administration), approved 12 Nov 2026, not started yet. Then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
 
 ## Working style that's been effective
 
