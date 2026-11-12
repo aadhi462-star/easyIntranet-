@@ -6,6 +6,7 @@
 // PGlite has one connection: inside db.tx only `t` is used, and permission checks run first.
 import { audit } from '../lib/audit.js';
 import { brandingUrls } from '../lib/community.js';
+import { applyCategoryReview, categoryReview } from '../lib/data-migrations.js';
 import { verifyPassword, newId } from '../lib/crypto.js';
 import { badRequest, conflict, notFound, unauthorized } from '../lib/errors.js';
 import { notify } from '../lib/notify.js';
@@ -97,6 +98,19 @@ export default async function platformRoutes(app, { ctx }) {
         memberCount: c.member_count, owner: c.owner, ownerCount: c.owner_count, deletedAt: c.deleted_at, purgeAfter: c.purge_after, purging: !!c.purge_step,
         request: c.request ? { ...c.request, reviewBy: fresh(c.request.reviewAt, REVIEW_MINUTES) ? c.request.reviewBy : null, mine: c.request.mine && fresh(c.request.reviewAt, REVIEW_MINUTES) } : null })),
     };
+  });
+
+  // ---- Category review (v2 D6) -------------------------------------------------------------------
+  // The dry run (writes nothing), then the confirmed list, applied once through lib/data-migrations.js.
+  app.get('/category-review', async (req) => {
+    authorize(req.user, 'communities.manage');
+    return categoryReview(db);
+  });
+
+  app.post('/category-review', { schema: { body: { type: 'object', required: ['rows'], additionalProperties: false, properties: {
+    rows: { type: 'array', maxItems: 10000, items: { type: 'object', required: ['id', 'category'], additionalProperties: false, properties: { id: { type: 'string', maxLength: 200 }, category: { type: 'string', maxLength: 80 } } } } } } } }, async (req) => {
+    authorize(req.user, 'communities.manage');
+    return applyCategoryReview(db, { rows: req.body.rows, actor: req.user, ip: req.ip });
   });
 
   /** What deleting a community affects (S7Communities "What deleting it affects", DEL-06–09). */

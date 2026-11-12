@@ -56,7 +56,7 @@ export function VerifyEmail() {
         if (user.status === 'active') {
           // Signed in; the welcome steps come next (nothing is joined for them, C9).
           dispatch({ type: 'session/adopt', user, profile: takeProfile(user.email) });
-          nav(takeNext(user.email) ?? '/dashboard', { replace: true });
+          nav(takeNext(user.email) ?? '/home', { replace: true });
         } else setState({ phase: 'pending' });
       })
       .catch((err) => setState({ phase: spent(err) ? 'spent' : 'error', message: err.message }));
@@ -147,7 +147,7 @@ export function ConfirmEmail() {
     return (
       <AuthShell title="Email changed">
         <div role="status"><AuthTitle>Email changed</AuthTitle><p className="mt-2 text-[15px] leading-6 text-[var(--az-text-2)]">You’ll sign in with <b className="text-[var(--az-text)]">{state.email}</b> from now on.</p></div>
-        <Link to="/dashboard" className="btn btn-primary mt-6 w-full">Continue</Link>
+        <Link to="/home" className="btn btn-primary mt-6 w-full">Continue</Link>
       </AuthShell>
     );
   }
@@ -156,7 +156,7 @@ export function ConfirmEmail() {
       <AuthTitle>That link didn’t work</AuthTitle>
       <div className="mt-5"><Notice>{state.message}</Notice></div>
       <p className="t-small">Change your email again from your account settings to get a new link.</p>
-      <Link to="/dashboard" className="btn btn-primary mt-6 w-full">Continue</Link>
+      <Link to="/home" className="btn btn-primary mt-6 w-full">Continue</Link>
     </AuthShell>
   );
 }

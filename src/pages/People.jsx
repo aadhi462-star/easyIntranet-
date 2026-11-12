@@ -1,23 +1,33 @@
+// People: the member directory (/people) and profiles (/people/:id, and /profile for your own).
+// v2 D10 (board V2DProfile): someone else's profile shows only what they allow, the communities
+// you can both see and the posts you can read; your own adds Privacy, Connections, Download my
+// data and Preview as a member or a connection. The server builds every one of those answers,
+// previews included (GET /profiles/me?as=…), so this page never works out what to hide. Follow
+// is dropped: it lived only in this browser and did nothing for anyone else.
 import UserLabels from '../components/UserLabels.jsx';
 import { Glyph, Icon } from '../components/icons.jsx';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { useStore, timeAgo } from '../lib/store.jsx';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useStore } from '../lib/store.jsx';
 import { api } from '../lib/api.js';
-import { loadProfile, toLocal, useInstitutions } from '../lib/people.js';
+import { toLocal } from '../lib/people.js';
 import { toast } from '../lib/toast.js';
-import { Avatar, Empty, Field, Modal, PageHeader } from '../components/ui.jsx';
-import { CompletenessMeter, completeness } from '../components/people/Completeness.jsx';
-import { MONTHS, daysInMonth, formatMonthDay, isValidBirthday } from '../lib/celebrations.js';
-import { ConnectButton, FollowButton, canSeeContact, useBlocks, CONTACT_PRIVACY } from '../components/people/shared.jsx';
-
-// Optional embed from the Feed module (built separately).
-const feedLoader = Object.values(import.meta.glob('../components/feed/FeedList.jsx'))[0];
-const FeedList = feedLoader ? lazy(feedLoader) : null;
+import { Avatar, Empty, PageHeader } from '../components/ui.jsx';
+import { completeness } from '../components/people/Completeness.jsx';
+import { ConnectButton, useBlocks } from '../components/people/shared.jsx';
+import { formatMonthDay, isValidBirthday } from '../lib/celebrations.js';
+import { Button, Skeleton } from '../components/ui/Controls.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
+import EditProfile from '../components/profile/EditProfile.jsx';
+import { Communities, Connections, MoreMenu, Panel, Posts, Privacy, Unavailable, useLoad, YourData } from '../components/profile/ProfileParts.jsx';
 
 export default function People() {
   const { id } = useParams();
-  return id ? <Profile id={id} /> : <Directory />;
+  const { pathname } = useLocation();
+  const { me } = useStore();
+  // /profile is your own profile; /people/<your id> is the same page.
+  if (pathname === '/profile' || pathname.startsWith('/profile/')) return me ? <Profile key={me.id} id={me.id} /> : null;
+  return id ? <Profile key={id} id={id} /> : <Directory />;
 }
 
 const uniq = (xs) => [...new Set(xs.filter(Boolean))].sort();
@@ -75,7 +85,7 @@ function Directory() {
           <div className="inline-flex rounded-lg border border-[var(--az-hairline)] p-1" role="group" aria-label="View">
             {['grid', 'list'].map((v) => (
               <button key={v} onClick={() => setView(v)} aria-pressed={view === v}
-                className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${view === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2'}`}>{v === 'grid' ? '▦ Grid' : 'List'}</button>
+                className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${view === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2'}`}>{v === 'grid' ? 'Grid' : 'List'}</button>
             ))}
           </div>
         </>} />
@@ -131,11 +141,6 @@ function Directory() {
                 </div>
               </Link>
               <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).slice(0, 3).map((s) => <span key={s} className="chip">{s}</span>)}</div>
-              {u.id !== me.id && (
-                <div className="mt-auto flex gap-2 pt-4">
-                  <FollowButton userId={u.id} className="flex-1" />
-                </div>
-              )}
             </article>
           ))}
         </div>
@@ -147,9 +152,6 @@ function Directory() {
                 <Avatar user={u} size={40} />
                 <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><span className="truncate font-semibold">{u.name}</span><UserLabels userId={u.id} max={2} small /></div><div className="truncate text-xs text-3">{[u.role, u.company, u.city, u.batch].filter(Boolean).join(' · ')}</div></div>
               </Link>
-              {u.id !== me.id && <div className="flex gap-2">
-                <FollowButton userId={u.id} />
-              </div>}
             </div>
           ))}
         </div>
@@ -163,341 +165,226 @@ function Directory() {
   );
 }
 
+const enc = encodeURIComponent;
+const NEXT_STEP = { name: 'Add your name', role: 'Add your role', company: 'Add your company', city: 'Add your city', bio: 'Write your About', skills: 'Add skills', career: 'Add a role', 'cf-linkedin': 'Add LinkedIn' };
+const years = (x) => (x.fromYear ? `${x.fromYear} to ${x.toYear ?? 'present'}` : x.toYear ? `until ${x.toYear}` : null);
+const monthYear = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
 function Profile({ id }) {
-  const { state, me, user, dispatch } = useStore();
-  // The server decides who can be seen (suspended or hidden accounts come back as not found).
-  const [missing, setMissing] = useState(false);
+  const { state, me, dispatch } = useStore();
+  const isMe = id === me.id || id === 'me';
+  // Preview as a member or as a connection: your own profile, built by the server for that viewer.
+  const [preview, setPreview] = useState(null);
+  const as = isMe && preview ? preview : null;
+  const asQ = as ? `?as=${as}` : '';
+  const [s, setS] = useState({ status: 'loading', profile: null });
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    setMissing(false);
-    loadProfile(id, dispatch).catch((err) => { if (err.status === 404) setMissing(true); });
-  }, [id, dispatch]);
-  const u = missing ? null : user(id);
+    let live = true;
+    setS((x) => ({ ...x, status: 'loading' }));
+    api(`/profiles/${enc(id)}${asQ}`).then(({ profile }) => {
+      if (!live) return;
+      // A deleted member gets the same answer as any profile you can't see.
+      if (profile.deleted) { setS({ status: 'missing', profile: null }); return; }
+      // Only your real profile goes into the app's copy; a preview never does.
+      if (!asQ) dispatch({ type: 'users/merge', users: [toLocal(profile)] });
+      setS({ status: 'ready', profile });
+    }).catch((err) => live && setS({ status: err.status === 404 ? 'missing' : 'error', profile: null, message: err.message }));
+    return () => { live = false; };
+  }, [id, asQ, tick, dispatch]);
+  const communities = useLoad(`/profiles/${enc(id)}/communities${asQ}`);
+
   const [tab, setTab] = useState('about');
+  useEffect(() => { if (as && tab === 'connections') setTab('about'); }, [as, tab]);
   // false, or the Edit profile field to focus ('1' = none in particular).
   const [editing, setEditing] = useState(false);
-  const [more, setMore] = useState(false);
-  const { blocked, toggle: toggleBlock } = useBlocks();
   // ?edit=<field> (from the profile-completeness card) opens Edit profile on your own profile.
   const [params, setParams] = useSearchParams();
   const editParam = params.get('edit');
   useEffect(() => {
     if (!editParam) return;
-    if (u && me && u.id === me.id) setEditing(editParam);
+    if (isMe) setEditing(editParam);
     const next = new URLSearchParams(params);
     next.delete('edit');
     setParams(next, { replace: true });
   }, [editParam]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (u?.name) document.title = `${u.name} · CommunityOne`; }, [u?.name]);
-  if (!u) return <Empty icon="search" title="Person not found"><Link className="text-brand-400 underline" to="/people">Back to People</Link></Empty>;
+  const p = s.profile;
+  useEffect(() => { document.title = p?.name ? `${p.name} · CommunityOne` : 'Profile · CommunityOne'; }, [p?.name]);
 
-  const isMe = u.id === me.id;
-  const isBlocked = blocked.has(u.id);
-  const showContact = canSeeContact(state, me.id, u);
-  // Contact-style custom fields follow the owner's contact privacy setting.
-  const CONTACT_FIELDS = ['linkedin', 'phone', 'website'];
-  const fields = (state.customFields || []).filter((cf) => u.customFields?.[cf.id] && (showContact || !CONTACT_FIELDS.includes(cf.id)));
-  const profileScore = isMe ? completeness(u, state.customFields || []) : null;
-  const work = [u.role, u.company].filter(Boolean).join(' · ');
-  const study = [u.batch && `Class of ${u.batch}`, u.dept, u.institution].filter(Boolean).join(' · ');
+  if (s.status === 'missing') return <Unavailable />;
+  if (s.status === 'error' && !p) {
+    return (
+      <div role="alert" className="notice notice-bad flex flex-wrap items-center gap-3">
+        <span className="flex-1"><strong>This profile didn’t load. </strong>{s.message}</span>
+        <Button size="sm" onClick={() => setTick((n) => n + 1)}>Try again</Button>
+      </div>
+    );
+  }
+  if (!p) return <div className="panel p-6"><Skeleton lines={4} label="Loading profile" /></div>;
+
+  const own = isMe && !as;
+  const first = p.name.split(/\s+/)[0];
+  const saved = (prof) => { dispatch({ type: 'users/merge', users: [toLocal(prof)] }); setS({ status: 'ready', profile: prof }); };
+  const work = [p.jobTitle, p.company].filter(Boolean).join(' · ');
+  const place = [p.city, p.country].filter(Boolean).join(', ');
+
+  const toggleBlock = async () => {
+    const blocking = !p.blockedByMe;
+    if (blocking && !(await confirmAction({ title: `Block ${p.name}?`, confirm: 'Block', danger: true,
+      body: 'You won’t see each other’s posts, and any connection or request between you ends. They aren’t told.' }))) return;
+    try {
+      await api(`/blocks/${enc(p.id)}`, { method: blocking ? 'POST' : 'DELETE' });
+      // Screens that still read the app's copy of blocks (chats) follow the server.
+      const rec = (state.blocks || []).find((b) => b.authorId === me.id && b.targetId === p.id);
+      if (blocking && !rec) dispatch({ type: 'add', col: 'blocks', item: { targetId: p.id } });
+      if (!blocking && rec) dispatch({ type: 'remove', col: 'blocks', id: rec.id });
+      toast(blocking ? `${p.name} is blocked` : `${p.name} is unblocked`);
+      setTick((n) => n + 1);
+      communities.reload();
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  // Profile completeness, without batch or department: nobody is assumed to be an alumnus.
+  const score = own ? completeness(toLocal(p), state.customFields || []) : null;
+  const items = score ? score.items.filter((i) => i.id !== 'batch' && i.id !== 'dept') : [];
+  const pct = items.length ? Math.round((items.filter((i) => i.done).length / items.length) * 100) : 100;
+  const nextItem = items.find((i) => !i.done);
+  const dismiss = async () => {
+    try { saved((await api('/profiles/me', { method: 'PATCH', body: { version: p.version, completenessDismissed: true } })).profile); } catch (err) { toast(err.message, 'error'); }
+  };
+
+  const tabs = [['about', 'About'], ['posts', 'Posts'], ['communities', 'Communities'], ...(own ? [['connections', 'Connections']] : [])];
+  const onTabKey = (e, i) => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const j = (i + d + tabs.length) % tabs.length;
+    setTab(tabs[j][0]);
+    document.getElementById(`profile-tab-${tabs[j][0]}`)?.focus();
+  };
+
+  const showAbout = own || p.bio;
+  const showExperience = own || p.experience?.length;
+  const showSkills = own || p.skills?.length;
 
   return (
-    <div className="space-y-5">
-      <section className="glass">
-        <div className="flex flex-wrap items-start gap-5 p-5 sm:p-6">
-          <Avatar user={u} size={80} />
-          <div className="min-w-0 flex-1 basis-64">
-            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold tracking-tight">{u.name}
-              {u.admin && <span className="rounded-full bg-brand-400/15 px-2.5 py-0.5 text-xs font-semibold text-brand-300">Platform Admin</span>}
-            </h1>
-            {u.title && <p className="mt-1 text-sm text-[var(--az-text)]">{u.title}</p>}
-            {work && <p className="mt-1 text-sm text-2">{work}</p>}
-            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-3">
-              {study && <span>{study}</span>}
-              {u.city && <span className="inline-flex items-center gap-1"><Icon name="globe" size={12} />{u.city}</span>}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {isMe ? <button className="btn btn-primary min-h-10" onClick={() => setEditing('1')}><Icon name="pen" size={16} /> Edit profile</button> : <>
-              {!isBlocked && <>
-                <ConnectButton userId={u.id} initial={u.connection} onChange={() => loadProfile(u.id, dispatch).catch(() => {})} />
-                <FollowButton userId={u.id} />
-              </>}
-              <div className="relative">
-                <button className="btn btn-ghost h-10 w-10 !p-0" aria-label="More actions" aria-expanded={more} aria-haspopup="menu" onClick={() => setMore(!more)}><Icon name="more" size={18} /></button>
-                {more && (
-                  <div role="menu" className="glass absolute right-0 z-20 mt-2 w-48 p-1.5 text-sm shadow-xl">
-                    <button role="menuitem" className="block min-h-10 w-full rounded-lg px-3 text-left hover:bg-white/5" onClick={() => { setMore(false); toggleBlock(u.id); }}>{isBlocked ? 'Unblock member' : 'Block member'}</button>
-                  </div>
-                )}
-              </div>
-            </>}
-          </div>
-        </div>
-        {isBlocked && <p role="status" className="border-t border-[var(--az-hairline)] bg-rose-500/10 px-5 py-2 text-sm text-rose-200">You blocked this member. You won’t see each other’s posts or profiles.</p>}
-      </section>
-
-      {isMe && profileScore.pct < 100 && <CompletenessMeter user={u} onEdit={setEditing} />}
-
-      <nav aria-label="Profile sections" className="flex gap-1 border-b border-[var(--az-hairline)]">
-        {[['about', 'About'], ['posts', 'Posts']].map(([t, label]) => (
-          <button key={t} type="button" aria-current={tab === t ? 'page' : undefined} onClick={() => setTab(t)}
-            className={`border-b-2 px-3.5 py-3 text-sm transition ${tab === t ? 'border-brand-400 font-semibold text-white' : 'border-transparent font-medium text-3 hover:text-white'}`}>{label}</button>
-        ))}
-      </nav>
-
-      {tab === 'about' && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="min-w-0 space-y-5">
-            <section className="glass p-5"><h2 className="font-semibold">About</h2><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-2">{u.bio || (isMe ? 'Add a short bio so people know what you do and how to help.' : 'No bio yet.')}</p></section>
-            <section className="glass p-5">
-              <h2 className="font-semibold">Experience</h2>
-              {(u.career || []).length ? (
-                <ol className="mt-3 space-y-3">
-                  {u.career.map((c, i) => <li key={i}><div className="text-sm font-semibold">{c.title}</div><div className="text-xs text-3">{[c.org, [c.from, c.to ?? (c.from ? 'Present' : null)].filter(Boolean).join('–')].filter(Boolean).join(' · ')}</div></li>)}
-                </ol>
-              ) : <p className="mt-2 text-sm text-3">No experience listed.</p>}
-            </section>
-            <section className="glass p-5">
-              <h2 className="font-semibold">Education</h2>
-              {(u.education || []).length ? (
-                <ol className="mt-3 space-y-3">
-                  {u.education.map((e, i) => <li key={e.id ?? i}><div className="text-sm font-semibold">{e.institution}</div><div className="text-xs text-3">{[e.programme, e.department, e.gradYear && `Class of ${e.gradYear}`].filter(Boolean).join(' · ')}</div></li>)}
-                </ol>
-              ) : <p className="mt-2 text-sm text-3">No education listed.</p>}
-            </section>
-          </div>
-          <div className="min-w-0 space-y-5">
-            <section className="glass p-5">
-              <h2 className="font-semibold">Skills</h2>
-              <div className="mt-3 flex flex-wrap gap-1.5">{(u.skills || []).length ? u.skills.map((s) => <span key={s} className="chip">{s}</span>) : <span className="text-sm text-3">None listed</span>}</div>
-            </section>
-            <section className="glass p-5">
-              <h2 className="font-semibold">Details</h2>
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between gap-3"><dt className="text-3">Email</dt><dd className="truncate">{showContact && u.email ? u.email : <span className="inline-flex items-center gap-1 text-3"><Icon name="lock" size={13} /> Hidden</span>}</dd></div>
-                {u.birthday && showContact && isValidBirthday(u.birthday) && <div className="flex justify-between gap-3"><dt className="text-3">Birthday</dt><dd>{formatMonthDay(u.birthday)}</dd></div>}
-                {u.joinedAt && <div className="flex justify-between gap-3"><dt className="text-3">Joined</dt><dd>{new Date(u.joinedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</dd></div>}
-                {fields.map((cf) => <div key={cf.id} className="flex justify-between gap-3"><dt className="text-3">{cf.label}</dt><dd className="truncate">{u.customFields[cf.id]}</dd></div>)}
-              </dl>
-            </section>
-          </div>
+    <div className="mx-auto max-w-[1080px] space-y-5" aria-busy={s.status === 'loading' || undefined}>
+      {as && (
+        <div role="status" className="notice notice-info flex flex-wrap items-center gap-3">
+          <Icon name="eye" size={18} />
+          <span className="min-w-0 flex-1">{as === 'member' ? 'Previewing as a signed-in member who isn’t your connection.' : 'Previewing as one of your connections.'}</span>
+          <Button size="sm" onClick={() => setPreview(as === 'member' ? 'connection' : 'member')}>{as === 'member' ? 'Preview as a connection' : 'Preview as a member'}</Button>
+          <Button size="sm" onClick={() => setPreview(null)}>Exit preview</Button>
         </div>
       )}
 
-      {tab === 'posts' && (FeedList
-        ? <Suspense fallback={<div className="glass h-40 animate-pulse" />}><FeedList scope={{ type: 'user', id: u.id }} /></Suspense>
-        : <UserPosts userId={u.id} />)}
-
-      {editing && <EditProfile focus={editing} onClose={() => setEditing(false)} />}
-    </div>
-  );
-}
-
-function UserPosts({ userId }) {
-  const { state } = useStore();
-  const posts = state.posts.filter((p) => p.authorId === userId && p.status !== 'draft' && p.status !== 'scheduled');
-  if (!posts.length) return <Empty icon="drafts" title="No posts yet" />;
-  return <div className="space-y-3">{posts.map((p) => <Link key={p.id} to={`/post/${p.id}`} className="glass block p-4 text-sm hover:bg-white/5"><p className="text-[var(--az-text)]">{p.text}</p><p className="mt-2 text-xs text-3">{timeAgo(p.createdAt)} · {p.likes.length} likes · {p.comments.length} comments</p></Link>)}</div>;
-}
-
-function EditProfile({ onClose, focus }) {
-  const { state, me, dispatch } = useStore();
-  const institutions = useInstitutions();
-  const primaryEdu = (me.education || []).find((e) => e.isPrimary) ?? me.education?.[0];
-  const [edu, setEdu] = useState({ institutionId: primaryEdu?.institutionId ?? '', departmentId: primaryEdu?.departmentId ?? '' });
-  const baseEdu = useRef(edu);
-  useEffect(() => { if (institutions?.length && !edu.institutionId) setEdu((x) => ({ ...x, institutionId: institutions[0].id })); }, [institutions]); // eslint-disable-line react-hooks/exhaustive-deps
-  const departments = institutions?.find((i) => i.id === edu.institutionId)?.departments ?? [];
-  const [busy, setBusy] = useState(false);
-  const hasCareer = (me.career || []).some((c) => c.title?.trim() && c.org?.trim());
-  const formOf = (u, extraCareer = []) => ({ name: u.name, title: u.title || '', role: u.role || '', company: u.company || '', city: u.city || '', batch: u.batch, dept: u.dept || '', bio: u.bio || '',
-    privacy: { contact: u.privacy?.contact ?? 'everyone' }, skills: [...(u.skills || [])], career: [...extraCareer, ...(u.career || []).map((c) => ({ ...c }))],
-    customFields: { ...(u.customFields || {}) } });
-  const bdayOf = (u) => { const [m = '', dd = ''] = isValidBirthday(u.birthday) ? u.birthday.split('-') : []; return { m, d: dd }; };
-  const [d, setD] = useState(() => formOf(me, focus === 'career' && !hasCareer ? [{ title: '', org: '', from: new Date().getFullYear(), to: null }] : []));
-  const [bday, setBday] = useState(() => bdayOf(me));
-  // What the form started from. Only fields that differ from it are sent, so saving can't
-  // overwrite changes made elsewhere to fields this edit didn't touch (USR-10).
-  const base = useRef(null);
-  if (!base.current) base.current = { d, bday, edu: null };
-  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  // Runs after the Modal's own autofocus, so the field the member asked to fill wins.
-  useEffect(() => {
-    const id = focus === 'career' ? 'ep-career-0-title' : `ep-${focus}`;
-    const el = focus && focus !== '1' ? document.getElementById(id) : null;
-    if (el) { el.focus(); el.scrollIntoView?.({ block: 'center' }); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [skill, setSkill] = useState('');
-  const set = (k) => (e) => setD({ ...d, [k]: e.target.value });
-  const setCareer = (i, k, v) => setD({ ...d, career: d.career.map((c, j) => (j === i ? { ...c, [k]: v } : c)) });
-  const addSkill = () => { const s = skill.trim(); if (s && !d.skills.includes(s)) setD({ ...d, skills: [...d.skills, s] }); setSkill(''); };
-  const [errors, setErrors] = useState({});
-  const maxYear = new Date().getFullYear() + 6;
-  const isYear = (v) => /^\d{4}$/.test(String(v).trim()) && Number(v) >= 1950 && Number(v) <= maxYear;
-  const blank = (v) => v == null || String(v).trim() === '';
-  const save = (e) => {
-    e.preventDefault();
-    const err = {};
-    const name = d.name.trim();
-    if (!name) err.name = 'Enter your name.';
-    // Members without a batch (e.g. external guests) may leave it blank.
-    const batchOptional = me.batch == null || me.external;
-    if (blank(d.batch) ? !batchOptional : !isYear(d.batch)) err.batch = `Enter a 4-digit year between 1950 and ${maxYear}.`;
-    const career = d.career.filter((c) => c.title?.trim() && c.org?.trim());
-    career.forEach((c) => {
-      const i = d.career.indexOf(c);
-      if (!blank(c.from) && !isYear(c.from)) err[`career${i}`] = `“From” must be a year between 1950 and ${maxYear}.`;
-      else if (!blank(c.to) && !isYear(c.to)) err[`career${i}`] = `“To” must be a year between 1950 and ${maxYear}.`;
-      else if (!blank(c.from) && !blank(c.to) && Number(c.to) < Number(c.from)) err[`career${i}`] = '“To” can’t be earlier than “From”.';
-    });
-    let birthday = null;
-    if (bday.m || bday.d) {
-      if (!bday.m || !bday.d) err.birthday = 'Choose both a month and a day, or clear your birthday.';
-      else if (Number(bday.d) > daysInMonth(Number(bday.m))) err.birthday = `${MONTHS[Number(bday.m) - 1]} has only ${daysInMonth(Number(bday.m))} days.`;
-      else birthday = `${bday.m}-${bday.d}`;
-      if (birthday && !isValidBirthday(birthday)) err.birthday = 'Enter a valid date.';
-    }
-    setErrors(err);
-    if (Object.keys(err).length) {
-      // Move focus to the first problem so keyboard and screen-reader users land on it.
-      setTimeout(() => document.querySelector('[aria-invalid="true"]')?.focus(), 0);
-      return;
-    }
-    const { linkedin, mentor, ...otherFields } = d.customFields;
-    const b0 = base.current.d;
-    const changed = (k) => !same(d[k], b0[k]);
-    const body = { version: me.profileVersion };
-    if (changed('name')) body.name = name;
-    if (changed('title')) body.headline = d.title;
-    if (changed('role')) body.jobTitle = d.role;
-    if (changed('company')) body.company = d.company;
-    if (changed('city')) body.city = d.city;
-    if (changed('bio')) body.bio = d.bio;
-    if (changed('skills')) body.skills = d.skills;
-    if (!same(bday, base.current.bday)) body.birthday = birthday;
-    if (changed('customFields')) {
-      body.linkedin = linkedin || null;
-      body.mentorOpen = mentor === 'Yes';
-      body.customFields = Object.fromEntries(Object.entries(otherFields).filter(([, v]) => v != null && v !== ''));
-    }
-    if (changed('privacy')) body.contactVisibility = ({ following: 'connections', me: 'nobody' })[d.privacy.contact] ?? d.privacy.contact;
-    if (changed('batch') || !same(edu, baseEdu.current)) {
-      body.education = edu.institutionId && (!blank(d.batch) || edu.departmentId)
-        ? [{ institutionId: edu.institutionId, departmentId: edu.departmentId || null, gradYear: blank(d.batch) ? null : Number(d.batch), isPrimary: true }] : [];
-    }
-    if (changed('career')) body.experience = career.map((c) => ({ title: c.title.trim(), org: c.org.trim(), fromYear: blank(c.from) ? null : Number(c.from), toYear: blank(c.to) ? null : Number(c.to) }));
-    if (Object.keys(body).length === 1) { onClose(); return; } // nothing changed
-    setBusy(true);
-    api('/profiles/me', { method: 'PATCH', body })
-      .then(({ profile }) => { dispatch({ type: 'users/merge', users: [toLocal(profile)] }); toast('Profile saved'); onClose(); })
-      .catch((err) => {
-        if (err.code === 'STALE_VERSION') {
-          // Pull in the newer copy: fields this edit didn't touch take the fresh values, the
-          // member's own changes are kept, and the next save sends only those changes.
-          loadProfile(me.id, dispatch).then((fresh) => {
-            const f = toLocal(fresh);
-            const fd = formOf(f); const fb = bdayOf(f);
-            const fe = { institutionId: (f.education.find((x) => x.isPrimary) ?? f.education[0])?.institutionId ?? edu.institutionId, departmentId: (f.education.find((x) => x.isPrimary) ?? f.education[0])?.departmentId ?? '' };
-            // Capture the old baseline first: the updaters below run at the next render, after
-            // base.current has already been replaced with the fresh copy.
-            const old = base.current; const oldEdu = baseEdu.current;
-            setD((cur) => Object.fromEntries(Object.keys(cur).map((k) => [k, same(cur[k], old.d[k]) ? fd[k] : cur[k]])));
-            setBday((cur) => (same(cur, old.bday) ? fb : cur));
-            setEdu((cur) => (same(cur, oldEdu) ? fe : cur));
-            base.current = { d: fd, bday: fb };
-            baseEdu.current = fe;
-          }).catch(() => {});
-        }
-        const field = err.extra?.field;
-        const key = field === 'jobTitle' ? 'role' : field === 'headline' ? 'title' : field?.startsWith('experience') ? 'career0' : field === 'education' ? 'batch' : field;
-        setErrors({ ...(key ? { [key]: err.message } : {}), form: err.code === 'STALE_VERSION' ? 'Your profile was changed somewhere else. We’ve loaded the latest version and kept your edits — check them and save again.' : err.message });
-        setTimeout(() => document.querySelector('[aria-invalid="true"]')?.focus(), 0);
-      })
-      .finally(() => setBusy(false));
-  };
-  const errText = (k) => errors[k] && <span role="alert" className="mt-1 block text-xs text-rose-300">{errors[k]}</span>;
-  return (
-    <Modal title="Edit profile" onClose={onClose} wide>
-      <form onSubmit={save} className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Full name"><input id="ep-name" className="input" value={d.name} onChange={set('name')} aria-invalid={!!errors.name} />{errText('name')}</Field>
-          <Field label="Headline"><input className="input" value={d.title} onChange={set('title')} /></Field>
-          <Field label="Current role"><input id="ep-role" className="input" value={d.role} onChange={set('role')} /></Field>
-          <Field label="Company"><input id="ep-company" className="input" value={d.company} onChange={set('company')} /></Field>
-          <Field label="City"><input id="ep-city" className="input" value={d.city} onChange={set('city')} /></Field>
-          <Field label="Batch"><input id="ep-batch" className="input" type="number" min="1950" max={maxYear} value={d.batch ?? ''} onChange={set('batch')} aria-invalid={!!errors.batch} />{errText('batch')}</Field>
-          {(institutions?.length ?? 0) > 1 && (
-            <div className="sm:col-span-2"><Field label="Institution">
-              <select id="ep-institution" className="input" value={edu.institutionId} onChange={(e) => setEdu({ institutionId: e.target.value, departmentId: '' })}>
-                {institutions.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-              </select>
-            </Field></div>
-          )}
-          <div className="sm:col-span-2"><Field label="Department">
-            <select id="ep-dept" className="input" value={edu.departmentId} onChange={(e) => setEdu({ ...edu, departmentId: e.target.value })} disabled={!institutions}>
-              <option value="">{institutions ? 'Not set' : 'Loading…'}</option>
-              {departments.map((dep) => <option key={dep.id} value={dep.id}>{dep.name}</option>)}
-            </select>
-          </Field></div>
+      <section className="panel flex flex-wrap items-start gap-5 p-5 sm:p-6" aria-label={own ? 'Your profile' : `${p.name}’s profile`}>
+        <Avatar user={{ name: p.name, hue: p.avatarHue ?? 200 }} size={80} />
+        <div className="min-w-0 flex-1 basis-64">
+          <h1 className="t-h1 break-words text-[var(--az-text)]">{p.name}</h1>
+          {p.headline && <p className="mt-1 text-[15px] text-[var(--az-text)]">{p.headline}</p>}
+          {work && <p className="mt-0.5 text-sm text-[var(--az-text-2)]">{work}</p>}
+          {place && <p className="t-small mt-1 flex items-center gap-1"><Icon name="place" size={14} />{place}</p>}
         </div>
-        <Field label="About" hint={`${d.bio.trim().length} characters${d.bio.trim().length < 40 ? ' · 40+ makes your profile complete' : ''}`}><textarea id="ep-bio" className="input min-h-24" value={d.bio} onChange={set('bio')} /></Field>
-        <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-2">Birthday (optional)</legend>
-          <div className="flex flex-wrap gap-2">
-            <select id="ep-birthday" className="input min-w-0 flex-1 sm:max-w-48" aria-label="Birthday month" value={bday.m} aria-invalid={!!errors.birthday} aria-describedby="ep-birthday-hint"
-              onChange={(e) => { const m = e.target.value; setBday({ m, d: m && Number(bday.d) > daysInMonth(Number(m)) ? '' : bday.d }); setErrors({ ...errors, birthday: undefined }); }}>
-              <option value="">Month</option>
-              {MONTHS.map((name, i) => <option key={name} value={String(i + 1).padStart(2, '0')}>{name}</option>)}
-            </select>
-            <select className="input w-28" aria-label="Birthday day" value={bday.d} aria-invalid={!!errors.birthday} aria-describedby="ep-birthday-hint"
-              onChange={(e) => { setBday({ ...bday, d: e.target.value }); setErrors({ ...errors, birthday: undefined }); }}>
-              <option value="">Day</option>
-              {Array.from({ length: bday.m ? daysInMonth(Number(bday.m)) : 31 }, (_, i) => String(i + 1).padStart(2, '0')).map((v) => <option key={v} value={v}>{Number(v)}</option>)}
-            </select>
-            {(bday.m || bday.d) && <button type="button" className="btn btn-ghost min-h-11" onClick={() => { setBday({ m: '', d: '' }); setErrors({ ...errors, birthday: undefined }); }}>Clear</button>}
-          </div>
-          <span id="ep-birthday-hint" className="mt-1 block text-xs text-3">Month and day only, never the year. Classmates who can see your contact details can send you wishes.</span>
-          {errText('birthday')}
-        </fieldset>
-        <Field label="Skills">
-          <div className="mb-2 flex flex-wrap gap-1.5">{d.skills.map((s) => <span key={s} className="chip !py-1">{s}<button type="button" className="ml-1" aria-label={`Remove ${s}`} onClick={() => setD({ ...d, skills: d.skills.filter((x) => x !== s) })}>✕</button></span>)}</div>
-          <div className="flex gap-2"><input id="ep-skills" className="input" aria-label="Add a skill" value={skill} onChange={(e) => setSkill(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }} placeholder="Add a skill and press Enter" /><button type="button" className="btn btn-ghost min-h-11" onClick={addSkill}>Add</button></div>
-        </Field>
-        <fieldset>
-          <legend className="mb-1.5 text-xs font-semibold text-2">Career history</legend>
-          <div className="space-y-2">
-            {d.career.map((c, i) => (
-              <div key={i} className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 p-2 sm:grid-cols-[1fr_1fr_80px_80px_auto]">
-                <input id={`ep-career-${i}-title`} className="input" aria-label="Title" placeholder="Title" value={c.title} onChange={(e) => setCareer(i, 'title', e.target.value)} />
-                <input className="input" aria-label="Organisation" placeholder="Organisation" value={c.org} onChange={(e) => setCareer(i, 'org', e.target.value)} />
-                <input className="input" aria-label="From year" placeholder="From" value={c.from ?? ''} onChange={(e) => setCareer(i, 'from', e.target.value)} />
-                <input className="input" aria-label="To year" placeholder="To" value={c.to ?? ''} onChange={(e) => setCareer(i, 'to', e.target.value)} />
-                <button type="button" className="btn btn-ghost min-h-11" aria-label="Remove role" onClick={() => { setErrors({}); setD({ ...d, career: d.career.filter((_, j) => j !== i) }); }}>✕</button>
-                {errors[`career${i}`] && <span role="alert" className="col-span-full text-xs text-rose-300">{errors[`career${i}`]}</span>}
-              </div>
-            ))}
-            <button type="button" className="btn btn-ghost min-h-11" onClick={() => { setErrors({}); setD({ ...d, career: [{ title: '', org: '', from: new Date().getFullYear(), to: null }, ...d.career] }); }}>+ Add role</button>
-          </div>
-        </fieldset>
-        <Field label="Who can see my email and contact details" hint="Your name, batch and city stay visible to signed-in members.">
-          <select className="input" value={d.privacy.contact} onChange={(e) => setD({ ...d, privacy: { ...d.privacy, contact: e.target.value } })}>
-            {CONTACT_PRIVACY.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </Field>
-        {(state.customFields || []).length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {state.customFields.map((cf) => (
-              <Field key={cf.id} label={cf.label}>
-                {cf.type === 'select'
-                  ? <select id={`ep-cf-${cf.id}`} className="input" value={d.customFields[cf.id] || ''} onChange={(e) => setD({ ...d, customFields: { ...d.customFields, [cf.id]: e.target.value } })}><option value="">—</option>{(cf.options || []).map((o) => <option key={o}>{o}</option>)}</select>
-                  : <input id={`ep-cf-${cf.id}`} className="input" type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'} value={d.customFields[cf.id] || ''} onChange={(e) => setD({ ...d, customFields: { ...d.customFields, [cf.id]: e.target.value } })} />}
-              </Field>
-            ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {own ? (
+            <>
+              <Button variant="primary" size="sm" icon="pen" onClick={() => setEditing('1')}>Edit profile</Button>
+              <Button size="sm" icon="eye" onClick={() => setPreview('member')}>Preview as a member</Button>
+            </>
+          ) : !isMe ? (
+            <>
+              {!p.blockedByMe && <ConnectButton userId={p.id} initial={p.connection} onChange={() => setTick((n) => n + 1)} />}
+              <MoreMenu label={`More actions for ${p.name}`} items={[{ label: p.blockedByMe ? 'Unblock member' : 'Block member', danger: !p.blockedByMe, onSelect: toggleBlock }]} />
+            </>
+          ) : null}
+        </div>
+      </section>
+
+      {p.blockedByMe && (
+        <div role="status" className="notice notice-warn flex flex-wrap items-center gap-3">
+          <span className="flex-1">You blocked {p.name}. You won’t see each other’s posts.</span>
+          <Button size="sm" onClick={toggleBlock}>Unblock</Button>
+        </div>
+      )}
+
+      {own && !p.completenessDismissed && pct < 100 && nextItem && (
+        <div className="notice notice-ok flex flex-wrap items-center gap-3">
+          <span className="min-w-0 flex-[1_1_300px]"><strong>Your profile is {pct}% complete. </strong>{nextItem.label}{nextItem.hint ? ` (you have ${nextItem.hint.replace('/', ' of ')})` : ''} so members of your communities can find common ground.</span>
+          <Button size="sm" onClick={() => setEditing(nextItem.id)}>{NEXT_STEP[nextItem.id] ?? 'Edit profile'}</Button>
+          <Button size="sm" variant="ghost" onClick={dismiss}>Not now</Button>
+        </div>
+      )}
+
+      <div role="tablist" aria-label="Profile sections" className="no-scrollbar flex overflow-x-auto border-b border-[var(--az-hairline)]">
+        {tabs.map(([t, label], i) => (
+          <button key={t} id={`profile-tab-${t}`} type="button" role="tab" aria-selected={tab === t} aria-controls="profile-panel" tabIndex={tab === t ? 0 : -1}
+            onClick={() => setTab(t)} onKeyDown={(e) => onTabKey(e, i)}
+            className={`min-h-11 shrink-0 border-b-2 px-3.5 text-sm ${tab === t ? 'border-[var(--az-text)] font-semibold text-[var(--az-text)]' : 'border-transparent font-medium text-[var(--az-text-2)] hover:text-[var(--az-text)]'}`}>{label}</button>
+        ))}
+      </div>
+
+      <div id="profile-panel" role="tabpanel" aria-labelledby={`profile-tab-${tab}`}>
+        {tab === 'about' && (
+          <div className="grid items-start gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))' }}>
+            {showAbout && (
+              <Panel title="About" id="about-h">
+                {p.bio ? <p className="whitespace-pre-line text-sm leading-6 text-[var(--az-text-2)]">{p.bio}</p>
+                  : <p className="t-small">Add a short About so people know what you do and how you can help. <button type="button" className="link" onClick={() => setEditing('bio')}>Write your About</button></p>}
+              </Panel>
+            )}
+            {showExperience && (
+              <Panel title="Experience" id="exp-h">
+                {p.experience?.length ? (
+                  <ol className="space-y-3">
+                    {p.experience.map((x, i) => (
+                      <li key={i}><div className="text-sm font-semibold text-[var(--az-text)]">{x.title}</div><div className="t-small">{[x.org, years(x)].filter(Boolean).join(' · ')}</div></li>
+                    ))}
+                  </ol>
+                ) : <p className="t-small">No roles listed. <button type="button" className="link" onClick={() => setEditing('career')}>Add a role</button></p>}
+              </Panel>
+            )}
+            {p.education?.length > 0 && (
+              <Panel title="Education" id="edu-h">
+                <ol className="space-y-3">
+                  {p.education.map((e, i) => (
+                    <li key={e.id ?? i}><div className="text-sm font-semibold text-[var(--az-text)]">{e.institution}</div>
+                      <div className="t-small">{[e.department, e.programme, e.gradYear && `Class of ${e.gradYear}`].filter(Boolean).join(' · ')}</div></li>
+                  ))}
+                </ol>
+              </Panel>
+            )}
+            {showSkills && (
+              <Panel title="Skills" id="skills-h">
+                {p.skills?.length ? <div className="flex flex-wrap gap-1.5">{p.skills.map((k) => <span key={k} className="badge badge-neutral">{k}</span>)}</div>
+                  : <p className="t-small">None listed. <button type="button" className="link" onClick={() => setEditing('skills')}>Add skills</button></p>}
+              </Panel>
+            )}
+            {!own && (
+              <Panel title="Contact" id="contact-h">
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-3"><dt className="text-[var(--az-text-3)]">Email</dt>
+                    <dd className="min-w-0 truncate text-[var(--az-text)]">{p.email ? <a className="link" href={`mailto:${p.email}`}>{p.email}</a>
+                      : <span className="inline-flex items-center gap-1 text-[var(--az-text-3)]"><Icon name="lock" size={14} />Not shared with you</span>}</dd></div>
+                  {p.birthday && isValidBirthday(p.birthday) && <div className="flex justify-between gap-3"><dt className="text-[var(--az-text-3)]">Birthday</dt><dd className="text-[var(--az-text)]">{formatMonthDay(p.birthday)}</dd></div>}
+                  {p.linkedin && <div className="flex justify-between gap-3"><dt className="text-[var(--az-text-3)]">LinkedIn</dt><dd className="min-w-0 truncate text-[var(--az-text)]">{p.linkedin}</dd></div>}
+                  {p.joinedAt && <div className="flex justify-between gap-3"><dt className="text-[var(--az-text-3)]">Joined</dt><dd className="text-[var(--az-text)]">{monthYear(p.joinedAt)}</dd></div>}
+                </dl>
+              </Panel>
+            )}
+            {own && <Privacy profile={p} onSaved={saved} />}
+            <Panel title="Communities" count={communities.data?.communities?.length} id="comm-h">
+              <Communities state={communities} own={own} firstName={first} limit={5} onAll={() => setTab('communities')} />
+            </Panel>
+            {own && <YourData />}
           </div>
         )}
-        {errors.form && <p role="alert" className="text-sm text-rose-300">{errors.form}</p>}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" className="btn btn-ghost min-h-11" onClick={onClose}>Cancel</button><button className="btn btn-primary min-h-11" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button></div>
-      </form>
-    </Modal>
+        {tab === 'posts' && <Posts id={id} as={as} own={isMe} firstName={isMe ? null : first} />}
+        {tab === 'communities' && <div className="panel p-5"><Communities state={communities} own={own} firstName={first} /></div>}
+        {tab === 'connections' && own && <Connections />}
+      </div>
+
+      {editing && own && <EditProfile focus={editing} onClose={() => setEditing(false)} onSaved={saved} />}
+    </div>
   );
 }

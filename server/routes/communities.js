@@ -8,7 +8,7 @@ import { can } from '../lib/permissions.js';
 import { idempotent } from '../lib/session.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
 import { notify } from '../lib/notify.js';
-import { checkCategory } from '../lib/categories.js';
+import { CATEGORIES, categoryOf, checkCategory } from '../lib/categories.js';
 import { assertCanCreate, checkSettings, CONFIG_SETTING_KEYS, prepareCommunity, recordCreation } from '../lib/templates.js';
 
 // Settings a community stores for its own screens (tabs, dashboard, guidelines, membership rule).
@@ -40,6 +40,9 @@ const cleanName = (s) => {
   if (t.length < 2 || t.length > 80) throw badRequest('INVALID_NAME', 'Give the community a name of 2–80 characters.', { field: 'name' });
   return t;
 };
+// Removed members can ask to join again after this long (MEM-07). The join route below states the
+// same rule in its SQL; GET /communities uses this to say when (rejoinAfter).
+const REJOIN_COOLDOWN = '7 days';
 const slugOf = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'community';
 
 export default async function communityRoutes(app, { ctx }) {
@@ -50,22 +53,60 @@ export default async function communityRoutes(app, { ctx }) {
   const countMembers = `(select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
     where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active')`;
 
-  // Discovery: Public and Private communities, plus Closed ones you belong to (VIS-04: closed
-  // communities never appear for anyone else). Member counts never include admin-mode visits.
+  // Explore (v2 D5): pages of 24, three sorts, one category at a time.
+  const DISCOVER_PAGE = 24;
+  const byName = (x, y) => x.name.localeCompare(y.name, 'en', { sensitivity: 'base' }) || x.id.localeCompare(y.id);
+  const SORTS = {
+    members: (x, y) => y.member_count - x.member_count || byName(x, y),
+    newest: (x, y) => new Date(y.created_at) - new Date(x.created_at) || byName(x, y),
+    name: byName,
+  };
+  function discoveryOptions(query) {
+    const category = query.category ? categoryOf(query.category) : null;
+    if (query.category && !category) throw badRequest('INVALID_CATEGORY', `Choose a category: ${CATEGORIES.join(', ')}.`, { field: 'category', categories: CATEGORIES });
+    if (query.sort && !SORTS[query.sort]) throw badRequest('INVALID_INPUT', 'Sort by members, newest or name.', { field: 'sort' });
+    const page = Number.parseInt(query.page, 10);
+    return {
+      q: String(query.q ?? '').trim().toLowerCase().slice(0, 80),
+      discover: query.scope === 'discover', category, sort: query.sort || null,
+      hideMine: query.hideMine === '1' || query.hideMine === 'true',
+      page: Number.isFinite(page) && page >= 1 ? Math.min(page, 10000) : 1,
+    };
+  }
+
+  // Your communities and discovery. Bare (the sidebar, welcome steps and community pages):
+  // Public and Private communities, plus Closed and archived ones you belong to (VIS-04: closed
+  // communities never appear for anyone else). With scope=discover (Explore, v2 D5): Public and
+  // Private, active only, never Closed even to its members, paged 24 at a time with the counts
+  // for the category strip. Your own memberships stay in, marked, unless hideMine=1. Member
+  // counts never include admin-mode visits.
   app.get('/communities', async (req) => {
     const uid = signedIn(req);
-    const q = String(req.query.q ?? '').trim().toLowerCase().slice(0, 80);
+    const opts = discoveryOptions(req.query);
     const { rows } = await db.query(
-      `select c.*, m.role, m.state as member_state, ${countMembers} as member_count
+      `select c.*, m.role, m.state as member_state, ${countMembers} as member_count,
+              case when m.state = 'removed' and m.updated_at + interval '${REJOIN_COOLDOWN}' > now()
+                then m.updated_at + interval '${REJOIN_COOLDOWN}' end as rejoin_after
          from communities c left join memberships m on m.community_id = c.id and m.user_id = $1
-        -- Archived communities stay listed for their own members (not for discovery).
         where c.merged_into is null
-          and (c.status = 'active' or (c.status = 'archived' and m.state in ('active', 'restricted')))
-          and (c.visibility <> 'closed' or m.state in ('active', 'restricted'))
           and coalesce(m.state, '') <> 'blocked'
           and ($2 = '' or lower(c.name || ' ' || coalesce(c.description, '') || ' ' || coalesce(c.category, '')) like '%' || $2 || '%')
-        order by (m.state = 'active') desc nulls last, c.name`, [uid, q]);
-    return { communities: rows.map((c) => publicCommunity(c, { memberCount: c.member_count, membership: c.member_state ? { state: c.member_state, role: c.role } : null })) };
+          and (case when $3 then c.status = 'active' and c.visibility in ('public', 'private')
+               -- Archived communities stay listed for their own members (not for discovery).
+               else (c.status = 'active' or (c.status = 'archived' and m.state in ('active', 'restricted')))
+                    and (c.visibility <> 'closed' or m.state in ('active', 'restricted')) end)
+          and not ($4 and coalesce(m.state, '') in ('active', 'restricted'))
+        order by (m.state = 'active') desc nulls last, c.name`, [uid, opts.q, opts.discover, opts.hideMine]);
+    const present = (c) => publicCommunity(c, { memberCount: c.member_count, membership: c.member_state
+      ? { state: c.member_state, role: c.role, ...(c.rejoin_after ? { rejoinAfter: new Date(c.rejoin_after).toISOString() } : {}) } : null });
+    // Categories outside the list (older rows, until the category review) count as Other.
+    const counts = Object.fromEntries(CATEGORIES.map((k) => [k, 0]));
+    for (const c of rows) counts[categoryOf(c.category) ?? 'Other'] += 1;
+    let list = opts.category ? rows.filter((c) => (categoryOf(c.category) ?? 'Other') === opts.category) : rows;
+    if (opts.sort || opts.discover) list = [...list].sort(SORTS[opts.sort ?? 'members']);
+    if (!opts.discover) return { communities: list.map(present) };
+    const start = (opts.page - 1) * DISCOVER_PAGE;
+    return { communities: list.slice(start, start + DISCOVER_PAGE).map(present), total: list.length, page: opts.page, pageSize: DISCOVER_PAGE, categoryCounts: counts };
   });
 
   // Accepts the id or the slug, so /c/:slug pages can load directly.
@@ -111,7 +152,7 @@ export default async function communityRoutes(app, { ctx }) {
     if (a.state === 'pending') return { membership: { state: 'pending' } };
     // Removed members can ask again after 7 days (Stage 6, MEM-07); until then, say when.
     if (a.state === 'removed') {
-      const { rows: [m] } = await db.query(`select updated_at + interval '7 days' as again from memberships where community_id = $1 and user_id = $2`, [c.id, uid]);
+      const { rows: [m] } = await db.query(`select updated_at + interval '${REJOIN_COOLDOWN}' as again from memberships where community_id = $1 and user_id = $2`, [c.id, uid]);
       if (new Date(m.again) > new Date()) throw conflict('REMOVED', `You were removed from this community. You can ask to join again from ${new Date(m.again).toUTCString().slice(0, 16)}.`, { again: m.again });
     }
     if (c.visibility === 'closed') throw forbidden('This community is invitation-only.', 'INVITE_ONLY');
@@ -121,7 +162,7 @@ export default async function communityRoutes(app, { ctx }) {
       `insert into memberships (community_id, user_id, role, state, request_message, joined_at) values ($1, $2, 'member', $3, $4, case when $3 = 'active' then now() end)
        on conflict (community_id, user_id) do update set state = excluded.state, request_message = excluded.request_message,
          joined_at = excluded.joined_at, role = 'member', updated_at = now()
-       where memberships.state in ('left', 'invited') or (memberships.state = 'removed' and memberships.updated_at <= now() - interval '7 days')`, [c.id, uid, state, message]);
+       where memberships.state in ('left', 'invited') or (memberships.state = 'removed' and memberships.updated_at <= now() - interval '${REJOIN_COOLDOWN}')`, [c.id, uid, state, message]);
     await audit(db, { actorId: uid, action: state === 'active' ? 'community.join' : 'community.request', targetType: 'community', targetId: c.id, ip: req.ip });
     const now = (await db.query(`select state, role, updated_at from memberships where community_id = $1 and user_id = $2`, [c.id, uid])).rows[0];
     // A new request tells the community's admins (once per request).

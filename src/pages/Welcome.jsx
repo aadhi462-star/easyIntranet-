@@ -28,7 +28,7 @@ export default function Welcome() {
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const next = (() => { const p = nextPath(search); return p.startsWith('/welcome') ? '/dashboard' : p; })();
+  const next = (() => { const p = nextPath(search); return p.startsWith('/welcome') ? '/home' : p; })();
   useEffect(() => { document.title = 'Welcome · CommunityOne'; }, []);
 
   const finish = async (to = next) => {
@@ -182,7 +182,7 @@ function CommunitiesStep({ me, next, busy, onBack, onFinish }) {
         <div className="sunken mt-6 flex flex-col items-start gap-3 p-5">
           <h2 className="t-h3">No communities to join yet</h2>
           <p className="text-sm text-[var(--az-text-2)]">{canCreate ? 'You can start one, or look again later from Explore.' : 'You can look again later from Explore.'}</p>
-          {canCreate && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => onFinish('/groups?new=1')}>Start a community</button>}
+          {canCreate && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => onFinish('/communities?new=1')}>Start a community</button>}
         </div>
       )}
       {s.status === 'ready' && ordered.length > 0 && (

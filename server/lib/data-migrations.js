@@ -7,6 +7,8 @@
 // rejoin in one click. Owners, Admins, Moderators, Instructors and Teaching Assistants keep their
 // roles. Nobody gains a permission.
 import { audit } from './audit.js';
+import { CATEGORIES, categoryOf } from './categories.js';
+import { badRequest, conflict } from './errors.js';
 
 export const P1 = 'p1-alumnizone-ordinary';
 
@@ -53,15 +55,93 @@ export async function undoDataMigration(db, name) {
     const { rows } = await t.query(`select * from migration_log where migration = $1 order by id desc`, [name]);
     let restored = 0; let skipped = 0;
     for (const r of rows) {
-      if (r.table_name !== 'memberships') { skipped += 1; continue; }
-      const { community_id: cid, user_id: uid } = r.row_key;
-      // Only if they haven't changed it themselves since (rejoined, been removed…).
-      const res = await t.query(`update memberships set state = $3, updated_at = now() where community_id = $1 and user_id = $2 and state = $4 returning user_id`,
-        [cid, uid, r.before.state, r.after.state]);
+      let res;
+      if (r.table_name === 'memberships') {
+        const { community_id: cid, user_id: uid } = r.row_key;
+        // Only if they haven't changed it themselves since (rejoined, been removed…).
+        res = await t.query(`update memberships set state = $3, updated_at = now() where community_id = $1 and user_id = $2 and state = $4 returning user_id`,
+          [cid, uid, r.before.state, r.after.state]);
+      } else if (r.table_name === 'communities') {
+        // D6: only if the Owner hasn't picked another category since.
+        res = await t.query(`update communities set category = $2, version = version + 1 where id = $1 and category is not distinct from $3 returning id`,
+          [r.row_key.id, r.before.category ?? null, r.after.category]);
+      } else { skipped += 1; continue; }
       if (res.rows.length) restored += 1; else skipped += 1;
     }
     await t.query(`update data_migrations set undone_at = now() where name = $1`, [name]);
     await audit(t, { action: 'data_migration.undo', targetType: 'data_migration', targetId: name, context: { restored, skipped } });
     return { restored, skipped };
+  });
+}
+
+// ---- D6 (v2 workstream D, approved 12 Nov 2026): categories set by a reviewed list -------------
+// A dry run proposes one of the nine categories for every community from its old type. Platform
+// staff check the whole list in Administration and confirm it; only then is it written, once,
+// logged row by row (so the undo script can put each previous category back) and audited.
+export const D6 = 'd6-categories';
+const OLD_TYPES = { department: 'Alumni', batch: 'Alumni', city: 'Alumni', interest: 'Hobbies and Interests', project: 'Organisation' };
+
+/** The category the dry run proposes for a stored category or old type (case-insensitive). */
+export function proposeCategory(current) {
+  const s = String(current ?? '').trim().toLowerCase();
+  return OLD_TYPES[s] ?? categoryOf(s) ?? 'Other';
+}
+
+/** Every community that isn't deleted (or merged away), with the proposal. Writes nothing. */
+export async function categoryDryRun(db) {
+  const { rows } = await db.query(`select id, name, category from communities where status <> 'deleted' and merged_into is null order by lower(name), id`);
+  return rows.map((r) => ({ id: r.id, name: r.name, current: r.category ?? null, proposed: proposeCategory(r.category) }));
+}
+
+/** What Administration shows: the dry run, or once applied, the confirmed record (read-only). */
+export async function categoryReview(db) {
+  const { rows: [m] } = await db.query(`select applied_at, summary, undone_at from data_migrations where name = $1`, [D6]);
+  if (m && !m.undone_at) return { applied: { at: m.applied_at, by: m.summary.byName ?? null }, rows: m.summary.rows ?? [] };
+  return { applied: null, rows: await categoryDryRun(db) };
+}
+
+/**
+ * Applies the confirmed list: `rows` is [{ id, category }] covering every community the dry run
+ * lists. Rows whose category doesn't change aren't written but stay in the confirmed record.
+ * The caller has already checked the permission (one connection: nothing else runs inside).
+ */
+export async function applyCategoryReview(db, { rows: input, actor, ip = null }) {
+  const chosen = new Map();
+  for (const r of input) {
+    const category = categoryOf(r.category);
+    if (!category) throw badRequest('INVALID_CATEGORY', `Choose a category for every community: ${CATEGORIES.join(', ')}.`, { field: 'category', id: r.id, categories: CATEGORIES });
+    if (chosen.has(r.id)) throw badRequest('DUPLICATE_COMMUNITY', 'Each community can appear only once in the list.', { id: r.id });
+    chosen.set(r.id, category);
+  }
+  return db.tx(async (t) => {
+    const { rows: [m] } = await t.query(`select undone_at from data_migrations where name = $1 for update`, [D6]);
+    if (m && !m.undone_at) throw conflict('ALREADY_APPLIED', 'The category review has already been applied. Owners can change their own category in community settings.');
+    const dry = await categoryDryRun(t);
+    const listed = new Set(dry.map((r) => r.id));
+    const unknown = [...chosen.keys()].filter((id) => !listed.has(id));
+    if (unknown.length) throw badRequest('UNKNOWN_COMMUNITY', 'The list names communities that don’t exist or were deleted. Reload the review and try again.', { ids: unknown });
+    const missing = dry.filter((r) => !chosen.has(r.id)).map((r) => r.id);
+    if (missing.length) throw badRequest('INCOMPLETE_LIST', 'The list leaves out some communities. Reload the review so every community is included, then try again.', { ids: missing });
+    const rows = dry.map((r) => ({ ...r, confirmed: chosen.get(r.id) }));
+    const written = rows.filter((r) => r.confirmed !== r.current);
+    const summary = { by: actor.id, byName: actor.name ?? null, communities: rows.length, changed: written.length,
+      changedByStaff: rows.filter((r) => r.confirmed !== r.proposed).length, rows };
+    if (m) {
+      // Undone earlier: this run replaces that one (its audit entries keep the history).
+      await t.query(`delete from migration_log where migration = $1`, [D6]);
+      await t.query(`update data_migrations set applied_at = now(), summary = $2, undone_at = null where name = $1`, [D6, JSON.stringify(summary)]);
+    } else {
+      await t.query(`insert into data_migrations (name, summary) values ($1, $2)`, [D6, JSON.stringify(summary)]);
+    }
+    for (const r of written) {
+      await t.query(`update communities set category = $2, version = version + 1 where id = $1`, [r.id, r.confirmed]);
+      await t.query(`insert into migration_log (migration, table_name, row_key, before, after) values ($1, 'communities', $2, $3, $4)`,
+        [D6, JSON.stringify({ id: r.id }), JSON.stringify({ category: r.current }), JSON.stringify({ category: r.confirmed })]);
+    }
+    const { communities, changed, changedByStaff } = summary;
+    await audit(t, { actorId: actor.id, action: 'data_migration.apply', targetType: 'data_migration', targetId: D6, ip,
+      context: { name: D6, communities, changed, changedByStaff, staffChanges: rows.filter((r) => r.confirmed !== r.proposed).map((r) => ({ id: r.id, proposed: r.proposed, confirmed: r.confirmed })) } });
+    const { rows: [done] } = await t.query(`select applied_at from data_migrations where name = $1`, [D6]);
+    return { applied: { at: done.applied_at, by: summary.byName }, rows };
   });
 }

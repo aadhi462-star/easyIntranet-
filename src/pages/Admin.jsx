@@ -21,6 +21,7 @@ import { DataExport, Security, AssistSettings } from '../components/admin/DataSe
 import { PasswordDialog } from '../components/platform/bits.jsx';
 import Users from '../components/platform/Users.jsx';
 import Communities from '../components/platform/Communities.jsx';
+import CategoryReview from '../components/platform/CategoryReview.jsx';
 import ModerationCentre from '../components/platform/ModerationCentre.jsx';
 import ActivityLog from '../components/platform/ActivityLog.jsx';
 import PlatformAnalytics from '../components/platform/PlatformAnalytics.jsx';
@@ -31,6 +32,7 @@ const TABS = [
   { id: 'overview', label: 'Overview', el: Overview, perm: 'admin.analytics' },
   { id: 'users', label: 'Users', el: Users, badge: 'pendingAccounts' },
   { id: 'communities', label: 'Communities', el: Communities, badge: 'deletionRequests' },
+  { id: 'categories', label: 'Category review', el: CategoryReview },
   { id: 'moderation', label: 'Moderation centre', el: ModerationCentre, badge: 'moderationCentre' },
   { id: 'activity', label: 'Activity log', el: ActivityLog },
   { id: 'analytics', label: 'Analytics', el: PlatformAnalytics, perm: 'admin.analytics' },

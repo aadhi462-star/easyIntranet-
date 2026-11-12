@@ -13,7 +13,7 @@ import { CardSkeletons, CommunityCard, LoadError, NoCommunities, usePublicCommun
 const wrap = 'mx-auto max-w-[1200px] px-4 sm:px-8';
 const sectionCls = `${wrap} scroll-mt-4 py-16 outline-none sm:py-20`;
 /** Where Start a community goes: the account first, then the current create form (C13). */
-export const START_PATH = `/signup?next=${encodeURIComponent('/groups?new=1')}`;
+export const START_PATH = `/signup?next=${encodeURIComponent('/communities?new=1')}`;
 
 const FEATURES = [
   ['groups', 'Many communities, one sign-in', 'Your school, your city, your field and your hobby, side by side, with one profile.'],
@@ -66,7 +66,7 @@ export default function Landing() {
     if (el) { el.scrollIntoView({ block: 'start' }); el.focus({ preventScroll: true }); }
   }, [loc.state]);
 
-  const secondary = me ? <Link to="/dashboard" className="btn btn-secondary">Open CommunityOne</Link> : <Link to="/signup" className="btn btn-secondary">Get Started</Link>;
+  const secondary = me ? <Link to="/home" className="btn btn-secondary">Open CommunityOne</Link> : <Link to="/signup" className="btn btn-secondary">Get Started</Link>;
 
   return (
     <div className="min-h-full bg-[var(--az-page)] text-[var(--az-text)]">
@@ -181,7 +181,7 @@ export default function Landing() {
             <Link to="/explore" className="btn btn-primary">Explore Communities</Link>
             {secondary}
           </div>
-          <p className="t-small mt-5">Running a group already? <Link to={me ? '/groups?new=1' : START_PATH} className="link">Start a community</Link></p>
+          <p className="t-small mt-5">Running a group already? <Link to={me ? '/communities?new=1' : START_PATH} className="link">Start a community</Link></p>
         </section>
       </main>
       <PublicFooter />

@@ -1158,3 +1158,52 @@ The boards were approved as drawn (C1–C14; the user said "start" on the unchan
   - The Terms of Service text and a contact address are still waiting on the user.
   - Explore and Home's empty state belong to D. Invitation pages belong to F.
   - Help, Privacy, Terms and Contact have the new frame, but their inner text still uses older classes, which `light-invert.css` covers.
+
+### v2 — Workstream D: shell, Home, Explore, My Communities, Profile, search (12 Nov 2026)
+
+The boards were approved as drawn (D1–D12: the user said "Start D" on the unchanged boards). Built in parallel: I did the shell, Home and routes, and four agents took the rest, each owning its own files.
+
+- **Shell** (`components/Layout.jsx`, `lib/shell.js`, `components/shell/CommunityPicker.jsx`):
+  - **Sidebar (D1):** the eight destinations, then your communities (the ones you manage first, then A to Z, the first 8), Create Community only while creating is allowed (`GET /templates`), and Administration for staff.
+  - **Top bar:** the search box (D9), a Create menu that offers Post, Event and Community only where you may, using `canPostIn` and `canCreateEventsIn` from `/dashboard`, and asks which community when there's more than one.
+  - **Account menu (D12):** Profile, Notification settings (`/notifications?settings=1`), Theme as `menuitemradio`, and Sign out. Reset demo data shows in development builds only.
+  - **Phones (D2):** the five-tab bottom bar and the Menu sheet, which keeps focus inside, closes with Escape and has Theme and Sign out. "/" focuses search on desktop and opens Search on a phone.
+- **Addresses (D11):** `/home`, `/explore` (inside the app when signed in, the public page otherwise), `/communities` and `/profile`. Redirects: `/dashboard`, `/feed`, `/feed/bookmarks`, `/groups`, `/groups?tab=discover` and `/groups?new=1`.
+- **Home** (`pages/Dashboard.jsx`, D3 and D4):
+  - The welcome line with quick actions.
+  - Then, in a fixed order: Needs you (replies, Mandatory Reads soonest due first, invitations with Accept, connection requests), Coming up (14 days, unanswered first), Continue learning, New in your communities (announcements marked) and Recommended.
+  - Empty groups are left out.
+  - The first-run Home has the categories with real counts, up to 6 Public communities with Join, Create Community when allowed, and Complete your profile.
+- **Server, agent A** (`routes/communities.js`, `routes/dashboard.js`):
+  - `GET /communities?scope=discover`: category, sort, hideMine, q, pages of 24, total and categoryCounts. Closed communities never appear (VIS-04).
+  - The membership object gains `rejoinAfter` (MEM-07). `REJOIN_COOLDOWN` now drives the join route too.
+  - `/dashboard` adds comingUp, pendingRequests, invitations, canPostIn, canCreateEventsIn, and up to 6 suggestions when you're in none.
+  - Tests: `server/test/discovery.test.js` (15).
+- **Explore and My Communities, agent A** (`pages/ExploreCommunities.jsx`, `pages/MyCommunities.jsx`, `components/groups/MembershipAction.jsx`):
+  - One action per membership state (D7).
+  - My Communities groups rows into Needs you, Managing and Member (D8). An Owner's Leave is disabled, with the reason.
+  - `?new=1` opens today's create form.
+- **Search and Profile, agent B** (`routes/search.js`, `routes/profiles.js`, `pages/Search.jsx`, `pages/People.jsx`, `components/search/SearchBox.jsx`, `components/profile/`):
+  - Search gains resources and courses, and `mode=suggest` (3 per kind).
+  - New routes `GET /profiles/:id/communities` and `/profiles/:id/posts`.
+  - Preview as a member or a connection (`as=`), allowed only for your own id (`PREVIEW_OWN_ONLY`).
+  - Follow is gone from profiles.
+  - Tests: `search-v2.test.js` (9) and `profiles-v2.test.js` (15). New register row VIS-16 (P0).
+- **Category review, agent C (D6)** (`lib/data-migrations.js`, `routes/platform.js`, `components/platform/CategoryReview.jsx`, the Administration tab):
+  - A dry run, then staff confirm the whole list.
+  - It's applied once as the data migration `d6-categories`: logged, audited, and undone with `node server/scripts/undo-data-migration.mjs d6-categories`.
+  - Tests: `category-review.test.js` (5). **Not applied yet**: until staff confirm it, older categories (City, Interest and so on) show as Other.
+- **Restyle, agent D:** Notifications (with the `?settings=1` scroll), Saved, Events and My Learning are on the tokens, with no new behaviour.
+- **Checked:**
+  - Full `npm run test:server`: 379 of 379 in one run.
+  - `vite build` passes, and `source-rules.test.js` passes.
+  - `npm run test:e2e`: `e2e/shell.spec.js` (first-run Home, joining from Explore then the sidebar and My Communities, the five bottom-bar tabs, redirects, "/") 6 of 6. The full e2e run before the last test fix was 17 passed, 2 failed (that test's locator) and 1 skipped; after the fix, the shell journeys pass at both widths.
+  - Browser, as Sara (Platform Admin): Home, the phone Menu sheet, the account menu, Explore, My Communities, Profile, and search suggestions.
+- **Not done:**
+  - Declining an invitation: the server has no route for the invited person, so it shows Accept only.
+  - Some dates the boards show (Restricted until, You left on, You asked on) aren't sent by the server.
+  - "Shared with connections only" on other people's profiles: the server doesn't send the setting, so it says "Not shared with you".
+  - Custom profile fields aren't shown.
+  - Show more under New in your communities: the server returns 5.
+  - Per-community unread counts.
+  - Shared event components (`EventCard`, `RsvpButtons`, `EventForm`, …) still use the older palette.

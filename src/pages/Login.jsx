@@ -44,7 +44,7 @@ export function takeNext(email) {
 /** Where to go after signing in: the page the visitor was trying to reach, if it's internal. */
 export function nextPath(search) {
   const next = new URLSearchParams(search).get('next');
-  return internal(next) ? next : '/dashboard';
+  return internal(next) ? next : '/home';
 }
 
 // The account states the server reports after the password is proven: a short name, and the

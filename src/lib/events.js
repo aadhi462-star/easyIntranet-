@@ -68,7 +68,7 @@ export async function fetchEvent(id) {
 
 export async function fetchDashboard() {
   const d = await api('/dashboard');
-  return { ...d, upcomingEvents: d.upcomingEvents.map(fromServer) };
+  return { ...d, upcomingEvents: d.upcomingEvents.map(fromServer), comingUp: d.comingUp?.map(fromServer) };
 }
 
 // ---- Writes -----------------------------------------------------------------------------------

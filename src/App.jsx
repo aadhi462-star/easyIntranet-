@@ -86,6 +86,13 @@ function Protected({ children }) {
   return children;
 }
 
+/** /groups, /groups?tab=discover and /groups?new=1 from before v2 D. */
+function GroupsRedirect() {
+  const q = new URLSearchParams(useLocation().search);
+  if (q.get('tab') === 'discover') { q.delete('tab'); return <Navigate to={`/explore${q.size ? `?${q}` : ''}`} replace />; }
+  return <Navigate to={q.get('new') === '1' ? '/communities?new=1' : '/communities'} replace />;
+}
+
 const CertificatePage = page('Verify');
 function VerifyOrCertificate() {
   const loc = useLocation();
@@ -108,10 +115,11 @@ export default function App() {
       <ConfirmHost />
       {runners.map((R, i) => <R key={i} />)}
       <Routes>
-        <Route path="/" element={me ? <Navigate to={state.settings.landing || '/dashboard'} replace /> : <Landing />} />
-        <Route path="/login" element={me ? <Navigate to="/dashboard" replace /> : <Login />} />
-        <Route path="/signup" element={me ? <Navigate to="/dashboard" replace /> : <Signup />} />
-        <Route path="/explore" element={<Explore />} />
+        <Route path="/" element={me ? <Navigate to="/home" replace /> : <Landing />} />
+        <Route path="/login" element={me ? <Navigate to="/home" replace /> : <Login />} />
+        <Route path="/signup" element={me ? <Navigate to="/home" replace /> : <Signup />} />
+        {/* Signed out, /explore is the public Explore; signed in, it's inside the app (D11). */}
+        {!me && <Route path="/explore" element={<Explore />} />}
         {/* Certificate checks are public (Stage 5b, D8): no sign-in needed. /verify is shared with
             the email confirmation link (/verify?token=…), which must win when it has a token. */}
         <Route path="/verify" element={<VerifyOrCertificate />} />
@@ -126,6 +134,11 @@ export default function App() {
         <Route path="/forgot" element={<Suspense fallback={null}><ForgotPage /></Suspense>} />
         <Route path="/confirm-email" element={<ConfirmEmail />} />
         <Route element={<Protected><Layout /></Protected>}>
+          {/* Old addresses keep working (D11). */}
+          <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+          <Route path="/feed" element={<Navigate to="/home" replace />} />
+          <Route path="/feed/bookmarks" element={<Navigate to="/saved" replace />} />
+          <Route path="/groups" element={<GroupsRedirect />} />
           {routes.map(({ path, page: name }) => {
             const Page = page(name);
             return <Route key={path} path={path} element={<Boundary key={path}><Suspense fallback={<div className="glass h-40 animate-pulse" />}><Page /></Suspense></Boundary>} />;

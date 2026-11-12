@@ -3,9 +3,11 @@
 // Admins can rename, hide and reorder entries in Admin → Branding & navigation.
 
 export const MODULES = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'home', path: '/dashboard', page: 'Dashboard', section: 'Home' },
-  { id: 'feed', label: 'Feeds', icon: 'feeds', path: '/feed', page: 'Feed', section: 'Home', routes: ['/feed/:view', '/post/:id'] },
-  { id: 'groups', label: 'Groups & Spaces', icon: 'groups', path: '/groups', page: 'Groups', section: 'Community', routes: ['/groups/:id', '/groups/:id/:app'] },
+  { id: 'dashboard', label: 'Home', icon: 'home', path: '/home', page: 'Dashboard', section: 'Home' },
+  // /feed and /feed/bookmarks redirect (D11); the post page and the older feed views stay.
+  { id: 'feed', label: 'Feeds', icon: 'feeds', path: '/feed/:view', page: 'Feed', section: 'Home', routes: ['/post/:id'] },
+  // /groups redirects to My Communities or Explore (D11); older community links stay.
+  { id: 'groups', label: 'Groups & Spaces', icon: 'groups', path: '/groups/:id', page: 'Groups', section: 'Community', routes: ['/groups/:id/:app'] },
   { id: 'events', label: 'Events', icon: 'events', path: '/events', page: 'Events', section: 'Community', routes: ['/events/:id'] },
   { id: 'townhalls', flag: 'module.townhalls', label: 'Town Halls', icon: 'mic', path: '/townhalls', page: 'TownHalls', section: 'Community', routes: ['/townhalls/:id'] },
   { id: 'live', flag: 'module.live', label: 'Live & Meetings', icon: 'live', path: '/live', page: 'Live', section: 'Community', routes: ['/live/:id'] },
@@ -28,6 +30,10 @@ export const MODULES = [
 // Routes without a nav entry.
 export const EXTRA_ROUTES = [
   { path: '/search', page: 'Search' },
+  // v2 workstream D: one address per destination (D11).
+  { path: '/explore', page: 'ExploreCommunities' },
+  { path: '/communities', page: 'MyCommunities' },
+  { path: '/profile', page: 'People' },
   { path: '/c/:id', page: 'Community' },
   { path: '/c/:id/:tab', page: 'Community' },
   { path: '/c/:id/:tab/:sub', page: 'Community' },

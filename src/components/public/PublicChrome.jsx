@@ -55,7 +55,7 @@ export function PublicHeader() {
     </>
   );
   const actions = me
-    ? <Link className="btn btn-primary" to="/dashboard">Open CommunityOne</Link>
+    ? <Link className="btn btn-primary" to="/home">Open CommunityOne</Link>
     : (
       <>
         <Link className="btn btn-ghost" to="/login">Sign In</Link>

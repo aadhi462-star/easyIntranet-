@@ -1,12 +1,16 @@
 // Member dashboard (prompt §11): one request for the home screen's summary. Everything comes
 // from communities the member belongs to and passes the same access and block rules as the
 // full screens, so the dashboard never shows more than the pages it links to.
-import { brandingUrls, sectionOn } from '../lib/community.js';
+import { access, brandingUrls, sectionOn } from '../lib/community.js';
 import { unauthorized } from '../lib/errors.js';
 import { notBlockedSql } from '../lib/relations.js';
 import { listEvents } from './events.js';
 
 const DAY = 864e5;
+// Open community invitations for this account, one per community (the newest), exactly as
+// GET /me/invitations in routes/invitations.js picks them.
+const OPEN_INVITE = `i.accepted_at is null and i.revoked_at is null and i.superseded_at is null`;
+const normEmail = (e) => String(e || '').trim().toLowerCase();
 
 export default async function dashboardRoutes(app, { ctx }) {
   const { db } = ctx;
@@ -18,7 +22,7 @@ export default async function dashboardRoutes(app, { ctx }) {
     const mine = `select m.community_id from memberships m join communities c on c.id = m.community_id
       where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null`;
 
-    const [communities, events, mandatory, announcements, requests, newMembers, replies, recent, suggested] = await Promise.all([
+    const [communities, events, mandatory, announcements, requests, newMembers, replies, recent, suggested, pending, invites] = await Promise.all([
       db.query(`select c.id, c.slug, c.name, c.emoji, c.accent, c.logo_file_id, c.cover_file_id, c.settings, c.visibility, c.status, m.role, m.state,
           (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
             where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
@@ -70,8 +74,33 @@ export default async function dashboardRoutes(app, { ctx }) {
           from communities c
          where c.visibility = 'public' and c.status = 'active' and c.merged_into is null
            and not exists (select 1 from memberships m where m.community_id = c.id and m.user_id = $1)
-         order by member_count desc, c.name limit 3`, [uid]),
+         order by member_count desc, c.name limit 6`, [uid]),
+      // Your join requests still waiting on a community's admins.
+      db.query(`select c.id, c.slug, c.name, c.accent, c.visibility, m.updated_at
+          from memberships m join communities c on c.id = m.community_id
+         where m.user_id = $1 and m.state = 'pending' and c.status = 'active' and c.merged_into is null
+         order by m.updated_at desc`, [uid]),
+      db.query(`select i.id, i.community_id, i.role, i.expires_at, c.slug, c.name, c.accent, c.visibility, ib.name as invited_by_name
+          from community_invitations i join communities c on c.id = i.community_id left join users ib on ib.id = i.invited_by
+         where ${OPEN_INVITE} and i.expires_at > now() and c.status = 'active' and c.merged_into is null
+           and ((i.user_id = $1) or (i.user_id is null and $3::boolean and i.email = $2)) order by i.created_at desc`,
+      [uid, normEmail(req.user.email), req.user.emailVerified]),
     ]);
+
+    // Where the quick actions may go: the same checks the post and event routes make (access()
+    // for status, membership state and whoCanPost; the section switch; whoCanCreateEvents).
+    const canPostIn = []; const canCreateEventsIn = [];
+    for (const c of communities.rows) {
+      const a = await access(db, req, c.id, { audited: false });
+      if (!a.canParticipate) continue;
+      if (sectionOn(a.community, 'discussions')) canPostIn.push(c.id);
+      if (sectionOn(a.community, 'events') && (a.community.settings?.whoCanCreateEvents !== 'admins' || a.canAdmin)) canCreateEventsIn.push(c.id);
+    }
+    const seenInvite = new Set();
+    const invitations = invites.rows.filter((i) => !seenInvite.has(i.community_id) && seenInvite.add(i.community_id));
+    // Next 14 days, the ones you haven't answered first, then by start.
+    const soon = events.filter((e) => e.status === 'scheduled' && Date.parse(e.nextStart) >= now && Date.parse(e.nextStart) <= now + 14 * DAY)
+      .sort((a, b) => (a.myRsvp != null) - (b.myRsvp != null) || Date.parse(a.nextStart) - Date.parse(b.nextStart)).slice(0, 5);
 
     const upcoming = events.filter((e) => e.status === 'scheduled' && Date.parse(e.nextStart) >= now)
       .sort((a, b) => Date.parse(a.nextStart) - Date.parse(b.nextStart)).slice(0, 5);
@@ -91,7 +120,13 @@ export default async function dashboardRoutes(app, { ctx }) {
       recentPosts: shown(recent.rows).map((p) => ({ id: p.id, excerpt: excerpt(p.body), type: p.type, publishedAt: p.published_at, likes: p.likes, replies: p.replies,
         community: { id: p.community_id, slug: p.slug, name: p.community, accent: p.accent },
         author: p.author_status === 'deleted' ? { id: null, name: 'Deleted member' } : { id: p.author_id, name: p.author } })),
-      suggested: suggested.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, category: c.category, accent: c.accent, ...brandingUrls(c), memberCount: c.member_count })),
+      suggested: suggested.rows.slice(0, communities.rows.length ? 3 : 6).map((c) => ({ id: c.id, slug: c.slug, name: c.name, category: c.category, accent: c.accent, ...brandingUrls(c), memberCount: c.member_count })),
+      comingUp: soon,
+      pendingRequests: pending.rows.map((c) => ({ community: { id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility }, requestedAt: c.updated_at })),
+      invitations: invitations.map((i) => ({ id: i.id, community: { id: i.community_id, slug: i.slug, name: i.name, accent: i.accent, visibility: i.visibility },
+        role: i.role, invitedBy: i.invited_by_name ?? null, expiresAt: i.expires_at })),
+      canPostIn,
+      canCreateEventsIn,
     };
   });
 }
