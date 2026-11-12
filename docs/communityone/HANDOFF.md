@@ -41,7 +41,7 @@ D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real
 npm install
 npm run db:seed        # migrations + idempotent seed from server/seed/prototype.json
 npm run build && npm run server   # http://localhost:5181 (API + built app)
-npm run test:server    # node:test, in-memory PGlite — 442 tests, all pass at last commit
+npm run test:server    # node:test, in-memory PGlite — 447 tests, all pass at last commit
 npm run test:e2e       # Playwright journeys (installed Chrome)
 npm run test:audit     # workstream H screen audit, ~5–30 min; findings in test-results/audit/
 ```
@@ -191,10 +191,11 @@ The final pass. **`docs/communityone/QA_REPORT.md` is the final QA report.** It 
   - Platform staff act only on people whose roles they could assign.
   - The server trusts `TRUST_PROXY_HOPS` (default 1) proxies.
 
+H-S9 fixed afterwards: `canRead` in `routes/resources.js` checks what a file is attached to. A new kind of attachment needs a branch there.
+
 **Next:** the user's answers to QA_REPORT.md §4:
 1. Account-enumeration wording.
-2. H-S9 file checks.
-3. Confirming the proxy hop count on AppSail after the next upload.
+2. Confirming the proxy hop count on AppSail after the next upload.
 
 The AppSail bundle on record is from after D; build a new one only when the user asks. Still open from the parallel round: category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle. Also open: Terms of Service text and a contact address.
 

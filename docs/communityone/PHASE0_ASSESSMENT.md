@@ -1376,3 +1376,15 @@ The full report is in `QA_REPORT.md`. In short:
   - The account-enumeration half of H-S7.
   - The AppSail proxy-hop check. These are the decisions in `QA_REPORT.md` §4.
   - No screen-reader walkthrough and no Moderator role in the crawl.
+
+### v2 — H-S9: file access follows what the file is attached to (12 Nov 2026)
+
+The user chose to fix H-S9 after workstream H. `GET /files/:id` used to check only `canView` on the community. Now `canRead` in `server/routes/resources.js` also checks what the file is attached to:
+- library resources and community logo or cover: anyone who can view the community
+- post attachments: the post's rule (published, the author, or moderators for pending or removed posts)
+- lesson files: active enrolled members and the course's staff, as `GET /lessons/:id` does
+- submissions: the learner, community Admins, and the course's instructors and Teaching Assistants
+- files attached nowhere: only the uploader. Administrative Mode reads everything.
+
+Every upload path in the client lands in one of these kinds. Tests: 5 in `h-security.test.js`. Full suite: 447 of 447.
+- **Rule to keep:** a new kind of attachment needs a branch in `canRead`, or its files will only open for the uploader.

@@ -6,12 +6,12 @@ Workstream H is the final pass of the v2 brief. It covers responsive layout on e
 
 | Area | Result |
 | --- | --- |
-| Server tests (`npm run test:server`) | 442 of 442 pass (433 before H, plus 9 new security tests) |
+| Server tests (`npm run test:server`) | 447 of 447 pass (433 before H, plus 14 new security tests) |
 | Browser journeys (`npm run test:e2e`) | Before H: 23 pass, 1 skipped. After H: 22 pass and 1 fails per full run, a different journey each time (`/` search focus, then create-from-template). Each passes when run on its own. The machine was heavily loaded (5.9 min against 59 s at baseline), so these look like timing failures, but that isn't proven. |
 | Screen audit (`npm run test:audit`) | **0 findings** on the final run: 161 (11 signed out, 27 member, 65 host, 58 Super Admin) screens, each at 375, 768 and 1280 px, plus dark mode at 1280 px |
 | Sideways scroll (WCAG 1.4.10) | None, on any screen, at any width |
 | Controls without a name (4.1.2) | None (read from Chrome's accessibility tree) |
-| Security review | 10 findings confirmed: 1 high, 3 medium, 6 low. Fixed: 1–6, 8, 10 and part of 7. Open: 9 and the rest of 7 (decisions below) |
+| Security review | 10 findings confirmed: 1 high, 3 medium, 6 low. Fixed: 1–6, 8, 9, 10 and part of 7. Open: the rest of 7 (decision below) |
 
 ## 1. How the screens were checked
 
@@ -56,7 +56,7 @@ A separate reviewer read every route file. Each finding below was confirmed agai
 | H-S6 | Low | A suspended community could still be edited by its own staff (settings, roles, ownership transfer). | Those routes answer 409 `SUSPENDED` unless Administrative Mode is on. |
 | H-S7 | Low | Reactivation didn't count wrong passwords toward the lockout, and it answered faster for unknown emails. | It now uses the sign-in lockout and does the same work for every email. **Open:** see the decisions below. |
 | H-S8 | Low | An old link to a merged community gave away the address of its new home, even when that was Closed. | The address is given only to people who could open the new home. |
-| H-S9 | Low | `/files/:id` checks only that you can view the community, not what the file is attached to (a draft post, another learner's assignment). File ids are random 72-bit values and no route shows them to other members. | **Not fixed.** Recorded as a known gap. The fix is to check the file's owner object. |
+| H-S9 | Low | `/files/:id` checked only that you can view the community, not what the file is attached to (a draft post, another learner's assignment). File ids are random 72-bit values and no route showed them to other members. | **Fixed after the report (same day).** A file is readable by whoever can see what it's attached to: library and branding files by anyone who can view the community, post files by the post's own rule, lesson files by enrolled learners and course staff, submissions by the learner and graders. A file attached nowhere is readable only by its uploader. 5 tests. |
 | H-S10 | Low | `/admin/confirm-password` had no rate limit. | 5 a minute. |
 
 **Reviewed and found clean:** sessions and CSRF, `/api/dev/*` (off in production), Administrative Mode, status filters (merged, deleted and suspended communities), draft and hidden courses, reporters never named, invitations, SQL, file uploads and downloads, and platform permissions. The details are in the progress log.
@@ -64,7 +64,7 @@ A separate reviewer read every route file. Each finding below was confirmed agai
 ## 4. Decisions for you
 
 1. **Account enumeration (rest of H-S7).** Create account says "That email is already registered", and a locked account says so before the password is checked. Both tell an outsider that an account exists. The private alternative is to always say "Check your email" and send the owner a "someone tried to sign up" email. That makes sign-up a little less clear. **Recommendation:** keep it for the pilot and decide before real members join.
-2. **H-S9 file checks.** Fix now (about 1 hour) or keep as a known gap until there are real members?
+2. ~~**H-S9 file checks.**~~ Fixed (12 Nov 2026).
 3. **Proxy hops on AppSail (H-S2).** One hop is the usual AppSail setup, but it hasn't been confirmed on the live service. After the next upload, check that Administration → Activity shows real visitor IPs, not one shared address. If it shows a shared address, set `TRUST_PROXY_HOPS=2`. Otherwise everyone shares one sign-in limit.
 
 ## 5. Not checked

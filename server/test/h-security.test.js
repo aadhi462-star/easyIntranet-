@@ -124,3 +124,60 @@ describe('H security review', () => {
     } finally { await limited.close(); }
   });
 });
+
+describe('H-S9 a file is readable by whoever can see what it’s attached to', () => {
+  const f = {};
+  const status = async (who, id) => (await f[who].get(`/api/files/${id}`)).status;
+  before(async () => {
+    // A fresh Public community, so "can view the community" alone would let everyone in.
+    for (const id of ['h9own', 'h9lrn', 'h9ta', 'h9mem', 'h9out']) await makeUser(env.db, { id, email: `${id}@example.com`, name: `Person ${id}` });
+    await q(`insert into communities (id, slug, name, visibility, created_by) values ('h9', 'h9', 'File Club', 'public', 'h9own')`);
+    for (const [u, role] of [['h9own', 'owner'], ['h9lrn', 'member'], ['h9ta', 'member'], ['h9mem', 'member']]) {
+      await q(`insert into memberships (community_id, user_id, role, state, joined_at) values ('h9', $1, $2, 'active', now())`, [u, role]);
+    }
+    const file = (id, by) => q(`insert into files (id, community_id, uploaded_by, name, mime, kind, size, sha256, data) values ($1, 'h9', $2, $1 || '.txt', 'text/plain', 'text', 2, 'x', 'hi')`, [id, by]);
+    for (const [id, by] of [['fres', 'h9own'], ['fpub', 'h9mem'], ['fdraft', 'h9mem'], ['flesson', 'h9own'], ['fsub', 'h9lrn'], ['floose', 'h9mem']]) await file(id, by);
+    await q(`insert into resources (id, community_id, kind, title, file_id, added_by) values ('r9', 'h9', 'file', 'Guide', 'fres', 'h9own')`);
+    await q(`insert into posts (id, community_id, author_id, body, status) values ('p9a', 'h9', 'h9mem', 'Hello', 'published'), ('p9b', 'h9', 'h9mem', 'Draft', 'draft')`);
+    await q(`insert into post_attachments (post_id, file_id) values ('p9a', 'fpub'), ('p9b', 'fdraft')`);
+    await q(`insert into courses (id, community_id, title, status) values ('co9', 'h9', 'Course', 'published')`);
+    await q(`insert into course_modules (id, course_id, title) values ('m9', 'co9', 'Module')`);
+    await q(`insert into lessons (id, course_id, module_id, title, kind, file_ids) values ('l9', 'co9', 'm9', 'Files', 'file', '{flesson}'), ('l9a', 'co9', 'm9', 'Essay', 'text', '{}')`);
+    await q(`insert into assignments (lesson_id) values ('l9a')`);
+    await q(`insert into enrollments (course_id, user_id, status) values ('co9', 'h9lrn', 'active')`);
+    await q(`insert into course_instructors (course_id, user_id, role) values ('co9', 'h9ta', 'teaching_assistant')`);
+    await q(`insert into submissions (id, lesson_id, course_id, user_id, file_ids) values ('s9', 'l9a', 'co9', 'h9lrn', '{fsub}')`);
+    for (const id of ['h9own', 'h9lrn', 'h9ta', 'h9mem', 'h9out']) f[id] = await signIn(env.app, { email: `${id}@example.com`, password: PW });
+  });
+
+  test('a library resource is readable by anyone who can view the community', async () => {
+    assert.equal(await status('h9out', 'fres'), 200);
+  });
+
+  test('a published post’s attachment is readable; a draft’s only by its author', async () => {
+    assert.equal(await status('h9out', 'fpub'), 200);
+    assert.equal(await status('h9lrn', 'fdraft'), 404);
+    assert.equal(await status('h9own', 'fdraft'), 404, 'not even the Owner: drafts are private to their author');
+    assert.equal(await status('h9mem', 'fdraft'), 200);
+  });
+
+  test('a lesson file: enrolled learners and course staff, not other members', async () => {
+    assert.equal(await status('h9lrn', 'flesson'), 200);
+    assert.equal(await status('h9ta', 'flesson'), 200);
+    assert.equal(await status('h9own', 'flesson'), 200);
+    assert.equal(await status('h9mem', 'flesson'), 404);
+    assert.equal(await status('h9out', 'flesson'), 404);
+  });
+
+  test('a submission: the learner and the graders, not other learners or members', async () => {
+    assert.equal(await status('h9lrn', 'fsub'), 200);
+    assert.equal(await status('h9ta', 'fsub'), 200);
+    assert.equal(await status('h9own', 'fsub'), 200);
+    assert.equal(await status('h9mem', 'fsub'), 404);
+  });
+
+  test('a file attached nowhere is the uploader’s alone', async () => {
+    assert.equal(await status('h9mem', 'floose'), 200);
+    assert.equal(await status('h9own', 'floose'), 404);
+  });
+});

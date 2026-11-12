@@ -41,13 +41,38 @@ export default async function resourceRoutes(app, { ctx }) {
     });
   });
 
+  // Being able to view the community isn't enough: a file is readable by whoever can see what
+  // it's attached to (H-S9). The uploader can always read it, and so can Administrative Mode.
+  //  - library resource, community logo or cover: anyone who can view the community
+  //  - post attachment: the post's own rule (published; the author; moderators for pending/removed)
+  //  - lesson file: enrolled learners (while members) and the course's staff, as GET /lessons/:id
+  //  - assignment submission: the learner and the course's graders
+  // A file attached nowhere yet (a draft upload) is the uploader's alone.
+  async function canRead(req, a, fileId) {
+    if (a.adminMode) return true;
+    const uid = req.user.id;
+    const { rows: [r] } = await db.query(
+      `select f.uploaded_by = $2 as mine,
+              exists (select 1 from resources x where x.file_id = f.id and x.deleted_at is null)
+                or exists (select 1 from communities c where c.logo_file_id = f.id or c.cover_file_id = f.id) as shared,
+              exists (select 1 from post_attachments pa join posts p on p.id = pa.post_id where pa.file_id = f.id and p.deleted_at is null
+                and (p.status = 'published' or p.author_id = $2 or ($3 and p.status in ('pending', 'removed')))) as via_post,
+              exists (select 1 from lessons l join courses co on co.id = l.course_id where f.id = any(l.file_ids)
+                and ($4 or exists (select 1 from course_instructors i where i.course_id = co.id and i.user_id = $2 and $5)
+                  or ($6 and exists (select 1 from enrollments e where e.course_id = co.id and e.user_id = $2 and e.status = 'active')))) as via_lesson,
+              exists (select 1 from submissions s where f.id = any(s.file_ids)
+                and (s.user_id = $2 or $4 or exists (select 1 from course_instructors i where i.course_id = s.course_id and i.user_id = $2 and $5))) as via_submission
+         from files f where f.id = $1`, [fileId, uid, a.canModerate, a.canAdmin, a.state === 'active', a.member]);
+    return !!r && (r.mine || r.shared || r.via_post || r.via_lesson || r.via_submission);
+  }
+
   // Download. Always as an attachment with a locked-down content policy, so a file never runs
   // as a page on this site; images still show in <img> tags.
   app.get('/files/:id', async (req, reply) => {
     const { rows: [meta] } = await db.query(`select id, community_id, name, mime, size, deleted_at from files where id = $1`, [req.params.id]);
     if (!meta || meta.deleted_at) throw notFound('That file isn’t available any more.');
     const a = await access(db, req, meta.community_id);
-    if (!a.canView) throw notFound('That file isn’t available any more.');
+    if (!a.canView || !(await canRead(req, a, meta.id))) throw notFound('That file isn’t available any more.');
     // Read the bytes in the same step that re-checks deletion (FIL-07).
     const { rows: [f] } = await db.query(`select data from files where id = $1 and deleted_at is null`, [meta.id]);
     if (!f) throw notFound('That file isn’t available any more.');
