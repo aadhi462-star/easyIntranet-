@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (12 Nov 2026, after Stage 7)
+# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream D)
 
 Read this first in a new session, then **`docs/communityone/MASTER_BRIEF_V2.md` (the user's newest brief, 12 Nov 2026: it reverses AlumniZone-as-default and the lime theme; a proposal + ETA is owed before any work on it)**, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -64,6 +64,10 @@ One AppSail service serves the API and the built web app (no Slate; keeps the sa
 - Fast first start: the bundle ships `server/db-template` (built by `scripts/build-db-template.mjs`: migrated + seeded, every account locked with `LOCKED_HASH`, table vacuumed so no hash remains). On a deploy with no database the server *moves* it into place and unlocks the seeded accounts with `SEED_PASSWORD`. Measured per step: creating a database ≈3 s and seeding ≈2 s are gone; first-start peak memory ≈0.77 GB (was ≈1.36 GB).
 - Memory: 2048 MB is safe; 1024 MB should now fit (peak ≈0.77 GB) but isn't tested on AppSail. 512 MB was `Killed`.
 - Observed: each redeploy started with an empty database (accounts created before it were gone), so the app folder is not persistent.
+- **Latest bundle: 12 Nov 2026, after v2 workstream D (commit 7513362).** `appsail-build.zip` (29 MB) in the repo root, built with `npm run build:appsail`. It includes migrations 001–018 and the database template (34 seeded accounts, locked until `SEED_PASSWORD` unlocks them). The user asked for this bundle after D; see the memory note: build one only when asked.
+  - To deploy: Catalyst Console → AppSail → the CommunityOne service → upload `appsail-build.zip`. The settings and env above stay the same; no new variables.
+  - The upload replaces the app folder, so the live database starts again from the bundled template. Accounts and content created on the live site since the last upload are lost.
+  - After the upload: sign in as a Platform Admin (with `SEED_PASSWORD`), then Administration → Category review → check the list and apply it (D6). Until then, older categories show as Other in Explore. Then check Home, Explore, My Communities and Profile at phone width.
 - Caveats: data lives in files in the app folder — persistence across redeploys/restarts is unconfirmed, so treat it as a pilot; move to a managed PostgreSQL (`DATABASE_URL`) before real members — it also drops memory to ~256–512 MB.
 
 ## Architecture (server/)
@@ -159,7 +163,11 @@ Boards for C, D, E, F and G are on the design canvas, one page each ("v2 C: …"
 The landing page, About, the public header and footer, Sign in, Create account, `/forgot`, the email-link pages and the welcome steps are on the boards' one-card layout and the `--az-*` tokens. Three server messages now use platform wording (C10). Browser journeys are in `e2e/public.spec.js`. Details are in the progress log ("v2 — Workstream C").
 - Rules to keep: public pages show only numbers from the API, and product pictures are labelled Example. Nothing on these screens joins anyone to a community. Emails pass between pages in router state, never in the address.
 
-**Next:** workstream D (shell, Home, Explore, Profile), once its board is approved; then E, F and G, as in `PROPOSAL_V2.md` §12–13. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
+### v2 workstream D: built (12 Nov 2026)
+The shell, Home (and first-run Home), Explore, My Communities, Profile, search with suggestions, the category review (D6), and the restyled Notifications, Saved, Events and My Learning. Details are in the progress log ("v2 — Workstream D").
+- Rules to keep: navigation lists only real destinations and memberships. The Create menu and quick actions come from the server's `canPostIn` and `canCreateEventsIn`. A profile never reveals a Private or Closed membership (VIS-16). Old addresses redirect rather than break.
+
+**Next:** workstream E (community pages and branding), once its board is approved; then F and G, as in `PROPOSAL_V2.md` §12–13. An AppSail bundle was built after D (see Hosting). The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 
