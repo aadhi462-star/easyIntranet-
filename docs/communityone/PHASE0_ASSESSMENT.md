@@ -874,3 +874,18 @@ The board was approved with B1–B5 (canvas page "v2 — Design system").
   - Restyling each screen onto the components (workstreams C–G).
   - The 1,617 hardcoded colour classes.
   - Emoji in the parked modules.
+
+### v2 — Intermittent test-runner stall (built in parallel, 12 Nov 2026)
+
+- **Cause found.** Every stalled run stopped inside `createDb()`, while PGlite was still starting and before the first query. It's a deadlock in Node 23.11 itself, not in our routes or tests:
+  - PGlite's WebAssembly start-up holds no libuv handle, so the event loop can run empty for a moment.
+  - When it does, Node's main thread waits for all of V8's background tasks to finish (`NodePlatform::DrainTasks`).
+  - One of those tasks, a Maglev compile, was waiting for a garbage collection that only the main thread can run. Neither side moves, and the process sits idle forever.
+  - The native stacks (`sample`) were the same in all 5 stalls caught here (assessment 4, platform 1), and in 2 idle test processes from other worktrees. It matches Node issue 54918.
+- **Fix.** `server/db/index.js` keeps a do-nothing interval running while PGlite starts and clears it once PGlite is ready. That keeps the loop from running empty during start-up. This helps the tests, the seed script and the e2e server; a running server always has its socket open, so it wasn't affected. There's no workaround in our code for Maglev itself: `--no-maglev` isn't allowed in `NODE_OPTIONS`.
+- **Checked:**
+  - Before the fix, three loops (assessment twice, platform once) ran next to back-to-back `vite build`s. 5 of about 24 runs stalled.
+  - After the fix, the same three loops ran 30 times each with no stall: 90 of 90 passed, at a machine load average above 300.
+  - The full `npm run test:server` finished twice in a row: 253 of 253 passed each time (163 s and 230 s).
+  - The temporary tracing in `helpers.js` was removed.
+- **Not done:** Node can still hit the same wait at process exit, after the last test. It wasn't seen in any run here. The full fix is a Node upgrade (the machine has 23.11, which is past end of life). That's your decision.
