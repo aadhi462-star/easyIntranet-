@@ -17,6 +17,7 @@ import { Icon } from './icons.jsx';
 import Toaster from './Toaster.jsx';
 import { CommunityTile } from './public/CommunityCards.jsx';
 import { useUnread } from '../lib/engage.js';
+import { confirmAction } from './ui/Confirm.jsx';
 
 const PRIMARY = [
   { id: 'home', label: 'Home', icon: 'home', to: '/dashboard', match: (p) => p === '/dashboard' },
@@ -220,7 +221,7 @@ export default function Layout() {
                       {me.admin && <Link role="menuitem" className={menuLink} to="/admin">Platform Admin</Link>}
                     </div>
                     <div className="flex items-center justify-between px-3 py-1.5"><span>Theme</span><ThemeToggle /></div>
-                    <button role="menuitem" className={`${menuLink} w-full text-left`} onClick={() => { setMenu(false); if (confirm('Reset all demo data? Posts, groups and settings go back to the starting demo. Your account stays.')) { dispatch({ type: 'reset' }); nav('/dashboard'); } }}>Reset demo data</button>
+                    <button role="menuitem" className={`${menuLink} w-full text-left`} onClick={async () => { setMenu(false); if ((await confirmAction('Reset all demo data? Posts, groups and settings go back to the starting demo. Your account stays.'))) { dispatch({ type: 'reset' }); nav('/dashboard'); } }}>Reset demo data</button>
                     <button role="menuitem" className={`${menuLink} w-full text-left text-rose-300`} onClick={signOut}>Sign out</button>
                   </div>
                 )}

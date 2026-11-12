@@ -7,6 +7,7 @@ import { managePath } from '../../lib/manage.js';
 import { Link } from 'react-router-dom';
 import ReportDialog from '../manage/Report.jsx';
 import { useChannelSync, useCommunityWrite } from './useCommunity.js';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const ROLE_CHIP = { owner: '!bg-amber-500/20 !text-amber-200', admin: '!bg-leaf-500/20 !text-leaf-200', moderator: '!bg-brand-500/15 !text-brand-200', member: '' };
 
@@ -39,7 +40,7 @@ export default function Members({ group, perms }) {
       text: approve ? `Your request to join ${group.name} was approved` : `Your request to join ${group.name} was declined` } });
   };
   const transfer = async () => {
-    if (!heir || !confirm(`Make ${user(heir)?.name} the owner of ${group.name}? You’ll stay on as an admin.`)) return;
+    if (!heir || !(await confirmAction(`Make ${user(heir)?.name} the owner of ${group.name}? You’ll stay on as an admin.`))) return;
     if (await act('transfer', () => communityApi.transfer(group.id, heir), { ok: `${user(heir)?.name} now owns ${group.name}` })) setHeir('');
   };
 

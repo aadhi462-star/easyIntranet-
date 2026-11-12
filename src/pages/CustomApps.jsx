@@ -21,13 +21,13 @@ function AppList() {
     <>
       <PageHeader title="Custom Apps" subtitle="Build forms to collect information, then report on the records."
         actions={<button className="btn btn-primary" onClick={() => setCreating(true)}>+ New app</button>} />
-      {apps.length === 0 ? <Empty icon="🧩" title="No apps yet">Create a form like “Mentorship request” or “Job referral”.</Empty> : (
+      {apps.length === 0 ? <Empty icon="apps" title="No apps yet">Create a form like “Mentorship request” or “Job referral”.</Empty> : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {apps.map((a) => {
             const n = (state.appRecords || []).filter((r) => r.appId === a.id).length;
             return (
               <Link key={a.id} to={`/apps/${a.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
-                <Glyph value={a.icon || '🧩'} size={48} className="text-xl" />
+                <Glyph value={a.icon || 'apps'} size={48} className="text-xl" />
                 <h2 className="mt-3 font-bold">{a.name}</h2>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-400">{a.description}</p>
                 <p className="mt-3 text-xs text-slate-500">{a.fields.length} fields · {n} records · owner {user(a.ownerId)?.name ?? '—'}{a.ownerId === me.id ? ' (you)' : ''}</p>
@@ -45,7 +45,7 @@ function AppEditor({ app, onClose }) {
   const { dispatch, me } = useStore();
   const nav = useNavigate();
   const [name, setName] = useState(app?.name ?? '');
-  const [icon, setIcon] = useState(app?.icon ?? '🧩');
+  const [icon, setIcon] = useState(app?.icon ?? 'apps');
   const [description, setDescription] = useState(app?.description ?? '');
   const [notifyOwner, setNotifyOwner] = useState(app?.notifyOwner ?? true);
   const [fields, setFields] = useState(app?.fields ?? [{ id: uid('fd'), label: 'Title', type: 'text', required: true, options: [] }]);
@@ -120,7 +120,7 @@ function AppView({ id }) {
   const [record, setRecord] = useState(null); // null | 'new' | record
   const [editing, setEditing] = useState(false);
   const [q, setQ] = useState('');
-  if (!app) return <Empty icon="🧩" title="App not found"><Link className="text-brand-400 underline" to="/apps">Back to apps</Link></Empty>;
+  if (!app) return <Empty icon="apps" title="App not found"><Link className="text-brand-400 underline" to="/apps">Back to apps</Link></Empty>;
   const isOwner = app.ownerId === me.id || me.admin;
   const records = (state.appRecords || []).filter((r) => r.appId === id)
     .filter((r) => !q || app.fields.some((f) => display(f, r.values[f.id], user).toLowerCase().includes(q.toLowerCase())));
@@ -150,7 +150,7 @@ function AppView({ id }) {
             <input className="input max-w-sm" type="search" placeholder="Filter records" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter records" />
             <button className="btn btn-ghost" onClick={exportCsv}>Export CSV</button>
           </div>
-          {records.length === 0 ? <Empty icon="📭" title="No records yet" /> : (
+          {records.length === 0 ? <Empty icon="inbox" title="No records yet" /> : (
             <div className="glass overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="text-xs uppercase tracking-wider text-slate-400">

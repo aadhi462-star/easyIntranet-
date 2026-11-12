@@ -84,7 +84,7 @@ function Widget({ w, group }) {
     case 'links':
       return (w.links?.length ? (
         <ul className="space-y-1">
-          {w.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-400 hover:underline"><Glyph value="🔗" tile={false} size={16} /> {l.label}</a></li>)}
+          {w.links.map((l, i) => <li key={i}><a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-brand-400 hover:underline"><Glyph value="link" tile={false} size={16} /> {l.label}</a></li>)}
         </ul>
       ) : <p className="text-sm text-slate-400">No links.</p>);
     case 'html':

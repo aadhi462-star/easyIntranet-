@@ -15,6 +15,7 @@ import {
   EVENT_TYPES, TYPE_COLORS, downloadIcs, isUrl, lastOccurrence, nextOccurrence, occurrences,
   recurrenceText, scopeLabel, sectionOf, whenText,
 } from '../components/events/eventUtils.js';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function Events() {
   const { id } = useParams();
@@ -49,8 +50,8 @@ function EventsHome() {
   const events = visible.filter((e) => section === 'all' || sectionOf(e) === section);
 
   const items = events.flatMap((e) => occurrences(e, from, to)).map((o) => ({
-    key: `${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, icon: o.status === 'cancelled' ? '🚫 ' : undefined,
-    color: TYPE_COLORS[o.eventType] ?? '#a3e635', href: `/events/${o.id}`,
+    key: `${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, icon: o.status === 'cancelled' ? '' : undefined,
+    color: TYPE_COLORS[o.eventType] ?? '#168c70', href: `/events/${o.id}`,
   }));
 
   const upcoming = events.filter((e) => e.status !== 'cancelled').flatMap((e) => occurrences(e, now, now + 180 * DAY).slice(0, 4)).sort((a, b) => a.occStart - b.occStart);
@@ -68,7 +69,7 @@ function EventsHome() {
     <div>
       <PageHeader title="Events" subtitle="Reunions, meet-ups, webinars and contests across the network."
         actions={<>
-          <Link to="/calendar" className="btn btn-ghost"><Glyph value="🗓️" tile={false} size={16} /> Calendar</Link>
+          <Link to="/calendar" className="btn btn-ghost"><Glyph value="calendar" tile={false} size={16} /> Calendar</Link>
           <button className="btn btn-primary" onClick={() => openCreate()}>+ Create event</button>
         </>} />
 
@@ -114,7 +115,7 @@ function EventsHome() {
       {view === 'list' ? (
         <div className="space-y-3">
           {loading && !loaded.length && <p className="text-sm text-slate-400">Loading events…</p>}
-          {!loading && upcoming.length === 0 ? <Empty icon="📅" title="No upcoming events">Try another section or filter, or create one.</Empty>
+          {!loading && upcoming.length === 0 ? <Empty icon="events" title="No upcoming events">Try another section or filter, or create one.</Empty>
             : upcoming.map((e) => <EventCard key={`${e.id}-${e.occStart}`} event={e} />)}
           {past.length > 0 && <>
             <h2 className="pt-6 text-lg font-bold">Past events</h2>
@@ -163,14 +164,14 @@ function EventDetail({ id }) {
 
   if (e === undefined) {
     return loadError
-      ? <Empty icon="⚠️" title="Couldn’t load this event">{loadError} <button className="text-brand-400 underline" onClick={load}>Try again</button></Empty>
+      ? <Empty icon="alert" title="Couldn’t load this event">{loadError} <button className="text-brand-400 underline" onClick={load}>Try again</button></Empty>
       : <p className="text-sm text-slate-400">Loading event…</p>;
   }
   if (!e) {
-    return <Empty icon="🔍" title="Event not found">It may have been deleted, or you might not have access. <Link to="/events" className="text-brand-400 underline">Back to events</Link></Empty>;
+    return <Empty icon="search" title="Event not found">It may have been deleted, or you might not have access. <Link to="/events" className="text-brand-400 underline">Back to events</Link></Empty>;
   }
 
-  const color = TYPE_COLORS[e.eventType] ?? '#a3e635';
+  const color = TYPE_COLORS[e.eventType] ?? '#168c70';
   const cancelled = e.status === 'cancelled';
   const start = nextOccurrence(e);
   const end = start + (e.end - e.start);
@@ -194,7 +195,7 @@ function EventDetail({ id }) {
   };
 
   const removeComment = async (c) => {
-    if (!confirm('Delete this comment?')) return;
+    if (!(await confirmAction('Delete this comment?'))) return;
     try {
       await deleteEventComment(c.id);
       setE((x) => ({ ...x, comments: x.comments.filter((y) => y.id !== c.id), commentCount: Math.max(0, (x.commentCount ?? 1) - 1) }));
@@ -202,7 +203,7 @@ function EventDetail({ id }) {
   };
 
   const remove = async () => {
-    if (!confirm(`Delete “${e.title}”? Nobody will be able to see it any more. To keep a record and tell registrants, cancel it instead.`)) return;
+    if (!(await confirmAction(`Delete “${e.title}”? Nobody will be able to see it any more. To keep a record and tell registrants, cancel it instead.`))) return;
     try { await deleteEvent(e.id); toast('Event deleted'); nav('/events'); } catch (err) { toast(err.message, 'error'); }
   };
 
@@ -219,7 +220,7 @@ function EventDetail({ id }) {
         </div>
       )}
       <section className="glass overflow-hidden">
-        <div className="h-2" style={{ background: `linear-gradient(90deg, ${color}, #a3e635)` }} />
+        <div className="h-2" style={{ background: color }} />
         <div className="p-5 sm:p-7">
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip" style={{ background: `${color}26`, color }}>{e.eventType ?? 'Event'}</span>
@@ -230,15 +231,15 @@ function EventDetail({ id }) {
           </div>
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{e.title}</h1>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <div><dt className="text-xs text-slate-500">When</dt><dd className="mt-0.5">🕒 {whenText(e, start, end)}{recurrenceText(e.recurrence) && <div className="text-xs text-slate-400">🔁 {recurrenceText(e.recurrence)}</div>}</dd></div>
-            <div><dt className="text-xs text-slate-500">Where</dt><dd className="mt-0.5"><Glyph value="📍" tile={false} size={16} /> {e.location
-              ? (isUrl(e.location) ? <a href={e.location} target="_blank" rel="noopener noreferrer" className="text-brand-400 underline">Open in Maps ↗</a> : e.location)
+            <div><dt className="text-xs text-slate-500">When</dt><dd className="mt-0.5">{whenText(e, start, end)}{recurrenceText(e.recurrence) && <div className="text-xs text-slate-400">{recurrenceText(e.recurrence)}</div>}</dd></div>
+            <div><dt className="text-xs text-slate-500">Where</dt><dd className="mt-0.5"><Glyph value="place" tile={false} size={16} /> {e.location
+              ? (isUrl(e.location) ? <a href={e.location} target="_blank" rel="noopener noreferrer" className="text-brand-400 underline">Open in Maps<span className="sr-only"> (opens in a new tab)</span></a> : e.location)
               : 'Not set'}</dd></div>
-            {e.reminders?.length > 0 && <div><dt className="text-xs text-slate-500">Reminders</dt><dd className="mt-0.5"><Glyph value="🔔" tile={false} size={16} /> {e.reminders.map((m) => (m >= 1440 ? `${m / 1440}d` : m >= 60 ? `${m / 60}h` : `${m}m`)).join(', ')} before</dd></div>}
+            {e.reminders?.length > 0 && <div><dt className="text-xs text-slate-500">Reminders</dt><dd className="mt-0.5"><Glyph value="bell" tile={false} size={16} /> {e.reminders.map((m) => (m >= 1440 ? `${m / 1440}d` : m >= 60 ? `${m / 60}h` : `${m}m`)).join(', ')} before</dd></div>}
             {e.rsvpEnabled && (e.capacity || e.rsvpDeadline) && (
               <div><dt className="text-xs text-slate-500">Registration</dt><dd className="mt-0.5">
-                {e.capacity && <div>🎟 {e.counts.going} of {e.capacity} places taken{e.can.full && ' · Full'}</div>}
-                {e.rsvpDeadline && <div>⏳ {deadlinePassed ? 'RSVPs closed' : 'RSVP by'} {new Date(e.rsvpDeadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>}
+                {e.capacity && <div>{e.counts.going} of {e.capacity} places taken{e.can.full && ' · Full'}</div>}
+                {e.rsvpDeadline && <div>{deadlinePassed ? 'RSVPs closed' : 'RSVP by'} {new Date(e.rsvpDeadline).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>}
               </dd></div>
             )}
           </dl>
@@ -249,13 +250,13 @@ function EventDetail({ id }) {
             {!e.can.rsvp && e.rsvpEnabled && !cancelled && !e.over && deadlinePassed && <span className="text-sm text-slate-400">RSVPs have closed{e.myRsvp ? ` · You said ${e.myRsvp === 'no' ? 'not going' : e.myRsvp}` : ''}.</span>}
             {!e.can.rsvp && e.rsvpEnabled && !cancelled && !e.over && !deadlinePassed && !e.can.comment && <span className="text-sm text-slate-400">Join {e.community?.name ?? 'this community'} to RSVP.</span>}
             <div className="ml-auto flex flex-wrap gap-2">
-              {!cancelled && <button className="btn btn-ghost" onClick={() => downloadIcs(e)}>📥 Add to calendar</button>}
-              <button className="btn btn-ghost" onClick={copy}>{copied ? '✓ Copied' : '🔗 Copy link'}</button>
+              {!cancelled && <button className="btn btn-ghost" onClick={() => downloadIcs(e)}>Add to calendar</button>}
+              <button className="btn btn-ghost" onClick={copy}>{copied ? '✓ Copied' : 'Copy link'}</button>
               <SaveButton type="event" id={e.id} label={e.title} />
-              {e.can.edit && <button className="btn btn-ghost" onClick={() => setEditing(true)}><Glyph value="✏️" tile={false} size={16} /> Edit</button>}
-              {e.can.cancel && <button className="btn btn-ghost !text-amber-200" onClick={() => setCancelling(true)}>🚫 Cancel event</button>}
-              {e.can.delete && <button className="btn btn-ghost !text-rose-300" onClick={remove}>🗑 Delete</button>}
-              {e.hostId !== me.id && <button className="btn btn-ghost" onClick={() => setReporting(true)}>⚑ Report</button>}
+              {e.can.edit && <button className="btn btn-ghost" onClick={() => setEditing(true)}><Glyph value="pen" tile={false} size={16} /> Edit</button>}
+              {e.can.cancel && <button className="btn btn-ghost !text-amber-200" onClick={() => setCancelling(true)}>Cancel event</button>}
+              {e.can.delete && <button className="btn btn-ghost !text-rose-300" onClick={remove}>Delete</button>}
+              {e.hostId !== me.id && <button className="btn btn-ghost" onClick={() => setReporting(true)}>Report</button>}
             </div>
           </div>
         </div>

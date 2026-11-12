@@ -10,6 +10,7 @@ import { timeAgo, useStore } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
 import { Chips, Failed, Loading, ReasonDialog, Table } from './bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const PAGE = 25;
 const initials = (name) => String(name || '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -38,7 +39,8 @@ export default function Users() {
     { id: 'deactivated', label: 'Deactivated', count: counts.deactivated },
   ];
   const exportCsv = async () => {
-    const withEmail = confirm('Include email addresses in the export? Choose Cancel to leave them out.');
+    const withEmail = await confirmAction({ title: 'Include email addresses?', body: 'Emails are only exported when you choose them. The export is recorded in the activity log either way.',
+      confirm: 'Include emails', cancel: 'Leave them out' });
     setExporting(true);
     try { await downloadCsv(`/admin/users.csv?${params}${withEmail ? '&email=1' : ''}`); toast('Export downloaded · recorded in the activity log'); } catch (e) { toast(errorText(e), 'error'); }
     setExporting(false);
@@ -151,7 +153,7 @@ function Person({ id, onClose, onChanged }) {
           </section>
           <div className="flex flex-wrap gap-2">
             <Link className="btn btn-ghost" to={`/people/${u.id}`}>Profile</Link>
-            {u.status === 'active' && <button className="btn btn-ghost" onClick={() => confirm(`Sign ${u.name} out on every device?`) && act('sessions/revoke', {}, 'Signed out everywhere')}>Sign out everywhere</button>}
+            {u.status === 'active' && <button className="btn btn-ghost" onClick={async () => (await confirmAction(`Sign ${u.name} out on every device?`)) && act('sessions/revoke', {}, 'Signed out everywhere')}>Sign out everywhere</button>}
             {!self && u.status === 'active' && <button className="btn btn-ghost" onClick={() => setDialog('role')}>Platform role…</button>}
             {u.status === 'pending_approval' && <button className="btn btn-primary" onClick={() => act('approve', {}, 'Account approved')}>Approve</button>}
             {!self && u.status === 'active' && <button className="btn btn-ghost text-rose-300" onClick={() => setDialog('suspend')}>Suspend…</button>}

@@ -101,7 +101,7 @@ function logTransport({ to, subject, body }, log) {
     throw new Error('No mail transport configured.');
   }
   log.info?.({ to, subject }, 'email (development transport)');
-  if (process.env.NODE_ENV !== 'test') console.log(`\n✉️  To: ${to}\n   ${subject}\n   ${body.replace(/\n/g, '\n   ')}\n`);
+  if (process.env.NODE_ENV !== 'test') console.log(`\nEmail to: ${to}\n   ${subject}\n   ${body.replace(/\n/g, '\n   ')}\n`);
 }
 
 const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

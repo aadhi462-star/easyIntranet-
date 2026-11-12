@@ -2,41 +2,40 @@
 @import "./light-invert.css";
 
 /*
- * CommunityOne design tokens (docs/communityone/REDESIGN_BRIEF.md, Stage 1): graphite · lime,
- * dark by default with a light mode on
- * :root[data-theme="light"] (set by lib/theme.js).
+ * CommunityOne design tokens, v2 (MASTER_BRIEF_V2.md; board "v2 — Design system", decisions
+ * B1–B5 approved 12 Nov 2026). Light-first; dark is an option (lib/theme.js sets
+ * :root[data-theme="light" | "dark"]). Every text pair was measured for WCAG 2.2 AA.
  *
- * Scales follow one rule so module code works in both modes without changes: the low
- * stops (50–400) are the "readable on the page" end and the high stops (500+) are fills.
- * In dark mode brand-500 is a deep lime that carries white text; in light mode the
- * scales flip, `text-white` becomes near-black, and brand-500 becomes a pale lime that
- * carries that dark text. Contrast stays ≥4.5:1 either way. `leaf` (historically the
- * green accent) is now the graphite scale, so "leaf" icons and chips read as neutral steel.
+ * The semantic --az-* tokens are what new components use. The Tailwind scales below keep the
+ * older rule so screens not yet moved onto src/components/ui keep their contrast in both modes:
+ * low stops (50–400) are "readable on the page", high stops (500+) are fills; light mode flips
+ * them (and light-invert.css flips the stock scales) so `text-white` reads as near-black.
+ * light-invert.css goes once every screen uses the components (end of workstream G).
  */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* Surface levels (refined system): page 950, band 900, surface 850, raised 800. */
-  --color-ink-950: #0a0b0a;
-  --color-ink-900: #0f1110;
-  --color-ink-850: #151816;
-  --color-ink-800: #1d201e;
-  --color-ink-700: #2c302d;
+  /* Surfaces, dark values (light values below). */
+  --color-ink-950: #0e1311;
+  --color-ink-900: #121816;
+  --color-ink-850: #151b19;
+  --color-ink-800: #1b2320;
+  --color-ink-700: #27312d;
 
-  /* Lime */
-  --color-brand-50: #f7fee7;
-  --color-brand-100: #ecfccb;
-  --color-brand-200: #d9f99d;
-  --color-brand-300: #bef264;
-  --color-brand-400: #a3e635;
-  --color-brand-500: #4d7c0f;
-  --color-brand-600: #3f6212;
-  --color-brand-700: #365314;
-  --color-brand-800: #263c0d;
-  --color-brand-900: #1a2e05;
+  /* Accent (B2): teal. Dark mode: 300/400 readable, 500 a fill under white text (5.27:1). */
+  --color-brand-50: #e6f7f1;
+  --color-brand-100: #c6eedf;
+  --color-brand-200: #9be2ca;
+  --color-brand-300: #5ed6b2;
+  --color-brand-400: #3cc79f;
+  --color-brand-500: #127a61;
+  --color-brand-600: #0f6b55;
+  --color-brand-700: #0d5a48;
+  --color-brand-800: #0a4537;
+  --color-brand-900: #062c23;
 
-  /* Graphite */
+  /* Neutral */
   --color-leaf-50: #f6f7f6;
   --color-leaf-100: #e9ebe9;
   --color-leaf-200: #d3d7d4;
@@ -51,57 +50,65 @@
   --color-dim: rgba(255, 255, 255, 0.72);
 }
 
+/* Dark theme (optional, B4). */
 :root {
   color-scheme: dark;
-  --az-text: #f4f6f3;
-  /* Secondary and tertiary text: 9.3:1 and 5.6:1 on the page. */
-  --az-text-2: #b6bcb8;
-  --az-text-3: #8b928d;
-  /*
-   * Four surface levels, one job each: sunken (fields, media wells), band (page sections),
-   * surface (cards, the only level with a border) and raised (one featured item per screen,
-   * the only level with a shadow).
-   */
-  --az-sunken: #070807;
-  --az-band: #0f1110;
-  --az-surface: #151816;
-  --az-surface-strong: #151816;
-  --az-raised: #1d201e;
-  --az-hairline: #232725;
-  --az-divider: #1b1e1c;
+  --az-page: #0e1311;
+  --az-text: #e8edea;
+  /* Secondary text: 7.7:1 on the page, 6.6:1 on raised. */
+  --az-text-2: #9da9a3;
+  --az-text-3: #9da9a3;
+  --az-sunken: #0a0e0d;
+  --az-band: #121816;
+  --az-surface: #151b19;
+  --az-surface-strong: #151b19;
+  --az-raised: #1b2320;
+  --az-hairline: #27312d;
+  --az-divider: #1e2622;
   --az-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  --az-field: #0b0c0b;
-  --az-placeholder: #868d88;
-  --az-focus: #a3e635;
-  /* Lime fill with near-black text (primary actions, logo, active tab): 13:1. */
-  --az-fill: linear-gradient(#a3e635, #a3e635);
-  --az-fill-hover: #bef264;
-  --az-on-fill: #0a0b0a;
-  /* Deep fill (banners, CTA panels, progress). */
-  --az-deep: linear-gradient(#1a2e05, #1a2e05);
-  /* "Display" text is plain text now: no gradient type. */
-  --az-display: linear-gradient(#f3f5f2, #f3f5f2);
-  --az-sidebar: #0e100f;
+  --az-field: #0f1513;
+  /* Form-control edge, 3.79:1 (B3). */
+  --az-control: #6b7872;
+  --az-placeholder: #8a958f;
+  --az-focus: #3cc79f;
+  /* Primary actions: accent fill with near-black text, 8.8:1. */
+  --az-fill: linear-gradient(#3cc79f, #3cc79f);
+  --az-fill-hover: #5ed6b2;
+  --az-on-fill: #0e1311;
+  --az-deep: linear-gradient(#12302a, #12302a);
+  --az-display: linear-gradient(#e8edea, #e8edea);
+  --az-sidebar: #101513;
+  --az-danger: #f08a80;
+  --az-danger-soft: #3a1714;
+  --az-danger-fill: #f08a80;
+  --az-on-danger: #0e1311;
+  --az-warning: #e8b25c;
+  --az-warn-soft: #352611;
+  --az-ok: #5ed6b2;
+  --az-ok-soft: #12302a;
+  --az-info: #8ab4f8;
+  --az-info-soft: #14233d;
 }
 
+/* Light theme: the default (lib/theme.js applies it unless the person chose dark). */
 :root[data-theme="light"] {
   color-scheme: light;
   --color-ink-950: #ffffff;
   --color-ink-900: #f7f8f6;
-  --color-ink-850: #eff1ee;
-  --color-ink-800: #e4e7e3;
-  --color-ink-700: #cdd2cc;
+  --color-ink-850: #eef1ee;
+  --color-ink-800: #e6ebe7;
+  --color-ink-700: #c9d2cc;
 
-  --color-brand-50: #1a2e05;
-  --color-brand-100: #263c0d;
-  --color-brand-200: #365314;
-  --color-brand-300: #4d7c0f;
-  --color-brand-400: #4d7c0f;
-  --color-brand-500: #d9f99d;
-  --color-brand-600: #bef264;
-  --color-brand-700: #ecfccb;
-  --color-brand-800: #f3fdd9;
-  --color-brand-900: #f7fee7;
+  --color-brand-50: #062c23;
+  --color-brand-100: #0a4537;
+  --color-brand-200: #0d5a48;
+  --color-brand-300: #127a61;
+  --color-brand-400: #127a61;
+  --color-brand-500: #cde9df;
+  --color-brand-600: #b5dfd1;
+  --color-brand-700: #e3f1ec;
+  --color-brand-800: #eef7f3;
+  --color-brand-900: #f5faf8;
 
   --color-leaf-50: #141614;
   --color-leaf-100: #1f2220;
@@ -114,35 +121,49 @@
   --color-leaf-800: #f1f2f1;
   --color-leaf-900: #f6f7f6;
 
-  --color-dim: rgba(20, 22, 20, 0.74);
+  --color-dim: rgba(23, 33, 31, 0.74);
 
-  --az-text: #141614;
-  --az-text-2: #3f4541;
-  --az-text-3: #5f6661;
-  --az-sunken: #eef0ed;
-  --az-band: #f4f5f3;
+  --az-page: #f7f8f6;
+  --az-text: #17211f;
+  /* Secondary text #5F6B66 (B1): 4.8–5.6:1 on every light surface. */
+  --az-text-2: #5f6b66;
+  --az-text-3: #5f6b66;
+  --az-sunken: #eef1ee;
+  --az-band: #f2f4f1;
   --az-surface: #ffffff;
   --az-surface-strong: #ffffff;
   --az-raised: #ffffff;
-  --az-hairline: #e3e6e2;
-  --az-divider: #eceeeb;
-  --az-shadow: 0 16px 40px -14px rgba(20, 24, 21, 0.22);
+  --az-hairline: #e6ebe7;
+  --az-divider: #eef1ee;
+  --az-shadow: 0 8px 24px rgba(23, 33, 31, 0.08);
   --az-field: #ffffff;
-  --az-placeholder: #737a75;
-  --az-focus: #4d7c0f;
-  /* The same lime action colour in both modes, always with near-black text. */
-  --az-fill: linear-gradient(#a3e635, #a3e635);
-  --az-fill-hover: #96d82c;
-  --az-on-fill: #0a0b0a;
-  --az-deep: linear-gradient(#f7fee7, #f7fee7);
-  --az-display: linear-gradient(#141614, #141614);
-  --az-sidebar: #f2f4f1;
+  /* Form-control edge, 3.53:1 on white (B3). */
+  --az-control: #808b85;
+  --az-placeholder: #6b7671;
+  /* Focus ring and graphics use the brand accent #168C70; text uses #127A61 (B2). */
+  --az-focus: #168c70;
+  --az-fill: linear-gradient(#127a61, #127a61);
+  --az-fill-hover: #0f6b55;
+  --az-on-fill: #ffffff;
+  --az-deep: linear-gradient(#e3f1ec, #e3f1ec);
+  --az-display: linear-gradient(#17211f, #17211f);
+  --az-sidebar: #ffffff;
+  --az-danger: #b42318;
+  --az-danger-soft: #fdecea;
+  --az-danger-fill: #b42318;
+  --az-on-danger: #ffffff;
+  --az-warning: #8a5300;
+  --az-warn-soft: #fdf1dc;
+  --az-ok: #127a61;
+  --az-ok-soft: #e3f1ec;
+  --az-info: #1f5fbf;
+  --az-info-soft: #e8f0fc;
 }
 
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: var(--color-ink-950);
+  background: var(--az-page);
   color: var(--az-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -223,8 +244,8 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   .input {
     width: 100%;
     background: var(--az-field);
-    border: 1px solid var(--az-hairline);
-    border-radius: 8px;
+    border: 1px solid var(--az-control);
+    border-radius: 6px;
     padding: 0.62rem 0.85rem;
     color: var(--az-text);
     font-size: 0.95rem;
@@ -245,6 +266,21 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   .btn-primary:hover { background-image: none; background-color: var(--az-fill-hover); }
   .btn-ghost { background: color-mix(in srgb, var(--az-text) 5%, transparent); color: var(--az-text); border: 1px solid var(--az-hairline); }
   .btn-ghost:hover { background: color-mix(in srgb, var(--az-text) 9%, transparent); }
+  /* v2 component variants (board "Components"). */
+  .btn-secondary { background: var(--az-surface); color: var(--az-text); border: 1px solid var(--az-control); }
+  .btn-secondary:hover { background: var(--az-sunken); }
+  .btn-danger { background: var(--az-danger-fill); color: var(--az-on-danger); }
+  .btn-danger:hover { filter: brightness(.92); }
+  .btn-sm { min-height: 2.25rem; padding: 0.35rem 0.75rem; font-size: .875rem; }
+  .btn-icon { width: 2.75rem; padding: 0; }
+  .btn-icon.btn-sm { width: 2.25rem; }
+  .badge { display: inline-flex; align-items: center; gap: .3rem; padding: .125rem .625rem; border-radius: 999px; font-size: .8125rem; line-height: 1.25rem; font-weight: 600; white-space: nowrap; }
+  .badge-neutral { background: var(--az-sunken); color: var(--az-text); }
+  .badge-ok { background: var(--az-ok-soft); color: var(--az-ok); }
+  .badge-warn { background: var(--az-warn-soft); color: var(--az-warning); }
+  .badge-bad { background: var(--az-danger-soft); color: var(--az-danger); }
+  .badge-info { background: var(--az-info-soft); color: var(--az-info); }
+  .skeleton { display: block; border-radius: 6px; background: var(--az-sunken); }
 
   .chip {
     display: inline-flex; align-items: center; gap: .3rem;
@@ -259,11 +295,11 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   .ill { display: inline-grid; place-items: center; flex-shrink: 0; color: var(--ill-ink); }
   /* Icon tiles are plain now (outline icons, decision R3): a quiet square, no gradient. */
   .ill-tile { border-radius: 8px; background: color-mix(in srgb, var(--az-text) 5%, transparent); box-shadow: inset 0 0 0 1px var(--az-hairline); }
-  /* Tone names are kept for the data model: saffron = lime, leaf = graphite, gold = gold. */
-  .ill-saffron { --ill-ink: #c6f36b; --ill-fill: rgba(163, 230, 53, 0.3); --ill-bg-a: rgba(163, 230, 53, 0.22); --ill-bg-b: rgba(77, 124, 15, 0.1); --ill-ring: rgba(198, 243, 107, 0.2); --ill-shadow: rgba(132, 204, 22, 0.45); }
+  /* Tone names are kept for the data model: saffron = the accent, leaf = neutral, gold = gold. */
+  .ill-saffron { --ill-ink: #5ed6b2; --ill-fill: rgba(60, 199, 159, 0.25); --ill-bg-a: rgba(60, 199, 159, 0.18); --ill-bg-b: rgba(18, 122, 97, 0.1); --ill-ring: rgba(94, 214, 178, 0.2); --ill-shadow: rgba(0, 0, 0, 0.4); }
   .ill-leaf { --ill-ink: #d3d7d4; --ill-fill: rgba(211, 215, 212, 0.2); --ill-bg-a: rgba(179, 185, 181, 0.18); --ill-bg-b: rgba(74, 80, 76, 0.12); --ill-ring: rgba(211, 215, 212, 0.16); --ill-shadow: rgba(0, 0, 0, 0.5); }
   .ill-gold { --ill-ink: #fcd77a; --ill-fill: rgba(252, 211, 77, 0.28); --ill-bg-a: rgba(250, 204, 21, 0.2); --ill-bg-b: rgba(180, 83, 9, 0.1); --ill-ring: rgba(252, 215, 122, 0.2); --ill-shadow: rgba(217, 119, 6, 0.45); }
-  :root[data-theme="light"] .ill-saffron { --ill-ink: #3f6212; --ill-fill: #d9f99d; --ill-bg-a: #f7fee7; --ill-bg-b: #e6f9bd; --ill-ring: rgba(63, 98, 18, 0.16); --ill-shadow: rgba(77, 124, 15, 0.22); }
+  :root[data-theme="light"] .ill-saffron { --ill-ink: #127a61; --ill-fill: #cde9df; --ill-bg-a: #f5faf8; --ill-bg-b: #e3f1ec; --ill-ring: rgba(18, 122, 97, 0.16); --ill-shadow: rgba(18, 122, 97, 0.18); }
   :root[data-theme="light"] .ill-leaf { --ill-ink: #2c302d; --ill-fill: #d3d7d4; --ill-bg-a: #f4f5f4; --ill-bg-b: #e2e5e2; --ill-ring: rgba(20, 22, 20, 0.12); --ill-shadow: rgba(20, 22, 20, 0.18); }
   :root[data-theme="light"] .ill-gold { --ill-ink: #a16207; --ill-fill: #fde68a; --ill-bg-a: #fffbea; --ill-bg-b: #fdefb8; --ill-ring: rgba(161, 98, 7, 0.14); --ill-shadow: rgba(161, 98, 7, 0.22); }
 

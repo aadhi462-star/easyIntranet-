@@ -4,6 +4,7 @@ import { fmtDate, useStore } from '../../lib/store.jsx';
 import { Field } from '../ui.jsx';
 import { download, toCsv } from './charts.jsx';
 import { toast } from '../../lib/toast.js';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const DemoBadge = () => <span className="chip !bg-amber-400/15 !text-amber-200">Demo — not connected</span>;
 
@@ -181,9 +182,9 @@ export function Security() {
     activity: (state.activity || []).filter((a) => a.userId === id),
   });
 
-  const erase = () => {
+  const erase = async () => {
     if (!member || member.id === me.id) return;
-    if (!confirm(`Permanently erase all content by ${member.name}? Their posts, comments, replies, messages, ideas, files and records will be deleted. This can’t be undone.`)) return;
+    if (!(await confirmAction(`Permanently erase all content by ${member.name}? Their posts, comments, replies, messages, ideas, files and records will be deleted. This can’t be undone.`))) return;
     const id = member.id;
     dispatch({ type: 'set', key: 'posts', value: (l) => l.filter((p) => p.authorId !== id).map((p) => ({ ...p, comments: p.comments.filter((c) => c.authorId !== id), likes: p.likes.filter((x) => x !== id) })) });
     dispatch({ type: 'set', key: 'forumPosts', silent: true, value: (l) => l.filter((f) => f.authorId !== id).map((f) => ({ ...f, replies: f.replies.filter((r) => r.authorId !== id) })) });
@@ -237,7 +238,7 @@ export function AssistSettings() {
   const opts = [['writer', 'Writing assistant in post and article editors'], ['summaries', 'Post, thread and town hall summaries'], ['translation', 'Translate posts and comments'], ['sentiment', 'Sentiment analysis in analytics']];
   return (
     <section className="glass max-w-2xl space-y-3 p-5">
-      <h3 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Smart Assist</h3>
+      <h3 className="font-bold"><Glyph value="sparkle" tile={false} size={16} /> Smart Assist</h3>
       <p className="text-sm text-slate-400">
         Smart Assist uses your browser’s built-in on-device AI when available ({onDevice ? 'detected ✓' : 'not detected — simple local fallbacks are used'}). No content is sent to an external service.
       </p>

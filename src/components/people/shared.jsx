@@ -3,14 +3,16 @@ import { useStore } from '../../lib/store.jsx';
 import { api } from '../../lib/api.js';
 import { toast } from '../../lib/toast.js';
 import { Avatar, Field, Modal } from '../ui.jsx';
+import { Icon } from '../icons.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export const PRAISE_BADGES = [
-  { id: 'mentor', icon: '🧭', name: 'Mentor' },
-  { id: 'helper', icon: '🛟', name: 'Helper' },
-  { id: 'rockstar', icon: '🌟', name: 'Rockstar' },
-  { id: 'teamplayer', icon: '🤝', name: 'Team Player' },
-  { id: 'innovator', icon: '💡', name: 'Innovator' },
-  { id: 'organiser', icon: '📣', name: 'Great Organiser' },
+  { id: 'mentor', icon: 'explore', name: 'Mentor' },
+  { id: 'helper', icon: 'like', name: 'Helper' },
+  { id: 'rockstar', icon: 'star', name: 'Rockstar' },
+  { id: 'teamplayer', icon: 'groups', name: 'Team Player' },
+  { id: 'innovator', icon: 'ideas', name: 'Innovator' },
+  { id: 'organiser', icon: 'share', name: 'Great Organiser' },
 ];
 export const praiseBadge = (id) => PRAISE_BADGES.find((b) => b.id === id) ?? PRAISE_BADGES[0];
 
@@ -80,7 +82,7 @@ export function ConnectButton({ userId, initial, onChange, className = '' }) {
   if (rel === 'outgoing') return <button className={`btn btn-ghost min-h-11 ${className}`} disabled={busy} title="Cancel request" onClick={() => run(base, 'DELETE', 'Request cancelled')}>Requested · Cancel</button>;
   if (rel === 'connected') {
     return <button className={`btn btn-ghost min-h-11 ${className}`} disabled={busy} title="Remove connection"
-      onClick={() => { if (confirm('Remove this connection? You can connect again later.')) run(base, 'DELETE', 'Connection removed'); }}>✓ Connected</button>;
+      onClick={async () => { if ((await confirmAction('Remove this connection? You can connect again later.'))) run(base, 'DELETE', 'Connection removed'); }}>✓ Connected</button>;
   }
   return <button className={`btn btn-primary min-h-11 ${className}`} disabled={busy} onClick={() => run(base, 'POST', 'Request sent')}>Connect</button>;
 }
@@ -175,9 +177,9 @@ export function PraiseModal({ toId: initialTo, onClose }) {
     dispatch({ type: 'add', col: 'praise', item: { fromId: me.id, toId, badge, message: message.trim() } });
     if (shareOnWall) {
       dispatch({ type: 'post/create', post: { type: 'praise', scope: { type: 'network' }, praise: { toId, badge },
-        text: `${b.icon} ${b.name} praise for @${user(toId).name}: ${message.trim()}` } });
+        text: `${b.name} praise for @${user(toId).name}: ${message.trim()}` } });
     }
-    dispatch({ type: 'notify', notification: { userId: toId, kind: 'praise', text: `${me.name} praised you as a ${b.name} ${b.icon}`, link: '/leaderboard' } });
+    dispatch({ type: 'notify', notification: { userId: toId, kind: 'praise', text: `${me.name} praised you as a ${b.name}`, link: '/leaderboard' } });
     onClose(true);
   };
   return (
@@ -190,7 +192,7 @@ export function PraiseModal({ toId: initialTo, onClose }) {
             {PRAISE_BADGES.map((b) => (
               <button type="button" key={b.id} onClick={() => setBadge(b.id)} aria-pressed={badge === b.id}
                 className={`min-h-11 rounded-xl border px-3 py-2 text-sm ${badge === b.id ? 'border-brand-500 bg-brand-500/20' : 'border-white/10 hover:bg-white/5'}`}>
-                <span aria-hidden="true">{b.icon}</span> {b.name}
+                <Icon name={b.icon} size={16} className="mr-1 inline align-[-3px]" />{b.name}
               </button>
             ))}
           </div>

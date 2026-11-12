@@ -18,9 +18,9 @@ export function runJob(job, state, dispatch) {
       && (e.scope?.type === 'network' || inTarget(e.scope)));
     const top = [...posts].sort((a, b) => (b.likes.length + b.comments.length) - (a.likes.length + a.comments.length)).slice(0, 3);
     const lines = [
-      `📬 ${job.name}: ${posts.length} new post${posts.length === 1 ? '' : 's'} since last time.`,
+      `${job.name}: ${posts.length} new post${posts.length === 1 ? '' : 's'} since last time.`,
       ...top.map((p) => `• ${p.text.slice(0, 80)}${p.text.length > 80 ? '…' : ''}`),
-      events.length ? `📅 Coming up: ${events.map((e) => e.title).join(', ')}` : '',
+      events.length ? `Coming up: ${events.map((e) => e.title).join(', ')}` : '',
     ].filter(Boolean);
     dispatch({ type: 'post/create', silent: true, post: { id: `dg-${job.id}-${job.nextRun ?? 0}`, type: 'announcement', text: lines.join('\n'), scope, authorId: admin?.id } });
   } else if (job.kind === 'inactive') {

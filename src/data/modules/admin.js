@@ -63,18 +63,18 @@ export const seed = {
     { id: 'sc1', name: 'Weekly digest', kind: 'digest', interval: 'weekly', enabled: true, target: 'network', text: '', lastRun: now - 6 * day, nextRun: now + day },
     { id: 'sc2', name: 'Inactive member reminder', kind: 'inactive', interval: 'monthly', enabled: true, target: 'network', text: '', lastRun: now - 20 * day, nextRun: now + 10 * day },
     { id: 'sc3', name: 'Friday reminder to update profiles', kind: 'announcement', interval: 'weekly', enabled: false, target: 'network',
-      text: 'Reminder: keep your career history up to date so juniors can find mentors 🎓', lastRun: null, nextRun: now + 2 * day },
+      text: 'Reminder: keep your career history up to date so juniors can find mentors', lastRun: null, nextRun: now + 2 * day },
   ],
   badgeAwards: [],
   customApps: [
-    { id: 'app1', name: 'Mentorship request', icon: '🤝', description: 'Students and young alumni request a mentor.', ownerId: 'u3', notifyOwner: true,
+    { id: 'app1', name: 'Mentorship request', icon: '', description: 'Students and young alumni request a mentor.', ownerId: 'u3', notifyOwner: true,
       fields: [
         { id: 'fa1', label: 'Your name', type: 'text', required: true, options: [] },
         { id: 'fa2', label: 'Area', type: 'select', required: true, options: ['Product', 'Engineering', 'Design', 'Finance', 'Higher studies'] },
         { id: 'fa3', label: 'Preferred mentor', type: 'user', required: false, options: [] },
         { id: 'fa4', label: 'What do you need help with?', type: 'longtext', required: true, options: [] },
       ] },
-    { id: 'app2', name: 'Job referral', icon: '💼', description: 'Share openings that alumni can refer for.', ownerId: 'u8', notifyOwner: true,
+    { id: 'app2', name: 'Job referral', icon: '', description: 'Share openings that alumni can refer for.', ownerId: 'u8', notifyOwner: true,
       fields: [
         { id: 'fb1', label: 'Role', type: 'text', required: true, options: [] },
         { id: 'fb2', label: 'Company', type: 'text', required: true, options: [] },

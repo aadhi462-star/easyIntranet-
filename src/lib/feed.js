@@ -9,7 +9,7 @@ import { api, ApiError, newKey } from './api.js';
 export const PAGE = 15;
 
 /** Server mood kinds → emoji. */
-export const MOODS = { happy: '😊', neutral: '😐', sad: '😞' };
+export const MOODS = { happy: 'happy', neutral: 'neutral', sad: 'sad' }; // icon names (components/icons.jsx)
 
 // ---- Change broadcast -------------------------------------------------------------------------
 // {type:'post', post} a post changed · {type:'removed', id} gone for this viewer ·

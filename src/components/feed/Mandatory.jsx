@@ -7,7 +7,7 @@ import { Field, Modal } from '../ui.jsx';
 export const MANDATORY_DEFAULTS = {
   deadline: null, message: 'I have read and understood this post.', button: 'Acknowledge',
 };
-const ACK_COLOR = '#84cc16';
+const ACK_COLOR = '#168c70';
 
 const toLocal = (t) => (t ? new Date(new Date(t).getTime() - new Date(t).getTimezoneOffset() * 6e4).toISOString().slice(0, 16) : '');
 

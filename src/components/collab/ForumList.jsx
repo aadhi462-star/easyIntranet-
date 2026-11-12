@@ -20,7 +20,7 @@ export default function ForumList({ groupId, categoryId, view = 'all', showCompo
     const drafts = state.forumPosts.filter((f) => f.status === 'draft' && f.authorId === me.id);
     return (
       <div className="space-y-3">
-        {!drafts.length && <Empty icon="📝" title="No drafts">Closing the editor without publishing saves a draft here.</Empty>}
+        {!drafts.length && <Empty icon="drafts" title="No drafts">Closing the editor without publishing saves a draft here.</Empty>}
         {drafts.map((d) => (
           <div key={d.id} className="glass flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-0 flex-1"><div className="font-semibold">{d.title}</div><div className="text-xs text-slate-500">Saved {timeAgo(d.createdAt)}</div></div>
@@ -50,7 +50,7 @@ export default function ForumList({ groupId, categoryId, view = 'all', showCompo
         {showComposer && <button className="btn btn-primary" onClick={() => setCreating(true)} aria-label="New forum post">＋ New post</button>}
       </div>
       <div className="space-y-3">
-        {posts.length ? posts.map((p) => <ForumCard key={p.id} post={p} />) : <Empty icon="🗂️" title="No discussions yet">Start one with ＋ New post.</Empty>}
+        {posts.length ? posts.map((p) => <ForumCard key={p.id} post={p} />) : <Empty icon="forums" title="No discussions yet">Start one with ＋ New post.</Empty>}
       </div>
       {creating && <ForumEditor groupId={groupId} defaultCategory={categoryId} onClose={() => setCreating(false)} />}
     </div>

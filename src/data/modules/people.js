@@ -78,7 +78,7 @@ export const seed = {
       { id: 'dm1m2', authorId: 'u1', text: 'Absolutely, send their details over.', createdAt: now - 4 * 3600e3 },
     ] },
     { id: 'dm2', members: ['u1', 'u2', 'u4'], name: 'Bengaluru hike crew', messages: [
-      { id: 'dm2m1', authorId: 'u4', text: 'Nandi Hills on Sunday? 5 AM start 🌄', createdAt: now - day },
+      { id: 'dm2m1', authorId: 'u4', text: 'Nandi Hills on Sunday? 5 AM start', createdAt: now - day },
     ] },
   ],
 

@@ -70,7 +70,7 @@ function CreateSession({ onClose }) {
         <Field label="Audience">
           <select className="input" value={f.groupId} onChange={(e) => set('groupId', e.target.value)}>
             <option value="">Whole network</option>
-            {myGroups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+            {myGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         </Field>
         <Field label="Moderators" hint="You are a moderator automatically."><PeoplePicker value={f.moderators} onChange={(v) => set('moderators', v)} exclude={[me.id]} label="moderators" /></Field>
@@ -94,7 +94,7 @@ function Session({ id }) {
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (!th || !canSeeTownhall(th, me, state.groups)) return <Empty icon="🎤" title="Session not found">It may have been removed, or it’s only open to a group you’re not in. <Link to="/townhalls" className="text-brand-400 underline">Back to town halls</Link></Empty>;
+  if (!th || !canSeeTownhall(th, me, state.groups)) return <Empty icon="mic" title="Session not found">It may have been removed, or it’s only open to a group you’re not in. <Link to="/townhalls" className="text-brand-400 underline">Back to town halls</Link></Empty>;
 
   const st = displayStatus(th);
   const ended = st.key === 'ended';
@@ -148,7 +148,7 @@ function Session({ id }) {
           <span className={`chip ${STATUS_STYLES[st.key]}`}>{st.label}</span>
           {isMod && <span className="chip !bg-emerald-500/15 !text-emerald-200">You’re a moderator</span>}
         </div>
-        <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl"><Glyph value="🎤" tile={false} size={16} /> {th.title}</h1>
+        <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl"><Glyph value="mic" tile={false} size={16} /> {th.title}</h1>
         <p className="mt-2 text-slate-300">{th.description}</p>
         <p className="mt-3 text-sm text-slate-400">
           {new Date(th.start).toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
@@ -165,7 +165,7 @@ function Session({ id }) {
       {ended && (
         <section className="glass p-5" aria-label="Highlights">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-bold"><Glyph value="✨" tile={false} size={16} /> Highlights</h2>
+            <h2 className="font-bold"><Glyph value="sparkle" tile={false} size={16} /> Highlights</h2>
             {th.status === 'ended' && byTab.answered.length > 0 && <button className="btn btn-ghost" disabled={busy} onClick={highlights}>{busy ? 'Summarising…' : th.highlights ? 'Regenerate' : 'Generate highlights'}</button>}
           </div>
           {th.highlights ? (
@@ -212,7 +212,7 @@ function Session({ id }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-slate-100">{q.text}</p>
                   <p className="mt-1 flex items-center gap-2 text-xs text-slate-400">
-                    {author ? <><Avatar user={author} size={18} />{author.name}</> : <><Glyph value="🕶️" tile={false} size={16} /> Anonymous</>} · {timeAgo(q.createdAt)}
+                    {author ? <><Avatar user={author} size={18} />{author.name}</> : <><Glyph value="eyeoff" tile={false} size={16} /> Anonymous</>} · {timeAgo(q.createdAt)}
                     {q.status === 'pending' && <span className="chip !bg-amber-500/15 !text-amber-200">Awaiting approval</span>}
                   </p>
                   {q.status === 'answered' && (
@@ -232,16 +232,16 @@ function Session({ id }) {
                   {isMod && answering !== q.id && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {q.status === 'pending' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => setQ(q.id, { status: 'approved' })}>✓ Approve</button>}
-                      {q.status !== 'hidden' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => setQ(q.id, { status: 'hidden', prevStatus: q.status })}><Glyph value="🙈" tile={false} size={16} /> Hide</button>}
-                      {q.status === 'hidden' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => setQ(q.id, { status: q.prevStatus ?? 'approved', prevStatus: null })}>↩ Restore</button>}
-                      {q.status !== 'answered' && q.status !== 'hidden' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => { setAnswering(q.id); setAnswer(''); }}><Glyph value="💬" tile={false} size={16} /> Answer</button>}
+                      {q.status !== 'hidden' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => setQ(q.id, { status: 'hidden', prevStatus: q.status })}><Glyph value="eyeoff" tile={false} size={16} /> Hide</button>}
+                      {q.status === 'hidden' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => setQ(q.id, { status: q.prevStatus ?? 'approved', prevStatus: null })}>Restore</button>}
+                      {q.status !== 'answered' && q.status !== 'hidden' && <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => { setAnswering(q.id); setAnswer(''); }}><Glyph value="channels" tile={false} size={16} /> Answer</button>}
                     </div>
                   )}
                 </div>
               </li>
             );
           })}
-          {list.length === 0 && <li><Empty icon="🙋" title="No questions here yet">{tab === 'open' && !ended ? 'Be the first to ask.' : ''}</Empty></li>}
+          {list.length === 0 && <li><Empty icon="questions" title="No questions here yet">{tab === 'open' && !ended ? 'Be the first to ask.' : ''}</Empty></li>}
         </ul>
       </section>
     </div>

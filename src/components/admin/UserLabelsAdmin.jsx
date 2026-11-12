@@ -4,6 +4,7 @@ import { Avatar, AvatarStack, Empty, Field, Modal } from '../ui.jsx';
 import { Glyph } from '../icons.jsx';
 import { LABEL_TONES, LabelChip } from '../UserLabels.jsx';
 import { isActiveUser } from '../people/shared.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const LABEL_ICONS = ['sprout', 'pinned', 'shield', 'sparkle', 'cap', 'groups', 'star', 'medal', 'mic', 'ideas', 'trophy', 'label'];
 const TONE_NAMES = { saffron: 'Saffron', leaf: 'Leaf green', gold: 'Gold' };
@@ -14,8 +15,8 @@ export default function UserLabelsAdmin() {
   const labels = state.userLabels || [];
   const [editing, setEditing] = useState(null); // null | 'new' | label
 
-  const remove = (l) => {
-    if (!confirm(`Delete the “${l.name}” label? It will be removed from ${l.members.length} member${l.members.length === 1 ? '' : 's'}.`)) return;
+  const remove = async (l) => {
+    if (!(await confirmAction(`Delete the “${l.name}” label? It will be removed from ${l.members.length} member${l.members.length === 1 ? '' : 's'}.`))) return;
     dispatch({ type: 'remove', col: 'userLabels', id: l.id });
   };
 

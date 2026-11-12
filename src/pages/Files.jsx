@@ -100,7 +100,7 @@ function FileView({ file }) {
         <input className="min-w-0 flex-1 bg-transparent text-xl font-bold outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-1" defaultValue={file.name} readOnly={!canEdit}
           aria-label="File name" onBlur={(e) => e.target.value.trim() && e.target.value !== file.name && dispatch({ type: 'update', col: 'files', id: file.id, patch: { name: e.target.value.trim() } })} />
         {created && <span className="text-xs text-slate-400" role="status">{saved ? '✓ Saved' : 'Saving…'}</span>}
-        <button className="btn btn-ghost" onClick={() => downloadFile(file)}>⬇ Download</button>
+        <button className="btn btn-ghost" onClick={() => downloadFile(file)}>Download</button>
         {(file.authorId === me.id || me.admin) && <button className="btn btn-ghost" onClick={() => setShare(true)}>Share</button>}
       </div>
       <p className="mb-4 text-xs text-slate-400">By {user(file.authorId)?.name} · updated {timeAgo(file.updatedAt ?? file.createdAt)}{file.sharedWith?.length ? ` · shared with ${file.sharedWith.map((i) => user(i)?.name).join(', ')}` : ''}</p>
@@ -164,7 +164,7 @@ function Versions({ file, canEdit, flush }) {
       <h2 className="mb-3 font-semibold">Versions</h2>
       {file.kind === 'upload' && canEdit && (
         <>
-          <button className="btn btn-ghost mb-3 w-full" onClick={() => input.current.click()}>⬆ Upload new version</button>
+          <button className="btn btn-ghost mb-3 w-full" onClick={() => input.current.click()}>Upload new version</button>
           <input ref={input} type="file" hidden onChange={async (e) => {
             const f = e.target.files[0]; e.target.value = '';
             if (!f) return;

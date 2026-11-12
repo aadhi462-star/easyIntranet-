@@ -36,7 +36,7 @@ export default function Branding() {
           <button className="btn btn-primary" onClick={() => set({ customCss: css })}>Apply CSS</button>
           <button className="btn btn-ghost" onClick={() => { setCss(''); set({ customCss: '' }); }}>Clear</button>
         </div>
-        <div className="rounded-xl p-4" style={{ background: `linear-gradient(135deg, ${s.accent}, #a3e635)` }}>
+        <div className="rounded-xl p-4" style={{ background: s.accent }}>
           <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 font-extrabold">{s.logoText ?? 'AZ'}</span>
             <span><b>{s.networkName}</b><span className="block text-xs text-white/80">{s.tagline}</span></span></div>
         </div>

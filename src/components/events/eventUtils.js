@@ -2,7 +2,7 @@
 
 export const EVENT_TYPES = ['Meetup', 'Reunion', 'Conference', 'Contest', 'Webinar', 'ShowTime', 'Meeting'];
 export const TYPE_COLORS = {
-  Meetup: '#a3e635', Reunion: '#f0abfc', Conference: '#22d3ee', Contest: '#fbbf24',
+  Meetup: '#168c70', Reunion: '#f0abfc', Conference: '#22d3ee', Contest: '#fbbf24',
   Webinar: '#34d399', ShowTime: '#fb7185', Meeting: '#94a3b8',
 };
 export const REMINDER_OPTIONS = [[5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [120, '2 hours'], [1440, '1 day'], [10080, '1 week']];

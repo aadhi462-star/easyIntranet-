@@ -1,6 +1,6 @@
 // Small inline-SVG charts and file helpers shared by Admin and Custom Apps.
 
-const PALETTE = ['#a3e635', '#e879f9', '#22d3ee', '#fbbf24', '#34d399', '#f87171', '#a78bfa', '#a3e635'];
+const PALETTE = ['#168c70', '#e879f9', '#22d3ee', '#fbbf24', '#34d399', '#f87171', '#a78bfa', '#168c70'];
 export const colorAt = (i) => PALETTE[i % PALETTE.length];
 
 export function LineChart({ points, height = 160, label }) {
@@ -11,10 +11,10 @@ export function LineChart({ points, height = 160, label }) {
   const path = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   return (
     <svg viewBox={`0 0 ${w} ${height}`} className="h-auto w-full" role="img" aria-label={label}>
-      <defs><linearGradient id="lc-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#a3e635" stopOpacity=".35" /><stop offset="1" stopColor="#a3e635" stopOpacity="0" /></linearGradient></defs>
+      <defs><linearGradient id="lc-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#168c70" stopOpacity=".35" /><stop offset="1" stopColor="#168c70" stopOpacity="0" /></linearGradient></defs>
       {[0.25, 0.5, 0.75].map((f) => <line key={f} x1="0" x2={w} y1={20 + f * (height - 40)} y2={20 + f * (height - 40)} stroke="#fff" strokeOpacity=".05" />)}
       {xy.length > 1 && <path d={`${path} L${w},${height - 20} L0,${height - 20} Z`} fill="url(#lc-fill)" />}
-      <path d={path} fill="none" stroke="#a3e635" strokeWidth="2.5" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke="#168c70" strokeWidth="2.5" strokeLinejoin="round" />
       {xy.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill="#c7d2fe"><title>{`${points[i].label}: ${points[i].value}`}</title></circle>)}
       {points.map((p, i) => (i % Math.ceil(points.length / 7) === 0 || i === points.length - 1) && (
         <text key={i} x={Math.min(Math.max(i * step, 14), w - 14)} y={height - 4} textAnchor="middle" fontSize="11" fill="#94a3b8">{p.label}</text>

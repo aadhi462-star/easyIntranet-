@@ -10,6 +10,7 @@ import { lessonPath } from '../../lib/learning.js';
 import { toast } from '../../lib/toast.js';
 import { Icon } from '../icons.jsx';
 import { Pill, Progress } from './bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export const whenText = (at) => new Date(at).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 const scoreText = (s) => `${s.score} of ${s.total}`;
@@ -87,7 +88,7 @@ function Attempt({ quiz, attempt, onExit, onDone }) {
     }
   };
   const submit = async () => {
-    if (answered < total && !confirm(`${total - answered} ${total - answered === 1 ? 'question isn’t' : 'questions aren’t'} answered. Submit anyway?`)) return;
+    if (answered < total && !(await confirmAction(`${total - answered} ${total - answered === 1 ? 'question isn’t' : 'questions aren’t'} answered. Submit anyway?`))) return;
     setBusy(true);
     try { onDone(await api(`/attempts/${attempt.id}/submit`, { method: 'POST', body: { answers } })); } catch (err) { toast(errorText(err), 'error'); setBusy(false); }
   };

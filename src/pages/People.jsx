@@ -71,11 +71,11 @@ function Directory() {
     <div>
       <PageHeader title="People" subtitle={`${people.length} members in the community`}
         actions={<>
-          {!(state.settings?.hiddenModules || ['orgchart']).includes('orgchart') && <Link to="/orgchart" className="btn btn-ghost min-h-11"><Glyph value="🌳" tile={false} size={16} /> Community structure</Link>}
+          {!(state.settings?.hiddenModules || ['orgchart']).includes('orgchart') && <Link to="/orgchart" className="btn btn-ghost min-h-11"><Glyph value="structure" tile={false} size={16} /> Community structure</Link>}
           <div className="inline-flex rounded-lg border border-[var(--az-hairline)] p-1" role="group" aria-label="View">
             {['grid', 'list'].map((v) => (
               <button key={v} onClick={() => setView(v)} aria-pressed={view === v}
-                className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${view === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2'}`}>{v === 'grid' ? '▦ Grid' : '☰ List'}</button>
+                className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${view === v ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2'}`}>{v === 'grid' ? '▦ Grid' : 'List'}</button>
             ))}
           </div>
         </>} />
@@ -117,7 +117,7 @@ function Directory() {
       )}
       {result.error && <p role="alert" className="mb-4 rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">Couldn’t load the directory: {result.error}</p>}
       {result.loading && !list.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">{[0, 1, 2].map((i) => <div key={i} className="glass h-40 animate-pulse" />)}</div>
-        : !list.length ? <Empty icon="🔍" title="No one matches those filters">Try removing a filter.</Empty> : view === 'grid' ? (
+        : !list.length ? <Empty icon="search" title="No one matches those filters">Try removing a filter.</Empty> : view === 'grid' ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((u) => (
             <article key={u.id} className="glass flex flex-col p-5">
@@ -296,8 +296,8 @@ function Profile({ id }) {
 function UserPosts({ userId }) {
   const { state } = useStore();
   const posts = state.posts.filter((p) => p.authorId === userId && p.status !== 'draft' && p.status !== 'scheduled');
-  if (!posts.length) return <Empty icon="📝" title="No posts yet" />;
-  return <div className="space-y-3">{posts.map((p) => <Link key={p.id} to={`/post/${p.id}`} className="glass block p-4 text-sm hover:bg-white/5"><p className="text-[var(--az-text)]">{p.text}</p><p className="mt-2 text-xs text-3">{timeAgo(p.createdAt)} · ❤️ {p.likes.length} · 💬 {p.comments.length}</p></Link>)}</div>;
+  if (!posts.length) return <Empty icon="drafts" title="No posts yet" />;
+  return <div className="space-y-3">{posts.map((p) => <Link key={p.id} to={`/post/${p.id}`} className="glass block p-4 text-sm hover:bg-white/5"><p className="text-[var(--az-text)]">{p.text}</p><p className="mt-2 text-xs text-3">{timeAgo(p.createdAt)} · {p.likes.length} likes · {p.comments.length} comments</p></Link>)}</div>;
 }
 
 function EditProfile({ onClose, focus }) {

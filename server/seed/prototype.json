@@ -1034,7 +1034,7 @@
    "description": "Network-wide announcements from the alumni relations team. Everyone is a member.",
    "type": "Department",
    "accessType": "public",
-   "emoji": "📢",
+   "emoji": null,
    "hue": 230,
    "members": [
     "u1",
@@ -1112,7 +1112,7 @@
    "description": "Everything for the 2016 batch: reunions, updates and throwbacks.",
    "type": "Batch",
    "accessType": "private",
-   "emoji": "🎓",
+   "emoji": null,
    "hue": 262,
    "members": [
     "u1",
@@ -1177,7 +1177,7 @@
    "description": "Alumni living and working in Bengaluru. Monthly meet-ups.",
    "type": "City",
    "accessType": "public",
-   "emoji": "🌆",
+   "emoji": null,
    "hue": 190,
    "members": [
     "u1",
@@ -1232,7 +1232,7 @@
    "description": "Alumni founders sharing lessons, intros and hiring needs.",
    "type": "Interest",
    "accessType": "restricted",
-   "emoji": "🚀",
+   "emoji": null,
    "hue": 20,
    "members": [
     "u2",
@@ -1279,7 +1279,7 @@
    "description": "Pairing students with alumni mentors across industries.",
    "type": "Interest",
    "accessType": "public",
-   "emoji": "🤝",
+   "emoji": null,
    "hue": 330,
    "members": [
     "u3",
@@ -1335,7 +1335,7 @@
    "description": "Mumbai alumni: sea-face walks and startup nights.",
    "type": "City",
    "accessType": "public",
-   "emoji": "🌊",
+   "emoji": null,
    "hue": 140,
    "members": [
     "u5",
@@ -1380,7 +1380,7 @@
    "description": "Volunteers planning this year's homecoming.",
    "type": "Project",
    "accessType": "private",
-   "emoji": "🏛️",
+   "emoji": null,
    "hue": 290,
    "members": [
     "u7",
@@ -1431,7 +1431,7 @@
    "description": "CS grads across all batches: tech talks, jobs and research.",
    "type": "Department",
    "accessType": "public",
-   "emoji": "💻",
+   "emoji": null,
    "hue": 210,
    "members": [
     "u1",
@@ -1533,7 +1533,7 @@
    "createdAt": 1794297958685,
    "type": "post",
    "status": "published",
-   "text": "Torque EV just closed our seed round 🎉 Huge thanks to the Founders Circle for the intros. We are hiring firmware engineers. Alumni referrals get priority! #hiring #startups",
+   "text": "Torque EV just closed our seed round Huge thanks to the Founders Circle for the intros. We are hiring firmware engineers. Alumni referrals get priority! #hiring #startups",
    "likes": [
     "u1",
     "u4",
@@ -1631,7 +1631,7 @@
    "createdAt": 1794056758685,
    "type": "post",
    "status": "published",
-   "text": "Found this photo from our 2014 convocation. Tag yourself if you can find your younger self 😄 #throwback",
+   "text": "Found this photo from our 2014 convocation. Tag yourself if you can find your younger self #throwback",
    "attachments": [
     {
      "id": "at1",
@@ -1715,7 +1715,7 @@
      "x",
      "facebook"
     ],
-    "tweet": "Proud alum! My alma mater just made the national top 10 🎓",
+    "tweet": "Proud alum! My alma mater just made the national top 10",
     "shares": {
      "linkedin": [
       "u2",
@@ -2168,7 +2168,7 @@
     {
      "id": "m1",
      "authorId": "u7",
-     "text": "Welcome to AlumniZone, everyone 👋",
+     "text": "Welcome to AlumniZone, everyone",
      "createdAt": 1794056758697
     },
     {
@@ -2612,7 +2612,7 @@
    "interval": "weekly",
    "enabled": false,
    "target": "network",
-   "text": "Reminder: keep your career history up to date so juniors can find mentors 🎓",
+   "text": "Reminder: keep your career history up to date so juniors can find mentors",
    "lastRun": null,
    "nextRun": 1794488758671
   }
@@ -2628,7 +2628,7 @@
   {
    "id": "app1",
    "name": "Mentorship request",
-   "icon": "🤝",
+   "icon": "",
    "description": "Students and young alumni request a mentor.",
    "ownerId": "u3",
    "notifyOwner": true,
@@ -2672,7 +2672,7 @@
   {
    "id": "app2",
    "name": "Job referral",
-   "icon": "💼",
+   "icon": "",
    "description": "Share openings that alumni can refer for.",
    "ownerId": "u8",
    "notifyOwner": true,
@@ -3457,7 +3457,7 @@
     {
      "id": "bm1",
      "authorId": "u5",
-     "text": "Congratulations to all the winners! 🎉",
+     "text": "Congratulations to all the winners!",
      "createdAt": 1792591800000
     }
    ],
@@ -3665,7 +3665,7 @@
     {
      "id": "dm2m1",
      "authorId": "u4",
-     "text": "Nandi Hills on Sunday? 5 AM start 🌄",
+     "text": "Nandi Hills on Sunday? 5 AM start",
      "createdAt": 1794229558696
     }
    ]

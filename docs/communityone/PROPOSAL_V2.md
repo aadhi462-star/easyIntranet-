@@ -193,3 +193,5 @@ These are hours of my working time in this codebase, measured against Stage 7, w
 - **P5. Accent contrast.** Add a darker accent for text and buttons so the palette passes AA (recommended)? Or keep `#168C70` everywhere and accept that small accent text fails AA?
 
 Once you approve this proposal and answer P1–P5, I start with workstream A and show you the token and component board before restyling any screen.
+
+**B1–B5 approved by the user on 12 Nov 2026** ("Approve B1–B5"), as drawn on the canvas page "v2 — Design system".

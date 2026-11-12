@@ -71,9 +71,9 @@ function ManualView({ manual, articleId }) {
                   <Link key={a.id} to={`/manuals/${manual.id}/${a.id}`}
                     className={`flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm ${a.id === articleId ? 'bg-brand-500/20 text-white' : 'text-slate-300 hover:bg-white/5'}`}>
                     <span className="flex-1 truncate">{a.title}</span>
-                    {!a.published && <span title="Draft" aria-label="Draft"><Glyph value="✎" tile={false} size={16} /></span>}
-                    {a.published && !isLive(a) && <span title="Scheduled" aria-label="Scheduled"><Glyph value="⏰" tile={false} size={16} /></span>}
-                    {a.mandatory && <span title="Mandatory read" aria-label="Mandatory read"><Glyph value="❗" tile={false} size={16} /></span>}
+                    {!a.published && <span title="Draft" aria-label="Draft"><Glyph value="pen" tile={false} size={16} /></span>}
+                    {a.published && !isLive(a) && <span title="Scheduled" aria-label="Scheduled"><Glyph value="scheduled" tile={false} size={16} /></span>}
+                    {a.mandatory && <span title="Mandatory read" aria-label="Mandatory read"><Glyph value="alert" tile={false} size={16} /></span>}
                   </Link>
                 ))}
               </div>
@@ -116,7 +116,7 @@ function ManualView({ manual, articleId }) {
                     )}
                   </div>
                   <ul className="mt-2 space-y-1 text-sm">
-                    {c.articles.filter(visible).map((a) => <li key={a.id}><Link to={`/manuals/${manual.id}/${a.id}`} className="text-slate-300 hover:text-white hover:underline"><Glyph value="📄" tile={false} size={16} /> {a.title}</Link></li>)}
+                    {c.articles.filter(visible).map((a) => <li key={a.id}><Link to={`/manuals/${manual.id}/${a.id}`} className="text-slate-300 hover:text-white hover:underline"><Glyph value="doc" tile={false} size={16} /> {a.title}</Link></li>)}
                     {!c.articles.filter(visible).length && <li className="text-slate-500">No articles yet.</li>}
                   </ul>
                 </div>
@@ -230,7 +230,7 @@ function ArticleView({ manual, chapter, article }) {
             </>
           ) : (
             <>
-              {canWrite && <button className="btn btn-ghost" onClick={() => { setDraft({ title: article.title, body: article.body, tags: (article.tags ?? []).join(', ') }); setEditing(true); }}><Glyph value="✎" tile={false} size={16} /> Edit</button>}
+              {canWrite && <button className="btn btn-ghost" onClick={() => { setDraft({ title: article.title, body: article.body, tags: (article.tags ?? []).join(', ') }); setEditing(true); }}><Glyph value="pen" tile={false} size={16} /> Edit</button>}
               {roles.canPublish && (
                 <button className="btn btn-primary" onClick={() => patch((a) => ({ ...a, published: !a.published, publishAt: null }))}>
                   {article.published ? 'Unpublish' : 'Publish'}
@@ -254,9 +254,9 @@ function ArticleView({ manual, chapter, article }) {
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
         {!article.published && <span className="chip !bg-amber-400/15 !text-amber-200">Draft</span>}
-        {article.published && !isLive(article) && <span className="chip !bg-leaf-500/15 !text-leaf-200"><Glyph value="⏰" tile={false} size={16} /> Scheduled for {fmtDate(article.publishAt)}</span>}
+        {article.published && !isLive(article) && <span className="chip !bg-leaf-500/15 !text-leaf-200"><Glyph value="scheduled" tile={false} size={16} /> Scheduled for {fmtDate(article.publishAt)}</span>}
         {isLive(article) && <span className="chip !bg-emerald-500/15 !text-emerald-200">Published</span>}
-        {article.mandatory && <span className="chip !bg-rose-500/15 !text-rose-200"><Glyph value="❗" tile={false} size={16} /> Mandatory read</span>}
+        {article.mandatory && <span className="chip !bg-rose-500/15 !text-rose-200"><Glyph value="alert" tile={false} size={16} /> Mandatory read</span>}
         {sharedAccess(article, me) && <span className="chip">Shared with you · {sharedAccess(article, me) === 'edit' ? 'can edit' : 'read-only'}</span>}
         <span>Updated {timeAgo(article.updatedAt)}{article.editedBy ? ` by ${user(article.editedBy)?.name}` : ''}</span>
         {!editing && (article.tags ?? []).map((t) => <span key={t} className="chip">#{t}</span>)}

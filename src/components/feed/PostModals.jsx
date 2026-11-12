@@ -1,4 +1,5 @@
 import { MOODS } from './utils.js';
+import { Icon } from '../icons.jsx';
 
 // Post insights, Social Advocacy reports, reposts ("Share to community") and "Report post" were
 // browser-only features. They have no server support yet, so they were removed from the feed
@@ -16,7 +17,7 @@ export function SentimentMeter({ counts, label = 'Sentiment' }) {
         {Object.keys(colors).map((k) => <div key={k} className={colors[k]} style={{ width: `${pct(k)}%` }} />)}
       </div>
       <div className="mt-1.5 flex gap-3 text-xs text-2">
-        {Object.keys(colors).map((k) => <span key={k}>{MOODS[k]} {pct(k)}%</span>)}
+        {Object.keys(colors).map((k) => <span key={k} className="inline-flex items-center gap-1"><Icon name={MOODS[k]} size={14} />{pct(k)}%</span>)}
       </div>
     </div>
   );

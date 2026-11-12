@@ -2,23 +2,23 @@ export const GROUP_TYPES = ['Batch', 'City', 'Interest', 'Department', 'Project'
 
 // Keys are the app's internal names; labels follow CommunityOne's Public / Private / Closed.
 export const ACCESS = {
-  public: { label: 'Public', icon: '🌍', desc: 'Anyone on CommunityOne can find it, read it and join instantly.' },
-  restricted: { label: 'Private', icon: '🔐', desc: 'Anyone can find it and see its card. Content is for members; people request to join and admins approve.' },
-  private: { label: 'Closed', icon: '🔒', desc: 'Hidden from search and discovery. Members join only by invitation or when an admin adds them.' },
+  public: { label: 'Public', icon: 'globe', desc: 'Anyone on CommunityOne can find it, read it and join instantly.' },
+  restricted: { label: 'Private', icon: 'lock', desc: 'Anyone can find it and see its card. Content is for members; people request to join and admins approve.' },
+  private: { label: 'Closed', icon: 'lock', desc: 'Hidden from search and discovery. Members join only by invitation or when an admin adds them.' },
 };
 
 export const APPS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'feed', label: 'Feed', icon: '📰' },
-  { id: 'forums', label: 'Forums', icon: '🗂️' },
-  { id: 'events', label: 'Events', icon: '📅' },
-  { id: 'files', label: 'Files', icon: '📁' },
-  { id: 'manuals', label: 'Manuals', icon: '📖' },
-  { id: 'tasks', label: 'Tasks', icon: '✅' },
-  { id: 'ideas', label: 'Ideas', icon: '💡' },
-  { id: 'townhalls', label: 'Town Halls', icon: '🎤' },
-  { id: 'webtabs', label: 'Web Tabs', icon: '🌐' },
-  { id: 'members', label: 'Members', icon: '👥' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'home' },
+  { id: 'feed', label: 'Feed', icon: 'feeds' },
+  { id: 'forums', label: 'Forums', icon: 'forums' },
+  { id: 'events', label: 'Events', icon: 'events' },
+  { id: 'files', label: 'Files', icon: 'files' },
+  { id: 'manuals', label: 'Manuals', icon: 'manuals' },
+  { id: 'tasks', label: 'Tasks', icon: 'check' },
+  { id: 'ideas', label: 'Ideas', icon: 'ideas' },
+  { id: 'townhalls', label: 'Town Halls', icon: 'mic' },
+  { id: 'webtabs', label: 'Web Tabs', icon: 'webtabs' },
+  { id: 'members', label: 'Members', icon: 'groups' },
 ];
 
 export const RULE_FIELDS = [['batch', 'Batch'], ['city', 'City'], ['dept', 'Department'], ['company', 'Company']];

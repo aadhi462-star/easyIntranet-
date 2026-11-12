@@ -9,6 +9,7 @@ import { dateText, ROLE_LABEL } from '../../lib/platform.js';
 import { toast } from '../../lib/toast.js';
 import { Field } from '../ui.jsx';
 import { AnnouncementBar, Chips, Failed, Loading, Table } from './bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const SECTIONS = [['registration', 'Registration'], ['communities', 'Communities'], ['files', 'Files and storage'], ['features', 'Features']];
 const TYPES = [['pdf', 'PDF'], ['image', 'Images'], ['office', 'Word, Excel, PowerPoint'], ['text', 'Plain text and CSV']];
@@ -172,7 +173,7 @@ export function Announcements() {
   const live = list?.find((a) => !a.endedAt && (!a.endsAt || new Date(a.endsAt) > new Date()));
   const publish = async (e) => {
     e.preventDefault();
-    if (live && !confirm('Publishing replaces the current announcement. Continue?')) return;
+    if (live && !(await confirmAction('Publishing replaces the current announcement. Continue?'))) return;
     setBusy(true); setError('');
     try {
       await api('/admin/announcements', { method: 'POST', body: { message: f.message.trim(), link: f.link.trim() || null, audience: f.audience,

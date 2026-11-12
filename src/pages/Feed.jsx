@@ -14,7 +14,7 @@ const EMPTY = {
   following: 'Follow members from a post’s ⋯ menu to see their updates here.',
   bookmarks: 'Bookmark posts from the ⋯ menu to read them later.',
   drafts: 'Posts you save as drafts appear here.',
-  scheduled: 'Use ⏰ in the composer to schedule a post.',
+  scheduled: 'Use the clock button in the composer to schedule a post.',
   mandatory: 'No mandatory reads right now.',
   pending: 'Nothing is waiting for review.',
   pinned: 'No pinned posts among the latest posts.',

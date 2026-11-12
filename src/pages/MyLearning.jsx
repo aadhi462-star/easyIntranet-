@@ -12,6 +12,7 @@ import { PageHeader } from '../components/ui.jsx';
 import { CommunityTile } from '../components/public/CommunityCards.jsx';
 import { Icon } from '../components/icons.jsx';
 import { Pill, Progress } from '../components/learning/bits.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function MyLearning() {
   const my = useMyLearning();
@@ -26,7 +27,7 @@ export default function MyLearning() {
   const [first, ...more] = inProgress;
 
   const leave = async (c) => {
-    if (!confirm(`Leave the waitlist for “${c.title}”?`)) return;
+    if (!(await confirmAction(`Leave the waitlist for “${c.title}”?`))) return;
     try { await api(`/courses/${c.id}/enroll`, { method: 'DELETE' }); toast('You left the waitlist'); my.reload(); } catch (err) { toast(errorText(err), 'error'); }
   };
 

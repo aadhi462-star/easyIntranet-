@@ -49,7 +49,7 @@ export default function ManualList({ groupId }) {
             return (
               <Link key={m.id} to={`/manuals/${m.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="brand-gradient grid h-11 w-11 place-items-center rounded-xl text-xl" aria-hidden="true"><Glyph value="📖" tile={false} size={16} /></span>
+                  <span className="brand-gradient grid h-11 w-11 place-items-center rounded-xl text-xl" aria-hidden="true"><Glyph value="manuals" tile={false} size={16} /></span>
                   <div className="flex flex-wrap justify-end gap-1">{!m.published && <span className="chip !bg-amber-400/15 !text-amber-200">Unpublished</span>}{m.groupId && <ScopeBadge groupId={m.groupId} />}</div>
                 </div>
                 <h3 className="mt-3 font-semibold">{m.title}</h3>
@@ -59,7 +59,7 @@ export default function ManualList({ groupId }) {
             );
           })}
         </div>
-      ) : <Empty icon="📖" title="No manuals yet">Manuals hold handbooks, guides and checklists.</Empty>}
+      ) : <Empty icon="manuals" title="No manuals yet">Manuals hold handbooks, guides and checklists.</Empty>}
       {creating && <ManualForm groupId={groupId} onClose={() => setCreating(false)} />}
     </div>
   );

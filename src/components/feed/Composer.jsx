@@ -1,4 +1,4 @@
-import { Glyph } from '../icons.jsx';
+import { Glyph, Icon } from '../icons.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { uid, useStore } from '../../lib/store.jsx';
@@ -65,10 +65,10 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
   const canAdmin = !!community && isCommunityAdmin(community);
 
   const TYPES = [
-    { id: 'post', label: 'Status', icon: '✏️' },
-    canAdmin && { id: 'announcement', label: 'Announcement', icon: '📢' },
-    { id: 'poll', label: 'Poll', icon: '📊' },
-    { id: 'question', label: 'Question', icon: '❓' },
+    { id: 'post', label: 'Status', icon: 'pen' },
+    canAdmin && { id: 'announcement', label: 'Announcement', icon: 'announce' },
+    { id: 'poll', label: 'Poll', icon: 'poll' },
+    { id: 'question', label: 'Question', icon: 'questions' },
   ].filter(Boolean);
   // Switching to a community where you aren't an admin drops the admin-only choices.
   useEffect(() => {
@@ -201,7 +201,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
               <Glyph value={t.icon} tile={false} size={16} /> {t.label}
             </button>
           ))}
-          <Link to="/events?new=1" className="min-h-9 rounded-lg px-3 py-2 text-xs font-semibold text-2 hover:bg-white/5"><Glyph value="📅" tile={false} size={16} /> Event</Link>
+          <Link to="/events?new=1" className="min-h-9 rounded-lg px-3 py-2 text-xs font-semibold text-2 hover:bg-white/5"><Glyph value="events" tile={false} size={16} /> Event</Link>
         </div>
       )}
 
@@ -241,7 +241,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
 
       {mandatory && (
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-          ✅ Mandatory Read{mandatory.deadline ? ` · due ${new Date(mandatory.deadline).toLocaleDateString()}` : ''}
+          <Icon name="mandatory" size={14} className="mr-1 inline align-[-2px]" />Mandatory Read{mandatory.deadline ? ` · due ${new Date(mandatory.deadline).toLocaleDateString()}` : ''}
           <button className="ml-auto underline" onClick={() => setMandatoryOpen(true)}>Edit</button>
           <button className="underline" onClick={() => setMandatory(null)}>Remove</button>
         </div>
@@ -274,7 +274,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
         {!editing && <>
           <button className="btn btn-ghost h-11 w-11 !p-0" title="Attach images or PDFs (up to 4, 10 MB each)" aria-label="Attach images or PDFs"
-            disabled={!communityId || uploading || files.length >= 4} onClick={() => picker.current?.click()}><Glyph value="📎" tile={false} size={16} /></button>
+            disabled={!communityId || uploading || files.length >= 4} onClick={() => picker.current?.click()}><Glyph value="paperclip" tile={false} size={16} /></button>
           <input ref={picker} type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={attach} />
           {topics.length > 0 && (
             <select className="input !w-auto !py-2 text-sm" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
@@ -283,10 +283,10 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
             </select>
           )}
           {canAdmin && (
-            <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="✅" tile={false} size={16} /></button>
+            <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="check" tile={false} size={16} /></button>
           )}
           {canAdmin && (
-            <button className={`btn btn-ghost h-11 w-11 !p-0 ${pinned ? 'ring-1 ring-brand-400' : ''}`} title={pinned ? 'Will be pinned' : 'Pin to top'} aria-label="Pin to top" aria-pressed={pinned} onClick={() => setPinned(!pinned)}><Glyph value="📌" tile={false} size={16} /></button>
+            <button className={`btn btn-ghost h-11 w-11 !p-0 ${pinned ? 'ring-1 ring-brand-400' : ''}`} title={pinned ? 'Will be pinned' : 'Pin to top'} aria-label="Pin to top" aria-pressed={pinned} onClick={() => setPinned(!pinned)}><Glyph value="pinned" tile={false} size={16} /></button>
           )}
         </>}
         <span className="flex-1" />
@@ -294,14 +294,14 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
           <select className="input !w-auto !py-2 text-sm" value={communityId} onChange={(e) => setCommunityId(e.target.value)} aria-label="Post to" disabled={!communities}>
             {!communities && <option value="">Loading communities…</option>}
             {communities?.length === 0 && <option value="">Join a community to post</option>}
-            {communities?.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
+            {communities?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
         {(onDone && editing) && <button className="btn btn-ghost" onClick={() => onDone()}>Cancel</button>}
         {compact && !editing && <button className="btn btn-ghost" onClick={reset}>Cancel</button>}
         {!editing && <>
           <button className="btn btn-ghost" disabled={busy} onClick={() => submit('draft')}>Save draft</button>
-          <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="⏰" tile={false} size={16} /></button>
+          <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="scheduled" tile={false} size={16} /></button>
         </>}
         {editing && ['draft', 'scheduled'].includes(initial.status) && <button className="btn btn-ghost" disabled={busy} onClick={() => submit('save')}>Save</button>}
         <button className="btn btn-primary h-11 px-5" disabled={busy || uploading || (!editing && !communityId)} onClick={() => submit('publish')}>

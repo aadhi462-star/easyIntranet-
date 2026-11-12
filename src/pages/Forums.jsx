@@ -33,18 +33,18 @@ export default function Forums() {
     <div className="ext-grid grid gap-6 lg:grid-cols-[220px_1fr]">
       <aside aria-label="Forum menu" className="ext-menu glass h-fit p-3 lg:sticky lg:top-24">
         <nav className="space-y-1">
-          <Link to="/forums" className={link(!id && view === 'all')}><Glyph value="🗂️" tile={false} size={16} /> All posts</Link>
-          <Link to="/forums?view=following" className={link(!id && view === 'following')}><Glyph value="⭐" tile={false} size={16} /> Following</Link>
-          <Link to="/forums?view=unanswered" className={link(!id && view === 'unanswered')}><Glyph value="❓" tile={false} size={16} /> Unanswered</Link>
+          <Link to="/forums" className={link(!id && view === 'all')}><Glyph value="forums" tile={false} size={16} /> All posts</Link>
+          <Link to="/forums?view=following" className={link(!id && view === 'following')}><Glyph value="star" tile={false} size={16} /> Following</Link>
+          <Link to="/forums?view=unanswered" className={link(!id && view === 'unanswered')}><Glyph value="questions" tile={false} size={16} /> Unanswered</Link>
           <button className={`${link(false)} w-full`} onClick={() => setMore(!more)} aria-expanded={more}>⋯ See more</button>
-          {more && <Link to="/forums?view=drafts" className={link(view === 'drafts')}><Glyph value="📝" tile={false} size={16} /> My Drafts</Link>}
+          {more && <Link to="/forums?view=drafts" className={link(view === 'drafts')}><Glyph value="drafts" tile={false} size={16} /> My Drafts</Link>}
         </nav>
         <div className="mt-4 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Categories</div>
         <nav className="space-y-1">
           {state.forumCategories.map((c) => (
             <Link key={c.id} to={`/forums/${c.slug || c.id}`} className={link(category?.id === c.id)}>
               <span className="flex-1 truncate">{c.name}</span>
-              {(follows.includes(c.id) || c.autoFollow) && <span aria-label="Following" title="Following"><Glyph value="⭐" tile={false} size={16} /></span>}
+              {(follows.includes(c.id) || c.autoFollow) && <span aria-label="Following" title="Following"><Glyph value="star" tile={false} size={16} /></span>}
               <span className="text-xs text-slate-500">{count(c.id)}</span>
             </Link>
           ))}
@@ -63,7 +63,7 @@ export default function Forums() {
               actions={category && (
                 <>
                   <button className="btn btn-ghost" onClick={() => toggleFollow(category.id)} disabled={category.autoFollow}>
-                    {category.autoFollow ? 'Auto-followed' : follows.includes(category.id) ? '★ Following' : '☆ Follow'}
+                    {category.autoFollow ? 'Auto-followed' : follows.includes(category.id) ? 'Following' : '☆ Follow'}
                   </button>
                   {can('forum.category') && <button className="btn btn-ghost" onClick={() => setCatModal(category)}>Edit</button>}
                   {can('forum.category') && (

@@ -27,7 +27,7 @@ export default function FeedList({ scope, composer = true, readOnly = false, gro
   }, [me?.id, community]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!me) {
-    return <Empty icon="📭" title="Sign in to see posts"><Link to="/login" className="text-brand-400 hover:underline">Sign in</Link> to read and join the conversation.</Empty>;
+    return <Empty icon="inbox" title="Sign in to see posts"><Link to="/login" className="text-brand-400 hover:underline">Sign in</Link> to read and join the conversation.</Empty>;
   }
 
   const isAdmin = isCommunityAdmin(membership);
@@ -45,7 +45,7 @@ export default function FeedList({ scope, composer = true, readOnly = false, gro
           <div role="alert" className="glass p-6 text-center text-sm"><p className="text-rose-300">{feed.error}</p>
             <button className="btn btn-ghost mt-3" onClick={feed.reload}>Try again</button></div>
         ) : posts.length === 0 ? (
-          <Empty icon="📭" title="No posts yet">{showComposer ? 'Be the first to share something.' : feed.nextBefore ? 'Older posts may appear with “Load more”.' : ''}</Empty>
+          <Empty icon="inbox" title="No posts yet">{showComposer ? 'Be the first to share something.' : feed.nextBefore ? 'Older posts may appear with “Load more”.' : ''}</Empty>
         ) : posts.map((p) => <PostCard key={p.id} post={p} />)}
       {feed.status === 'ready' && feed.error && <p role="alert" className="text-center text-sm text-rose-300">{feed.error}</p>}
       {feed.status === 'ready' && feed.nextBefore && (

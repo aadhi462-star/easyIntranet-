@@ -28,7 +28,7 @@ function useCreateGroup() {
   // Errors are rethrown so the form can show them next to the fields.
   return async (values) => {
     const { community } = await communityApi.create({
-      name: values.name, description: values.description || null, category: values.type, emoji: values.emoji,
+      name: values.name, description: values.description || null, category: values.type,
       visibility: visibilityOf(values.accessType),
       settings: { apps: values.apps, dashboard: [{ id: 'w-about', kind: 'about' }, { id: 'w-members', kind: 'members' }] },
     });

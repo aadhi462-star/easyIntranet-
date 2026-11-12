@@ -10,6 +10,7 @@ import { toast } from '../../lib/toast.js';
 import { Modal } from '../ui.jsx';
 import { CommunityTile, VisibilityBadge } from '../public/CommunityCards.jsx';
 import { Chips, Failed, Loading, ReasonDialog, Table } from './bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const SHOW = [['all', 'All'], ['requests', 'Deletion requests'], ['no_owner', 'No active Owner'], ['suspended', 'Suspended'], ['archived', 'Archived'], ['deleted', 'Deleted, restorable']];
 const bytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} bytes`);
@@ -107,7 +108,7 @@ function Panel({ id, onClose, onChanged }) {
             {c.status === 'suspended' && <button className="btn btn-primary" onClick={async () => { try { await post('unsuspend'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Lift suspension</button>}
             {c.status !== 'deleted' && !s.d.staff.some((m) => m.role === 'owner' && m.accountStatus === 'active') && <button className="btn btn-ghost" onClick={() => setDialog('owner')}>Make someone Owner…</button>}
             {c.status !== 'deleted' && !c.isDefault && !req && <button className="btn btn-ghost text-rose-300" onClick={() => setDialog('delete')}>Delete…</button>}
-            {c.status === 'deleted' && !c.purging && <button className="btn btn-primary" onClick={async () => { if (!confirm(`Restore ${c.name}? Everything comes back as it was, memberships included.`)) return; try { await post('restore'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Restore</button>}
+            {c.status === 'deleted' && !c.purging && <button className="btn btn-primary" onClick={async () => { if (!(await confirmAction(`Restore ${c.name}? Everything comes back as it was, memberships included.`))) return; try { await post('restore'); done('Community restored'); } catch (e) { toast(errorText(e), 'error'); } }}>Restore</button>}
           </div>
           {dialog === 'suspend' && <ReasonDialog title={`Suspend ${c.name}`} action="Suspend" danger reasonHint="Required; its staff see it" onClose={() => setDialog(null)}
             intro="It’s hidden from everyone except its own Owners, Admins and Moderators, who can read it but not change it. Nothing is deleted."
@@ -172,7 +173,7 @@ function OwnerPicker({ c, onClose, onPick }) {
     return () => clearTimeout(t);
   }, [c.id, q]);
   const pick = async (m) => {
-    if (!confirm(`Make ${m.name} an Owner of ${c.name}? The previous Owner, if still a member, becomes an Admin.`)) return;
+    if (!(await confirmAction(`Make ${m.name} an Owner of ${c.name}? The previous Owner, if still a member, becomes an Admin.`))) return;
     try { await onPick(m.id); } catch (e) { setError(errorText(e)); }
   };
   return (

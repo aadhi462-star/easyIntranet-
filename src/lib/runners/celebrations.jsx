@@ -24,7 +24,7 @@ export default function Celebrations() {
       if (!onDay(u.birthday, now) || u.birthdayGreetedYear === year || handled.has(key)) return;
       handled.add(key);
       dispatch({ type: 'profile/update', silent: true, patch: { birthdayGreetedYear: year } });
-      dispatch({ type: 'notify', silent: true, notification: { id: `bday-${u.id}-${year}`, userId: u.id, kind: 'birthday', text: 'Happy birthday from the community 🎉', link: '/feed' } });
+      dispatch({ type: 'notify', silent: true, notification: { id: `bday-${u.id}-${year}`, userId: u.id, kind: 'birthday', text: 'Happy birthday from the community', link: '/feed' } });
     };
     tick();
     // Re-check hourly so a session left open past midnight still greets on the day.

@@ -11,6 +11,7 @@ import Signup from './pages/Signup.jsx';
 import Explore from './pages/Explore.jsx';
 import { ConfirmEmail, ResetPassword, VerifyEmail } from './components/auth/TokenPages.jsx';
 import AuthSync from './components/auth/AuthSync.jsx';
+import { ConfirmHost } from './components/ui/Confirm.jsx';
 
 // Pages load lazily by file name, so each module ships as its own chunk.
 const files = import.meta.glob(['./pages/*.jsx', '!./pages/{Landing,Login,Invite,Signup,Explore}.jsx']);
@@ -103,6 +104,7 @@ export default function App() {
   return (
     <HashRouter>
       <AuthSync />
+      <ConfirmHost />
       {runners.map((R, i) => <R key={i} />)}
       <Routes>
         <Route path="/" element={me ? <Navigate to={state.settings.landing || '/dashboard'} replace /> : <Landing />} />

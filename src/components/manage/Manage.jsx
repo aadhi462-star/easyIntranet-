@@ -18,6 +18,7 @@ import Settings from '../groups/Settings.jsx';
 import Cases, { Appeals } from './Cases.jsx';
 import ManageMembers from './ManageMembers.jsx';
 import Analytics from './Analytics.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const SECTIONS = [
   { id: 'overview', label: 'Overview' },
@@ -135,7 +136,7 @@ function DangerZone({ g }) {
   const load = useCallback(() => api(`/communities/${encodeURIComponent(g.id)}/deletion-request`).then((d) => setReq(d.request)).catch(() => setReq(null)), [g.id]);
   useEffect(() => { load(); }, [load]);
   const withdraw = async () => {
-    if (!confirm('Withdraw the deletion request?')) return;
+    if (!(await confirmAction('Withdraw the deletion request?'))) return;
     try { setReq((await api(`/communities/${encodeURIComponent(g.id)}/deletion-request`, { method: 'DELETE' })).request); toast('Request withdrawn'); } catch (err) { toast(errorText(err), 'error'); }
   };
   const pending = req?.status === 'open';

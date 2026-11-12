@@ -171,7 +171,7 @@ async function seedCommunities() {
   await db.tx(async (t) => {
     const add = async (c, members) => {
       await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings, accent) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [c.id, slug(c.name), c.name, c.description || null, c.category || null, c.emoji || null, c.visibility, c.owner, JSON.stringify(c.settings || {}), ACCENT[c.id] ?? await pickAccent(t)]);
+        [c.id, slug(c.name), c.name, c.description || null, c.category || null, null, c.visibility, c.owner, JSON.stringify(c.settings || {}), ACCENT[c.id] ?? await pickAccent(t)]);
       counts.communities += 1;
       for (const [uid, role] of members) {
         if (!active.has(uid)) continue;
@@ -180,7 +180,7 @@ async function seedCommunities() {
       }
     };
     const net = proto.settings?.networkName || 'AlumniZone';
-    await add({ id: 'alumnizone', name: net, description: proto.settings?.tagline || 'The alumni community.', category: 'Alumni', emoji: '🎓', visibility: 'public', owner: 'u7' },
+    await add({ id: 'alumnizone', name: net, description: proto.settings?.tagline || 'The alumni community.', category: 'Alumni', emoji: null, visibility: 'public', owner: 'u7' },
       [...active].map((uid) => [uid, uid === 'u7' ? 'owner' : proto.users.find((u) => u.id === uid)?.admin ? 'admin' : 'member']));
     for (const g of proto.groups || []) {
       const owner = (g.admins || []).find((x) => active.has(x)) ?? g.members.find((x) => active.has(x));

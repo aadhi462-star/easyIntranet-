@@ -52,7 +52,7 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
           )}
         </div>
         <div className="relative">
-          <button type="button" className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post settings" onClick={() => setGear(!gear)}><Glyph value="⚙️" tile={false} size={16} /></button>
+          <button type="button" className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post settings" onClick={() => setGear(!gear)}><Glyph value="admin" tile={false} size={16} /></button>
           {gear && (
             <div className="glass glass-strong absolute left-0 z-30 mt-1 w-56 p-1.5">
               <button className="min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-white/5" onClick={() => { setCD(!commentsDisabled); setGear(false); }}>
@@ -129,9 +129,9 @@ export function ForumCard({ post }) {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
           <Avatar user={user(post.authorId)} size={20} /> {user(post.authorId)?.name} · {timeAgo(post.createdAt)}
           {cats.map((c) => <Link key={c.id} to={`/forums/${c.slug || c.id}`} className="chip">{c.name}</Link>)}
-          <span><Glyph value="💬" tile={false} size={16} /> {post.replies.length}</span>
+          <span><Glyph value="channels" tile={false} size={16} /> {post.replies.length}</span>
           {post.bestReplyId && <span className="chip !bg-emerald-500/15 !text-emerald-200">✓ Answered</span>}
-          {post.commentsDisabled && <span><Glyph value="🔇" tile={false} size={16} /></span>}
+          {post.commentsDisabled && <span><Glyph value="micoff" tile={false} size={16} /></span>}
         </div>
       </div>
     </article>
@@ -187,7 +187,7 @@ export function ForumPostView({ post }) {
           </div>
         ))}
         {post.commentsDisabled ? (
-          <p className="glass p-4 text-sm text-slate-400"><Glyph value="🔇" tile={false} size={16} /> The author turned off replies for this post.</p>
+          <p className="glass p-4 text-sm text-slate-400"><Glyph value="micoff" tile={false} size={16} /> The author turned off replies for this post.</p>
         ) : post.status === 'published' && (
           <form className="glass flex gap-2 p-3" onSubmit={(e) => {
             e.preventDefault(); if (!reply.trim()) return;

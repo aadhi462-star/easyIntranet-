@@ -4,6 +4,7 @@ import { fmtDate, timeAgo, useStore } from '../../lib/store.jsx';
 import { BADGES } from '../../lib/gamify.js';
 import { runJob, INTERVALS } from '../../lib/runners/schedulers.jsx';
 import { Field, Modal } from '../ui.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export const TRIGGERS = [
   ['signup', 'A new member signs up'], ['post/create', 'A post is published'], ['post/comment', 'Someone comments on a post'],
@@ -29,11 +30,11 @@ export function Workflows() {
       {list.map((wf) => (
         <article key={wf.id} className="glass p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="flex-1 font-bold"><Glyph value="⚡" tile={false} size={16} /> {wf.name}</h3>
+            <h3 className="flex-1 font-bold"><Glyph value="bolt" tile={false} size={16} /> {wf.name}</h3>
             <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={wf.enabled}
               onChange={(e) => dispatch({ type: 'update', col: 'workflows', id: wf.id, patch: { enabled: e.target.checked } })} />Enabled</label>
             <button className="btn btn-ghost h-10" onClick={() => setEditing(wf)}>Edit</button>
-            <button className="btn btn-ghost h-10" onClick={() => confirm(`Delete “${wf.name}”?`) && dispatch({ type: 'remove', col: 'workflows', id: wf.id })}>Delete</button>
+            <button className="btn btn-ghost h-10" onClick={async () => (await confirmAction(`Delete “${wf.name}”?`)) && dispatch({ type: 'remove', col: 'workflows', id: wf.id })}>Delete</button>
           </div>
           <p className="mt-1 text-sm text-slate-300">
             <b>When</b> {triggerLabel(wf.trigger).toLowerCase()}
@@ -86,7 +87,7 @@ function WorkflowEditor({ wf, onClose }) {
                 <select className="input !w-48" value={a.kind} onChange={(e) => setAct(i, { kind: e.target.value })} aria-label="Action">{ACTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
                 {a.kind === 'awardBadge' ? (
                   <select className="input min-w-40 flex-1" value={a.badgeId || ''} onChange={(e) => setAct(i, { badgeId: e.target.value })} aria-label="Badge">
-                    <option value="">Choose badge…</option>{BADGES.map((b) => <option key={b.id} value={b.id}>{b.icon} {b.name}</option>)}</select>
+                    <option value="">Choose badge…</option>{BADGES.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
                 ) : (
                   <input className="input min-w-40 flex-1" value={a.text || ''} onChange={(e) => setAct(i, { text: e.target.value })} placeholder="Message / title" aria-label="Action text" />
                 )}
@@ -123,7 +124,7 @@ export function Schedulers() {
       {list.map((j) => (
         <article key={j.id} className="glass flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-56 flex-1">
-            <h3 className="font-bold"><Glyph value="⏱️" tile={false} size={16} /> {j.name}</h3>
+            <h3 className="font-bold"><Glyph value="clock" tile={false} size={16} /> {j.name}</h3>
             <p className="text-xs text-slate-400">{KINDS.find(([v]) => v === j.kind)?.[1]} · {j.interval}
               · last run {j.lastRun ? timeAgo(j.lastRun) : 'never'} · next {j.enabled && j.nextRun ? fmtDate(j.nextRun) : '—'}</p>
           </div>
@@ -131,7 +132,7 @@ export function Schedulers() {
             {Object.keys(INTERVALS).map((k) => <option key={k}>{k}</option>)}</select>
           <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5 accent-brand-500" checked={j.enabled} onChange={(e) => upd(j.id, { enabled: e.target.checked })} />On</label>
           <button className="btn btn-ghost h-10" onClick={() => runJob(j, state, dispatch)}>Run now</button>
-          <button className="btn btn-ghost h-10" onClick={() => confirm(`Delete “${j.name}”?`) && dispatch({ type: 'remove', col: 'schedulers', id: j.id })} aria-label={`Delete ${j.name}`}>✕</button>
+          <button className="btn btn-ghost h-10" onClick={async () => (await confirmAction(`Delete “${j.name}”?`)) && dispatch({ type: 'remove', col: 'schedulers', id: j.id })} aria-label={`Delete ${j.name}`}>✕</button>
         </article>
       ))}
       <form className="glass grid gap-3 p-4 sm:grid-cols-2" onSubmit={(e) => {

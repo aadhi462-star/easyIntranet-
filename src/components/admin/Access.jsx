@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { uid, useStore } from '../../lib/store.jsx';
 import { PERMS } from '../../data/modules/admin.js';
 import { Field } from '../ui.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export function Roles() {
   const { state, dispatch } = useStore();
@@ -24,7 +25,7 @@ export function Roles() {
                   <span className="block normal-case text-white">{r.name}</span>
                   <span className="font-normal normal-case">{countOf(r.id)} members</span>
                   {!r.system && <button className="mt-1 block w-full text-[11px] normal-case text-rose-300 hover:underline"
-                    onClick={() => countOf(r.id) ? alert('Move members to another role first.') : confirm(`Delete role “${r.name}”?`) && dispatch({ type: 'remove', col: 'roles', id: r.id })}>Delete</button>}
+                    onClick={async () => countOf(r.id) ? alert('Move members to another role first.') : (await confirmAction(`Delete role “${r.name}”?`)) && dispatch({ type: 'remove', col: 'roles', id: r.id })}>Delete</button>}
                 </th>
               ))}
             </tr>
@@ -94,7 +95,7 @@ export function ProfileFields() {
               <option value="everyone">Everyone</option><option value="admins">Admins only</option><option value="self">Only the member</option></select>
             {f.type === 'select' && <input className="input min-w-48 flex-1" value={f.options.join(', ')} placeholder="Options" aria-label="Options"
               onChange={(e) => upd(f.id, { options: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />}
-            <button className="btn btn-ghost h-10 w-10 !p-0" onClick={() => confirm(`Delete field “${f.label}”?`) && dispatch({ type: 'remove', col: 'customFields', id: f.id })} aria-label={`Delete ${f.label}`}>✕</button>
+            <button className="btn btn-ghost h-10 w-10 !p-0" onClick={async () => (await confirmAction(`Delete field “${f.label}”?`)) && dispatch({ type: 'remove', col: 'customFields', id: f.id })} aria-label={`Delete ${f.label}`}>✕</button>
           </li>
         ))}
       </ul>

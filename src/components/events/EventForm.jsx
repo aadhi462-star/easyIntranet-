@@ -228,12 +228,12 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
             </div>
             {f.share === 'group' && (
               <select className="input mt-2" value={f.groupId} onChange={(e) => set('groupId', e.target.value)} aria-label="Group">
-                {groups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             )}
             {f.share === 'private' && (
               <select className="input mt-2" value={f.groupId} onChange={(e) => setF((x) => ({ ...x, groupId: e.target.value, invitees: [], assistants: [] }))} aria-label="Community for this event">
-                {(communities || []).map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
+                {(communities || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
           </fieldset>
@@ -282,7 +282,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
         </fieldset>
 
         {/* Files need secure, access-checked storage (Resources, Phase 2), so none are faked here. */}
-        <p className="text-xs text-3">📎 Attachments are coming soon.</p>
+        <p className="text-xs text-3">Attachments are coming soon.</p>
 
         {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">

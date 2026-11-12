@@ -7,6 +7,7 @@ import { Icon } from '../icons.jsx';
 import { communityApi, communityPath } from '../../lib/communities.js';
 import { roleOf } from './helpers.js';
 import { useChannelSync, useCommunityWrite } from './useCommunity.js';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 /** Shared leave flow: confirm, then leave on the server (which refuses an owner or the last admin). */
 export function useLeaveGroup() {
@@ -14,7 +15,7 @@ export function useLeaveGroup() {
   const { run } = useCommunityWrite();
   const channels = useChannelSync();
   return async (g) => {
-    if (!confirm(`Leave ${g.name}?`)) return;
+    if (!(await confirmAction(`Leave ${g.name}?`))) return;
     if (await run(g.id, () => communityApi.leave(g.id), { ok: `You left ${g.name}` })) channels.drop(g.id, me.id);
   };
 }

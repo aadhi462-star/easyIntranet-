@@ -64,7 +64,7 @@ export function DocEditor({ value, onChange, readOnly }) {
             <button key={cmd} type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm font-semibold hover:bg-white/10" aria-label={name} title={name}
               onMouseDown={(e) => { e.preventDefault(); run(cmd); }}>{label}</button>
           ))}
-          <button type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm hover:bg-white/10" aria-label="Insert link" onMouseDown={(e) => { e.preventDefault(); link(); }}><Glyph value="🔗" tile={false} size={16} /></button>
+          <button type="button" className="h-10 min-w-10 rounded-lg px-2 text-sm hover:bg-white/10" aria-label="Insert link" onMouseDown={(e) => { e.preventDefault(); link(); }}><Glyph value="link" tile={false} size={16} /></button>
         </div>
       )}
       <div ref={ref} contentEditable={!readOnly} suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Document"
@@ -212,7 +212,7 @@ export function SlidesEditor({ value, onChange, readOnly }) {
       </ol>
       <div>
         <div className="mb-2 flex flex-wrap gap-2">
-          <button className="btn btn-primary" onClick={() => setPresent(true)}>▶ Present</button>
+          <button className="btn btn-primary" onClick={() => setPresent(true)}>Present</button>
           {!readOnly && <>
             <button className="btn btn-ghost" disabled={!cur} onClick={() => { const a = [...slides]; [a[cur - 1], a[cur]] = [a[cur], a[cur - 1]]; setSlides(a); setCur(cur - 1); }}>↑ Move up</button>
             <button className="btn btn-ghost text-rose-300" disabled={slides.length < 2} onClick={() => { setSlides(slides.filter((_, i) => i !== cur)); setCur(Math.max(0, cur - 1)); }}>Delete slide</button>

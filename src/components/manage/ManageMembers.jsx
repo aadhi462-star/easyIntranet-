@@ -10,6 +10,7 @@ import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
 import { RANK } from '../groups/helpers.js';
 import { Pill } from '../learning/bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const FILTERS = [['all', 'Everyone'], ['staff', 'Owners, Admins, Moderators'], ['restricted', 'Restricted'], ['out', 'Removed or blocked']];
 const STAFF = ['owner', 'admin', 'moderator'];
@@ -44,7 +45,7 @@ export default function ManageMembers({ g, perms }) {
   };
   const lift = async (m) => {
     const what = m.state === 'restricted' ? 'Lift the restriction' : m.state === 'blocked' ? 'Unblock' : 'Let them ask to join again';
-    if (!confirm(`${what} for ${m.name}?`)) return;
+    if (!(await confirmAction(`${what} for ${m.name}?`))) return;
     try { await api(`/communities/${encodeURIComponent(g.id)}/members/${m.id}/lift`, { method: 'POST' }); toast('Done'); load(); } catch (err) { toast(errorText(err), 'error'); }
   };
 

@@ -50,7 +50,7 @@ export default function EventCard({ event }) {
   const d = new Date(start);
   const going = Object.entries(event.rsvps || {}).filter(([, v]) => v === 'going').map(([k]) => k);
   const cancelled = event.status === 'cancelled';
-  const color = TYPE_COLORS[event.eventType] ?? '#a3e635';
+  const color = TYPE_COLORS[event.eventType] ?? '#168c70';
   const past = (event.occEnd ?? event.end) < Date.now();
   return (
     <article className={`glass flex flex-col gap-4 p-4 sm:flex-row sm:items-center ${past || cancelled ? 'opacity-70' : ''}`}>
@@ -69,7 +69,7 @@ export default function EventCard({ event }) {
           </div>
           <p className="mt-1 text-sm text-2">{whenText(event)}</p>
           <p className="mt-0.5 truncate text-xs text-3">
-            {scopeLabel(event, state.groups)}{event.location && ` · 📍 ${event.location}`}{recurrenceText(event.recurrence) && ` · 🔁 ${recurrenceText(event.recurrence)}`}
+            {scopeLabel(event, state.groups)}{event.location && ` · ${event.location}`}{recurrenceText(event.recurrence) && ` · ${recurrenceText(event.recurrence)}`}
           </p>
           {going.length > 0 && <div className="mt-2 flex items-center gap-2 text-xs text-3"><AvatarStack ids={going} size={22} />{event.counts?.going ?? going.length} going{event.capacity ? ` of ${event.capacity}` : ''}</div>}
         </div>

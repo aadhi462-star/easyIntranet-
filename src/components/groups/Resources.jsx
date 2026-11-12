@@ -9,6 +9,7 @@ import { toast } from '../../lib/toast.js';
 import { Field, Modal } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import SaveButton from '../SaveButton.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const MB = 1024 * 1024;
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.xlsx,.pptx,.txt,.csv,.md';
@@ -50,7 +51,7 @@ export default function Resources({ g }) {
     try { setModal({ mode: 'file', file: await uploadFile(g.id, file) }); } catch (err) { toast(errorText(err), 'error'); } finally { setUploading(false); }
   };
   const remove = async (res) => {
-    if (!confirm(`Delete “${res.title}”? It stops opening for everyone straight away.`)) return;
+    if (!(await confirmAction(`Delete “${res.title}”? It stops opening for everyone straight away.`))) return;
     try { await api(`/resources/${res.id}`, { method: 'DELETE' }); toast('Resource deleted'); r.reload(); } catch (err) { toast(errorText(err), 'error'); }
   };
   const addButtons = r.canAdd && (

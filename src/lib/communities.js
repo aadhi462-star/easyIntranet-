@@ -41,7 +41,7 @@ export function accentOf(c) {
 export function toLocalGroup(c, { members, membership = c.membership ?? null, permissions, requests, me } = {}) {
   const settings = c.settings || {};
   const out = {
-    id: c.id, slug: c.slug || c.id, name: c.name, description: c.description || '', type: c.category || 'Interest', emoji: c.emoji || '👥', accent: c.accent,
+    id: c.id, slug: c.slug || c.id, name: c.name, description: c.description || '', type: c.category || 'Interest', emoji: c.emoji || null, accent: c.accent,
     accessType: TO_ACCESS[c.visibility] ?? 'public',
     status: c.status, memberCount: c.memberCount ?? members?.length ?? 0,
     myMembership: membership, permissions: permissions ?? null,

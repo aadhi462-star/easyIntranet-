@@ -18,7 +18,7 @@ export default function Live() {
   if (bc) return <Broadcast key={bc.id} bc={bc} />;
   const mt = (state.meetings || []).find((m) => m.id === id);
   if (mt) return <MeetingRoom key={mt.id} mt={mt} />;
-  return <Empty icon="📡" title="Room not found">Check the link or code. <Link to="/live" className="text-brand-400 underline">Back to Live</Link></Empty>;
+  return <Empty icon="live" title="Room not found">Check the link or code. <Link to="/live" className="text-brand-400 underline">Back to Live</Link></Empty>;
 }
 
 function LiveHome() {
@@ -40,9 +40,9 @@ function LiveHome() {
     <div>
       <PageHeader title="Live & Meetings" subtitle="Stream to the whole network or meet face to face."
         actions={<>
-          <button className="btn btn-ghost" onClick={instant}><Glyph value="⚡" tile={false} size={16} /> Instant meeting</button>
-          <button className="btn btn-ghost" onClick={() => setModal('meeting')}>🗓 Schedule meeting</button>
-          <button className="btn btn-primary" onClick={() => setModal('broadcast')}><Glyph value="📡" tile={false} size={16} /> New broadcast</button>
+          <button className="btn btn-ghost" onClick={instant}><Glyph value="bolt" tile={false} size={16} /> Instant meeting</button>
+          <button className="btn btn-ghost" onClick={() => setModal('meeting')}>Schedule meeting</button>
+          <button className="btn btn-primary" onClick={() => setModal('broadcast')}><Glyph value="live" tile={false} size={16} /> New broadcast</button>
         </>} />
       <form className="glass mb-5 flex flex-wrap items-center gap-2 p-3" onSubmit={(e) => { e.preventDefault(); const c = code.trim().split('/').pop(); if (c) nav(`/live/${c}`); }}>
         <label htmlFor="code" className="px-1 text-sm font-semibold">Join with a link or code</label>
@@ -57,7 +57,7 @@ function LiveHome() {
               <span className={`chip ${b.status === 'live' ? '!bg-rose-500/20 !text-rose-200' : b.status === 'ended' ? '!bg-white/10 !text-slate-400' : ''}`}>
                 {b.status === 'live' ? '● Live now' : b.status === 'ended' ? 'Ended' : 'Scheduled'}
               </span>
-              <h3 className="mt-3 font-bold"><Glyph value="📡" tile={false} size={16} /> {b.title}</h3>
+              <h3 className="mt-3 font-bold"><Glyph value="live" tile={false} size={16} /> {b.title}</h3>
               <p className="mt-1 line-clamp-2 text-sm text-slate-400">{b.description}</p>
               <p className="mt-3 text-xs text-slate-400">
                 {new Date(b.scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · Host {state.users.find((u) => u.id === b.hostId)?.name}
@@ -65,21 +65,21 @@ function LiveHome() {
               </p>
             </Link>
           ))}
-          {!broadcasts.length && <Empty icon="📡" title="No broadcasts yet" />}
+          {!broadcasts.length && <Empty icon="live" title="No broadcasts yet" />}
         </div>
       ) : (
         <div className="space-y-3">
           {meetings.map((m) => (
             <Link key={m.id} to={`/live/${m.id}`} className="glass flex flex-wrap items-center gap-4 p-4">
               <div className="flex-1">
-                <h3 className="font-bold"><Glyph value="🎥" tile={false} size={16} /> {m.title}</h3>
+                <h3 className="font-bold"><Glyph value="video" tile={false} size={16} /> {m.title}</h3>
                 <p className="text-xs text-slate-400">{new Date(m.scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} · code <code>{m.id}</code></p>
               </div>
               <AvatarStack ids={m.participants} />
               <span className="btn btn-primary">Join</span>
             </Link>
           ))}
-          {!meetings.length && <Empty icon="🎥" title="No meetings">Start an instant meeting or schedule one.</Empty>}
+          {!meetings.length && <Empty icon="video" title="No meetings">Start an instant meeting or schedule one.</Empty>}
         </div>
       )}
       {modal && <CreateModal kind={modal} onClose={() => setModal(null)} />}
@@ -148,9 +148,9 @@ function Broadcast({ bc }) {
     <div className="space-y-4">
       <Link to="/live" className="text-sm text-slate-400 hover:text-white">← Live & Meetings</Link>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-extrabold tracking-tight"><Glyph value="📡" tile={false} size={16} /> {bc.title}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight"><Glyph value="live" tile={false} size={16} /> {bc.title}</h1>
         <span className={`chip ${live ? '!bg-rose-500/20 !text-rose-200' : bc.status === 'ended' ? '!bg-white/10 !text-slate-400' : ''}`}>{live ? '● Live' : bc.status === 'ended' ? 'Ended' : 'Scheduled'}</span>
-        {live && <span className="chip !bg-white/10 !text-slate-200"><Glyph value="👁" tile={false} size={16} /> {viewers} watching <span className="opacity-60">(simulated)</span></span>}
+        {live && <span className="chip !bg-white/10 !text-slate-200"><Glyph value="eye" tile={false} size={16} /> {viewers} watching <span className="opacity-60">(simulated)</span></span>}
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         {isHost ? <Studio bc={bc} setBc={setBc} viewers={viewers} /> : <Viewer bc={bc} />}
@@ -204,23 +204,23 @@ function Studio({ bc, setBc, viewers }) {
           </div>
         )}
         {live && <span className="absolute left-3 top-3 rounded-md bg-rose-600 px-2 py-1 text-xs font-bold">● LIVE <Elapsed since={bc.startedAt || Date.now()} /></span>}
-        {recorder.recording && <span className="absolute right-3 top-3 rounded-md bg-black/70 px-2 py-1 text-xs font-bold text-rose-300"><Glyph value="⏺" tile={false} size={16} /> REC <Elapsed since={recorder.startedAt} /></span>}
+        {recorder.recording && <span className="absolute right-3 top-3 rounded-md bg-black/70 px-2 py-1 text-xs font-bold text-rose-300"><Glyph value="record" tile={false} size={16} /> REC <Elapsed since={recorder.startedAt} /></span>}
       </div>
 
       {(media.error || recorder.error) && <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{media.error || recorder.error}</p>}
 
       {!ended && (
         <div className="glass flex flex-wrap items-center justify-center gap-3 p-3">
-          {!media.stream ? <button className="btn btn-primary" onClick={media.start} disabled={media.starting}>{media.starting ? 'Starting…' : '🎥 Start camera & mic'}</button> : <>
-            <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute microphone' : 'Unmute microphone'} icon="🎙️" offIcon="🔇" />
-            <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Turn camera off' : 'Turn camera on'} icon="📷" offIcon="🚫" />
+          {!media.stream ? <button className="btn btn-primary" onClick={media.start} disabled={media.starting}>{media.starting ? 'Starting…' : 'Start camera & mic'}</button> : <>
+            <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute microphone' : 'Unmute microphone'} icon="🎙️" offIcon="micoff" />
+            <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Turn camera off' : 'Turn camera on'} icon="📷" offIcon="ban" />
           </>}
           <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing screen' : 'Share screen'} icon="🖥️" offIcon="⏹" />
           <select className="input !w-auto" value={layout} onChange={(e) => setLayout(e.target.value)} aria-label="Stage layout">
             <option value="auto">Layout: Screen + camera</option><option value="side">Layout: Side by side</option><option value="screen">Layout: Screen only</option><option value="camera">Layout: Camera only</option>
           </select>
-          {recorder.recording ? <button className="btn btn-ghost !text-rose-300" onClick={recorder.stop}>⏹ Stop recording</button>
-            : <button className="btn btn-ghost" onClick={() => recorder.start(recordStream())} disabled={!media.stream && !media.screen}><Glyph value="⏺" tile={false} size={16} /> Record</button>}
+          {recorder.recording ? <button className="btn btn-ghost !text-rose-300" onClick={recorder.stop}>Stop recording</button>
+            : <button className="btn btn-ghost" onClick={() => recorder.start(recordStream())} disabled={!media.stream && !media.screen}><Glyph value="record" tile={false} size={16} /> Record</button>}
           {live ? <button className="btn bg-rose-600 text-white hover:bg-rose-500" onClick={end}>End broadcast</button>
             : <button className="btn btn-primary" onClick={goLive}>● Go live</button>}
         </div>
@@ -230,7 +230,7 @@ function Studio({ bc, setBc, viewers }) {
         <div className="glass p-4">
           <h3 className="mb-2 font-bold">Recordings</h3>
           <ul className="space-y-2 text-sm">
-            {recorder.clips.map((c) => <li key={c.url} className="flex items-center gap-3">🎞 <span className="flex-1 truncate">{c.name}</span><span className="text-xs text-slate-500">{fmtSize(c.size)}</span><a className="btn btn-ghost !py-1.5" href={c.url} download={c.name}>Download</a></li>)}
+            {recorder.clips.map((c) => <li key={c.url} className="flex items-center gap-3"><span className="flex-1 truncate">{c.name}</span><span className="text-xs text-slate-500">{fmtSize(c.size)}</span><a className="btn btn-ghost !py-1.5" href={c.url} download={c.name}>Download</a></li>)}
           </ul>
         </div>
       )}
@@ -264,7 +264,7 @@ function Viewer({ bc }) {
         {bc.status === 'scheduled' && (
           <button className="btn btn-ghost mt-3" aria-pressed={subscribed}
             onClick={() => dispatch({ type: 'update', col: 'broadcasts', id: bc.id, patch: (x, m) => ({ ...x, subscribers: subscribed ? x.subscribers.filter((s) => s !== m) : [...(x.subscribers || []), m] }) })}>
-            {subscribed ? '✓ You’ll be notified' : '🔔 Notify me when live'}
+            {subscribed ? '✓ You’ll be notified' : 'Notify me when live'}
           </button>
         )}
       </div>
@@ -304,7 +304,7 @@ function MeetingRoom({ mt }) {
       <div className="mx-auto max-w-xl space-y-4">
         <Link to="/live" className="text-sm text-slate-400 hover:text-white">← Live & Meetings</Link>
         <section className="glass p-6 text-center">
-          <h1 className="text-2xl font-extrabold"><Glyph value="🎥" tile={false} size={16} /> {mt.title}</h1>
+          <h1 className="text-2xl font-extrabold"><Glyph value="video" tile={false} size={16} /> {mt.title}</h1>
           <p className="mt-1 text-sm text-slate-400">Hosted by {state.users.find((u) => u.id === mt.hostId)?.name} · code <code>{mt.id}</code></p>
           <div className="mt-5 flex justify-center"><AvatarStack ids={mt.participants} max={6} size={36} /></div>
           <p className="mt-2 text-sm text-slate-400">{mt.participants.length} invited</p>
@@ -324,8 +324,8 @@ function MeetingRoom({ mt }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-extrabold"><Glyph value="🎥" tile={false} size={16} /> {mt.title}</h1>
-        <button className="btn btn-ghost" onClick={copy}>{copied ? '✓ Link copied' : '🔗 Copy invite link'}</button>
+        <h1 className="text-xl font-extrabold"><Glyph value="video" tile={false} size={16} /> {mt.title}</h1>
+        <button className="btn btn-ghost" onClick={copy}>{copied ? '✓ Link copied' : 'Copy invite link'}</button>
       </div>
       {media.error && <p role="alert" className="rounded-xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{media.error} You’re in the meeting without audio or video.</p>}
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -336,7 +336,7 @@ function MeetingRoom({ mt }) {
                 : t.local && media.stream && media.cam ? <Video stream={media.stream} mirror />
                   : <div className="grid h-full place-items-center"><Avatar user={t.user} size={72} /></div>}
               <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-xs">
-                {t.screen ? '🖥️ Your screen' : t.local ? `${me.name} (you)${media.mic ? '' : ' · 🔇'}` : `${t.user.name} · simulated`}
+                {t.screen ? 'Your screen' : t.local ? `${me.name} (you)${media.mic ? '' : ' · 🔇'}` : `${t.user.name} · simulated`}
               </span>
             </div>
           ))}
@@ -348,7 +348,7 @@ function MeetingRoom({ mt }) {
               {[me, ...others].map((u) => (
                 <li key={u.id} className="flex items-center gap-2 text-sm">
                   <Avatar user={u} size={30} /><span className="flex-1">{u.name}{u.id === me.id && ' (you)'}{u.id === mt.hostId && <span className="ml-1 text-xs text-brand-400">Host</span>}</span>
-                  <span aria-label={speaking === u.id ? 'Speaking' : ''}>{u.id === me.id ? (media.mic ? '🎙️' : '🔇') : speaking === u.id ? '🔊' : '🎙️'}</span>
+                  <span aria-label={speaking === u.id ? 'Speaking' : ''}>{u.id === me.id ? (media.mic ? '🎙️' : 'micoff') : speaking === u.id ? '🔊' : '🎙️'}</span>
                 </li>
               ))}
             </ul>
@@ -357,9 +357,9 @@ function MeetingRoom({ mt }) {
       </div>
       <div className="glass sticky bottom-3 flex flex-wrap items-center justify-center gap-3 p-3">
         {media.stream ? <>
-          <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute' : 'Unmute'} icon="🎙️" offIcon="🔇" />
-          <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Stop video' : 'Start video'} icon="📷" offIcon="🚫" />
-        </> : <button className="btn btn-ghost" onClick={media.start}><Glyph value="🎥" tile={false} size={16} /> Enable camera & mic</button>}
+          <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute' : 'Unmute'} icon="🎙️" offIcon="micoff" />
+          <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Stop video' : 'Start video'} icon="📷" offIcon="ban" />
+        </> : <button className="btn btn-ghost" onClick={media.start}><Glyph value="video" tile={false} size={16} /> Enable camera & mic</button>}
         <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing' : 'Share screen'} icon="🖥️" offIcon="⏹" />
         <ControlButton danger onClick={leave} label="Leave meeting" icon="📞" />
       </div>

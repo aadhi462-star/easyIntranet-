@@ -35,11 +35,11 @@ function SurveyList() {
     <div>
       <PageHeader title="Surveys" subtitle="Collect feedback from the alumni community"
         actions={can('survey.create') && <>
-          <button className="btn btn-ghost min-h-11" onClick={() => setPickTemplate(true)}><Glyph value="📄" tile={false} size={16} /> From template</button>
+          <button className="btn btn-ghost min-h-11" onClick={() => setPickTemplate(true)}><Glyph value="doc" tile={false} size={16} /> From template</button>
           <button className="btn btn-primary min-h-11" onClick={() => setCreating('blank')}>+ New survey</button>
         </>} />
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'active', label: 'Active', count: lists.active.length }, { id: 'closed', label: 'Closed', count: lists.closed.length }, { id: 'mine', label: 'My surveys', count: lists.mine.length }]} />
-      {!lists[tab].length ? <Empty icon="📋" title="No surveys here" /> : (
+      {!lists[tab].length ? <Empty icon="surveys" title="No surveys here" /> : (
         <div className="grid gap-4 sm:grid-cols-2">
           {lists[tab].map((s) => {
             const n = (state.surveyResponses || []).filter((r) => r.surveyId === s.id).length;
@@ -47,8 +47,8 @@ function SurveyList() {
               <Link key={s.id} to={`/surveys/${s.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
                 <div className="flex flex-wrap gap-1.5">
                   <span className={`chip ${isOpen(s) ? '!bg-emerald-500/15 !text-emerald-200' : s.status === 'draft' ? '' : '!bg-white/10 !text-slate-300'}`}>{s.status === 'draft' ? 'Draft' : isOpen(s) ? 'Active' : 'Closed'}</span>
-                  {s.anonymous && <span className="chip"><Glyph value="🕶️" tile={false} size={16} /> Anonymous</span>}
-                  {s.audience?.type === 'group' && <span className="chip"><Glyph value="👥" tile={false} size={16} /> {state.groups.find((g) => g.id === s.audience.id)?.name}</span>}
+                  {s.anonymous && <span className="chip"><Glyph value="eyeoff" tile={false} size={16} /> Anonymous</span>}
+                  {s.audience?.type === 'group' && <span className="chip"><Glyph value="groups" tile={false} size={16} /> {state.groups.find((g) => g.id === s.audience.id)?.name}</span>}
                   {responded(s) && <span className="chip">✓ Responded</span>}
                 </div>
                 <h2 className="mt-3 font-bold">{s.title}</h2>
@@ -111,7 +111,7 @@ function SurveyBuilder({ template, onClose }) {
         <Field label="Title"><input className="input" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} /></Field>
         <Field label="Description"><textarea className="input min-h-20" value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })} /></Field>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Audience"><select className="input" value={d.audience} onChange={(e) => setD({ ...d, audience: e.target.value })}><option value="network">Whole network</option>{myGroups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}</select></Field>
+          <Field label="Audience"><select className="input" value={d.audience} onChange={(e) => setD({ ...d, audience: e.target.value })}><option value="network">Whole network</option>{myGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></Field>
           <Field label="Deadline"><input className="input" type="date" value={d.deadline} onChange={(e) => setD({ ...d, deadline: e.target.value })} /></Field>
           <label className="flex min-h-11 items-center gap-2 self-end text-sm"><input type="checkbox" checked={d.anonymous} onChange={(e) => setD({ ...d, anonymous: e.target.checked })} /> Anonymous responses</label>
         </div>
@@ -162,7 +162,7 @@ function SurveyDetail({ id }) {
   const mine = responses.find((r) => r.authorId === me.id);
   const isOwner = s && (s.authorId === me.id || me.admin);
   const [view, setView] = useState(null);
-  if (!s) return <Empty icon="📋" title="Survey not found"><Link className="text-brand-400 underline" to="/surveys">Back to surveys</Link></Empty>;
+  if (!s) return <Empty icon="surveys" title="Survey not found"><Link className="text-brand-400 underline" to="/surveys">Back to surveys</Link></Empty>;
 
   const open = isOpen(s);
   const tab = view ?? (open && !mine && s.status !== 'draft' ? 'respond' : 'results');
@@ -183,13 +183,13 @@ function SurveyDetail({ id }) {
           {s.status === 'draft' && <button className="btn btn-primary min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'active' } })}>Publish</button>}
           {open && <button className="btn btn-ghost min-h-11" onClick={() => { if (confirm('Close this survey to new responses?')) dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'closed' } }); }}>Close survey</button>}
           {!open && s.status !== 'draft' && <button className="btn btn-ghost min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: (x) => ({ ...x, status: 'active', deadline: x.deadline && x.deadline > Date.now() ? x.deadline : Date.now() + 7 * 86400e3 }) })}>Reopen</button>}
-          <button className="btn btn-ghost min-h-11" onClick={exportCsv} disabled={!responses.length}>⬇ Export CSV</button>
+          <button className="btn btn-ghost min-h-11" onClick={exportCsv} disabled={!responses.length}>Export CSV</button>
           <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={() => { if (confirm('Delete this survey and its responses?')) { responses.forEach((r) => dispatch({ type: 'remove', col: 'surveyResponses', id: r.id, silent: true })); dispatch({ type: 'remove', col: 'surveys', id }); nav('/surveys'); } }}>Delete</button>
         </>} />
       <div className="mb-4 flex flex-wrap gap-1.5 text-xs">
         <span className="chip">{s.status === 'draft' ? 'Draft' : open ? 'Active' : 'Closed'}</span>
-        {s.anonymous && <span className="chip"><Glyph value="🕶️" tile={false} size={16} /> Anonymous</span>}
-        {s.deadline && <span className="chip"><Glyph value="⏰" tile={false} size={16} /> {open ? 'Closes' : 'Closed'} {fmtDate(s.deadline)}</span>}
+        {s.anonymous && <span className="chip"><Glyph value="eyeoff" tile={false} size={16} /> Anonymous</span>}
+        {s.deadline && <span className="chip"><Glyph value="scheduled" tile={false} size={16} /> {open ? 'Closes' : 'Closed'} {fmtDate(s.deadline)}</span>}
         {mine && <span className="chip">✓ You responded {timeAgo(mine.createdAt)}</span>}
       </div>
       <Tabs value={tab} onChange={setView} tabs={[...(canRespond ? [{ id: 'respond', label: 'Respond' }] : []), { id: 'results', label: 'Results', count: responses.length }]} />
@@ -213,7 +213,7 @@ function Respond({ survey, onDone }) {
   };
   return (
     <form onSubmit={submit} className="space-y-4">
-      {survey.anonymous && <p className="glass p-3 text-sm text-slate-300"><Glyph value="🕶️" tile={false} size={16} /> This survey is anonymous. Your name won’t appear with your answers.</p>}
+      {survey.anonymous && <p className="glass p-3 text-sm text-slate-300"><Glyph value="eyeoff" tile={false} size={16} /> This survey is anonymous. Your name won’t appear with your answers.</p>}
       {survey.questions.map((q, i) => (
         <fieldset key={q.id} className="glass p-5">
           <legend className="sr-only">{q.text}</legend>
@@ -260,7 +260,7 @@ function Bar({ label, n, total }) {
 
 function Results({ survey, responses }) {
   const { user } = useStore();
-  if (!responses.length) return <Empty icon="📊" title="No responses yet">Results appear here as people respond.</Empty>;
+  if (!responses.length) return <Empty icon="poll" title="No responses yet">Results appear here as people respond.</Empty>;
   return (
     <div className="space-y-4">
       {survey.questions.map((q, i) => {
@@ -272,7 +272,7 @@ function Results({ survey, responses }) {
             <div className="mt-4 space-y-3">
               {hasOptions(q.type) && q.options.map((o) => <Bar key={o} label={o} n={vals.filter((v) => (Array.isArray(v) ? v.includes(o) : v === o)).length} total={vals.length} />)}
               {q.type === 'rating' && <>
-                <p className="text-2xl font-extrabold">{(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)} <span className="text-base font-normal text-amber-300">★ average</span></p>
+                <p className="text-2xl font-extrabold">{(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)} <span className="text-base font-normal text-amber-300">average</span></p>
                 {[5, 4, 3, 2, 1].map((n) => <Bar key={n} label={`${n} ★`} n={vals.filter((v) => v === n).length} total={vals.length} />)}
               </>}
               {q.type === 'nps' && <Nps vals={vals} />}

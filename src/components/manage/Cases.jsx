@@ -10,6 +10,7 @@ import { timeAgo, useStore } from '../../lib/store.jsx';
 import { roleOf } from '../groups/helpers.js';
 import { toast } from '../../lib/toast.js';
 import { Pill } from '../learning/bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const when = (at) => timeAgo(Date.parse(at));
 const reasonsText = (r) => Object.entries(r ?? {}).map(([k, n]) => `${REASON_LABEL[k] ?? k} · ${n}`).join(', ');
@@ -217,7 +218,7 @@ function Decide({ c, onDone }) {
 function Restore({ c, onDone }) {
   const [busy, setBusy] = useState(false);
   const restore = async () => {
-    if (!confirm('Restore it as it was? The person isn’t notified.')) return;
+    if (!(await confirmAction('Restore it as it was? The person isn’t notified.'))) return;
     setBusy(true);
     try { onDone((await api(`/cases/${c.id}/restore`, { method: 'POST', body: {} })).case); toast('Restored'); } catch (err) { toast(errorText(err), 'error'); } finally { setBusy(false); }
   };

@@ -8,6 +8,7 @@ import { toast } from '../../lib/toast.js';
 import { Empty, Modal } from '../ui.jsx';
 import Composer from '../feed/Composer.jsx';
 import PostCard from '../feed/PostCard.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const KINDS = [['all', 'All'], ['announcements', 'Announcements'], ['questions', 'Questions'], ['polls', 'Polls']];
 const KEEP = { all: () => true, announcements: (p) => p.type === 'announcement', questions: (p) => p.type === 'question', polls: (p) => p.type === 'poll' };
@@ -61,7 +62,7 @@ export default function Discussions({ g, perms }) {
           : feed.status === 'error' ? (
             <div role="alert" className="glass p-6 text-center text-sm"><p className="text-rose-300">{feed.error}</p><button className="btn btn-ghost mt-3" onClick={feed.reload}>Try again</button></div>
           ) : posts.length === 0 ? (
-            <Empty icon="📭" title={filtered ? 'Nothing matches' : 'No discussions yet'}>{filtered ? 'Try another filter or other words.' : canPost ? 'Start one above.' : ''}</Empty>
+            <Empty icon="inbox" title={filtered ? 'Nothing matches' : 'No discussions yet'}>{filtered ? 'Try another filter or other words.' : canPost ? 'Start one above.' : ''}</Empty>
           ) : posts.map((p) => <PostCard key={p.id} post={p} />)}
         {feed.status === 'ready' && feed.nextBefore && (
           <button className="btn btn-ghost w-full" onClick={feed.loadMore} disabled={feed.loadingMore}>{feed.loadingMore ? 'Loading…' : 'Load more'}</button>
@@ -129,7 +130,7 @@ function TopicRow({ t, busy, run }) {
       <span className="text-3 w-16 shrink-0 text-right text-xs tabular-nums">{t.posts} {t.posts === 1 ? 'post' : 'posts'}</span>
       {v.trim() && v.trim() !== t.name && <button className="btn btn-ghost" disabled={busy} onClick={() => run(() => api(`/topics/${t.id}`, { method: 'PATCH', body: { name: v } }), 'Topic renamed')}>Save</button>}
       <button className="btn btn-ghost text-rose-200" disabled={busy} aria-label={`Delete ${t.name}`}
-        onClick={() => confirm(`Delete “${t.name}”? Its posts stay, without a topic.`) && run(() => api(`/topics/${t.id}`, { method: 'DELETE' }), 'Topic deleted')}>Delete</button>
+        onClick={async () => (await confirmAction(`Delete “${t.name}”? Its posts stay, without a topic.`)) && run(() => api(`/topics/${t.id}`, { method: 'DELETE' }), 'Topic deleted')}>Delete</button>
     </li>
   );
 }

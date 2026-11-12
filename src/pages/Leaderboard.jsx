@@ -12,12 +12,12 @@ const PERIODS = [{ id: 'week', label: 'This week', ms: 7 * day }, { id: 'month',
 const CHALLENGES = [
   { id: 'post3', icon: '✍️', title: 'Post 3 times on the wall', goal: 3, count: (c) => c['post/create'] || 0, reward: 'Storyteller' },
   { id: 'rsvp2', icon: '🎟️', title: 'RSVP to 2 events', goal: 2, count: (c) => c['event/rsvp'] || 0, reward: 'Show Up' },
-  { id: 'answer1', icon: '🙋', title: 'Answer a question', goal: 1, count: (c) => (c['add:answers'] || 0) + (c['forum/reply'] || 0), reward: 'Helping Hand' },
+  { id: 'answer1', icon: 'questions', title: 'Answer a question', goal: 1, count: (c) => (c['add:answers'] || 0) + (c['forum/reply'] || 0), reward: 'Helping Hand' },
   { id: 'praise2', icon: '🙌', title: 'Praise 2 fellow alumni', goal: 2, count: (c) => c['add:praise'] || 0, reward: 'Cheerleader' },
-  { id: 'idea1', icon: '💡', title: 'Share an idea', goal: 1, count: (c) => c['add:ideas'] || 0, reward: 'Spark' },
-  { id: 'comment5', icon: '💬', title: 'Leave 5 comments', goal: 5, count: (c) => c['post/comment'] || 0, reward: 'Chatterbox' },
-  { id: 'join2', icon: '👥', title: 'Join 2 groups', goal: 2, count: (c) => c['group/join'] || 0, reward: 'Joiner' },
-  { id: 'survey1', icon: '📋', title: 'Answer a survey', goal: 1, count: (c) => c['add:surveyResponses'] || 0, reward: 'Voice' },
+  { id: 'idea1', icon: 'ideas', title: 'Share an idea', goal: 1, count: (c) => c['add:ideas'] || 0, reward: 'Spark' },
+  { id: 'comment5', icon: 'channels', title: 'Leave 5 comments', goal: 5, count: (c) => c['post/comment'] || 0, reward: 'Chatterbox' },
+  { id: 'join2', icon: 'groups', title: 'Join 2 groups', goal: 2, count: (c) => c['group/join'] || 0, reward: 'Joiner' },
+  { id: 'survey1', icon: 'surveys', title: 'Answer a survey', goal: 1, count: (c) => c['add:surveyResponses'] || 0, reward: 'Voice' },
 ];
 
 // Toggle-style actions are counted once per item, so join/leave/join or RSVP flips
@@ -76,7 +76,7 @@ export default function Leaderboard() {
   return (
     <div>
       <PageHeader title="Recognition" subtitle="Points, levels, badges and praise across the community"
-        actions={<button className="btn btn-primary min-h-11" onClick={() => setPraise(true)}>🙌 Give praise</button>} />
+        actions={<button className="btn btn-primary min-h-11" onClick={() => setPraise(true)}>Give praise</button>} />
 
       <section className="glass mb-5 flex flex-wrap items-center gap-4 p-5">
         <Avatar user={me} size={52} />
@@ -113,7 +113,7 @@ export default function Leaderboard() {
             <section className="glass p-5">
               <h2 className="font-bold">Top awardees</h2>
               {awardees.length ? <ol className="mt-3 space-y-2">{awardees.slice(0, 8).map((a) => (
-                <li key={a.user.id} className="flex items-center gap-3"><Avatar user={a.user} size={32} /><Link to={`/people/${a.user.id}`} className="flex-1 truncate text-sm font-semibold">{a.user.name}</Link><span className="chip">🙌 {a.n}</span></li>
+                <li key={a.user.id} className="flex items-center gap-3"><Avatar user={a.user} size={32} /><Link to={`/people/${a.user.id}`} className="flex-1 truncate text-sm font-semibold">{a.user.name}</Link><span className="chip">{a.n}</span></li>
               ))}</ol> : <p className="mt-2 text-sm text-slate-500">No praise in this period yet.</p>}
             </section>
           </div>
@@ -138,7 +138,7 @@ export default function Leaderboard() {
               {BADGES.map((b) => { const got = mine.badges.includes(b.id); return (
                 <div key={b.id} className={`glass p-4 text-center ${got ? '' : 'opacity-45 grayscale'}`}>
                   <div className="text-3xl">{b.icon}</div><div className="mt-2 font-semibold">{b.name}</div><div className="text-xs text-slate-400">{b.desc}</div>
-                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider">{got ? '✓ Earned' : '🔒 Locked'}</div>
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider">{got ? '✓ Earned' : 'Locked'}</div>
                 </div>); })}
             </div>
           </section>

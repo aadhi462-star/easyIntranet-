@@ -9,15 +9,15 @@ import { sheetToCsv } from './editors.jsx';
 
 export const MAX_SIZE = 30 * 1024 * 1024; // 30 MB per attachment, as in Connect
 
-const KIND_ICON = { doc: '📝', sheet: '📊', slides: '📽️', folder: '📁' };
+const KIND_ICON = { doc: 'drafts', sheet: 'poll', slides: '📽️', folder: 'files' };
 export function fileIcon(f) {
   if (KIND_ICON[f.kind]) return KIND_ICON[f.kind];
-  if (f.type?.startsWith('image/')) return '🖼️';
+  if (f.type?.startsWith('image/')) return 'image';
   if (f.type?.startsWith('video/')) return '🎬';
   if (f.type?.startsWith('audio/')) return '🎵';
   if (f.type === 'application/pdf') return '📕';
-  if (f.type?.startsWith('text/')) return '📄';
-  return '📎';
+  if (f.type?.startsWith('text/')) return 'doc';
+  return 'paperclip';
 }
 
 export async function downloadFile(f) {
@@ -147,32 +147,32 @@ export default function FileList({ groupId }) {
         <input className="input !w-48" type="search" placeholder="Search files" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search files" />
         <div className="ml-auto flex flex-wrap gap-2">
           <Menu label="Create" items={[
-            { label: '📝 Document', onClick: () => create('doc') },
-            { label: '📊 Spreadsheet', onClick: () => create('sheet') },
-            { label: '📽️ Presentation', onClick: () => create('slides') },
-            { label: '📁 New folder', onClick: () => setModal({ type: 'folder' }) },
+            { label: 'Document', onClick: () => create('doc') },
+            { label: 'Spreadsheet', onClick: () => create('sheet') },
+            { label: 'Presentation', onClick: () => create('slides') },
+            { label: 'New folder', onClick: () => setModal({ type: 'folder' }) },
           ]} />
-          <button className="btn btn-primary" onClick={() => input.current.click()}>⬆ Upload</button>
+          <button className="btn btn-primary" onClick={() => input.current.click()}>Upload</button>
           <input ref={input} type="file" multiple hidden onChange={(e) => { upload(e.target.files); e.target.value = ''; }} />
         </div>
       </div>
 
       {browsing && (
         <nav aria-label="Folder path" className="mb-3 flex flex-wrap items-center gap-1 text-sm">
-          <button className="rounded px-2 py-1 hover:bg-white/5" onClick={() => setFolderId(null)}><Glyph value="🏠" tile={false} size={16} /> Files</button>
+          <button className="rounded px-2 py-1 hover:bg-white/5" onClick={() => setFolderId(null)}><Glyph value="home" tile={false} size={16} /> Files</button>
           {path.map((p) => <span key={p.id} className="flex items-center gap-1">/<button className="rounded px-2 py-1 hover:bg-white/5" onClick={() => setFolderId(p.id)}>{p.name}</button></span>)}
         </nav>
       )}
       {busy && <p role="status" className="mb-3 text-sm text-brand-400">{busy}</p>}
 
       {!subfolders.length && !files.length ? (
-        <Empty icon="📁" title="Nothing here yet">Upload files (drag & drop works), or create a document, spreadsheet or presentation.</Empty>
+        <Empty icon="files" title="Nothing here yet">Upload files (drag & drop works), or create a document, spreadsheet or presentation.</Empty>
       ) : (
         <div className="glass divide-y divide-white/5">
           {subfolders.map((fo) => (
             <div key={fo.id} className="flex items-center gap-3 p-3">
               <button className="flex min-h-10 flex-1 items-center gap-3 text-left" onClick={() => setFolderId(fo.id)}>
-                <span className="text-xl" aria-hidden="true"><Glyph value="📁" tile={false} size={16} /></span><span className="font-medium">{fo.name}</span>
+                <span className="text-xl" aria-hidden="true"><Glyph value="files" tile={false} size={16} /></span><span className="font-medium">{fo.name}</span>
                 <span className="text-xs text-slate-500">{(state.files ?? []).filter((f) => f.folderId === fo.id).length} items</span>
               </button>
               <Menu label={`Actions for folder ${fo.name}`} items={[
@@ -219,7 +219,7 @@ function MoveModal({ file, folders, onClose }) {
   const [to, setTo] = useState(file.folderId ?? '');
   return (
     <Modal title={`Move “${file.name}”`} onClose={onClose}>
-      <Select label="Destination folder" value={to} onChange={setTo} options={[['', '🏠 Files (top level)'], ...folders.map((f) => [f.id, `📁 ${f.name}`])]} />
+      <Select label="Destination folder" value={to} onChange={setTo} options={[['', 'Files (top level)'], ...folders.map((f) => [f.id, `${f.name}`])]} />
       <button className="btn btn-primary mt-4 w-full" onClick={() => { dispatch({ type: 'update', col: 'files', id: file.id, patch: { folderId: to || null } }); onClose(); }}>Move</button>
     </Modal>
   );

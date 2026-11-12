@@ -25,7 +25,7 @@ export function WebTabForm({ tab, groupId, onClose }) {
     else dispatch({ type: 'add', col: 'webTabs', prepend: false, item: { ...data, ownerId: me.id } });
     onClose();
   };
-  const scopes = [...(me.admin ? [['network', '🌐 Network (everyone)']] : []), ['group', '👥 Group'], ['private', '🔒 Private (only me)']];
+  const scopes = [...(me.admin ? [['network', 'Network (everyone)']] : []), ['group', 'Group'], ['private', 'Private (only me)']];
   return (
     <Modal title={tab ? 'Edit web tab' : 'Add web tab'} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
@@ -69,18 +69,18 @@ export default function WebTabList({ groupId }) {
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {groupId && tabs.map((t) => (
-          <button key={t.id} className={`btn ${open === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setOpen(t.id)}><Glyph value="🌐" tile={false} size={16} /> {t.name}</button>
+          <button key={t.id} className={`btn ${open === t.id ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setOpen(t.id)}><Glyph value="webtabs" tile={false} size={16} /> {t.name}</button>
         ))}
         <button className="btn btn-primary ml-auto" onClick={() => setForm('new')}>＋ Add web tab</button>
       </div>
       {groupId && current ? <WebTabFrame tab={current} /> : !tabs.length ? (
-        <Empty icon="🌐" title="No web tabs">Pin websites you use often so everyone can open them here.</Empty>
+        <Empty icon="webtabs" title="No web tabs">Pin websites you use often so everyone can open them here.</Empty>
       ) : !groupId && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {tabs.map((t) => (
             <div key={t.id} className="glass flex items-start gap-3 p-4">
               <Link to={`/webtabs/${t.id}`} className="min-w-0 flex-1">
-                <div className="font-semibold hover:underline"><Glyph value="🌐" tile={false} size={16} /> {t.name}</div>
+                <div className="font-semibold hover:underline"><Glyph value="webtabs" tile={false} size={16} /> {t.name}</div>
                 <div className="mt-1 truncate text-xs text-slate-500">{new URL(t.url).host}</div>
                 <div className="mt-2"><ScopeBadge scope={t.scope} groupId={t.groupId} /></div>
               </Link>

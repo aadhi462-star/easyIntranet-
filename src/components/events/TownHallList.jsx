@@ -33,10 +33,10 @@ export function TownHallCard({ th }) {
     <Link to={`/townhalls/${th.id}`} className="glass block p-5 transition hover:-translate-y-0.5">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`chip ${STATUS_STYLES[st.key]}`}>{st.label}</span>
-        {group && <span className="chip !bg-white/5 !text-slate-300">{group.emoji} {group.name}</span>}
+        {group && <span className="chip !bg-white/5 !text-slate-300">{group.name}</span>}
         {th.allowAnonymous && <span className="chip !bg-white/5 !text-slate-400">Anonymous questions on</span>}
       </div>
-      <h3 className="mt-3 font-bold"><Glyph value="🎤" tile={false} size={16} /> {th.title}</h3>
+      <h3 className="mt-3 font-bold"><Glyph value="mic" tile={false} size={16} /> {th.title}</h3>
       <p className="mt-1 line-clamp-2 text-sm text-3">{th.description}</p>
       <p className="mt-3 text-xs text-3">
         {new Date(th.start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
@@ -57,6 +57,6 @@ export default function TownHallList({ groupId, status }) {
     .filter(({ t, s }) => (groupId ? t.groupId === groupId : true) && (status ? s === status : true))
     .sort((a, b) => order[a.s] - order[b.s] || (a.s === 'ended' ? b.t.start - a.t.start : a.t.start - b.t.start))
     .map(({ t }) => t);
-  if (!list.length) return <Empty icon="🎤" title="No town halls here yet">{groupId ? 'Group admins can host a Q&A session for this group.' : ''}</Empty>;
+  if (!list.length) return <Empty icon="mic" title="No town halls here yet">{groupId ? 'Group admins can host a Q&A session for this group.' : ''}</Empty>;
   return <div className="grid gap-4 md:grid-cols-2">{list.map((th) => <TownHallCard key={th.id} th={th} />)}</div>;
 }

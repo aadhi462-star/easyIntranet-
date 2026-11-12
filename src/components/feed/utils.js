@@ -3,16 +3,16 @@ import { sentiment } from '../../lib/assist.js';
 
 export const VIEWS = [
   { id: 'my', label: 'My Feed', icon: 'myfeed' },
-  { id: 'announcements', label: 'Announcements', icon: '📢' },
-  { id: 'mandatory', label: 'Mandatory Reads', icon: '✅' },
-  { id: 'questions', label: 'Questions', icon: '❓' },
-  { id: 'following', label: 'Following', icon: '👣' },
-  { id: 'bookmarks', label: 'Bookmarks', icon: '🔖' },
-  { id: 'pinned', label: 'Pinned', icon: '📌' },
-  { id: 'drafts', label: 'My Drafts', icon: '📝' },
-  { id: 'scheduled', label: 'Scheduled', icon: '⏰' },
+  { id: 'announcements', label: 'Announcements', icon: 'announce' },
+  { id: 'mandatory', label: 'Mandatory Reads', icon: 'check' },
+  { id: 'questions', label: 'Questions', icon: 'questions' },
+  { id: 'following', label: 'Following', icon: 'following' },
+  { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmarks' },
+  { id: 'pinned', label: 'Pinned', icon: 'pinned' },
+  { id: 'drafts', label: 'My Drafts', icon: 'drafts' },
+  { id: 'scheduled', label: 'Scheduled', icon: 'scheduled' },
   // Shown only to people who moderate at least one community (Feed.jsx checks).
-  { id: 'pending', label: 'Pending review', icon: '⏳' },
+  { id: 'pending', label: 'Pending review', icon: 'clock' },
 ];
 
 /** Should this author's new posts wait for moderator approval? Admins are exempt. */
@@ -177,4 +177,4 @@ export const SHARE_TARGETS = {
   facebook: { label: 'Facebook', icon: 'f', url: (u) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(u)}` },
 };
 
-export const MOODS = { happy: '😊', neutral: '😐', unhappy: '😞' };
+export const MOODS = { happy: 'happy', neutral: 'neutral', unhappy: 'sad' }; // icon names (components/icons.jsx)

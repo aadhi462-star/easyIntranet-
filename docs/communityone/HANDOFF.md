@@ -138,7 +138,11 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 7 — platform administration")
 Proposal approved with the recommended P1–P5. No default community; the P1 data migration (logged, undoable, rehearsed); feature flags enforced; the `/verify` route clash fixed; Playwright journeys (`npm run test:e2e`). Details are in the progress log ("v2 brief — workstream A").
 - Rules to keep: never add anyone to a community they didn't choose. Data changes go through `lib/data-migrations.js` (once, logged, undoable). New parked pages get a `flag` in `lib/modules.js`.
 
-**Next:** workstream B (design system). First show the token and component board for approval, before restyling any screen. Order and estimates are in `PROPOSAL_V2.md` §12–13.
+### v2 workstream B: foundation done (12 Nov 2026)
+Board approved (B1–B5). Light-first tokens, Lucide icons, emoji removed from reachable screens, `components/ui/` (Controls, Confirm). Details are in the progress log ("v2 brief — workstream B").
+- Rules to keep: no emoji anywhere (use `<Icon name>`); new UI uses the `--az-*` tokens and `components/ui`, never `text-white` or slate classes; use `confirmAction()`, never `confirm()`.
+
+**Next:** workstream C (public website: landing, About, Features, Learning, auth and onboarding). Show its boards for approval first. Order and estimates are in `PROPOSAL_V2.md` §12–13.
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 

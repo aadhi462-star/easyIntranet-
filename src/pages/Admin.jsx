@@ -38,15 +38,15 @@ const TABS = [
   { id: 'roles', label: 'Roles and permissions', el: RolesMatrix, group: 'Platform' },
   { id: 'announcements', label: 'Announcements', el: Announcements, group: 'Platform' },
   { id: 'institutions', label: 'Institutions', el: Institutions, group: 'Platform' },
-  { id: 'policies', label: 'Policies', icon: '📜', el: Policies, group: OLDER },
-  { id: 'fields', label: 'Profile fields', icon: '🪪', el: ProfileFields, group: OLDER },
-  { id: 'labels', label: 'User labels', icon: '🏷️', el: UserLabelsAdmin, group: OLDER },
-  { id: 'branding', label: 'Branding & navigation', icon: '🎨', el: Branding, group: OLDER },
-  { id: 'workflows', label: 'Workflows', icon: '⚡', el: Workflows, group: OLDER },
-  { id: 'schedulers', label: 'Schedulers', icon: '⏱️', el: Schedulers, group: OLDER },
-  { id: 'export', label: 'Data export', icon: '💾', el: DataExport, group: OLDER },
-  { id: 'security', label: 'Security & SSO', icon: '🔐', el: Security, group: OLDER },
-  { id: 'assist', label: 'Smart Assist', icon: '✨', el: AssistSettings, group: OLDER },
+  { id: 'policies', label: 'Policies', icon: 'list', el: Policies, group: OLDER },
+  { id: 'fields', label: 'Profile fields', icon: 'idcard', el: ProfileFields, group: OLDER },
+  { id: 'labels', label: 'User labels', icon: 'label', el: UserLabelsAdmin, group: OLDER },
+  { id: 'branding', label: 'Branding & navigation', icon: 'palette', el: Branding, group: OLDER },
+  { id: 'workflows', label: 'Workflows', icon: 'bolt', el: Workflows, group: OLDER },
+  { id: 'schedulers', label: 'Schedulers', icon: 'clock', el: Schedulers, group: OLDER },
+  { id: 'export', label: 'Data export', icon: 'download', el: DataExport, group: OLDER },
+  { id: 'security', label: 'Security & SSO', icon: 'lock', el: Security, group: OLDER },
+  { id: 'assist', label: 'Smart Assist', icon: 'sparkle', el: AssistSettings, group: OLDER },
 ];
 // Addresses from before Stage 7 open their replacement.
 const MOVED = { members: 'users', audit: 'activity' };
@@ -59,7 +59,7 @@ export default function Admin() {
   useEffect(() => { if (me.admin) api('/admin/waiting').then((d) => setWaiting(d.waiting)).catch(() => {}); }, [me.admin, tab]);
   // Non-admins with a role that grants analytics can see those tabs only.
   const visible = TABS.filter((t) => me.admin || (t.perm && can(t.perm)));
-  if (!visible.length) return <Empty icon="🔒" title="Admins only">You don’t have permission to manage this platform.</Empty>;
+  if (!visible.length) return <Empty icon="lock" title="Admins only">You don’t have permission to manage this platform.</Empty>;
   if (MOVED[tab]) return <Navigate to={`/admin/${MOVED[tab]}`} replace />;
   const current = visible.find((t) => t.id === tab);
   if (!current) return <Navigate to={`/admin/${visible[0].id}`} replace />;

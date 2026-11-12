@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 
-// Per-viewer light/dark preference. 'system' follows the OS setting.
+// Per-viewer light/dark preference. Light is the default (v2 brief: light-first); 'system'
+// follows the OS setting; dark is an option.
 const KEY = 'alumnizone:theme';
 const media = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: light)') : null;
 
 export function readPref() {
-  try { return localStorage.getItem(KEY) || 'system'; } catch { return 'system'; }
+  try { return localStorage.getItem(KEY) || 'light'; } catch { return 'light'; }
 }
 
 export const resolve = (pref) => (pref === 'system' ? (media?.matches ? 'light' : 'dark') : pref);
@@ -13,7 +14,7 @@ export const resolve = (pref) => (pref === 'system' ? (media?.matches ? 'light' 
 export function applyTheme(pref = readPref()) {
   const mode = resolve(pref);
   document.documentElement.dataset.theme = mode;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', mode === 'light' ? '#ffffff' : '#0a0b0a');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', mode === 'light' ? '#f7f8f6' : '#0e1311');
   return mode;
 }
 

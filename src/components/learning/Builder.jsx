@@ -12,6 +12,7 @@ import { toast } from '../../lib/toast.js';
 import { Empty, Field } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import { KindBadge, Pill, STATUS_LABEL } from './bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const MB = 1024 * 1024;
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.xlsx,.pptx,.txt,.csv,.md';
@@ -113,8 +114,8 @@ function ModuleCard({ m, mi, count, busy, archived, selected, onSelect, onMoveLe
     e.preventDefault();
     if (await write(() => api(`/modules/${m.id}`, { method: 'PATCH', body: { title } }))) setRenaming(false);
   };
-  const remove = () => {
-    if (m.lessons.length && !confirm(`Delete “${m.title}” and its ${lessonsText(m.lessons.length)}? Learners lose their progress on those lessons.`)) return;
+  const remove = async () => {
+    if (m.lessons.length && !(await confirmAction(`Delete “${m.title}” and its ${lessonsText(m.lessons.length)}? Learners lose their progress on those lessons.`))) return;
     write(() => api(`/modules/${m.id}`, { method: 'DELETE' }), 'Module deleted');
   };
   return (
@@ -250,7 +251,7 @@ function LessonEditor({ course, target, write, onCreated, onClose }) {
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   const remove = async () => {
-    if (!confirm(`Delete “${v.title}”? Learners lose their progress on it.`)) return;
+    if (!(await confirmAction(`Delete “${v.title}”? Learners lose their progress on it.`))) return;
     if (await write(() => api(`/lessons/${target.lessonId}`, { method: 'DELETE' }), 'Lesson deleted')) onClose();
   };
 
@@ -474,10 +475,10 @@ function Settings({ course, write, busy, archived }) {
 
 function Lifecycle({ course, write, busy, onDeleted }) {
   const archived = course.status === 'archived';
-  const archive = () => confirm('Archive this course? It becomes read-only and leaves the catalogue. Learners keep reading it and keep their progress.')
+  const archive = async () => (await confirmAction('Archive this course? It becomes read-only and leaves the catalogue. Learners keep reading it and keep their progress.'))
     && write(() => api(`/courses/${course.id}/archive`, { method: 'POST' }), 'Course archived');
   const remove = async () => {
-    if (!confirm(`Delete “${course.title}”? This can’t be undone.`)) return;
+    if (!(await confirmAction(`Delete “${course.title}”? This can’t be undone.`))) return;
     if (await write(() => api(`/courses/${course.id}`, { method: 'DELETE' }), 'Course deleted')) onDeleted();
   };
   if (archived) return null;

@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0b0a" />
+    <meta name="theme-color" content="#f7f8f6" />
     <script>
       // Apply the saved light/dark choice before first paint (mirrors lib/theme.js).
       try {
-        var p = localStorage.getItem('alumnizone:theme') || 'system';
+        var p = localStorage.getItem('alumnizone:theme') || 'light';
         document.documentElement.dataset.theme = p === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : p;
-      } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+      } catch (e) { document.documentElement.dataset.theme = 'light'; }
     </script>
     <title>CommunityOne</title>
     <meta name="description" content="CommunityOne: one platform for every community. Discover communities, connect, join discussions and events, and learn together." />

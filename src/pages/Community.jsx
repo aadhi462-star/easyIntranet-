@@ -234,7 +234,7 @@ function ActionsMenu({ g, perms, role }) {
         <GroupForm initial={{ name: g.name, description: g.description, type: g.type, accessType: g.accessType, emoji: g.emoji, apps: g.apps }}
           onClose={() => setModal(null)}
           onSave={async (v) => {
-            const res = await patch(g, { name: v.name, description: v.description || null, category: v.type, emoji: v.emoji,
+            const res = await patch(g, { name: v.name, description: v.description || null, category: v.type,
               visibility: visibilityOf(v.accessType), settings: { apps: v.apps } }, { ok: 'Community saved', inline: true });
             if (res) setModal(null);
           }} />

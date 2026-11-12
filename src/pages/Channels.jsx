@@ -5,7 +5,7 @@ import { useStore, uid, timeAgo, fmtDate } from '../lib/store.jsx';
 import { Avatar, AvatarStack, Empty, Field, Modal } from '../components/ui.jsx';
 import { PeoplePicker, useBlocks } from '../components/people/shared.jsx';
 
-const REACTIONS = ['👍', '❤️', '😂', '🎉', '🙏', '👀'];
+const REACTIONS = ['like', 'heart', '😂', 'party', '🙏', '👀'];
 const MAX_BYTES = 30 * 1024 * 1024;
 
 export default function Channels() {
@@ -44,7 +44,7 @@ export default function Channels() {
         ))}
         <div className="mt-3 flex items-center justify-between px-2 py-1">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Direct messages</h2>
-          <button className="btn btn-ghost h-9 w-9 !p-0" aria-label="New message" onClick={() => setNewChat(true)}><Glyph value="✎" tile={false} size={16} /></button>
+          <button className="btn btn-ghost h-9 w-9 !p-0" aria-label="New message" onClick={() => setNewChat(true)}><Glyph value="pen" tile={false} size={16} /></button>
         </div>
         {dms.filter((d) => dmName(d).toLowerCase().includes(f)).map((d) => {
           const others = d.members.filter((m) => m !== me.id);
@@ -64,8 +64,8 @@ export default function Channels() {
       <div className={id ? 'hidden lg:block' : ''}>{list}</div>
       {id ? (current
         ? <Conversation key={current.id} kind={isDm ? 'dm' : 'channel'} convo={current} title={isDm ? dmName(current) : `# ${current.name}`} onBack={() => nav('/channels')} />
-        : <Empty icon="🔒" title="Conversation not found">You may have left it, it was deleted, or you’re not a member.</Empty>)
-        : <div className="hidden lg:block"><Empty icon="💬" title="Pick a channel or chat">Channels are real-time rooms for groups. Direct messages are private.</Empty></div>}
+        : <Empty icon="lock" title="Conversation not found">You may have left it, it was deleted, or you’re not a member.</Empty>)
+        : <div className="hidden lg:block"><Empty icon="channels" title="Pick a channel or chat">Channels are real-time rooms for groups. Direct messages are private.</Empty></div>}
       {creating && <CreateChannel onClose={(newId) => { setCreating(false); if (newId) nav(`/channels/${newId}`); }} />}
       {newChat && <NewChat onClose={(newId) => { setNewChat(false); if (newId) nav(`/messages/${newId}`); }} />}
     </div>
@@ -130,14 +130,14 @@ function Conversation({ kind, convo, title, onBack }) {
         </div>
         <AvatarStack ids={convo.members} max={3} />
         <input className="input !w-40 !py-2" type="search" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search messages" />
-        <button className={`btn min-h-11 ${showPins ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowPins(!showPins)} aria-pressed={showPins} aria-label="Pinned messages"><Glyph value="📌" tile={false} size={16} /> {pinned.length}</button>
+        <button className={`btn min-h-11 ${showPins ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowPins(!showPins)} aria-pressed={showPins} aria-label="Pinned messages"><Glyph value="pinned" tile={false} size={16} /> {pinned.length}</button>
         <Link to={`/live/meet-${convo.id}`} className="btn btn-ghost min-h-11" aria-label="Start call">📹</Link>
-        {kind === 'channel' && <button className="btn btn-ghost min-h-11" onClick={() => setSettings(true)} aria-label="Channel settings"><Glyph value="⚙️" tile={false} size={16} /></button>}
+        {kind === 'channel' && <button className="btn btn-ghost min-h-11" onClick={() => setSettings(true)} aria-label="Channel settings"><Glyph value="admin" tile={false} size={16} /></button>}
       </header>
 
       {showPins && (
         <div className="border-b border-white/5 bg-amber-400/5 p-3 text-sm">
-          {pinned.length ? pinned.map((m) => <p key={m.id} className="truncate"><Glyph value="📌" tile={false} size={16} /> <b>{user(m.authorId)?.name}:</b> {m.text}</p>) : <p className="text-slate-400">No pinned messages.</p>}
+          {pinned.length ? pinned.map((m) => <p key={m.id} className="truncate"><Glyph value="pinned" tile={false} size={16} /> <b>{user(m.authorId)?.name}:</b> {m.text}</p>) : <p className="text-slate-400">No pinned messages.</p>}
         </div>
       )}
 
@@ -168,9 +168,9 @@ function Message({ m, replies, onReact, onPin, onThread, compact }) {
     <li className="group relative flex gap-3 rounded-xl p-2 hover:bg-white/[0.03]">
       <Avatar user={a} size={34} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 text-sm"><Link to={`/people/${m.authorId}`} className="font-semibold hover:underline">{a?.name}</Link><time className="text-xs text-slate-500" title={fmtDate(m.createdAt)}>{timeAgo(m.createdAt)}</time>{m.pinned && <span className="text-xs" title="Pinned"><Glyph value="📌" tile={false} size={16} /></span>}</div>
+        <div className="flex items-baseline gap-2 text-sm"><Link to={`/people/${m.authorId}`} className="font-semibold hover:underline">{a?.name}</Link><time className="text-xs text-slate-500" title={fmtDate(m.createdAt)}>{timeAgo(m.createdAt)}</time>{m.pinned && <span className="text-xs" title="Pinned"><Glyph value="pinned" tile={false} size={16} /></span>}</div>
         {m.text && <p className="whitespace-pre-wrap break-words text-sm text-slate-200">{highlight(m.text)}</p>}
-        {m.attachment && <span className="chip mt-1 !rounded-lg !py-1"><Glyph value="📎" tile={false} size={16} /> {m.attachment.name} <span className="opacity-60">{(m.attachment.size / 1024).toFixed(0)} KB</span></span>}
+        {m.attachment && <span className="chip mt-1 !rounded-lg !py-1"><Glyph value="paperclip" tile={false} size={16} /> {m.attachment.name} <span className="opacity-60">{(m.attachment.size / 1024).toFixed(0)} KB</span></span>}
         <div className="mt-1 flex flex-wrap gap-1">
           {Object.entries(m.reactions || {}).map(([e, who]) => (
             <button key={e} onClick={() => onReact(m.id, e)} aria-pressed={who.includes(me.id)} aria-label={`${e} ${who.length}`}
@@ -182,7 +182,7 @@ function Message({ m, replies, onReact, onPin, onThread, compact }) {
       <div className="absolute right-2 top-1 hidden gap-1 rounded-lg bg-ink-800 p-1 shadow group-focus-within:flex group-hover:flex">
         <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Add reaction" onClick={() => setPicker(!picker)}>😊</button>
         {!compact && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Reply in thread" onClick={onThread}>↩</button>}
-        {onPin && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label={m.pinned ? 'Unpin' : 'Pin'} onClick={onPin}><Glyph value="📌" tile={false} size={16} /></button>}
+        {onPin && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label={m.pinned ? 'Unpin' : 'Pin'} onClick={onPin}><Glyph value="pinned" tile={false} size={16} /></button>}
       </div>
       {picker && (
         <div className="absolute right-2 top-10 z-10 flex gap-1 rounded-xl bg-ink-800 p-1 shadow-lg ring-1 ring-white/10">
@@ -216,10 +216,10 @@ function Composer({ value, onChange, onSend, file, clearFile, onAttach, error, p
           {suggestions.map((u) => <li key={u.id}><button className="flex min-h-10 w-full items-center gap-2 px-3 text-left text-sm hover:bg-white/5" onClick={() => onChange(value.replace(/@\w*$/, `@${u.name} `))}><Avatar user={u} size={22} />{u.name}</button></li>)}
         </ul>
       )}
-      {file && <div className="mb-2"><span className="chip !rounded-lg !py-1"><Glyph value="📎" tile={false} size={16} /> {file.name}<button className="ml-2" aria-label="Remove attachment" onClick={clearFile}>✕</button></span></div>}
+      {file && <div className="mb-2"><span className="chip !rounded-lg !py-1"><Glyph value="paperclip" tile={false} size={16} /> {file.name}<button className="ml-2" aria-label="Remove attachment" onClick={clearFile}>✕</button></span></div>}
       {error && <p role="alert" className="mb-2 text-xs text-rose-300">{error}</p>}
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); onSend(); }}>
-        <button type="button" className="btn btn-ghost h-11 w-11 shrink-0 !p-0" onClick={onAttach} aria-label="Attach a file (max 30 MB)"><Glyph value="📎" tile={false} size={16} /></button>
+        <button type="button" className="btn btn-ghost h-11 w-11 shrink-0 !p-0" onClick={onAttach} aria-label="Attach a file (max 30 MB)"><Glyph value="paperclip" tile={false} size={16} /></button>
         <textarea rows={1} className="input min-h-11 resize-none" value={value} placeholder={placeholder} aria-label={placeholder} onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); } }} />
         <button className="btn btn-primary min-h-11 shrink-0" disabled={!value.trim() && !file}>Send</button>
@@ -267,7 +267,7 @@ function CreateChannel({ onClose }) {
         <Field label="Channel name" hint={slug && `#${slug}`}><input className="input" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder="e.g. reunion-planning" /></Field>
         <Field label="Description"><input className="input" value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })} /></Field>
         <Field label="Associate with a group" hint="All group members join the channel, and new group members are added automatically.">
-          <select className="input" value={d.groupId} onChange={(e) => setD({ ...d, groupId: e.target.value })}><option value="">No group</option>{myGroups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}</select>
+          <select className="input" value={d.groupId} onChange={(e) => setD({ ...d, groupId: e.target.value })}><option value="">No group</option>{myGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
         </Field>
         <Field label="Add members"><PeoplePicker value={d.members} onChange={(members) => setD({ ...d, members })} exclude={[me.id]} /></Field>
         <button className="btn btn-primary min-h-11 w-full" disabled={!slug}>Create</button>

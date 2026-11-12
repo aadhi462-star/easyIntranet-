@@ -51,7 +51,7 @@ export default function TaskBoard({ groupId }) {
   return (
     <div>
       <div className="mb-4 flex justify-end"><button className="btn btn-primary" onClick={() => setCreating(true)}>＋ New board</button></div>
-      {boards.length ? <BoardCards boards={boards} onOpen={setOpenId} /> : <Empty icon="✅" title="No boards yet">Create a board to plan work together.</Empty>}
+      {boards.length ? <BoardCards boards={boards} onOpen={setOpenId} /> : <Empty icon="check" title="No boards yet">Create a board to plan work together.</Empty>}
       {creating && <BoardForm groupId={groupId} onClose={() => setCreating(false)} onCreated={setOpenId} />}
     </div>
   );

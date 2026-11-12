@@ -62,7 +62,7 @@ export const seed = {
     { id: 'bc1', title: 'Convocation 2026 livestream', description: 'Watch the graduating batch walk the stage.', hostId: 'u7', status: 'scheduled', scheduledAt: at(9, 10), chat: [], subscribers: ['u2'], peakViewers: 0, createdAt: now - 3 * day },
     { id: 'bc2', title: 'Founders fireside chat', description: 'Aisha hosts a fireside chat with alumni founders.', hostId: 'u1', status: 'scheduled', scheduledAt: at(4, 19), chat: [], subscribers: [], peakViewers: 0, createdAt: now - day },
     { id: 'bc3', title: 'Alumni awards night', description: 'Recognising alumni who gave back this year.', hostId: 'u7', status: 'ended', scheduledAt: at(-20, 19), endedAt: at(-20, 21), peakViewers: 412,
-      chat: [{ id: 'bm1', authorId: 'u5', text: 'Congratulations to all the winners! 🎉', createdAt: at(-20, 19, 40) }], subscribers: [], createdAt: now - 25 * day },
+      chat: [{ id: 'bm1', authorId: 'u5', text: 'Congratulations to all the winners!', createdAt: at(-20, 19, 40) }], subscribers: [], createdAt: now - 25 * day },
   ],
 
   meetings: [

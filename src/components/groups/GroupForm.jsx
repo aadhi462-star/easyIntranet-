@@ -4,13 +4,12 @@ import { Field, Modal } from '../ui.jsx';
 import { ACCESS, APPS, GROUP_TYPES } from './helpers.js';
 import { errorText } from '../../lib/communities.js';
 
-const EMOJIS = ['👥', '🎓', '🌆', '🚀', '🤝', '🌊', '💻', '🏛️', '🎨', '⚽', '📚', '🎵'];
 
 /** Create or edit a group. `onSave(values, { createChannel })` may be async; a thrown server error shows here. */
 export default function GroupForm({ initial, onSave, onClose }) {
   const editing = !!initial;
   const [v, setV] = useState({
-    name: '', description: '', type: 'Interest', accessType: 'public', emoji: '👥',
+    name: '', description: '', type: 'Interest', accessType: 'public',
     apps: ['dashboard', 'feed', 'forums', 'events', 'files', 'members'], ...initial,
   });
   const [createChannel, setCreateChannel] = useState(false);
@@ -37,14 +36,7 @@ export default function GroupForm({ initial, onSave, onClose }) {
   return (
     <Modal title={editing ? 'Edit community' : 'Create a community'} onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
-          <Field label="Icon">
-            <select className="input !w-20 text-xl" value={v.emoji} onChange={set('emoji')} aria-label="Group icon">
-              {EMOJIS.map((x) => <option key={x}>{x}</option>)}
-            </select>
-          </Field>
-          <Field label="Name"><input className="input" value={v.name} onChange={set('name')} placeholder="e.g. Class of 2019" /></Field>
-        </div>
+        <Field label="Name"><input className="input" value={v.name} onChange={set('name')} placeholder="e.g. Harbour Rowers" /></Field>
         <Field label="Description"><textarea className="input min-h-20" value={v.description} onChange={set('description')} /></Field>
         <Field label="Type">
           <select className="input" value={v.type} onChange={set('type')}>{GROUP_TYPES.map((t) => <option key={t}>{t}</option>)}</select>

@@ -32,7 +32,7 @@ export async function write(prompt, tone = 'neutral') {
       }
     } catch { /* fall through */ }
   }
-  const openers = { casual: 'Hey everyone! 👋', formal: 'Dear members,', neutral: 'Hi all,' };
+  const openers = { casual: 'Hey everyone!', formal: 'Dear members,', neutral: 'Hi all,' };
   return { text: `${openers[tone] ?? openers.neutral} ${prompt.trim().replace(/^\w/, (c) => c.toUpperCase())}${/[.!?]$/.test(prompt.trim()) ? '' : '.'} Let me know your thoughts in the comments.`, source: 'template' };
 }
 
@@ -46,7 +46,7 @@ export async function translate(text, target = 'hi') {
   return { text: null, source: 'unavailable' };
 }
 
-const POS = ['great', 'love', 'awesome', 'thanks', 'proud', 'congrats', 'excited', 'happy', 'amazing', 'helpful', 'good', 'wait', '🎉', '❤️', 'cannot wait'];
+const POS = ['great', 'love', 'awesome', 'thanks', 'proud', 'congrats', 'excited', 'happy', 'amazing', 'helpful', 'good', 'wait', 'party', 'heart', 'cannot wait'];
 const NEG = ['bad', 'hate', 'sad', 'angry', 'terrible', 'problem', 'issue', 'disappointed', 'worst', 'broken', 'unfair'];
 
 /** Lexicon sentiment: returns 'happy' | 'neutral' | 'unhappy'. */

@@ -43,7 +43,7 @@ export default function EventList({ groupId, limit, showPast = true, member }) {
         </div>
       )}
       {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-      {loading && !events.length ? <p className="text-sm text-3">Loading events…</p> : shown.length === 0 ? <Empty icon="📅" title="No upcoming events">{isMember ? 'Create one to get people together.' : ''}</Empty>
+      {loading && !events.length ? <p className="text-sm text-3">Loading events…</p> : shown.length === 0 ? <Empty icon="events" title="No upcoming events">{isMember ? 'Create one to get people together.' : ''}</Empty>
         : shown.map((e) => <EventCard key={`${e.id}-${e.occStart}`} event={e} />)}
       {limit && upcoming.length > limit && <Link to="/events?view=list" className="block text-center text-sm text-brand-400 hover:underline">See all events</Link>}
       {showPast && past.length > 0 && (

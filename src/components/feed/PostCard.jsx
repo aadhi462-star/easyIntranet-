@@ -1,5 +1,5 @@
 import UserLabels from '../UserLabels.jsx';
-import { Glyph } from '../icons.jsx';
+import { Glyph, Icon } from '../icons.jsx';
 import { useState } from 'react';
 import { accentOf, communityPath } from '../../lib/communities.js';
 import { Link } from 'react-router-dom';
@@ -16,6 +16,7 @@ import { AckBox } from './Mandatory.jsx';
 import RichText from './RichText.jsx';
 import ReportDialog from '../manage/Report.jsx';
 import { followingIds, GUEST } from './utils.js';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 /** The author's name: a profile link, or plain "Deleted member". */
 export function AuthorName({ author, className = '' }) {
@@ -64,7 +65,7 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
     if (!reason.trim()) { setError('Give a reason for removing this post.'); return; }
     run(() => removePost(post.id, reason.trim()), 'Post removed');
   };
-  const del = (what = 'post') => { if (confirm(`Delete this ${what}?`)) run(() => deletePost(post.id), 'Deleted'); };
+  const del = async (what = 'post') => { if ((await confirmAction(`Delete this ${what}?`))) run(() => deletePost(post.id), 'Deleted'); };
   const close = () => setModal(null);
   const item = (label, fn, cls = '') => (
     <button key={label} className={`block min-h-10 w-full rounded-lg px-3 text-left text-sm hover:bg-white/5 ${cls}`} onClick={() => { setMenu(false); fn(); }}>{label}</button>
@@ -98,12 +99,12 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
         {/* On narrow cards the badges wrap onto their own row so they never squeeze the author name. */}
         <div className="order-last flex w-full flex-wrap gap-1 sm:order-none sm:w-auto sm:justify-end">
           {post.topic && <span className="chip !bg-white/5 !text-[var(--az-text-2)]">{post.topic.name}</span>}
-          {post.pinned && <span className="chip"><Glyph value="📌" tile={false} size={16} /> Pinned</span>}
-          {post.type === 'announcement' && <span className="chip !bg-leaf-400/15 !text-leaf-200"><Glyph value="📢" tile={false} size={16} /> Announcement</span>}
-          {post.type === 'question' && <span className="chip !bg-brand-400/15 !text-brand-200"><Glyph value="❓" tile={false} size={16} /> Question</span>}
+          {post.pinned && <span className="chip"><Glyph value="pinned" tile={false} size={16} /> Pinned</span>}
+          {post.type === 'announcement' && <span className="chip !bg-leaf-400/15 !text-leaf-200"><Glyph value="announce" tile={false} size={16} /> Announcement</span>}
+          {post.type === 'question' && <span className="chip !bg-brand-400/15 !text-brand-200"><Glyph value="questions" tile={false} size={16} /> Question</span>}
           {post.mandatory && <span className="chip !bg-amber-400/15 !text-amber-200"><Glyph value="mandatory" tile={false} size={16} /> Mandatory read</span>}
-          {status === 'pending' && <span className="chip !bg-orange-400/15 !text-orange-200"><Glyph value="⏳" tile={false} size={16} /> Awaiting approval</span>}
-          {status === 'draft' && <span className="chip !bg-white/10 !text-slate-200"><Glyph value="📝" tile={false} size={16} /> Draft</span>}
+          {status === 'pending' && <span className="chip !bg-orange-400/15 !text-orange-200"><Glyph value="clock" tile={false} size={16} /> Awaiting approval</span>}
+          {status === 'draft' && <span className="chip !bg-white/10 !text-slate-200"><Glyph value="drafts" tile={false} size={16} /> Draft</span>}
           {status === 'removed' && <span className="chip !bg-rose-400/15 !text-rose-200">Removed</span>}
         </div>
         {!embedded && !guest && (
@@ -111,14 +112,14 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
             <button className="btn btn-ghost h-10 w-10 !p-0" aria-label="Post actions" aria-expanded={menu} onClick={() => setMenu(!menu)}>⋯</button>
             {menu && (
               <div className="glass glass-strong absolute right-0 z-20 mt-1 w-60 p-1.5" onMouseLeave={() => setMenu(false)}>
-                {status === 'published' && item(bookmarked ? '🔖 Remove from Saved' : '🔖 Save', () => run(() => setSaved('post', post.id, !bookmarked), bookmarked ? 'Removed from Saved' : 'Saved'))}
-                {can.pin && status === 'published' && item(post.pinned ? '📌 Unpin' : '📌 Pin to top', () => run(() => pinPost(post.id, !post.pinned), post.pinned ? 'Unpinned' : 'Pinned'))}
-                {!mine && !author.deleted && item(follows ? `👣 Unfollow ${(author.name || '').split(' ')[0]}` : `👣 Follow ${(author.name || '').split(' ')[0]}`, toggleFollow)}
-                {status === 'published' && item('🔗 Copy link', () => navigator.clipboard?.writeText(`${location.origin}${location.pathname}#/post/${post.id}`).then(() => toast('Link copied'), () => {}))}
-                {can.edit && item('✏️ Edit', () => setModal('edit'))}
-                {can.moderate && !mine && status === 'published' && item('🛡️ Remove post', remove, 'text-rose-300')}
-                {can.delete && item('🗑️ Delete', () => del(), 'text-rose-300')}
-                {!mine && status === 'published' && item('⚑ Report', () => setModal('report'))}
+                {status === 'published' && item(bookmarked ? 'Remove from Saved' : 'Save', () => run(() => setSaved('post', post.id, !bookmarked), bookmarked ? 'Removed from Saved' : 'Saved'))}
+                {can.pin && status === 'published' && item(post.pinned ? 'Unpin' : 'Pin to top', () => run(() => pinPost(post.id, !post.pinned), post.pinned ? 'Unpinned' : 'Pinned'))}
+                {!mine && !author.deleted && item(follows ? `Unfollow ${(author.name || '').split(' ')[0]}` : `Follow ${(author.name || '').split(' ')[0]}`, toggleFollow)}
+                {status === 'published' && item('Copy link', () => navigator.clipboard?.writeText(`${location.origin}${location.pathname}#/post/${post.id}`).then(() => toast('Link copied'), () => {}))}
+                {can.edit && item('Edit', () => setModal('edit'))}
+                {can.moderate && !mine && status === 'published' && item('Remove post', remove, 'text-rose-300')}
+                {can.delete && item('Delete', () => del(), 'text-rose-300')}
+                {!mine && status === 'published' && item('Report', () => setModal('report'))}
               </div>
             )}
           </div>
@@ -184,21 +185,21 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
 
       {status === 'published' && !embedded && guest && (
         <footer className="mt-3 flex flex-wrap items-center gap-4 border-t border-white/5 pt-2 text-sm text-3">
-          <span>❤️ {r.like}</span><span><Glyph value="💬" tile={false} size={16} /> {post.commentCount ?? 0}</span>
+          <span className="inline-flex items-center gap-1"><Icon name="heart" size={16} /> {r.like}</span><span className="inline-flex items-center gap-1"><Icon name="channels" size={16} /> {post.commentCount ?? 0}</span>
           <Link to="/signup" className="ml-auto font-semibold text-brand-400 hover:underline">Join to react</Link>
         </footer>
       )}
       {status === 'published' && !embedded && !guest && (
         <footer className="mt-3 flex flex-wrap items-center gap-1 border-t border-white/5 pt-2 text-sm">
           <button className={`btn btn-ghost !border-0 !bg-transparent !px-2.5 ${r.liked ? 'text-leaf-300' : 'text-2'}`} onClick={like} disabled={busy} aria-pressed={r.liked}>
-            {r.liked ? '❤️' : '🤍'} {r.like || ''} <span className="sr-only">likes</span>
+            <Icon name="heart" size={16} className={r.liked ? 'fill-current' : ''} /> {r.like || ''} <span className="sr-only">likes</span>
           </button>
           <span className="flex" role="group" aria-label="How does this make you feel?">
             {Object.entries(MOODS).map(([k, e]) => {
               const n = r.moods?.[k] || 0;
               return (
-                <button key={k} onClick={() => react(k)} disabled={busy} aria-pressed={r.myMood === k} title={k}
-                  className={`min-h-10 rounded-lg px-2 text-sm hover:bg-white/5 ${r.myMood === k ? 'bg-white/10' : 'opacity-80'}`}>{e}{n ? <span className="ml-0.5 text-xs">{n}</span> : null}</button>
+                <button key={k} onClick={() => react(k)} disabled={busy} aria-pressed={r.myMood === k} title={k} aria-label={`${k}${n ? `, ${n}` : ''}`}
+                  className={`inline-flex min-h-10 items-center gap-0.5 rounded-lg px-2 text-sm hover:bg-white/5 ${r.myMood === k ? 'bg-white/10 text-brand-300' : 'text-2'}`}><Icon name={e} size={18} />{n ? <span className="text-xs">{n}</span> : null}</button>
               );
             })}
           </span>

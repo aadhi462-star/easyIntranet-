@@ -20,13 +20,13 @@ export const LEVELS = [
 ];
 
 export const BADGES = [
-  { id: 'first-post', icon: '✍️', name: 'First Words', desc: 'Published your first post', test: (c) => (c['post/create'] || 0) + (c['post/publish'] || 0) >= 1 },
-  { id: 'commenter', icon: '💬', name: 'Conversation Starter', desc: '10 comments or replies', test: (c) => (c['post/comment'] || 0) + (c['forum/reply'] || 0) >= 10 },
-  { id: 'ideator', icon: '💡', name: 'Ideator', desc: 'Shared 3 ideas', test: (c) => c['add:ideas'] >= 3 },
-  { id: 'event-goer', icon: '🎟️', name: 'Event Goer', desc: 'RSVPed to 3 events', test: (c) => c['event/rsvp'] >= 3 },
-  { id: 'appreciator', icon: '🙌', name: 'Appreciator', desc: 'Gave praise 3 times', test: (c) => c['add:praise'] >= 3 },
-  { id: 'scholar', icon: '📚', name: 'Scholar', desc: 'Wrote a manual article', test: (c) => c['manual/article'] >= 1 },
-  { id: 'helper', icon: '🛟', name: 'Helper', desc: 'Answered 5 questions', test: (c) => c['add:answers'] >= 5 },
+  { id: 'first-post', icon: 'pen', name: 'First Words', desc: 'Published your first post', test: (c) => (c['post/create'] || 0) + (c['post/publish'] || 0) >= 1 },
+  { id: 'commenter', icon: 'channels', name: 'Conversation Starter', desc: '10 comments or replies', test: (c) => (c['post/comment'] || 0) + (c['forum/reply'] || 0) >= 10 },
+  { id: 'ideator', icon: 'ideas', name: 'Ideator', desc: 'Shared 3 ideas', test: (c) => c['add:ideas'] >= 3 },
+  { id: 'event-goer', icon: 'events', name: 'Event Goer', desc: 'RSVPed to 3 events', test: (c) => c['event/rsvp'] >= 3 },
+  { id: 'appreciator', icon: 'like', name: 'Appreciator', desc: 'Gave praise 3 times', test: (c) => c['add:praise'] >= 3 },
+  { id: 'scholar', icon: 'manuals', name: 'Scholar', desc: 'Wrote a manual article', test: (c) => c['manual/article'] >= 1 },
+  { id: 'helper', icon: 'questions', name: 'Helper', desc: 'Answered 5 questions', test: (c) => c['add:answers'] >= 5 },
 ];
 
 /** Seeded starting points so the leaderboard isn't empty in the demo. */

@@ -1,4 +1,4 @@
-import { Glyph } from '../icons.jsx';
+import { Glyph, Icon } from '../icons.jsx';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
@@ -16,7 +16,7 @@ export function TrendingTags() {
   const tags = trendingTags(state, me);
   return (
     <section className="glass p-4" aria-labelledby="trending-h">
-      <h2 id="trending-h" className="text-sm font-bold"><Glyph value="🔥" tile={false} size={16} /> Trending tags</h2>
+      <h2 id="trending-h" className="text-sm font-bold"><Glyph value="sparkle" tile={false} size={16} /> Trending tags</h2>
       {tags.length === 0 ? <p className="mt-2 text-xs text-3">No tags yet. Add #tags to your posts.</p> : (
         <ul className="mt-2 flex flex-wrap gap-1.5">
           {tags.map(({ tag }) => <li key={tag}><Link to={`/feed?tag=${tag}`} className="chip !py-1.5 hover:!bg-brand-500/30">#{tag}</Link></li>)}
@@ -68,8 +68,8 @@ export function CommunityMood() {
 
 const firstName = (u) => (u?.name || '').split(' ')[0] || 'friend';
 const defaultWish = (c) => (c.kind === 'birthday'
-  ? `Happy birthday, ${firstName(c.user)}! 🎂 Wishing you a wonderful year ahead.`
-  : `Happy ${c.years}-year community anniversary, ${firstName(c.user)}! 🎉 Thanks for being part of the network.`);
+  ? `Happy birthday, ${firstName(c.user)}! Wishing you a wonderful year ahead.`
+  : `Happy ${c.years}-year community anniversary, ${firstName(c.user)}! Thanks for being part of the network.`);
 
 /** Today's and the next 7 days' birthdays and community anniversaries, with "Send wishes". */
 export function CelebrateClassmates() {
@@ -88,7 +88,7 @@ export function CelebrateClassmates() {
   return (
     <>
     <section className="glass p-4" aria-labelledby="celebrate-h">
-      <h2 id="celebrate-h" className="text-sm font-bold"><Glyph value="🎉" tile={false} size={16} /> Celebrate classmates</h2>
+      <h2 id="celebrate-h" className="text-sm font-bold"><Glyph value="party" tile={false} size={16} /> Celebrate classmates</h2>
       {!list.length ? <p className="mt-2 text-xs text-3">No birthdays or community anniversaries in the next week.</p> : (
         <>
           <ul className="mt-2 space-y-1">
@@ -101,7 +101,7 @@ export function CelebrateClassmates() {
                     <Avatar user={c.user} size={32} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{c.user.name}</span>
-                      <span className="block truncate text-xs text-3"><span aria-hidden="true">{c.kind === 'birthday' ? '🎂' : '🎉'} </span>{what} · {whenLabel(c.inDays, c.date)}</span>
+                      <span className="block truncate text-xs text-3"><Icon name={c.kind === 'birthday' ? 'cake' : 'party'} size={12} className="mr-1 inline align-[-1px]" />{what} · {whenLabel(c.inDays, c.date)}</span>
                     </span>
                   </Link>
                   {done
@@ -144,7 +144,7 @@ function WishModal({ celebration: c, onClose }) {
   return (
     <Modal title={`Wish ${c.user.name}`} onClose={onClose}>
       <form onSubmit={send} className="space-y-4">
-        <p className="text-sm text-3">{c.kind === 'birthday' ? '🎂 Birthday' : `🎉 ${c.years}-year community anniversary`} · {whenLabel(c.inDays, c.date)}. {firstName(c.user)} gets this as a notification from you.</p>
+        <p className="text-sm text-3">{c.kind === 'birthday' ? 'Birthday' : `${c.years}-year community anniversary`} · {whenLabel(c.inDays, c.date)}. {firstName(c.user)} gets this as a notification from you.</p>
         <Field label="Your message">
           <textarea className="input min-h-24" value={text} maxLength={280} onChange={(e) => { setText(e.target.value); setError(''); }} aria-invalid={!!error} aria-describedby="wish-count" />
           <span id="wish-count" className="mt-1 block text-right text-xs text-3">{text.length}/280</span>

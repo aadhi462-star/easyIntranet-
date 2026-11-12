@@ -121,8 +121,8 @@ export function ScopeBadge({ scope, groupId }) {
   const { state } = useStore();
   if (groupId) {
     const g = state.groups.find((x) => x.id === groupId);
-    return <span className="chip">{g?.emoji} {g?.name ?? 'Group'}</span>;
+    return <span className="chip">{g?.name ?? 'Group'}</span>;
   }
-  if (scope === 'private') return <span className="chip !bg-white/10 !text-slate-300"><Glyph value="🔒" tile={false} size={16} /> Private</span>;
-  return <span className="chip !bg-emerald-500/15 !text-emerald-200"><Glyph value="🌐" tile={false} size={16} /> Network</span>;
+  if (scope === 'private') return <span className="chip !bg-white/10 !text-slate-300"><Glyph value="lock" tile={false} size={16} /> Private</span>;
+  return <span className="chip !bg-emerald-500/15 !text-emerald-200"><Glyph value="webtabs" tile={false} size={16} /> Network</span>;
 }

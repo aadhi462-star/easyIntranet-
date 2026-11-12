@@ -37,6 +37,19 @@ test('a member joins a Public community and posts in it', async ({ page }, info)
   await expect(page.getByText(text)).toBeVisible();
 });
 
+test('the app is light by default and has no emoji (v2 B1–B5)', async ({ page }) => {
+  await page.goto('/');
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(247, 248, 246)');
+  await signIn(page, 'sara@example.com');
+  for (const path of ['/#/dashboard', '/#/feed', '/#/events', '/#/groups', '/#/admin/communities']) {
+    await page.goto(path);
+    await page.waitForLoadState('networkidle');
+    const emoji = await page.evaluate(() => (document.body.innerText.match(/\p{Extended_Pictographic}/gu) || []).filter((c) => !'↗↩↔★☆✓'.includes(c)));
+    expect(emoji, path).toEqual([]);
+  }
+});
+
 test('a Platform Admin deletes a community and restores it (D1, D2)', async ({ page }, info) => {
   test.skip(info.project.name === 'phone', 'Administration is checked at desktop width here');
   await signIn(page, 'sara@example.com');
@@ -49,7 +62,8 @@ test('a Platform Admin deletes a community and restores it (D1, D2)', async ({ p
   await dialog.getByRole('button', { name: 'Delete community' }).click();
   await expect(page.getByText('Community deleted · restorable for 30 days')).toBeVisible();
   expect((await (await page.request.get('/api/communities/mumbai-chapter')).json()).error.code).toBe('COMMUNITY_REMOVED');
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Restore' }).click();
+  // The shared confirm dialog (v2 B), named after its action.
+  await page.getByRole('dialog', { name: /^Restore Mumbai Chapter/ }).getByRole('button', { name: 'Restore' }).click();
   await expect.poll(async () => (await page.request.get('/api/communities/mumbai-chapter')).status()).toBe(200);
 });

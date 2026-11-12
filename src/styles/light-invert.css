@@ -1,8 +1,8 @@
-/* Generated: light mode flips each used Tailwind scale end-to-end so the dark-first
+/* Generated (kept until every screen uses src/components/ui, end of v2 workstream G): light mode flips each used Tailwind scale end-to-end so the dark-first
  * module code (text-slate-300, bg-emerald-500/20, ...) keeps its contrast on white.
  * Black is deliberately not flipped: bg-black/60 scrims must stay dark in both modes. */
 :root[data-theme="light"] {
-  --color-white: #141614;
+  --color-white: #17211f;
   --color-slate-50: oklch(12.9% 0.042 264.695);
   --color-slate-100: oklch(20.8% 0.042 265.755);
   --color-slate-200: oklch(27.9% 0.041 260.031);

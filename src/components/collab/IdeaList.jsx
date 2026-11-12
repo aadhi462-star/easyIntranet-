@@ -78,7 +78,7 @@ export function TopContributors({ ideas }) {
   const top = Object.entries(tally).sort((a, b) => (b[1].implemented * 10 + b[1].votes + b[1].ideas) - (a[1].implemented * 10 + a[1].votes + a[1].ideas)).slice(0, 5);
   return (
     <aside className="glass h-fit p-4" aria-label="Top contributors">
-      <h2 className="mb-3 font-semibold"><Glyph value="🏅" tile={false} size={16} /> Top Contributors</h2>
+      <h2 className="mb-3 font-semibold"><Glyph value="medal" tile={false} size={16} /> Top Contributors</h2>
       {top.length ? (
         <ol className="space-y-3">
           {top.map(([uid, t], i) => (
@@ -131,8 +131,8 @@ export default function IdeaList({ groupId, showContributors = !groupId }) {
     <div className={showContributors ? 'grid gap-6 lg:grid-cols-[1fr_260px]' : ''}>
       <div>
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <Tabs value={sort} onChange={setSort} tabs={[{ id: 'trending', label: '🔥 Trending' }, { id: 'top', label: 'Top' }, { id: 'new', label: 'New' }]} />
-          <button className="btn btn-primary ml-auto" onClick={() => setCreating(true)}><Glyph value="💡" tile={false} size={16} /> Share idea</button>
+          <Tabs value={sort} onChange={setSort} tabs={[{ id: 'trending', label: 'Trending' }, { id: 'top', label: 'Top' }, { id: 'new', label: 'New' }]} />
+          <button className="btn btn-primary ml-auto" onClick={() => setCreating(true)}><Glyph value="ideas" tile={false} size={16} /> Share idea</button>
         </div>
         <div className="mb-4 grid gap-2 sm:grid-cols-3">
           <input className="input" type="search" placeholder="Search ideas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search ideas" />
@@ -140,7 +140,7 @@ export default function IdeaList({ groupId, showContributors = !groupId }) {
           <Select label="Category filter" value={cat} onChange={setCat} options={[['all', 'All categories'], ...(state.ideaCategories ?? []).map((c) => [c, c])]} />
         </div>
         <div className="space-y-3">
-          {ideas.length ? ideas.map((i) => <IdeaCard key={i.id} idea={i} />) : <Empty icon="💡" title="No ideas match">Be the first to share one.</Empty>}
+          {ideas.length ? ideas.map((i) => <IdeaCard key={i.id} idea={i} />) : <Empty icon="ideas" title="No ideas match">Be the first to share one.</Empty>}
         </div>
       </div>
       {showContributors && <TopContributors ideas={all} />}

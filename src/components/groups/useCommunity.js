@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 import { toast } from '../../lib/toast.js';
 import { communityApi, errorText, refreshCommunity } from '../../lib/communities.js';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export function useCommunityWrite() {
   const { dispatch, me } = useStore();
@@ -66,8 +67,8 @@ export function useCommunityLifecycle() {
   const { state, dispatch } = useStore();
   const { run } = useCommunityWrite();
   const nav = useNavigate();
-  const archive = (g, archived) => {
-    if (archived && !confirm(`Archive ${g.name}? It becomes read-only and leaves Discover. Admins can restore it.`)) return;
+  const archive = async (g, archived) => {
+    if (archived && !(await confirmAction(`Archive ${g.name}? It becomes read-only and leaves Discover. Admins can restore it.`))) return;
     return run(g.id, () => communityApi.archive(g.id, archived), { ok: archived ? 'Community archived' : 'Community restored' });
   };
   const remove = async (g) => {

@@ -8,13 +8,13 @@ import CalendarGrid, { RangeNav, viewRange } from '../components/events/Calendar
 import EventForm from '../components/events/EventForm.jsx';
 import { TYPE_COLORS, addDays, isInvolved, occurrences, startOfDay, startOfWeek } from '../components/events/eventUtils.js';
 
-const TASK_COLOR = '#84cc16';
+const TASK_COLOR = '#168c70';
 
 export default function Calendar() {
   const [tab, setTab] = useState('mine');
   return (
     <div>
-      <PageHeader title="Calendar" subtitle="Events from your communities, by month or week." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="📅" tile={false} size={16} /> Events</Link>} />
+      <PageHeader title="Calendar" subtitle="Events from your communities, by month or week." actions={<Link to="/events" className="btn btn-ghost"><Glyph value="events" tile={false} size={16} /> Events</Link>} />
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'mine', label: 'My calendar' }, { id: 'team', label: 'Team schedule' }]} />
       {tab === 'mine' ? <MyCalendar /> : <TeamSchedule />}
     </div>
@@ -38,7 +38,7 @@ function MyCalendar() {
     for (const e of events) {
       if (show.onlyMine && !isInvolved(e, me.id)) continue;
       for (const o of occurrences(e, from, to)) {
-        items.push({ key: `e-${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, icon: o.status === 'cancelled' ? '🚫 ' : undefined, color: TYPE_COLORS[o.eventType] ?? '#a3e635', href: `/events/${o.id}` });
+        items.push({ key: `e-${o.id}-${o.occStart}`, title: o.title, start: o.occStart, end: o.occEnd, allDay: o.allDay, icon: o.status === 'cancelled' ? '' : undefined, color: TYPE_COLORS[o.eventType] ?? '#168c70', href: `/events/${o.id}` });
       }
     }
   }
@@ -46,7 +46,7 @@ function MyCalendar() {
     for (const t of state.tasks || []) {
       if (!t.dueAt || t.dueAt < from || t.dueAt > to) continue;
       if (show.onlyMine && t.assigneeId !== me.id && !(t.assigneeIds || []).includes(me.id)) continue;
-      items.push({ key: `t-${t.id}`, title: t.title, start: t.dueAt, end: t.dueAt, allDay: true, icon: t.done || t.status === 'done' ? '✔️ ' : '☑️ ', color: TASK_COLOR, href: `/tasks/${t.boardId ?? t.id}` });
+      items.push({ key: `t-${t.id}`, title: t.title, start: t.dueAt, end: t.dueAt, allDay: true, icon: t.done || t.status === 'done' ? '' : '', color: TASK_COLOR, href: `/tasks/${t.boardId ?? t.id}` });
     }
   }
   // Town halls are parked behind a feature flag (decision D2), so they aren't listed here.
@@ -64,7 +64,7 @@ function MyCalendar() {
         </div>
       </div>
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        {[['events', 'Events', '#a3e635'], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
+        {[['events', 'Events', '#168c70'], ['onlyMine', 'Only mine', null]].map(([k, l, c]) => (
           <label key={k} className="text-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-[var(--az-hairline)] px-3.5">
             <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={show[k]} onChange={() => toggle(k)} />
             {c && <span className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />}{l}
@@ -92,9 +92,9 @@ function TeamSchedule() {
   const cell = (userId, d) => {
     const end = d + 864e5 - 1;
     const evs = events.filter((e) => e.status !== 'cancelled' && isInvolved(e, userId))
-      .flatMap((e) => occurrences(e, d, end)).map((o) => ({ key: `e${o.id}${o.occStart}`, title: o.title, href: `/events/${o.id}`, color: TYPE_COLORS[o.eventType] ?? '#a3e635', start: o.occStart, allDay: o.allDay }));
+      .flatMap((e) => occurrences(e, d, end)).map((o) => ({ key: `e${o.id}${o.occStart}`, title: o.title, href: `/events/${o.id}`, color: TYPE_COLORS[o.eventType] ?? '#168c70', start: o.occStart, allDay: o.allDay }));
     const tasks = (state.tasks || []).filter((t) => t.dueAt && (t.assigneeId === userId || (t.assigneeIds || []).includes(userId)) && startOfDay(t.dueAt) === d)
-      .map((t) => ({ key: `t${t.id}`, title: `☑️ ${t.title}`, href: `/tasks/${t.boardId ?? t.id}`, color: TASK_COLOR, allDay: true }));
+      .map((t) => ({ key: `t${t.id}`, title: `${t.title}`, href: `/tasks/${t.boardId ?? t.id}`, color: TASK_COLOR, allDay: true }));
     return [...evs, ...tasks];
   };
 
@@ -103,7 +103,7 @@ function TeamSchedule() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <RangeNav mode="week" cursor={cursor} onChange={setCursor} />
         <select className="input !w-auto" value={groupId} onChange={(e) => setGroupId(e.target.value)} aria-label="Team">
-          {myGroups.map((g) => <option key={g.id} value={g.id}>{g.emoji} {g.name}</option>)}
+          {myGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           <option value="all">Everyone</option>
         </select>
       </div>

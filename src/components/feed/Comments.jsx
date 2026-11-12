@@ -6,6 +6,7 @@ import { Avatar } from '../ui.jsx';
 import RichText from './RichText.jsx';
 import ReportDialog from '../manage/Report.jsx';
 import { AuthorName } from './PostCard.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const MAX = 2000;
 
@@ -44,7 +45,7 @@ export default function Comments({ post }) {
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };
   const remove = async (c) => {
-    if (busy || !confirm('Delete this comment?')) return;
+    if (busy || !(await confirmAction('Delete this comment?'))) return;
     setBusy(true); setError('');
     try { await deleteComment(post.id, c.id); } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   };

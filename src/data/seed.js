@@ -63,15 +63,15 @@ export const users = [
 ];
 
 export const groups = [
-  { id: 'g1', name: 'Class of 2016', description: 'Everything for the 2016 batch: reunions, updates and throwbacks.', type: 'Batch', accessType: 'private', emoji: '🎓',
+  { id: 'g1', name: 'Class of 2016', description: 'Everything for the 2016 batch: reunions, updates and throwbacks.', type: 'Batch', accessType: 'private', emoji: 'cap',
     members: ['u1', 'u2', 'u7', 'u3'], admins: ['u7'], apps: ['feed', 'forums', 'events', 'members'] },
-  { id: 'g2', name: 'Bengaluru Chapter', description: 'Alumni living and working in Bengaluru. Monthly meet-ups.', type: 'City', accessType: 'public', emoji: '🌆',
+  { id: 'g2', name: 'Bengaluru Chapter', description: 'Alumni living and working in Bengaluru. Monthly meet-ups.', type: 'City', accessType: 'public', emoji: '',
     members: ['u1', 'u4', 'u8'], admins: ['u8'], apps: ['feed', 'events', 'members'] },
-  { id: 'g3', name: 'Founders Circle', description: 'Alumni founders sharing lessons, intros and hiring needs.', type: 'Interest', accessType: 'public', emoji: '🚀',
+  { id: 'g3', name: 'Founders Circle', description: 'Alumni founders sharing lessons, intros and hiring needs.', type: 'Interest', accessType: 'public', emoji: '',
     members: ['u2', 'u8'], admins: ['u2'], apps: ['feed', 'forums', 'members'] },
-  { id: 'g4', name: 'Mentorship Program', description: 'Pairing students with alumni mentors across industries.', type: 'Interest', accessType: 'public', emoji: '🤝',
+  { id: 'g4', name: 'Mentorship Program', description: 'Pairing students with alumni mentors across industries.', type: 'Interest', accessType: 'public', emoji: '',
     members: ['u3', 'u7', 'u1', 'u5'], admins: ['u3'], apps: ['feed', 'forums', 'events', 'members'] },
-  { id: 'g5', name: 'Mumbai Chapter', description: 'Mumbai alumni: sea-face walks and startup nights.', type: 'City', accessType: 'public', emoji: '🌊',
+  { id: 'g5', name: 'Mumbai Chapter', description: 'Mumbai alumni: sea-face walks and startup nights.', type: 'City', accessType: 'public', emoji: '',
     members: ['u5'], admins: ['u5'], apps: ['feed', 'events', 'members'] },
 ];
 
@@ -81,7 +81,7 @@ export const posts = [
     mandatory: { deadline: at(10), message: 'I have read and agree to the Homecoming code of conduct.', button: 'Acknowledge', acks: ['u2', 'u3'] },
     likes: ['u2', 'u3', 'u4', 'u5'], comments: [{ id: 'c1', authorId: 'u2', text: 'Cannot wait! Booking tickets already.', createdAt: now - 3600e3 }] },
   { id: 'p2', authorId: 'u2', scope: { type: 'network' }, createdAt: now - 5 * 3600e3, type: 'post',
-    text: 'Torque EV just closed our seed round 🎉 Huge thanks to the Founders Circle for the intros. We are hiring firmware engineers. Alumni referrals get priority!',
+    text: 'Torque EV just closed our seed round Huge thanks to the Founders Circle for the intros. We are hiring firmware engineers. Alumni referrals get priority!',
     likes: ['u1', 'u4', 'u8', 'u6', 'u7'], comments: [{ id: 'c2', authorId: 'u8', text: 'Proud of you, Karthik!', createdAt: now - 4 * 3600e3 }] },
   { id: 'p3', authorId: 'u4', scope: { type: 'group', id: 'g2' }, createdAt: now - 26 * 3600e3, type: 'poll',
     text: 'Where should the next Bengaluru meet-up be?',
@@ -91,7 +91,7 @@ export const posts = [
     text: 'Mentorship applications for the spring cohort are open. 40 students are waiting for mentors. Even one hour a month helps.',
     likes: ['u1', 'u7'], comments: [] },
   { id: 'p5', authorId: 'u5', scope: { type: 'network' }, createdAt: now - 3 * day, type: 'post',
-    text: 'Found this photo from our 2014 convocation. Tag yourself if you can find your younger self 😄',
+    text: 'Found this photo from our 2014 convocation. Tag yourself if you can find your younger self',
     likes: ['u7', 'u3', 'u1'], comments: [{ id: 'c3', authorId: 'u7', text: 'Adding this to the alumni archive!', createdAt: now - 2.5 * day }] },
 ];
 
@@ -131,7 +131,7 @@ export const forumPosts = [
 export const channels = [
   { id: 'ch1', name: 'general', description: 'Network-wide chatter', groupId: null, members: users.map(u => u.id), admins: ['u7'],
     messages: [
-      { id: 'm1', authorId: 'u7', text: 'Welcome to AlumniZone, everyone 👋', createdAt: now - 3 * day },
+      { id: 'm1', authorId: 'u7', text: 'Welcome to AlumniZone, everyone', createdAt: now - 3 * day },
       { id: 'm2', authorId: 'u4', text: 'Great to be here!', createdAt: now - 3 * day + 600e3 },
       { id: 'm3', authorId: 'u5', text: 'Homecoming passes go live on Monday.', createdAt: now - 3600e3 },
     ] },

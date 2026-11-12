@@ -844,3 +844,33 @@ The proposal (`PROPOSAL_V2.md`) was approved with the recommended answers to P1�
   - Landing redesign, which is still the old layout without the AlumniZone section (C).
   - Moving batch filters into Alumni-template communities (F).
   - The seed still creates the prototype's AlumniZone from old data. P1 trims it; workstream F replaces it with a template-made demo community.
+
+### v2 brief — workstream B: design system foundation (12 Nov 2026)
+
+The board was approved with B1–B5 (canvas page "v2 — Design system").
+
+- **Tokens:**
+  - `src/styles/index.css` now defaults to light, with dark as an option. It uses the board's values: secondary text `#5F6B66` (B1), the accent pair `#168C70` / `#127A61` (B2), and the form-control border `#808B85` (B3).
+  - New semantic tokens: `--az-page`, `--az-control`, and danger, warning, ok and info, each with a soft background.
+  - The old Tailwind `brand` scale now maps to the teal accent, so screens not yet restyled pick up the palette.
+  - `lib/theme.js` and `index.html` default to light; the stored "dark" and "system" choices are kept.
+  - `light-invert.css` stays until every screen uses the components (end of workstream G). This is a planned deviation from B4's "removed".
+- **Icons (B5):**
+  - `lucide-react` 1.61.0, pinned. `components/icons.jsx` maps the app's icon names to Lucide.
+  - `Glyph` never draws an emoji; an unmapped one shows a neutral shape.
+  - Emoji in source went from 497 to 11 lines in parked modules, plus the translation table in `icons.jsx` (for emoji still stored in old data).
+  - Done on reachable screens: icon values became icon names, labels lost their emoji prefixes, and like, mood, badge and celebration icons are drawn with Lucide.
+  - Removed: the community emoji picker (uploaded logos arrive in workstream E), emoji in labels such as event selects, and emoji in seed and demo text.
+  - The logo's "C" is now solid `#168C70` instead of the lime gradient, and the favicon is light. That changes your own artwork, so it's easy to undo.
+- **Components:**
+  - `src/components/ui/Controls.jsx`: Button, IconButton, Badge, Skeleton, Stat.
+  - `src/components/ui/Confirm.jsx`: `confirmAction()` and `ConfirmHost`, mounted in `App.jsx`. The confirm button takes the sentence's first verb; destructive verbs make it red.
+  - All 31 `confirm()` calls on reachable screens now use it; the 23 in parked modules are untouched.
+- **Checked:**
+  - Build passes.
+  - Playwright (`npm run test:e2e`): 7 passed, 1 skipped. Includes a new journey checking that the app is light by default (body `#F7F8F6`) and that Home, Feed, Events, Communities and Admin show no emoji text.
+  - Server tests: 253 pass when the files run one at a time. The single full-suite command stalled again, in `assessment.test.js`, which passed 3 of 3 on its own. The stall is intermittent and still unexplained.
+- **Not done here:**
+  - Restyling each screen onto the components (workstreams C–G).
+  - The 1,617 hardcoded colour classes.
+  - Emoji in the parked modules.

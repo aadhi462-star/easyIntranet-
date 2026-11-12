@@ -11,6 +11,7 @@ import { Empty } from '../ui.jsx';
 import { Icon } from '../icons.jsx';
 import JoinButton from '../groups/JoinButton.jsx';
 import { KindBadge, Pill, Progress, STATUS_LABEL } from './bits.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export default function CoursePage({ g, perms, id }) {
   const c = useCourse(id);
@@ -114,9 +115,9 @@ function EnrolBox({ g, perms, course, set }) {
     } finally { setBusy(false); }
   };
   const enrol = (waitlist) => act(() => api(`/courses/${course.id}/enroll`, { method: 'POST', body: waitlist ? { waitlist: true } : {} }), waitlist ? 'You’re on the waitlist' : 'You’re enrolled');
-  const leave = () => {
+  const leave = async () => {
     const msg = e.status === 'waitlist' ? 'Leave the waitlist for this course?' : 'Leave this course? Your progress is kept, and comes back if you enrol again.';
-    if (confirm(msg)) act(() => api(`/courses/${course.id}/enroll`, { method: 'DELETE' }), e.status === 'waitlist' ? 'You left the waitlist' : 'You left the course');
+    if ((await confirmAction(msg))) act(() => api(`/courses/${course.id}/enroll`, { method: 'DELETE' }), e.status === 'waitlist' ? 'You left the waitlist' : 'You left the course');
   };
 
   let body;

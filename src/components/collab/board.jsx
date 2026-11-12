@@ -60,7 +60,7 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Board name"><input className="input" value={f.name} onChange={(e) => set('name', e.target.value)} /></Field>
           <Field label="Visibility">
-            <Select label="Visibility" value={f.scope} onChange={(v) => { set('scope', v); setError(''); }} options={[['network', '🌐 Network'], ['group', '👥 Group'], ['private', '🔒 Private (members only)']]} />
+            <Select label="Visibility" value={f.scope} onChange={(v) => { set('scope', v); setError(''); }} options={[['network', 'Network'], ['group', 'Group'], ['private', 'Private (members only)']]} />
           </Field>
           {f.scope === 'group' && (
             <Field label="Group"><Select label="Group" value={f.groupId} onChange={(v) => { set('groupId', v); setError(''); }} options={[['', 'Choose a group'], ...myGroups(state, me, board?.groupId ?? groupId).map((g) => [g.id, g.name])]} /></Field>
@@ -275,10 +275,10 @@ function TaskCard({ task, board, onOpen, onDragStart, blocked, done, canEdit }) 
       <div className={`mt-1 font-semibold ${done ? 'text-slate-400 line-through' : ''}`}>{task.title}</div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
         {task.priority && task.priority !== 'none' && <span className={PRIO_CLS[task.priority]}>● {task.priority}</span>}
-        {task.dueAt && <span className={overdue ? 'text-rose-300' : ''}><Glyph value="📅" tile={false} size={16} /> {fmtDate(task.dueAt, { day: 'numeric', month: 'short' })}</span>}
-        {!!checks.length && <span>☑ {checks.filter((c) => c.done).length}/{checks.length}</span>}
-        {!!task.comments?.length && <span><Glyph value="💬" tile={false} size={16} /> {task.comments.length}</span>}
-        {blocked && <span className="text-rose-300" title="Blocked by unfinished tasks"><Glyph value="⛔" tile={false} size={16} /> blocked</span>}
+        {task.dueAt && <span className={overdue ? 'text-rose-300' : ''}><Glyph value="events" tile={false} size={16} /> {fmtDate(task.dueAt, { day: 'numeric', month: 'short' })}</span>}
+        {!!checks.length && <span>{checks.filter((c) => c.done).length}/{checks.length}</span>}
+        {!!task.comments?.length && <span><Glyph value="channels" tile={false} size={16} /> {task.comments.length}</span>}
+        {blocked && <span className="text-rose-300" title="Blocked by unfinished tasks"><Glyph value="ban" tile={false} size={16} /> blocked</span>}
         {board.customFields.filter((c) => task.custom?.[c.id] && c.type !== 'date').slice(0, 1).map((c) => <span key={c.id}>{c.name}: {String(task.custom[c.id])}</span>)}
         <span className="ml-auto">{task.assigneeId && <Avatar user={user(task.assigneeId)} size={22} />}</span>
       </div>
@@ -343,7 +343,7 @@ export function BoardView({ board }) {
           ]} />}
         </div>
       </div>
-      {toast && <div role="alert" className="glass mb-3 p-3 text-sm text-rose-200"><Glyph value="⛔" tile={false} size={16} /> {toast}</div>}
+      {toast && <div role="alert" className="glass mb-3 p-3 text-sm text-rose-200"><Glyph value="ban" tile={false} size={16} /> {toast}</div>}
 
       {view === 'board' && (
         <div className="flex gap-4 overflow-x-auto pb-4 scroll-thin">
@@ -380,7 +380,7 @@ export function BoardView({ board }) {
             <tbody>
               {[...visible].sort((a, b) => (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity)).map((t) => (
                 <tr key={t.id} className="cursor-pointer border-t border-white/5 hover:bg-white/5" onClick={() => setOpen(t)}>
-                  <td className="p-3 font-medium">{isDone(t) ? '✅ ' : blockers(t).length ? '⛔ ' : ''}{t.title}</td>
+                  <td className="p-3 font-medium">{isDone(t) ? '' : blockers(t).length ? '' : ''}{t.title}</td>
                   <td className="p-3">{board.sections.find((s) => s.id === t.status)?.name}</td>
                   <td className="p-3">{user(t.assigneeId)?.name ?? '—'}</td>
                   <td className="p-3">{t.dueAt ? fmtDate(t.dueAt, { day: 'numeric', month: 'short' }) : '—'}</td>
