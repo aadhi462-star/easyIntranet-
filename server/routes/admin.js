@@ -1,6 +1,7 @@
 // Platform administration (Phase 1): users, approvals, suspension, platform roles, settings, audit.
 // Every route authorises on the server; staff roles only reach what their role grants (PER-16).
 import { audit } from '../lib/audit.js';
+import { brandingUrls } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { authorize, can, canAssignRole, PLATFORM_ROLES } from '../lib/permissions.js';
 import { requireFreshPassword, revokeAllSessions } from '../lib/session.js';
@@ -63,7 +64,7 @@ export default async function adminRoutes(app, { ctx }) {
     const { rows: [u] } = await db.query(`select ${USER_COLUMNS} from users u where u.id = $1`, [req.params.id]);
     if (!u) throw notFound('That account doesn’t exist.');
     const [{ rows: communities }, { rows: [sess] }, { rows: [reports] }] = await Promise.all([
-      db.query(`select c.id, c.slug, c.name, c.accent, c.visibility, m.role, m.state,
+      db.query(`select c.id, c.slug, c.name, c.accent, c.logo_file_id, c.cover_file_id, c.visibility, m.role, m.state,
           (select json_build_object('until', s.until, 'by', b.name) from sanctions s left join users b on b.id = s.created_by
             where s.community_id = c.id and s.user_id = m.user_id and s.kind = 'restrict' and s.lifted_at is null order by s.created_at desc limit 1) as restriction
         from memberships m join communities c on c.id = m.community_id
@@ -72,7 +73,7 @@ export default async function adminRoutes(app, { ctx }) {
       db.query(`select count(*)::int as n, count(distinct community_id)::int as communities from moderation_cases where subject_id = $1`, [u.id]),
     ]);
     return { user: { ...userRow(u), emailConfirmed: !!u.email_verified_at },
-      communities: communities.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility, role: c.role, state: c.state, restriction: c.restriction })),
+      communities: communities.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, ...brandingUrls(c), visibility: c.visibility, role: c.role, state: c.state, restriction: c.restriction })),
       sessions: { active: sess.active, last: sess.last }, reports: { count: reports.n, communities: reports.communities } };
   });
 
@@ -206,7 +207,7 @@ export default async function adminRoutes(app, { ctx }) {
       db.query(`select visibility, status, count(*)::int as n from communities where merged_into is null group by visibility, status`),
       db.query(`select count(*)::int as n from events e join communities c on c.id = e.community_id where e.deleted_at is null and c.merged_into is null`),
       db.query(`select count(*)::int as n from posts p join communities c on c.id = p.community_id where p.status = 'published' and p.deleted_at is null and c.merged_into is null`),
-      db.query(`select c.id, c.slug, c.name, c.accent, c.visibility, c.status, c.created_at,
+      db.query(`select c.id, c.slug, c.name, c.accent, c.logo_file_id, c.cover_file_id, c.visibility, c.status, c.created_at,
           (select count(*)::int from memberships m join users u on u.id = m.user_id
             where m.community_id = c.id and m.state in ('active', 'restricted') and u.status = 'active') as member_count,
           (select u.name from memberships m join users u on u.id = m.user_id where m.community_id = c.id and m.role = 'owner' and m.state = 'active' limit 1) as owner,
@@ -224,7 +225,7 @@ export default async function adminRoutes(app, { ctx }) {
         events: events.rows[0].n,
         posts: posts.rows[0].n,
       },
-      communities: list.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility, status: c.status, memberCount: c.member_count, owner: c.owner,
+      communities: list.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, ...brandingUrls(c), visibility: c.visibility, status: c.status, memberCount: c.member_count, owner: c.owner,
         // Whether its page opens for you without Administrative Mode (Closed ones are members only).
         canOpen: c.status !== 'suspended' && (c.visibility !== 'closed' || c.is_member) })),
     };

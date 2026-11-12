@@ -1,7 +1,7 @@
 // Posts, comments, reactions, polls and Mandatory Read inside communities, plus the home feed.
 // Every route re-checks community access on the server (VIS-02, CNT-*).
 import { audit } from '../lib/audit.js';
-import { access, requireView } from '../lib/community.js';
+import { access, requireSection, requireView, sectionOn } from '../lib/community.js';
 import { newId } from '../lib/crypto.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { idempotent } from '../lib/session.js';
@@ -27,6 +27,8 @@ export default async function postRoutes(app, { ctx }) {
     if (!p) throw notFound('That post doesn’t exist or was deleted.');
     const a = await access(db, req, p.community_id);
     requireView(a);
+    // Discussions switched off: gone for members; staff can still read and moderate (v2 E).
+    requireSection(a, 'discussions', { write: forWrite });
     const own = p.author_id === req.user.id;
     const visible = p.status === 'published' || own || (p.status === 'pending' && a.canModerate) || (p.status === 'removed' && a.canModerate);
     if (!visible) throw notFound('That post doesn’t exist or was deleted.');
@@ -129,13 +131,14 @@ export default async function postRoutes(app, { ctx }) {
     const active = !!req.query.community && req.query.sort === 'active';
     let communityIds; const accessById = {};
     if (req.query.community) {
-      const a = requireView(await access(db, req, String(req.query.community)));
+      const a = requireSection(requireView(await access(db, req, String(req.query.community))), 'discussions');
       communityIds = [a.community.id]; accessById[a.community.id] = a;
     } else {
       const { rows } = await db.query(`select community_id from memberships m join communities c on c.id = m.community_id
         where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null`, [uid]);
-      communityIds = rows.map((r) => r.community_id);
-      for (const id of communityIds) accessById[id] = await access(db, req, id, { audited: false });
+      for (const { community_id: id } of rows) accessById[id] = await access(db, req, id, { audited: false });
+      // Home leaves out communities whose Discussions are switched off.
+      communityIds = rows.map((r) => r.community_id).filter((id) => sectionOn(accessById[id].community, 'discussions'));
     }
     const moderated = communityIds.filter((id) => accessById[id]?.canModerate);
     const { rows } = await db.query(
@@ -191,6 +194,7 @@ export default async function postRoutes(app, { ctx }) {
   }, async (req, reply) => idempotent(db, req, reply, async () => {
     const a = await access(db, req, req.params.id);
     if (!a.canParticipate) throw forbidden(a.state === 'restricted' ? 'You’ve been restricted from posting here.' : 'Join this community to post in it.', 'CANNOT_POST');
+    requireSection(a, 'discussions', { write: true });
     const b = req.body;
     const type = b.type ?? 'post';
     if ((type === 'announcement' || b.pinned || b.mandatory) && !a.canAdmin) throw forbidden('Only community admins can post announcements, pin posts or ask for a Mandatory Read.');

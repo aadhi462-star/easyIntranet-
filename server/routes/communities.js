@@ -1,7 +1,7 @@
 // Communities and memberships (Phase 1 community foundation). MEM-*, VIS-*, PER-* cases are
 // referenced where handled.
 import { audit } from '../lib/audit.js';
-import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId } from '../lib/community.js';
+import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId, sectionsOf } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { can } from '../lib/permissions.js';
@@ -65,6 +65,8 @@ export default async function communityRoutes(app, { ctx }) {
       where m.community_id = $1 and m.state in ('active', 'restricted') and u.status = 'active'`, [a.community.id])).rows[0].n;
     return {
       community: publicCommunity(a.community, { memberCount: n, version: a.community.version, settings: a.canView ? a.community.settings : undefined }),
+      // Which sections are switched on (settings.apps, lib/community.js sectionOn).
+      sections: sectionsOf(a.community),
       membership: a.state ? { state: a.state, role: a.role, joinedAt: a.joinedAt } : null,
       permissions: { canView: a.canView, canParticipate: a.canParticipate, canComment: a.canComment, canModerate: a.canModerate, canAdmin: a.canAdmin },
       adminMode: a.adminMode,

@@ -14,6 +14,7 @@ import devRoutes from './routes/dev.js';
 import profileRoutes from './routes/profiles.js';
 import connectionRoutes from './routes/connections.js';
 import communityRoutes from './routes/communities.js';
+import brandingRoutes from './routes/branding.js';
 import postRoutes from './routes/posts.js';
 import eventRoutes from './routes/events.js';
 import dashboardRoutes from './routes/dashboard.js';
@@ -75,6 +76,7 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   await app.register(profileRoutes, { prefix: '/api', ctx });
   await app.register(connectionRoutes, { prefix: '/api', ctx });
   await app.register(communityRoutes, { prefix: '/api', ctx });
+  await app.register(brandingRoutes, { prefix: '/api', ctx });
   await app.register(postRoutes, { prefix: '/api', ctx });
   await app.register(eventRoutes, { prefix: '/api', ctx });
   await app.register(dashboardRoutes, { prefix: '/api', ctx });

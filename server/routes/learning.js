@@ -7,7 +7,7 @@
 //   - see the catalogue: anyone who can view the community. Enrol: active members (D3).
 //   - open a lesson: an active enrolment while still a member, or a manager (LMS-08, D4).
 import { audit } from '../lib/audit.js';
-import { access } from '../lib/community.js';
+import { access, requireSection, sectionOn } from '../lib/community.js';
 import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { idempotent } from '../lib/session.js';
@@ -40,6 +40,9 @@ export default async function learningRoutes(app, { ctx }) {
     const { rows: [c] } = await db.query(`select * from courses where id = $1`, [id]);
     if (!c) throw notFound('That course doesn’t exist.');
     const a = await access(db, req, c.community_id);
+    // The community's Learning section switched off: only staff still see its courses, and every
+    // change (enrolling, progress, quizzes, editing) waits until it's back on.
+    requireSection(a, 'learning', { write: req.method !== 'GET' });
     const { rows: [r] } = await db.query(`select
         exists (select 1 from course_instructors i where i.course_id = $1 and i.user_id = $2) as instructor,
         (select row_to_json(e) from enrollments e where e.course_id = $1 and e.user_id = $2) as enrollment`, [c.id, uid]);
@@ -108,6 +111,7 @@ export default async function learningRoutes(app, { ctx }) {
     const uid = signedIn(req);
     const a = await access(db, req, req.params.id);
     if (!a.canView) throw forbidden('Courses are for members.');
+    requireSection(a, 'learning');
     const { rows } = await db.query(
       `select c.* from courses c
         where c.community_id = $1
@@ -124,7 +128,7 @@ export default async function learningRoutes(app, { ctx }) {
       if (r?.manage) managed.push(c.id);
     }
     const { rows: [{ n: toGrade }] } = await db.query(`select count(*)::int as n from submissions where course_id = any($1) and status = 'submitted'`, [managed]);
-    return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active', canGrade: managed.length > 0, toGrade };
+    return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active' && sectionOn(a.community, 'learning'), canGrade: managed.length > 0, toGrade };
   });
 
   const COURSE_FIELDS = { title: { type: 'string' }, description: { type: ['string', 'null'] }, objectives: { type: 'array', items: { type: 'string' }, maxItems: 12 },
@@ -143,6 +147,7 @@ export default async function learningRoutes(app, { ctx }) {
     const uid = signedIn(req);
     const a = await access(db, req, req.params.id);
     if (!a.canAdmin) throw forbidden('Only community Owners and Admins create courses.');
+    requireSection(a, 'learning', { write: true });
     return idempotent(db, req, reply, async () => {
       const v = courseValues(req.body);
       const id = newId('crs');

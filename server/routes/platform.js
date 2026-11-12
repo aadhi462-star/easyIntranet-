@@ -5,6 +5,7 @@
 //
 // PGlite has one connection: inside db.tx only `t` is used, and permission checks run first.
 import { audit } from '../lib/audit.js';
+import { brandingUrls } from '../lib/community.js';
 import { verifyPassword, newId } from '../lib/crypto.js';
 import { badRequest, conflict, notFound, unauthorized } from '../lib/errors.js';
 import { notify } from '../lib/notify.js';
@@ -83,7 +84,7 @@ export default async function platformRoutes(app, { ctx }) {
     const show = FILTERS[req.query.show] ? String(req.query.show) : 'all';
     const counts = Object.fromEntries(await Promise.all(Object.entries(FILTERS).map(async ([k, where]) =>
       [k, (await db.query(`select count(*)::int as n from communities c where c.merged_into is null and ${where}`)).rows[0].n])));
-    const { rows } = await db.query(`select c.id, c.slug, c.name, c.accent, c.visibility, c.status, c.status_reason, c.deleted_at, c.purge_after, c.purge_step, c.created_at,
+    const { rows } = await db.query(`select c.id, c.slug, c.name, c.accent, c.logo_file_id, c.cover_file_id, c.visibility, c.status, c.status_reason, c.deleted_at, c.purge_after, c.purge_step, c.created_at,
         ${MEMBERS} as member_count, ${ACTIVE_OWNERS} as owner_count,
         (select u.name from memberships m join users u on u.id = m.user_id where m.community_id = c.id and m.role = 'owner' and m.state = 'active' order by m.joined_at limit 1) as owner,
         (select json_build_object('id', d.id, 'createdAt', d.created_at, 'by', u.name, 'reviewBy', r.name, 'reviewAt', d.review_at, 'mine', d.review_by = $1)
@@ -92,7 +93,7 @@ export default async function platformRoutes(app, { ctx }) {
       order by ${show === 'requests' ? `(select created_at from deletion_requests d where d.community_id = c.id and d.status = 'open')` : 'member_count desc, c.name'}`, [req.user.id]);
     return {
       show, counts,
-      communities: rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility, status: c.status, statusReason: c.status_reason,
+      communities: rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, ...brandingUrls(c), visibility: c.visibility, status: c.status, statusReason: c.status_reason,
         memberCount: c.member_count, owner: c.owner, ownerCount: c.owner_count, deletedAt: c.deleted_at, purgeAfter: c.purge_after, purging: !!c.purge_step,
         request: c.request ? { ...c.request, reviewBy: fresh(c.request.reviewAt, REVIEW_MINUTES) ? c.request.reviewBy : null, mine: c.request.mine && fresh(c.request.reviewAt, REVIEW_MINUTES) } : null })),
     };

@@ -2,7 +2,7 @@
 // kind applies the same rules as its own screen, so search never shows more than the page a
 // result links to (SRC-01, SRC-02), and that page checks access again when it opens (SRC-05).
 import { badRequest, unauthorized } from '../lib/errors.js';
-import { access } from '../lib/community.js';
+import { access, brandingUrls, sectionOn } from '../lib/community.js';
 import { notBlockedSql } from '../lib/relations.js';
 import { listEvents } from './events.js';
 
@@ -35,7 +35,7 @@ export default async function searchRoutes(app, { ctx }) {
       // Same rule as discovery: Public and Private, plus Closed ones you belong to; never merged,
       // suspended, or one you're blocked from (VIS-04, SRC-01, SRC-04).
       want('communities') ? db.query(
-        `select c.id, c.slug, c.name, c.description, c.category, c.emoji, c.accent, c.visibility, c.status, m.state as member_state,
+        `select c.id, c.slug, c.name, c.description, c.category, c.emoji, c.accent, c.logo_file_id, c.cover_file_id, c.visibility, c.status, m.state as member_state,
                 (select count(*)::int from memberships mm join users u on u.id = mm.user_id
                   where mm.community_id = c.id and mm.state in ('active', 'restricted') and u.status = 'active') as member_count
            from communities c left join memberships m on m.community_id = c.id and m.user_id = $1
@@ -69,7 +69,7 @@ export default async function searchRoutes(app, { ctx }) {
     const out = {};
     if (communities) {
       out.communities = communities.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category,
-        emoji: c.emoji, accent: c.accent, visibility: c.visibility, status: c.status, memberCount: c.member_count, member: ['active', 'restricted'].includes(c.member_state) }));
+        emoji: c.emoji, accent: c.accent, ...brandingUrls(c), visibility: c.visibility, status: c.status, memberCount: c.member_count, member: ['active', 'restricted'].includes(c.member_state) }));
     }
     if (people) {
       out.people = people.rows.map((p) => ({ id: p.id, name: p.name, headline: p.headline || [p.job_title, p.company].filter(Boolean).join(' · ') || null, city: p.city, avatarHue: p.avatar_hue }));
@@ -77,8 +77,12 @@ export default async function searchRoutes(app, { ctx }) {
     if (posts) {
       // A post in a Public community you aren't in is still readable, but check once more with
       // the same access function the post page uses, in case a setting changed mid-request.
+      // Posts in a community whose Discussions are switched off aren't found.
       const allowed = {};
-      for (const id of new Set(posts.rows.map((p) => p.community_id))) allowed[id] = (await access(db, req, id, { audited: false }).catch(() => null))?.canView;
+      for (const id of new Set(posts.rows.map((p) => p.community_id))) {
+        const a = await access(db, req, id, { audited: false }).catch(() => null);
+        allowed[id] = a?.canView && sectionOn(a.community, 'discussions');
+      }
       out.posts = posts.rows.filter((p) => allowed[p.community_id]).map((p) => ({ id: p.id, type: p.type, excerpt: snippet(p.body, q), community: { id: p.community_id, name: p.community }, author: p.author, at: p.at }));
     }
     if (events) {

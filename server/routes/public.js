@@ -1,8 +1,9 @@
 // Public discovery (decision R7): what a visitor may see before signing in, for the landing
 // page and public Explore. Only Public and Private communities that are active; Closed ones
 // never appear (VIS-04). Cards carry public metadata and a member count, never member lists
-// or content. Upcoming events are listed for Public communities only, and never invite-only
-// ones (EVT-08). Rate-limited per IP because it needs no account.
+// or content. Upcoming events are listed for Public communities only (with Events switched on),
+// and never invite-only ones (EVT-08). Rate-limited per IP because it needs no account.
+import { brandingUrls, sectionOn } from '../lib/community.js';
 import { badRequest } from '../lib/errors.js';
 import { nextOccurrence, seriesEnd } from '../../shared/recurrence.js';
 import { timing } from './events.js';
@@ -19,7 +20,7 @@ export default async function publicRoutes(app, { ctx }) {
     const visible = `c.status = 'active' and c.visibility in ('public', 'private')`;
     const [{ rows }, cats] = await Promise.all([
       db.query(
-        `select c.id, c.slug, c.name, c.description, c.category, c.accent, c.visibility,
+        `select c.id, c.slug, c.name, c.description, c.category, c.accent, c.logo_file_id, c.cover_file_id, c.visibility, c.settings,
                 (select count(*)::int from memberships m join users u on u.id = m.user_id
                   where m.community_id = c.id and m.state in ('active', 'restricted') and u.status = 'active') as member_count
            from communities c
@@ -29,7 +30,7 @@ export default async function publicRoutes(app, { ctx }) {
           order by member_count desc, c.name limit $3`, [q, category, n]),
       db.query(`select distinct c.category from communities c where ${visible} and c.category is not null order by 1`),
     ]);
-    const publicIds = rows.filter((c) => c.visibility === 'public').map((c) => c.id);
+    const publicIds = rows.filter((c) => c.visibility === 'public' && sectionOn(c, 'events')).map((c) => c.id);
     const events = publicIds.length ? (await db.query(
       `select e.* from events e where e.community_id = any($1) and e.deleted_at is null and e.status = 'scheduled'
           and not e.invite_only and e.start_at <= now() + interval '400 days'
@@ -45,7 +46,7 @@ export default async function publicRoutes(app, { ctx }) {
     }
     return {
       communities: rows.map((c) => ({
-        id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category, accent: c.accent, visibility: c.visibility,
+        id: c.id, slug: c.slug, name: c.name, description: c.description, category: c.category, accent: c.accent, ...brandingUrls(c), visibility: c.visibility,
         memberCount: c.member_count, upcomingEvents: upcoming[c.id] ?? [],
       })),
       categories: cats.rows.map((r) => r.category),

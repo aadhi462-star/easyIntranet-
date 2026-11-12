@@ -1,6 +1,7 @@
 // Member dashboard (prompt §11): one request for the home screen's summary. Everything comes
 // from communities the member belongs to and passes the same access and block rules as the
 // full screens, so the dashboard never shows more than the pages it links to.
+import { brandingUrls, sectionOn } from '../lib/community.js';
 import { unauthorized } from '../lib/errors.js';
 import { notBlockedSql } from '../lib/relations.js';
 import { listEvents } from './events.js';
@@ -18,7 +19,7 @@ export default async function dashboardRoutes(app, { ctx }) {
       where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null`;
 
     const [communities, events, mandatory, announcements, requests, newMembers, replies, recent, suggested] = await Promise.all([
-      db.query(`select c.id, c.slug, c.name, c.emoji, c.accent, c.visibility, c.status, m.role, m.state,
+      db.query(`select c.id, c.slug, c.name, c.emoji, c.accent, c.logo_file_id, c.cover_file_id, c.settings, c.visibility, c.status, m.role, m.state,
           (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
             where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
         from memberships m join communities c on c.id = m.community_id
@@ -63,7 +64,7 @@ export default async function dashboardRoutes(app, { ctx }) {
            and ${notBlockedSql('p.author_id', '$1')}
          order by p.published_at desc limit 5`, [uid]),
       // Public communities you're not in (and haven't asked to join), most members first. No tracking.
-      db.query(`select c.id, c.slug, c.name, c.category, c.accent,
+      db.query(`select c.id, c.slug, c.name, c.category, c.accent, c.logo_file_id, c.cover_file_id,
           (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
             where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
           from communities c
@@ -75,18 +76,22 @@ export default async function dashboardRoutes(app, { ctx }) {
     const upcoming = events.filter((e) => e.status === 'scheduled' && Date.parse(e.nextStart) >= now)
       .sort((a, b) => Date.parse(a.nextStart) - Date.parse(b.nextStart)).slice(0, 5);
     const excerpt = (s) => (s.length > 200 ? `${s.slice(0, 199)}…` : s);
+    // Posts from communities whose Discussions are switched off stay off Home (events are
+    // already left out by listEvents).
+    const quiet = new Set(communities.rows.filter((c) => !sectionOn(c, 'discussions')).map((c) => c.id));
+    const shown = (rows) => rows.filter((p) => !quiet.has(p.community_id));
     return {
-      communities: communities.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, emoji: c.emoji, accent: c.accent, visibility: c.visibility, status: c.status, role: c.role, state: c.state, memberCount: c.member_count })),
+      communities: communities.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, emoji: c.emoji, accent: c.accent, ...brandingUrls(c), visibility: c.visibility, status: c.status, role: c.role, state: c.state, memberCount: c.member_count })),
       upcomingEvents: upcoming,
-      mandatoryReads: mandatory.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), button: p.mandatory.button, deadline: p.mandatory.deadline, publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author })),
-      announcements: announcements.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author_status === 'deleted' ? 'Deleted member' : p.author })),
+      mandatoryReads: shown(mandatory.rows).map((p) => ({ id: p.id, excerpt: excerpt(p.body), button: p.mandatory.button, deadline: p.mandatory.deadline, publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author })),
+      announcements: shown(announcements.rows).map((p) => ({ id: p.id, excerpt: excerpt(p.body), publishedAt: p.published_at, community: { id: p.community_id, name: p.community }, author: p.author_status === 'deleted' ? 'Deleted member' : p.author })),
       connectionRequests: requests.rows[0].n,
       newMembers: newMembers.rows.map((u) => ({ id: u.id, name: u.name })),
-      replies: repliesByPost(replies.rows, excerpt),
-      recentPosts: recent.rows.map((p) => ({ id: p.id, excerpt: excerpt(p.body), type: p.type, publishedAt: p.published_at, likes: p.likes, replies: p.replies,
+      replies: repliesByPost(shown(replies.rows), excerpt),
+      recentPosts: shown(recent.rows).map((p) => ({ id: p.id, excerpt: excerpt(p.body), type: p.type, publishedAt: p.published_at, likes: p.likes, replies: p.replies,
         community: { id: p.community_id, slug: p.slug, name: p.community, accent: p.accent },
         author: p.author_status === 'deleted' ? { id: null, name: 'Deleted member' } : { id: p.author_id, name: p.author } })),
-      suggested: suggested.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, category: c.category, accent: c.accent, memberCount: c.member_count })),
+      suggested: suggested.rows.map((c) => ({ id: c.id, slug: c.slug, name: c.name, category: c.category, accent: c.accent, ...brandingUrls(c), memberCount: c.member_count })),
     };
   });
 }

@@ -3,7 +3,7 @@
 // server (EVT-08, VIS-*). Recurrence is expanded by shared/recurrence.js, the same code the
 // web app uses.
 import { audit } from '../lib/audit.js';
-import { access } from '../lib/community.js';
+import { access, requireSection, sectionOn } from '../lib/community.js';
 import { newId } from '../lib/crypto.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { idempotent } from '../lib/session.js';
@@ -190,12 +190,14 @@ export async function listEvents(db, req, { from, to, communityId = null, view =
   if (communityId) {
     const a = await access(db, req, communityId);
     if (!a.canView) throw forbidden('Join this community to see its events.', 'MEMBERS_ONLY');
+    requireSection(a, 'events');
     communityIds = [a.community.id]; accessById[a.community.id] = a;
   } else {
     const { rows } = await db.query(`select community_id from memberships m join communities c on c.id = m.community_id
       where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null`, [uid]);
-    communityIds = rows.map((r) => r.community_id);
-    for (const id of communityIds) accessById[id] = await access(db, req, id, { audited: false });
+    for (const { community_id: id } of rows) accessById[id] = await access(db, req, id, { audited: false });
+    // The calendar and Home leave out communities whose Events are switched off.
+    communityIds = rows.map((r) => r.community_id).filter((id) => sectionOn(accessById[id].community, 'events'));
   }
   const adminIds = communityIds.filter((id) => accessById[id]?.canAdmin);
   const { rows } = await db.query(
@@ -230,12 +232,14 @@ export default async function eventRoutes(app, { ctx }) {
 
   // Loads an event the caller may see. Anything they may not see (another community's members-
   // only event, an invite-only event they aren't on, a deleted one) is "not found" (EVT-08).
-  async function loadEvent(req, id) {
+  // With Events switched off, only staff still see it, and nobody changes or answers it (`write`).
+  async function loadEvent(req, id, { write = false } = {}) {
     const uid = signedIn(req);
     const { rows: [e] } = await db.query(`select * from events where id = $1 and deleted_at is null`, [id]);
     if (!e) throw notFound('That event doesn’t exist or was deleted.');
     const a = await access(db, req, e.community_id);
     if (!a.canView) throw notFound('That event doesn’t exist or was deleted.');
+    requireSection(a, 'events', { write });
     const { rows: [rel] } = await db.query(`select
         exists (select 1 from event_staff where event_id = $1 and user_id = $2) as staff,
         exists (select 1 from event_invitees where event_id = $1 and user_id = $2) as invited`, [e.id, uid]);
@@ -282,6 +286,7 @@ export default async function eventRoutes(app, { ctx }) {
     async (req, reply) => idempotent(db, req, reply, async () => {
       const a = await access(db, req, req.params.id);
       if (!a.canParticipate) throw forbidden(a.state === 'restricted' ? 'You’ve been restricted from taking part here.' : 'Join this community to create events in it.', 'CANNOT_POST');
+      requireSection(a, 'events', { write: true });
       const v = readEvent(req.body);
       // Communities can keep open events to admins; any member may still arrange an
       // invite-only event with other members (the prototype's "invited members only").
@@ -310,7 +315,7 @@ export default async function eventRoutes(app, { ctx }) {
   // Host, co-hosts or community admins, from the latest version. Registrants are emailed when
   // the time or place changes (EVT-03).
   app.patch('/events/:id', { schema: { body: { ...FIELDS, required: ['version'], properties: { ...FIELDS.properties, version: { type: 'integer' } } } } }, async (req) => {
-    const { e, a, isHost, manage } = await loadEvent(req, req.params.id);
+    const { e, a, isHost, manage } = await loadEvent(req, req.params.id, { write: true });
     if (!manage) throw forbidden('Only the host, co-hosts or community admins can edit this event.');
     if (e.status === 'cancelled') throw conflict('CANCELLED', 'This event was cancelled, so it can’t be edited.');
     if (!a.canComment) throw forbidden('You can’t take part in this community right now.', 'READ_ONLY');
@@ -365,7 +370,7 @@ export default async function eventRoutes(app, { ctx }) {
 
   // Cancelling keeps the event (and its RSVPs) for the record; no one can RSVP afterwards.
   app.post('/events/:id/cancel', { schema: { body: { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string' } } } } }, async (req) => {
-    const { e, a, manage } = await loadEvent(req, req.params.id);
+    const { e, a, manage } = await loadEvent(req, req.params.id, { write: true });
     if (!manage) throw forbidden('Only the host, co-hosts or community admins can cancel this event.');
     const reason = clean(req.body.reason, 300, 'reason', { required: true });
     const { rows } = await db.query(`update events set status = 'cancelled', cancel_reason = $2, updated_at = now(), version = version + 1
@@ -390,7 +395,7 @@ export default async function eventRoutes(app, { ctx }) {
   // all re-checked inside one transaction with the event row locked, so two people can't take
   // the last seat at once (EVT-02) and a form left open past the deadline is refused (EVT-07).
   app.put('/events/:id/rsvp', { schema: { body: { type: 'object', required: ['status'], additionalProperties: false, properties: { status: { type: 'string', enum: ['going', 'maybe', 'no', 'waitlist'] } } } } }, async (req) => {
-    const { e, a } = await loadEvent(req, req.params.id);
+    const { e, a } = await loadEvent(req, req.params.id, { write: true });
     if (!a.canComment) throw forbidden(a.member ? 'You can’t take part in this community right now.' : 'Join this community to RSVP.', 'CANNOT_RSVP');
     let status = req.body.status;
     const promoted = await db.tx(async (t) => {
@@ -433,7 +438,7 @@ export default async function eventRoutes(app, { ctx }) {
   // ---- Comments -------------------------------------------------------------------------------
   app.post('/events/:id/comments', { schema: { body: { type: 'object', required: ['body'], additionalProperties: false, properties: { body: { type: 'string' } } } } },
     async (req, reply) => idempotent(db, req, reply, async () => {
-      const { e, a } = await loadEvent(req, req.params.id);
+      const { e, a } = await loadEvent(req, req.params.id, { write: true });
       if (!a.canComment) throw forbidden('You can’t take part in this community right now.', 'READ_ONLY');
       const body = clean(req.body.body, 2000, 'body', { required: true });
       const id = newId('ecm');
