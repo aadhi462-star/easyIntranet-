@@ -10,6 +10,10 @@
 // - Every rule is checked again when the invitation is accepted: the community's status, the
 //   inviter's authority (MEM-11), the person's membership state (blocked, removed since) and the
 //   account it was sent to (VIS-09).
+// - An invitation by email is about the address only, as far as the Admin can tell: the answer,
+//   the list row and the audit entry are the same whichever account (if any) holds the address,
+//   so invitations can't be used to look accounts up by email. The account behind it decides only
+//   whether anything is sent (a member, a blocked person or a suspended account gets nothing).
 // - PGlite has one connection: inside db.tx only `t` is used; checks run before it.
 import { audit } from '../lib/audit.js';
 import { access, atLeast } from '../lib/community.js';
@@ -20,8 +24,11 @@ import { idempotent } from '../lib/session.js';
 
 const DAYS = 14;
 const PER_CALL = 50;
-// Every inviter of one community together, over 24 hours: bulk invitations are a spam route.
+// Emails sent for one community (new invitations and resends, by every inviter together) over 24
+// hours: bulk invitations are a spam route.
 const PER_DAY = 200;
+// One invitation is sent again at most once an hour, so a resend can't flood one person.
+const RESEND_AFTER = '1 hour';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 const text = (v, max) => { const s = String(v ?? '').trim(); return s ? s.slice(0, max) : null; };
@@ -59,8 +66,8 @@ export default async function invitationRoutes(app, { ctx }) {
   // What Owners and Admins see. An email invitation shows the address they typed, never which
   // account (if any) it belongs to, so the list can't be used to look accounts up by email.
   const present = (i) => ({
-    id: i.id, email: i.email, user: i.email ? null : { id: i.user_id, name: i.user_name }, role: i.role, status: i.status, message: i.message,
-    invitedBy: i.invited_by ? { id: i.invited_by, name: i.invited_by_name } : null, createdAt: i.created_at, expiresAt: i.expires_at,
+    id: i.id, email: i.email, user: i.user_id ? { id: i.user_id, name: i.user_name } : null, role: i.role, status: i.status, message: i.message,
+    invitedBy: i.invited_by ? { id: i.invited_by, name: i.invited_by_name } : null, createdAt: i.created_at, sentAt: i.sent_at, expiresAt: i.expires_at,
     acceptedAt: i.accepted_at, acceptedBy: i.accepted_by ? { id: i.accepted_by, name: i.accepted_by_name } : null,
     revokedAt: i.revoked_at, revokedBy: i.revoked_by ? { id: i.revoked_by, name: i.revoked_by_name } : null,
   });
@@ -95,13 +102,48 @@ export default async function invitationRoutes(app, { ctx }) {
   // verified email it is (VIS-09: a forwarded link doesn't work for anyone else).
   const forAccount = (i, user) => (i.user_id ? i.user_id === user.id : user.emailVerified && i.email === normEmail(user.email));
 
-  async function sendInvite(req, i, { to, token, inviter, communityName }) {
+  /**
+   * Why `me` can't invite this account now, or null if they can (MEM-05): the same rules for a new
+   * invitation and a resend. Blocked from the community comes first; an invitation can't undo it.
+   * A person who was removed can be invited back by an Owner or Admin (the only inviters), and
+   * accepting brings them back.
+   */
+  async function ineligible(communityId, userId, me) {
+    const { rows: [u] } = await db.query(`select status from users where id = $1`, [userId]);
+    if (!u || u.status === 'deleted') return { code: 'NOT_FOUND', message: 'There’s no account like that.' };
+    if (u.status !== 'active') return { code: 'ACCOUNT_UNAVAILABLE', message: 'This account isn’t active, so it can’t be invited.' };
+    if (userId === me.id) return { code: 'SELF_INVITE', message: 'You can’t invite yourself.' };
+    const { rows: [m] } = await db.query(`select state from memberships where community_id = $1 and user_id = $2`, [communityId, userId]);
+    if (m?.state === 'active' || m?.state === 'restricted') return { code: 'ALREADY_MEMBER', message: 'This person is already a member.' };
+    if (m?.state === 'blocked') return { code: 'BLOCKED', message: 'This person is blocked from this community. Unblock them before inviting them.' };
+    const { rows: [b] } = await db.query(`select 1 from blocks where (blocker_id = $1 and blocked_id = $2) or (blocker_id = $2 and blocked_id = $1)`, [me.id, userId]);
+    if (b) return { code: 'CANNOT_INVITE', message: 'You can’t invite this person.' };
+    return null;
+  }
+
+  // The account whose verified email an address is (a deleted account has given its address up).
+  const holderOf = async (email) => (await db.query(`select id from users where email_norm = $1 and email_verified_at is not null and status <> 'deleted'`, [email])).rows[0]?.id ?? null;
+
+  // Removed from the community after this link was sent: that decision is newer, so it's void.
+  const removedSince = async (i, userId) => {
+    const { rows: [m] } = await db.query(`select state, updated_at from memberships where community_id = $1 and user_id = $2`, [i.community_id, userId]);
+    return m?.state === 'removed' && new Date(m.updated_at) > new Date(i.sent_at);
+  };
+
+  // Emails sent for a community in the last 24 hours. Every new invitation and every resend is in
+  // the audit log, which is the record of what went out.
+  const sentToday = async (communityId) => (await db.query(`select count(*)::int as n from audit_log
+    where target_type = 'community' and target_id = $1 and action in ('community.invite', 'community.invite_resend') and at > now() - interval '1 day'`, [communityId])).rows[0].n;
+
+  // `notifyId`: the account to tell in the app too (an account invitation's, or the holder of the
+  // address an email invitation went to).
+  async function sendInvite(req, i, { to, token, inviter, communityName, notifyId }) {
     // The community and the inviter only: no message, no content (NTF-06).
     await mailer.send(to, 'community_invite', { community: communityName, inviter, link: `${origin(req)}/#/invite/c/${token}`, days: DAYS }, { req });
     // People already on CommunityOne also see it in the app (without the token: the
     // notification points at their list of invitations).
-    if (i.user_id) {
-      await notify(ctx, req, { to: [i.user_id], type: 'community_invite', actorId: req.user.id, communityId: i.community_id,
+    if (notifyId) {
+      await notify(ctx, req, { to: [notifyId], type: 'community_invite', actorId: req.user.id, communityId: i.community_id,
         targetType: 'invitation', targetId: i.id, dedupe: `invite:${i.id}:${Date.now()}`, email: false });
     }
   }
@@ -131,7 +173,9 @@ export default async function invitationRoutes(app, { ctx }) {
     const total = emails.length + userIds.length;
     if (!total) throw badRequest('INVALID_INPUT', 'Choose at least one person to invite.');
     if (total > PER_CALL) throw badRequest('TOO_MANY', `Invite up to ${PER_CALL} people at a time.`);
-    const { rows: [{ n }] } = await db.query(`select count(*)::int as n from community_invitations where community_id = $1 and created_at > now() - interval '1 day'`, [c.id]);
+    // Checked once for the batch, so two batches at the same moment can go over by one batch at
+    // most (and each person makes at most 10 calls a minute).
+    const n = await sentToday(c.id);
     if (n + total > PER_DAY) throw new HttpError(429, 'INVITE_LIMIT', `This community can send up to ${PER_DAY} invitations a day. Try again tomorrow, or invite fewer people.`, { remaining: Math.max(0, PER_DAY - n) });
     const message = text(req.body.message, 500);
     const results = [];
@@ -145,35 +189,29 @@ export default async function invitationRoutes(app, { ctx }) {
     const c = a.community;
     const me = req.user;
     const skip = (code, msg) => ({ ...to, status: 'skipped', code, message: msg });
-    // Who this is: an account, or an address. An address that belongs to an active, verified
-    // account is bound to that account too, so one person has one open invitation.
-    let userId = null; let email = null; let accountEmail = null;
+    // Who this is: an account, or an address. For an account, the Admin is told why it can't be
+    // invited. For an address, only whether it's their own: the account that holds it (if any)
+    // decides whether anything is sent, never the answer (see the top of this file).
+    let userId = null; let email = null; let address = null; let notifyId = null; let send = true;
     if (to.userId) {
-      const { rows: [u] } = await db.query(`select id, email, status from users where id = $1`, [to.userId]);
-      if (!u || u.status === 'deleted') return skip('NOT_FOUND', 'There’s no account like that.');
-      if (u.status !== 'active') return skip('ACCOUNT_UNAVAILABLE', 'This account isn’t active, so it can’t be invited.');
-      userId = u.id; accountEmail = u.email;
+      const no = await ineligible(c.id, to.userId, me);
+      if (no) return skip(no.code, no.message);
+      userId = to.userId; notifyId = userId;
+      address = (await db.query(`select email from users where id = $1`, [userId])).rows[0].email;
     } else {
-      email = to.email;
-      const { rows: [u] } = await db.query(`select id, email from users where email_norm = $1 and status = 'active' and email_verified_at is not null`, [email]);
-      if (u) { userId = u.id; accountEmail = u.email; }
+      email = to.email; address = email;
+      if (email === normEmail(me.email)) return skip('SELF_INVITE', 'You can’t invite yourself.');
+      const holder = await holderOf(email);
+      if (holder) { send = !(await ineligible(c.id, holder, me)); notifyId = holder; }
     }
-    if (userId === me.id || email === normEmail(me.email)) return skip('SELF_INVITE', 'You can’t invite yourself.');
-    if (userId) {
-      const { rows: [m] } = await db.query(`select state from memberships where community_id = $1 and user_id = $2`, [c.id, userId]);
-      if (m?.state === 'active' || m?.state === 'restricted') return skip('ALREADY_MEMBER', 'This person is already a member.');
-      // Blocked from the community: the block comes first, an invitation can't undo it (MEM-05).
-      // A person who was removed can be invited back by an Owner or Admin (who are the only
-      // inviters), and accepting brings them back.
-      if (m?.state === 'blocked') return skip('BLOCKED', 'This person is blocked from this community. Unblock them before inviting them.');
-      const { rows: [b] } = await db.query(`select 1 from blocks where (blocker_id = $1 and blocked_id = $2) or (blocker_id = $2 and blocked_id = $1)`, [me.id, userId]);
-      if (b) return skip('CANNOT_INVITE', 'You can’t invite this person.');
-    }
-    // One open invitation per community and person: a second invite returns it (MEM-12). An
-    // expired one is set aside (kept for the history) and a new one is made.
-    const existing = await load(`i.community_id = $1 and ${OPEN} and ((i.user_id = $2::text) or (i.email = $3::text))`, [c.id, userId, email]);
-    for (const i of existing) {
-      if (i.status === 'open') return { ...to, status: 'open', invitation: present(i) };
+    const key = userId ? ['user_id', userId] : ['email', email];
+    const openFor = () => load(`i.community_id = $1 and ${OPEN} and i.${key[0]} = $2`, [c.id, key[1]]);
+    // One open invitation per community and account (or address): a second invite returns it
+    // (MEM-12). An expired one is set aside (kept for the history) and a new one is made, and so is
+    // one the account was removed since (it can't be accepted any more). For an address the open
+    // one is returned even then, as for anyone else; resending it renews it.
+    for (const i of await openFor()) {
+      if (i.status === 'open' && !(userId && await removedSince(i, userId))) return { ...to, status: 'open', invitation: present(i) };
       await db.query(`update community_invitations set superseded_at = now() where id = $1 and superseded_at is null`, [i.id]);
     }
     const { token, hash } = newToken();
@@ -184,13 +222,14 @@ export default async function invitationRoutes(app, { ctx }) {
       [id, c.id, email, userId, role, hash, me.id, message, DAYS]);
     if (!rows.length) {
       // Another request invited them a moment ago.
-      const [i] = await load(`i.community_id = $1 and ${OPEN} and ((i.user_id = $2::text) or (i.email = $3::text))`, [c.id, userId, email]);
+      const [i] = await openFor();
       if (i) return { ...to, status: 'open', invitation: present(i) };
       throw conflict('IN_PROGRESS', 'Someone is inviting this person right now. Try again in a moment.');
     }
     const [i] = await load(`i.id = $1`, [id]);
-    await audit(db, { actorId: me.id, action: 'community.invite', targetType: 'community', targetId: c.id, context: { invitationId: id, userId: email ? null : userId, byEmail: !!email, role }, ip: req.ip });
-    await sendInvite(req, i, { to: email ?? accountEmail, token, inviter: me.name, communityName: c.name });
+    // The same entry whether or not anything is sent (an inviter's data export includes it).
+    await audit(db, { actorId: me.id, action: 'community.invite', targetType: 'community', targetId: c.id, context: { invitationId: id, userId, byEmail: !!email, role }, ip: req.ip });
+    if (send) await sendInvite(req, i, { to: address, token, inviter: me.name, communityName: c.name, notifyId });
     return { ...to, status: 'invited', invitation: present(i) };
   }
 
@@ -230,25 +269,41 @@ export default async function invitationRoutes(app, { ctx }) {
     if (i.status === 'accepted' || i.status === 'revoked') throw DEAD[i.status]();
     if (i.superseded_at) throw conflict('INVITE_REPLACED', 'A newer invitation replaced this one.');
     if (atLeast(i.role, a.role)) throw forbidden('You can’t invite someone to a role equal to or above your own.', 'ROLE_TOO_HIGH');
+    // The same per-person rules as a new invitation, for whoever resends (MEM-05). An account
+    // invitation is refused with the reason; an email one, like a new one, just isn't sent.
+    let send = true; let notifyId = i.user_id;
+    if (i.user_id) {
+      const no = await ineligible(i.community_id, i.user_id, req.user);
+      if (no) throw conflict(no.code, no.message);
+    } else {
+      notifyId = await holderOf(i.email);
+      if (notifyId) send = !(await ineligible(i.community_id, notifyId, req.user));
+    }
+    const { rows: [{ recent }] } = await db.query(`select $1::timestamptz > now() - $2::interval as recent`, [i.sent_at, RESEND_AFTER]);
+    if (recent) throw new HttpError(429, 'RESEND_TOO_SOON', 'This invitation was sent less than an hour ago. Try again later.');
+    if (await sentToday(i.community_id) >= PER_DAY) throw new HttpError(429, 'INVITE_LIMIT', `This community can send up to ${PER_DAY} invitations a day. Try again tomorrow.`, { remaining: 0 });
     const { token, hash } = newToken();
-    const { rows } = await db.query(`update community_invitations set token_hash = $2, invited_by = $3, expires_at = now() + make_interval(days => $4::int)
+    // A new link moves `sent_at`, so a removal before now no longer voids it.
+    const { rows } = await db.query(`update community_invitations set token_hash = $2, invited_by = $3, sent_at = now(), expires_at = now() + make_interval(days => $4::int)
       where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null returning id`, [i.id, hash, uid, DAYS]);
     if (!rows.length) throw conflict('INVITE_CHANGED', 'This invitation changed. Reload to see it.');
     await audit(db, { actorId: uid, action: 'community.invite_resend', targetType: 'community', targetId: i.community_id, context: { invitationId: i.id }, ip: req.ip });
-    const { rows: [u] } = i.user_id ? await db.query(`select email from users where id = $1`, [i.user_id]) : { rows: [] };
     const [now] = await load(`i.id = $1`, [i.id]);
-    await sendInvite(req, now, { to: i.email ?? u.email, token, inviter: req.user.name, communityName: i.community_name });
+    const to = i.email ?? (await db.query(`select email from users where id = $1`, [i.user_id])).rows[0].email;
+    if (send) await sendInvite(req, now, { to, token, inviter: req.user.name, communityName: i.community_name, notifyId });
     return { invitation: present(now) };
   });
 
   // ---- The person invited -------------------------------------------------------------------
 
-  // Your open invitations (for the in-app notification, which never carries the token).
+  // Your open invitations (for the in-app notification, which never carries the token). One per
+  // community: someone invited both by account and by address sees the newer.
   app.get('/me/invitations', async (req) => {
     signedIn(req);
-    const rows = await load(`${OPEN} and i.expires_at > now() and c.status = 'active' and c.merged_into is null
+    const seen = new Set();
+    const rows = (await load(`${OPEN} and i.expires_at > now() and c.status = 'active' and c.merged_into is null
       and ((i.user_id = $1) or (i.user_id is null and $3::boolean and i.email = $2)) order by i.created_at desc`,
-    [req.user.id, normEmail(req.user.email), req.user.emailVerified]);
+    [req.user.id, normEmail(req.user.email), req.user.emailVerified])).filter((i) => !seen.has(i.community_id) && seen.add(i.community_id));
     return { invitations: rows.map((i) => ({ id: i.id, community: { name: i.community_name, visibility: i.visibility }, inviter: { name: i.invited_by_name }, role: i.role, message: i.message, expiresAt: i.expires_at })) };
   });
 
@@ -289,10 +344,10 @@ export default async function invitationRoutes(app, { ctx }) {
     if (!forAccount(i, req.user)) {
       throw forbidden(`This invitation was sent to someone else. Sign in with the account it was sent to, or ${ASK.charAt(0).toLowerCase()}${ASK.slice(1)}`, 'WRONG_ACCOUNT');
     }
-    const { rows: [m] } = await db.query(`select state, updated_at from memberships where community_id = $1 and user_id = $2`, [i.community_id, uid]);
+    const { rows: [m] } = await db.query(`select state from memberships where community_id = $1 and user_id = $2`, [i.community_id, uid]);
     if (m?.state === 'blocked') throw forbidden('You can’t join this community.', 'BLOCKED');
-    // Removed after the invitation was sent: that decision is newer, so the invitation is void.
-    if (m?.state === 'removed' && new Date(m.updated_at) > new Date(i.created_at)) {
+    // Removed after this link was sent (a resend sends a new one): that decision is newer.
+    if (await removedSince(i, uid)) {
       throw conflict('REMOVED_AFTER_INVITE', `You were removed from this community after this invitation was sent. ${ASK}`);
     }
     const already = m?.state === 'active' || m?.state === 'restricted';
@@ -301,6 +356,10 @@ export default async function invitationRoutes(app, { ctx }) {
         const { rows } = await t.query(`update community_invitations set accepted_at = now(), accepted_by = $2
           where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null and expires_at > now() returning id`, [i.id, uid]);
         if (!rows.length) throw conflict('INVITE_CHANGED', 'This invitation just changed.');
+        // Invited both by account and by address: the other one is used up with this one.
+        await t.query(`update community_invitations i set accepted_at = now(), accepted_by = $2
+          where i.community_id = $3 and i.id <> $1 and ${OPEN} and (i.user_id = $2 or (i.user_id is null and $5::boolean and i.email = $4))`,
+        [i.id, uid, i.community_id, normEmail(req.user.email), req.user.emailVerified]);
         // A pending request becomes the membership (MEM-13: one record, one path); a Private
         // community's approval step is skipped, since the invitation is the approval.
         if (!already) {

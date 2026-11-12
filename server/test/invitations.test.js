@@ -117,6 +117,8 @@ describe('accepting', () => {
     assert.equal(await stateIn('clo', 'x3'), null, 'no membership');
     const n = (await x.get('/api/notifications')).body.notifications.find((r) => r.kind === 'community_invite');
     assert.equal(n.available, false);
+    assert.equal(n.line, 'This invitation has expired or was withdrawn', 'says why, without the community’s name');
+    assert.equal(n.href, null);
     assert.equal((await x.get('/api/me/invitations')).body.invitations.length, 0);
     // Inviting again sets the expired one aside and sends a fresh link.
     assert.equal((await invite('adm', 'clo', { userIds: ['x3'] })).body.results[0].status, 'invited');
@@ -188,25 +190,118 @@ describe('who can be invited', () => {
     const x = await person('x6');
     await invite('adm', 'clo', { userIds: ['x6'] });
     const token = await tokenFor('x6@example.com');
-    await q(`update community_invitations set created_at = now() - interval '1 hour' where user_id = 'x6'`);
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where user_id = 'x6'`);
     await q(`insert into memberships (community_id, user_id, role, state) values ('clo', 'x6', 'member', 'removed')`);
     const r = await x.post(`/api/invitations/${token}/accept`);
     assert.equal(r.status, 409);
     assert.equal(r.body.error.code, 'REMOVED_AFTER_INVITE');
+    // Inviting them again makes a new invitation (the void one is set aside), which works.
+    const again = (await invite('adm', 'clo', { userIds: ['x6'] })).body.results[0];
+    assert.equal(again.status, 'invited');
+    assert.equal((await x.post(`/api/invitations/${await tokenFor('x6@example.com')}/accept`)).body.membership.state, 'active');
+  });
+
+  test('MEM-12 removed after the invitation was sent: resending renews it', async () => {
+    const x = await person('x22');
+    const inv = (await invite('adm', 'clo', { userIds: ['x22'] })).body.results[0].invitation;
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [inv.id]);
+    await q(`insert into memberships (community_id, user_id, role, state) values ('clo', 'x22', 'member', 'removed')`);
+    assert.equal((await x.post(`/api/invitations/${await tokenFor('x22@example.com')}/accept`)).body.error.code, 'REMOVED_AFTER_INVITE');
+    assert.equal((await c.adm.post(`/api/invitations/${inv.id}/resend`)).status, 200);
+    assert.equal((await x.post(`/api/invitations/${await tokenFor('x22@example.com')}/accept`)).body.membership.state, 'active');
   });
 
   test('already members, yourself, inactive and unknown accounts are skipped with a code', async () => {
     await makeUser(env.db, { id: 'sus', email: 'sus@example.com', status: 'suspended' });
-    const res = (await invite('adm', 'clo', { userIds: ['mem', 'adm', 'sus', 'nobody'], emails: ['adm@example.com', 'MEM@example.com'] })).body.results;
-    assert.deepEqual(res.map((r) => r.code), ['ALREADY_MEMBER', 'SELF_INVITE', 'ACCOUNT_UNAVAILABLE', 'NOT_FOUND', 'SELF_INVITE', 'ALREADY_MEMBER']);
+    const res = (await invite('adm', 'clo', { userIds: ['mem', 'adm', 'sus', 'nobody'], emails: ['adm@example.com'] })).body.results;
+    assert.deepEqual(res.map((r) => r.code), ['ALREADY_MEMBER', 'SELF_INVITE', 'ACCOUNT_UNAVAILABLE', 'NOT_FOUND', 'SELF_INVITE']);
     assert.equal((await q(`select count(*)::int n from community_invitations where user_id in ('mem', 'adm', 'sus')`)).rows[0].n, 0);
+  });
+
+  test('MEM-05 an address answers the same whatever account holds it; members, blocked and suspended accounts are sent nothing', async () => {
+    await makeUser(env.db, { id: 'sus2', email: 'sus2@example.com', status: 'suspended' });
+    await person('cb'); await person('ub');
+    await q(`insert into memberships (community_id, user_id, role, state) values ('clo', 'cb', 'member', 'blocked')`);
+    await q(`insert into blocks (blocker_id, blocked_id) values ('ub', 'adm')`);
+    const silent = ['MEM@example.com', 'sus2@example.com', 'cb@example.com', 'ub@example.com'];
+    const res = (await invite('adm', 'clo', { emails: [...silent, 'nobody-here@example.com'] })).body.results;
+    // Each answer looks like the one for an address with no account at all.
+    for (const r of res) {
+      assert.equal(r.status, 'invited');
+      assert.equal(r.invitation.user, null);
+      assert.deepEqual(Object.keys(r).sort(), ['email', 'invitation', 'status']);
+    }
+    const sent = (await q(`select lower(to_email) as e from email_outbox where template = 'community_invite'`)).rows.map((r) => r.e);
+    assert.ok(sent.includes('nobody-here@example.com'));
+    for (const e of silent) assert.ok(!sent.includes(e.toLowerCase()), `${e} gets no email`);
+    // The audit entries are alike too (an inviter's data export includes them).
+    const ctxs = (await q(`select context - 'invitationId' as c from audit_log where action = 'community.invite' order by id desc limit 5`)).rows.map((r) => JSON.stringify(r.c));
+    assert.equal(new Set(ctxs).size, 1);
+    assert.equal((await q(`select count(*)::int n from notifications where user_id in ('cb', 'ub', 'sus2', 'mem') and kind = 'community_invite'`)).rows[0].n, 0);
+  });
+
+  test('VIS-09 inviting by account and by email doesn’t reveal which account an address belongs to', async () => {
+    await person('al'); await person('bo');
+    // By account, then by its address: the address gets its own invitation, shown by address.
+    const byId = (await invite('adm', 'pub', { userIds: ['al'] })).body.results[0];
+    const byMail = (await invite('adm', 'pub', { emails: ['al@example.com'] })).body.results[0];
+    assert.equal(byMail.status, 'invited');
+    assert.notEqual(byMail.invitation.id, byId.invitation.id);
+    assert.equal(byMail.invitation.user, null);
+    // By address, then by the account: the account's invitation shows no address.
+    const mailFirst = (await invite('adm', 'pub', { emails: ['bo@example.com'] })).body.results[0];
+    const idSecond = (await invite('adm', 'pub', { userIds: ['bo'] })).body.results[0];
+    assert.equal(idSecond.status, 'invited');
+    assert.notEqual(idSecond.invitation.id, mailFirst.invitation.id);
+    assert.equal(idSecond.invitation.email, null);
+    const list = (await c.adm.get('/api/communities/pub/invitations')).body.invitations;
+    assert.ok(list.every((i) => (i.email === null) !== (i.user === null)), 'each row shows the address or the account, never both');
+    // Bo sees one invitation to the community; accepting it uses up the other.
+    const mine = (await c.bo.get('/api/me/invitations')).body.invitations;
+    assert.equal(mine.length, 1);
+    assert.equal((await c.bo.post(`/api/me/invitations/${mine[0].id}/accept`)).body.membership.state, 'active');
+    const used = (await q(`select count(*)::int n from community_invitations where id in ($1, $2) and accepted_by = 'bo'`, [mailFirst.invitation.id, idSecond.invitation.id])).rows[0].n;
+    assert.equal(used, 2);
+  });
+
+  test('MEM-12 an address invited before its account verified it, then the account: one person, accepting either closes both', async () => {
+    const mailRow = (await invite('adm', 'pub', { emails: ['later@example.com'] })).body.results[0].invitation;
+    await makeUser(env.db, { id: 'later', email: 'later@example.com', name: 'Later' });
+    const later = await signIn(env.app, { email: 'later@example.com', password: 'correct-horse-battery' });
+    const idRow = (await invite('adm', 'pub', { userIds: ['later'] })).body.results[0].invitation;
+    assert.equal((await later.post(`/api/invitations/${await tokenFor('later@example.com')}/accept`)).status, 200);
+    const open = (await q(`select count(*)::int n from community_invitations where id in ($1, $2) and accepted_at is null`, [mailRow.id, idRow.id])).rows[0].n;
+    assert.equal(open, 0, 'no open invitation is left behind');
   });
 
   test('a person who blocked the inviter can’t be invited by them', async () => {
     await person('x7');
     await q(`insert into blocks (blocker_id, blocked_id) values ('x7', 'adm')`);
     assert.equal((await invite('adm', 'clo', { userIds: ['x7'] })).body.results[0].code, 'CANNOT_INVITE');
-    assert.equal((await invite('own', 'clo', { userIds: ['x7'] })).body.results[0].status, 'invited');
+    const inv = (await invite('own', 'clo', { userIds: ['x7'] })).body.results[0];
+    assert.equal(inv.status, 'invited');
+    // MEM-05: nor can the blocked Admin resend the Owner's invitation to them.
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [inv.invitation.id]);
+    const mails = async () => (await q(`select count(*)::int n from email_outbox where to_email = 'x7@example.com' and template = 'community_invite'`)).rows[0].n;
+    const before = await mails();
+    const rs = await c.adm.post(`/api/invitations/${inv.invitation.id}/resend`);
+    assert.equal(rs.status, 409);
+    assert.equal(rs.body.error.code, 'CANNOT_INVITE');
+    assert.equal(await mails(), before, 'no email');
+    // Blocked from the community since: nobody can resend it.
+    await q(`insert into memberships (community_id, user_id, role, state) values ('clo', 'x7', 'member', 'blocked')`);
+    assert.equal((await c.own.post(`/api/invitations/${inv.invitation.id}/resend`)).body.error.code, 'BLOCKED');
+    assert.equal(await mails(), before);
+  });
+
+  test('MEM-05 resending an email invitation to an address whose holder is blocked sends nothing, with the usual answer', async () => {
+    await person('x23');
+    const inv = (await invite('own', 'clo', { emails: ['x23@example.com'] })).body.results[0].invitation;
+    await q(`insert into blocks (blocker_id, blocked_id) values ('x23', 'adm')`);
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [inv.id]);
+    const rs = await c.adm.post(`/api/invitations/${inv.id}/resend`);
+    assert.equal(rs.status, 200);
+    assert.equal((await q(`select count(*)::int n from email_outbox where to_email = 'x23@example.com' and template = 'community_invite'`)).rows[0].n, 1, 'only the Owner’s first email');
   });
 
   test('suspended accounts can’t accept (their session ends)', async () => {
@@ -224,10 +319,13 @@ describe('duplicates and policy changes', () => {
     const x = await person('x9');
     const first = (await invite('adm', 'clo', { userIds: ['x9'] })).body.results[0];
     const oldToken = await tokenFor('x9@example.com');
-    const again = await invite('own', 'clo', { userIds: ['x9'], emails: ['x9@example.com'] });
+    const again = await invite('own', 'clo', { userIds: ['x9'] });
     assert.equal(again.status, 200, 'nothing new was made');
-    assert.deepEqual(again.body.results.map((r) => [r.status, r.invitation.id]), [['open', first.invitation.id], ['open', first.invitation.id]]);
+    assert.deepEqual(again.body.results.map((r) => [r.status, r.invitation.id]), [['open', first.invitation.id]]);
     assert.equal((await q(`select count(*)::int n from community_invitations where user_id = 'x9'`)).rows[0].n, 1);
+    // A resend within the hour is refused (one person can't be flooded).
+    assert.equal((await c.own.post(`/api/invitations/${first.invitation.id}/resend`)).body.error.code, 'RESEND_TOO_SOON');
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [first.invitation.id]);
     const rs = await c.own.post(`/api/invitations/${first.invitation.id}/resend`);
     assert.equal(rs.status, 200);
     assert.equal(rs.body.invitation.invitedBy.id, 'own');
@@ -344,14 +442,20 @@ describe('permissions and limits', () => {
     assert.equal((await q(`select count(*)::int n from community_invitations where community_id = 'cap'`)).rows[0].n, 0);
   });
 
-  test('a community sends at most 200 invitations a day', async () => {
-    await q(`insert into community_invitations (id, community_id, email, token_hash, invited_by)
-      select 'bulk' || g, 'cap', 'bulk' || g || '@example.com', 'hash' || g, 'adm' from generate_series(1, 199) g`);
-    const r = await invite('adm', 'cap', { emails: ['one@example.com', 'two@example.com'] });
+  test('a community sends at most 200 invitations a day, resends included', async () => {
+    const inv = (await invite('adm', 'cap', { emails: ['first@example.com'] })).body.results[0].invitation;
+    // 197 more sent today: 1 invitation and 197 sends (new or again) so far, 198 in all.
+    await q(`insert into audit_log (actor_id, action, target_type, target_id)
+      select 'adm', case when g % 2 = 0 then 'community.invite' else 'community.invite_resend' end, 'community', 'cap' from generate_series(1, 197) g`);
+    const r = await invite('adm', 'cap', { emails: ['one@example.com', 'two@example.com', 'three@example.com'] });
     assert.equal(r.status, 429);
     assert.equal(r.body.error.code, 'INVITE_LIMIT');
-    assert.equal(r.body.error.remaining, 1);
+    assert.equal(r.body.error.remaining, 2);
     assert.equal((await invite('adm', 'cap', { emails: ['one@example.com'] })).status, 201);
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [inv.id]);
+    assert.equal((await c.adm.post(`/api/invitations/${inv.id}/resend`)).status, 200, 'the 200th');
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [inv.id]);
+    assert.equal((await c.adm.post(`/api/invitations/${inv.id}/resend`)).body.error.code, 'INVITE_LIMIT');
   });
 
   test('inviting is rate limited per person', async () => {
