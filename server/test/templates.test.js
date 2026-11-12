@@ -140,6 +140,9 @@ describe('creating a community from a template or from scratch', () => {
     const rows = (await q(`select id, template_id, template_version, settings, category, visibility from communities where id = any($1) order by name`, [[a.id, b.id]])).rows;
     const tpl = (await q(`select id from community_templates where key = 'alumni'`)).rows[0].id;
     assert.ok(rows.every((r) => r.template_id === tpl && r.template_version === 1 && r.category === 'Alumni' && r.visibility === 'private'));
+    // The template's sections become the community's section switches (lib/community.js sectionOn).
+    const page = (await c.mem.get(`/api/communities/${a.id}`)).body;
+    assert.deepEqual(page.sections, Object.fromEntries(['discussions', 'events', 'resources', 'learning'].map((s) => [s, config.settings.sections.includes(s)])));
     const topicsOf = async (id) => (await c.mem.get(`/api/communities/${id}/topics`)).body.topics;
     assert.deepEqual((await topicsOf(a.id)).map((t) => t.name), config.topics);
     // Changing one (settings, a topic, its name) changes nothing in the other.

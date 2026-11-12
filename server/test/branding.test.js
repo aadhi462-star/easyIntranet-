@@ -385,4 +385,15 @@ describe('enabled sections', () => {
     assert.equal((await event('mem', 'pub')).body.error.code, 'SECTION_OFF');
     await allOn('pub');
   });
+
+  test('topics follow the Discussions switch', async () => {
+    await sections('pub', ['events']);
+    assert.equal((await c.mem.get('/api/communities/pub/topics')).body.error.code, 'SECTION_OFF');
+    const add = await c.own.post('/api/communities/pub/topics', { name: 'While off' });
+    assert.equal(add.status, 409);
+    assert.equal(add.body.error.code, 'SECTION_OFF');
+    await allOn('pub');
+    assert.equal((await c.mem.get('/api/communities/pub/topics')).status, 200);
+    assert.equal((await c.own.post('/api/communities/pub/topics', { name: 'Back on' })).status, 201);
+  });
 });

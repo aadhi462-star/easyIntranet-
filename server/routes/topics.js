@@ -1,7 +1,7 @@
 // Discussion topics (Stage 4, decision S4-2): each community's admins keep up to 12. A post can
 // carry one; members filter Discussions by topic. Deleting a topic leaves its posts untagged.
 import { audit } from '../lib/audit.js';
-import { access } from '../lib/community.js';
+import { access, requireSection } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
@@ -31,11 +31,13 @@ export default async function topicRoutes(app, { ctx }) {
   app.get('/communities/:id/topics', async (req) => {
     const a = await access(db, req, req.params.id);
     if (!a.canView) throw forbidden('Topics are for members.');
+    requireSection(a, 'discussions');
     return { topics: await list(a.community.id) };
   });
 
   app.post('/communities/:id/topics', { schema: { body: { type: 'object', required: ['name'], additionalProperties: false, properties: { name: { type: 'string' } } } } }, async (req, reply) => {
     const a = await admin(req, req.params.id);
+    requireSection(a, 'discussions', { write: true });
     const n = topicName(req.body.name);
     const { rows: [{ count }] } = await db.query(`select count(*)::int as count from topics where community_id = $1`, [a.community.id]);
     if (count >= MAX_TOPICS) throw badRequest('TOO_MANY_TOPICS', `A community can have up to ${MAX_TOPICS} topics.`);
@@ -49,7 +51,7 @@ export default async function topicRoutes(app, { ctx }) {
   app.patch('/topics/:id', { schema: { body: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, position: { type: 'integer' } } } } }, async (req) => {
     const { rows: [t] } = await db.query(`select * from topics where id = $1`, [req.params.id]);
     if (!t) throw notFound('That topic doesn’t exist.');
-    await admin(req, t.community_id);
+    requireSection(await admin(req, t.community_id), 'discussions', { write: true });
     await save(() => db.query(`update topics set name = $2, position = $3 where id = $1`,
       [t.id, 'name' in req.body ? topicName(req.body.name) : t.name, req.body.position ?? t.position]));
     return { topics: await list(t.community_id) };
