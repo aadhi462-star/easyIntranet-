@@ -1,5 +1,7 @@
 # CommunityOne — Session handoff (12 Nov 2026, after v2 workstream H)
 
+> **Project closed, 12 Nov 2026.** The user stopped work on this app after workstream H and the H-S9 fix. **`docs/communityone/FINAL_DOCUMENTATION.md` is the complete A–Z record**; start there. The final AppSail bundle (`appsail-build.zip`, 30 MB) was built from commit `8c325c4`; FINAL_DOCUMENTATION.md §15 has the upload steps.
+
 Read this first in a new session, then **`docs/communityone/MASTER_BRIEF_V2.md` (the user's newest brief, 12 Nov 2026: it reverses AlumniZone-as-default and the lime theme; a proposal + ETA is owed before any work on it)**, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
 ## What this project is
@@ -66,7 +68,8 @@ One AppSail service serves the API and the built web app (no Slate; keeps the sa
 - Fast first start: the bundle ships `server/db-template` (built by `scripts/build-db-template.mjs`: migrated + seeded, every account locked with `LOCKED_HASH`, table vacuumed so no hash remains). On a deploy with no database the server *moves* it into place and unlocks the seeded accounts with `SEED_PASSWORD`. Measured per step: creating a database ≈3 s and seeding ≈2 s are gone; first-start peak memory ≈0.77 GB (was ≈1.36 GB).
 - Memory: 2048 MB is safe; 1024 MB should now fit (peak ≈0.77 GB) but isn't tested on AppSail. 512 MB was `Killed`.
 - Observed: each redeploy started with an empty database (accounts created before it were gone), so the app folder is not persistent.
-- **Latest bundle: 12 Nov 2026, after v2 workstream D (commit 7513362).** `appsail-build.zip` (29 MB) in the repo root, built with `npm run build:appsail`. It includes migrations 001–018 and the database template (34 seeded accounts, locked until `SEED_PASSWORD` unlocks them). The user asked for this bundle after D; see the memory note: build one only when asked.
+- **Final bundle: 12 Nov 2026, commit 8c325c4 (after H and H-S9), migrations 001–021, 30 MB.** Upload steps: FINAL_DOCUMENTATION.md §15, including the Activity-log IP check (`TRUST_PROXY_HOPS`).
+- *Earlier bundle: 12 Nov 2026, after v2 workstream D (commit 7513362).* `appsail-build.zip` (29 MB) in the repo root, built with `npm run build:appsail`. It includes migrations 001–018 and the database template (34 seeded accounts, locked until `SEED_PASSWORD` unlocks them). The user asked for this bundle after D; see the memory note: build one only when asked.
   - To deploy: Catalyst Console → AppSail → the CommunityOne service → upload `appsail-build.zip`. The settings and env above stay the same; no new variables.
   - The upload replaces the app folder, so the live database starts again from the bundled template. Accounts and content created on the live site since the last upload are lost.
   - After the upload: sign in as a Platform Admin (with `SEED_PASSWORD`), then Administration → Category review → check the list and apply it (D6). Until then, older categories show as Other in Explore. Then check Home, Explore, My Communities and Profile at phone width.
