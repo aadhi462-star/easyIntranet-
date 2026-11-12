@@ -131,7 +131,7 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 7 — platform administration")
 - Server: `012_platform.sql`, `server/routes/platform.js` (communities, deletion + `purgeDeletedCommunities`, moderation centre, settings sections, features, roles, announcements, activity log, analytics, `/admin/waiting`, `/admin/confirm-password`), users/roles changes in `routes/admin.js`, escalation + MOD-06 conflict in `routes/moderation.js`, file limits from settings in `lib/files.js`, `requireFreshPassword` in `lib/session.js`. 23 tests in `server/test/platform.test.js`.
 - Client: `src/pages/Admin.jsx`, `src/components/platform/*`, `src/lib/platform.js`; announcement bar on Home; "Send to CommunityOne…" in the Stage 6 case view; `api(path, { adminMode: true })`.
 - Rules to keep: a deleted community is `status = 'deleted'` — every new community query must exclude it (lists already require `status = 'active'`/archived; places that said `<> 'suspended'` now say `not in ('suspended', 'deleted')`). Losing a platform role ends sessions (so tests expect 401). A community has one Owner (`memberships_one_owner`).
-- **Test runner quirk:** every file passes on its own (platform 23/23, all others as before), but the full `npm run test:server` run sometimes stalls with an idle child process (seen in assessment and platform). Not resolved: 253 tests pass with each file run as its own process (12 Nov, after the Stage 7 commit), and the pre-Stage-7 commit's full run passed once (230). If `npm run test:server` stalls, run the files one at a time; a stalled child sits idle at under 1 s of CPU, so suspect a PGlite wait early in setup. **Resolved 12 Nov (v2 stall fix):** a Node 23 deadlock while PGlite starts; `createDb` now holds the event loop open until PGlite is ready, so the full run is usable again.
+- **Test runner quirk:** every file passes on its own (platform 23/23, all others as before), but the full `npm run test:server` run used to stall sometimes with an idle child process. **Fixed 12 Nov (v2 stall fix):** it was a Node 23 deadlock while PGlite starts up, and `createDb` now keeps the event loop open until PGlite is ready. One form of the same Node deadlock can still happen at process exit; none of the test runs hit it. If a run stalls anyway, run the files one at a time. Upgrading Node to a supported release is the complete fix.
 - Preview for this session: launch entry `communityone-7` (port **5184**) in the Portfolio folder's `.claude/launch.json`.
 
 ### v2 workstream A: done (12 Nov 2026)
@@ -142,7 +142,20 @@ Proposal approved with the recommended P1–P5. No default community; the P1 dat
 Board approved (B1–B5). Light-first tokens, Lucide icons, emoji removed from reachable screens, `components/ui/` (Controls, Confirm). Details are in the progress log ("v2 brief — workstream B").
 - Rules to keep: no emoji anywhere (use `<Icon name>`); new UI uses the `--az-*` tokens and `components/ui`, never `text-white` or slate classes; use `confirmAction()`, never `confirm()`.
 
-**Next:** workstream C (public website: landing, About, Features, Learning, auth and onboarding). Show its boards for approval first. Order and estimates are in `PROPOSAL_V2.md` §12–13.
+### v2 parallel round: server work merged, boards C–G drawn (12 Nov 2026)
+Built by parallel agents on their own branches. Each branch was reviewed by a second agent, fixed where needed, then merged into main:
+- `v2-test-stall`: the stall fix in `server/db/index.js`.
+- `v2-b-parked`: no emoji or `confirm()` left in the parked modules. `server/test/source-rules.test.js` keeps it that way.
+- `v2-g-health`: `job_runs` (migration 018) and `GET /api/admin/health`, which needs the `health.view` permission.
+- `v2-f-templates`: 8 templates, versions, the 9 categories, and `/api/admin/templates` (migration 015).
+- `v2-f-invites`: invitations for Closed communities (migration 016).
+- `v2-e-branding`: logo, cover and accent (migration 017), plus enforced section switches.
+
+After the merge, templates write `settings.sections` (the one list `sectionOn` reads), and topics follow the Discussions switch. All of this is server-only: the screens for these features aren't built yet. Each entry in the progress log has its own "Not done here" list.
+
+Boards for C, D, E, F and G are on the design canvas, one page each ("v2 C: …" to "v2 G: …"). Each board's plan lists its decisions (C1–C14, D1–D12, E1–E13, F1–F14, G1–G12).
+
+**Next:** get the boards approved, then build the screens: C first, then D, E, F and G, as in `PROPOSAL_V2.md` §12–13. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 

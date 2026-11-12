@@ -1088,3 +1088,21 @@ Server only, on branch `v2-e-branding` (PROPOSAL_V2 §3.2 and §9; MASTER_BRIEF_
   - Topics (`GET/POST /communities/:id/topics`) and moderation reports are not gated by the Discussions switch yet. `topics.js` is being changed by the templates workstream; gate it with `requireSection(a, 'discussions')` once that lands.
   - Members is not a switchable section on the server. The older form always keeps it on.
   - **Your decision:** with Discussions off, admins can't post announcements either (announcements are posts). Should announcements stay available when Discussions is off?
+
+### v2 — Parallel round merged into main (12 Nov 2026)
+
+- **Merged, in this order:** `v2-test-stall`, `v2-b-parked`, `v2-g-health`, `v2-f-templates`, `v2-f-invites` and `v2-e-branding`.
+- **Conflicts:**
+  - In the docs, both sides were added.
+  - `app.js` and `permissions.js` now have all the routes, and both `health.view` and `templates.manage`.
+  - `cleanSettings` in `communities.js` runs the templates checks and also checks `sections`.
+- **Joined up after the merge:**
+  - Template suggestions now write `settings.sections`, the list that `sectionOn` enforces, instead of the older `apps`. Members always shows.
+  - The topic routes follow the Discussions switch: members get `404 SECTION_OFF` and writes get `409`. The branding agent left topics for after the templates work.
+  - Two new tests cover this: one in `templates.test.js` (COM-12), and "topics follow the Discussions switch" in `branding.test.js`.
+- **Checked on main:**
+  - The full `npm run test:server` passed 335 of 335 in one run (156 s), with no stall, while a `vite build` and the Playwright run ran at the same time.
+  - `npx vite build` passes.
+  - `npm run test:e2e`: 7 passed, 1 skipped (the delete-and-restore journey runs on desktop only, as before).
+  - No browser `confirm()` is left in `src`.
+- **Not done:** the screens for templates, invitations, branding and health. They wait for the C–G boards to be approved.
