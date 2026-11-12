@@ -874,3 +874,49 @@ The board was approved with B1–B5 (canvas page "v2 — Design system").
   - Restyling each screen onto the components (workstreams C–G).
   - The 1,617 hardcoded colour classes.
   - Emoji in the parked modules.
+
+### v2 — Closed-community invitations (server) (built in parallel, 12 Nov 2026)
+
+Built from MASTER_BRIEF_V2 Part 5 ("Closed: invitation required") and PROPOSAL_V2 workstream F. Server only; the screens come later.
+
+- **Table** (`016_invitations.sql`): `community_invitations`, one row per person invited, by account or by email (normalised).
+  - Only the SHA-256 of the token is stored, like sessions.
+  - Expires after 14 days. Roles: Member, or Moderator/Admin when the inviter outranks it.
+  - Unique indexes allow one open invitation per community and person. An expired one is set aside (`superseded_at`) when a new one is sent, so the history stays.
+- **Routes** (`server/routes/invitations.js`):
+  - `POST /communities/:id/invitations`: Owners and Admins only. Up to 50 people per call, at most 200 a day per community, 10 calls a minute per person, idempotent.
+    - Each person gets a result: `invited`, `open` (the open invitation is returned, MEM-12) or `skipped` with a code: `ALREADY_MEMBER`, `BLOCKED`, `SELF_INVITE`, `ACCOUNT_UNAVAILABLE`, `NOT_FOUND` or `CANNOT_INVITE` (a user-level block).
+    - Removed people can be invited back. Administrative Mode can't invite, because it never changes membership.
+  - `GET /communities/:id/invitations`: every invitation, with `?status=open|accepted|expired|revoked`. An email invitation shows only the address typed, never which account it belongs to.
+  - `DELETE /invitations/:id`: revoke. Safe to repeat. An accepted invitation can't be revoked.
+  - `POST /invitations/:id/resend` (added): a new link and 14 more days. The old link stops working, and an expired invitation can be renewed this way.
+  - `GET /invitations/:token`: a preview that works signed out. It shows the community's name and visibility and the inviter, and only while the invitation can be used. The inviter's note appears only for the account invited. Otherwise it answers `INVITE_INVALID`, `INVITE_EXPIRED`, `INVITE_REVOKED`, `INVITE_USED`, `INVITER_NOT_ALLOWED`, `COMMUNITY_UNAVAILABLE` or `COMMUNITY_REMOVED`, each telling the person to ask for a new one.
+  - `POST /invitations/:token/accept`: must be signed in.
+    - An account invitation is for that account. An email invitation is for the account whose *verified* email it is; anyone else gets `WRONG_ACCOUNT`, without the address (VIS-09).
+    - Everything is checked again: the community's status, and whether the inviter is still an active Owner or Admin who outranks the role (MEM-11). It also refuses people blocked from the community, and people removed since the invitation was sent (`REMOVED_AFTER_INVITE`).
+    - A Private community's approval step is skipped. A pending request becomes the membership, in one row (MEM-13). A second click gets the same answer.
+  - `GET /me/invitations` and `POST /me/invitations/:id/accept` (added): the invitee's own list. The in-app notification never carries the token, so it points here.
+- **Email and notification:**
+  - The mailer template `community_invite` names the community and the inviter only, never the note. The link is `${origin}/#/invite/c/<token>`.
+  - People already on CommunityOne also get an in-app `community_invite` notification (category Join requests, in-app only). It links to `/invitations` and shows as no longer available once the invitation expires or is revoked (NTF-05).
+- **Token kept out of records:** it's not in the audit context, notifications or email subjects. The two routes that take it in their path log at warn level, so the request log never has the URL (checked by a test).
+- **Audit:** `community.invite`, `community.invite_resend`, `community.invite_revoke`, `community.invite_accept`.
+- **Checked:** `server/test/invitations.test.js`, 23 tests, all pass. They cover:
+  - accept, expire, revoke, wrong account, unverified email
+  - blocked, removed (and removed since), already member, self, suspended
+  - duplicate invite returns the open one, resend, simultaneous invites, Idempotency-Key
+  - Private skips approval, Closed only by invitation, Private made Closed, suspended and deleted communities
+  - inviter demoted (MEM-11), role limits, Administrative Mode
+  - 50 per call, 200 a day, 10 a minute
+  - token never in clear in the database, audit, notifications or request log
+- Also run, one file at a time: `communities.test.js` 37/37, `platform.test.js` 24/24, `stage4.test.js` 26/26 (notifications) and `mailer.test.js` 5/5. The known idle stall hit once in `platform.test.js` and once in `invitations.test.js`, both at under 1 s of CPU with other agents' test runs going at the same time. Each was stopped and passed on the rerun. Register rows marked Pass: VIS-06, VIS-09, VIS-10, MEM-11 to MEM-14, NTF-05, plus extra evidence for MEM-05.
+- **Not done here:**
+  - **The screens.** The client needs:
+    - the `/invite/c/:token` page (the old `/invite/:code` route is a different, older page)
+    - a `/invitations` list
+    - an Invitations section in Manage
+  - **Declining.** An invitee can't decline yet; it just expires.
+  - **Signing up from an invitation.** It works only while registration is open. Invitation-only sign-up when it's closed isn't built.
+  - **Community capacity.** Communities have no capacity setting, so MEM-14's "full" case doesn't arise yet.
+  - **Email bodies.** The development mail transport prints them to the console (as it does for confirmation links), and `email_outbox` keeps the body with the link, as it does for other links.
+  - **Deleted accounts.** Deleting an account leaves the address on its email-bound invitations.

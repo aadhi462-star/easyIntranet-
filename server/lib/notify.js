@@ -51,6 +51,9 @@ export const TYPES = {
   deletion_declined: { cat: 'moderation', own: true, line: (x) => `Your request to delete ${x.community} was declined` },
   owner_assigned: { cat: 'joins', own: true, line: (x) => `You’re now an Owner of ${x.community}` },
   appeal_platform: { cat: 'moderation', own: true, line: (x) => `CommunityOne decided an appeal in ${x.community}` },
+  // v2 workstream F: an invitation reaches people outside the community (it may be Closed). The
+  // line names the community and the inviter only; the token is never in a notification.
+  community_invite: { cat: 'joins', outsider: true, line: (x) => `${x.actor} invited you to join ${x.community}` },
 };
 
 export const PLATFORM_NOTICES = new Set(['member_sanction', 'community_deleted', 'community_restored', 'community_suspended', 'deletion_declined']);

@@ -46,6 +46,12 @@ const TEMPLATES = {
     subject: `Cancelled: ${title}`,
     body: `Hi ${name},\n\n“${title}” in ${community} was cancelled.\nReason: ${reason}\n\n${link}`,
   }),
+  // v2 workstream F: names the community and the inviter only. Never the inviter's note or any
+  // of the community's content: a Closed community's name is all the link holder learns.
+  community_invite: ({ community, inviter, link, days }) => ({
+    subject: `${inviter} invited you to join ${community} on CommunityOne`,
+    body: `Hi,\n\n${inviter} invited you to join ${community} on CommunityOne.\n\nOpen the invitation:\n${link}\n\nThe invitation is for you only and expires in ${days} days. If you weren't expecting it, you can ignore this email.`,
+  }),
 };
 
 /** Picks the transport from the environment: Catalyst Mail when configured, else the log. */

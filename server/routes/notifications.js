@@ -63,6 +63,14 @@ export default async function notificationRoutes(app, { ctx }) {
       const a = await accessOf(req, id, cache);
       return a?.canView ? { title: a.community.name, href: `/c/${a.community.slug || a.community.id}` } : null;
     }
+    // v2 workstream F: an invitation, for the account it names, while it can still be accepted
+    // (NTF-05: an expired or withdrawn one shows as no longer available).
+    if (type === 'invitation') {
+      const { rows: [i] } = await db.query(`select c.name from community_invitations i join communities c on c.id = i.community_id
+        where i.id = $1 and i.user_id = $2 and i.accepted_at is null and i.revoked_at is null and i.superseded_at is null
+          and i.expires_at > now() and c.status = 'active' and c.merged_into is null`, [id, uid]);
+      return i ? { title: i.name, href: '/invitations' } : null;
+    }
     if (type === 'certificate') {
       const { rows: [c] } = await db.query(`select code, course_title from certificates where code = $1 and user_id = $2 and revoked_at is null`, [id, uid]);
       return c ? { title: c.course_title, href: `/verify/${c.code}` } : null;
