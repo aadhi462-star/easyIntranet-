@@ -879,7 +879,7 @@ The board was approved with B1–B5 (canvas page "v2 — Design system").
 
 Finishes B5 and the `confirmAction()` switch in the modules that are still switched off.
 
-- **Emoji:** the last 35 in parked modules are gone. The only emoji left in source is the `EMOJI_ICON` table in `icons.jsx`, which turns emoji stored in old data into icons.
+- **Emoji:** the last 36 in source are gone (35 in parked modules and one in a comment in `lib/communities.js`). The only emoji left in source is the `EMOJI_ICON` table in `icons.jsx`, which turns emoji stored in old data into icons.
   - New icon names in `icons.jsx`: camera, cameraoff, screen, screenoff, hangup, speaker, slides, music, laugh, thanks, reply, external and ticket. Old reaction emoji (laugh, thanks, eyes) now map to icons.
   - Live: the call buttons draw Lucide icons. Muted and speaking show as labelled icons.
   - Channels: reactions are stored by icon name and shown as icon buttons with names ("React: Laugh", "Like: 2"). Older emoji reactions show their mapped icon. Start call, Add reaction and Reply in thread are icon buttons.
