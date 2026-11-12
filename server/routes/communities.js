@@ -8,10 +8,14 @@ import { can } from '../lib/permissions.js';
 import { idempotent } from '../lib/session.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
 import { notify } from '../lib/notify.js';
+import { checkCategory } from '../lib/categories.js';
+import { assertCanCreate, checkSettings, CONFIG_SETTING_KEYS, prepareCommunity, recordCreation } from '../lib/templates.js';
 
 // Settings a community stores for its own screens (tabs, dashboard, guidelines, membership rule).
 // Validated as a plain object of limited size; nothing here grants permissions.
 const SETTING_KEYS = new Set(['apps', 'dashboard', 'guidelines', 'dynamicRule', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue', 'whoCanCreateEvents', 'membersAddResources']);
+// v2 templates: resource categories, event defaults and roles in use (lib/templates.js).
+for (const k of CONFIG_SETTING_KEYS) SETTING_KEYS.add(k);
 function cleanSettings(input) {
   if (input == null) return {};
   if (typeof input !== 'object' || Array.isArray(input)) throw badRequest('INVALID_INPUT', 'Settings must be an object.');
@@ -22,6 +26,7 @@ function cleanSettings(input) {
   }
   if (out.whoCanPost && !['members', 'admins'].includes(out.whoCanPost)) throw badRequest('INVALID_INPUT', 'Choose who can post: members or admins.');
   if (out.whoCanCreateEvents && !['members', 'admins'].includes(out.whoCanCreateEvents)) throw badRequest('INVALID_INPUT', 'Choose who can create events: members or admins.');
+  checkSettings(out);
   if (JSON.stringify(out).length > 20000) throw badRequest('TOO_LONG', 'These settings are too large.');
   return out;
 }
@@ -229,28 +234,33 @@ export default async function communityRoutes(app, { ctx }) {
   app.post('/communities', {
     schema: { body: { type: 'object', required: ['name', 'visibility'], additionalProperties: false, properties: {
       name: { type: 'string' }, description: { type: ['string', 'null'] }, category: { type: ['string', 'null'] }, emoji: { type: ['string', 'null'] },
-      visibility: { type: 'string', enum: ['public', 'private', 'closed'] }, settings: { type: 'object' } } } },
+      visibility: { type: 'string', enum: ['public', 'private', 'closed'] }, settings: { type: 'object' },
+      // v2: discussion topics to start with, and the template the configuration came from.
+      topics: { type: 'array', items: { type: 'string' }, maxItems: 50 },
+      template: { type: 'object', required: ['key', 'version'], additionalProperties: false, properties: { key: { type: 'string' }, version: { type: 'integer' } } } } } },
   }, async (req, reply) => idempotent(db, req, reply, async () => {
     const uid = signedIn(req);
     // Platform setting (Stage 7): creating communities can be limited to platform staff.
-    const { rows: [who] } = await db.query(`select value->>'whoCanCreate' as v from platform_settings where key = 'communities'`);
-    if (who?.v === 'staff' && !can(req.user, 'communities.manage')) throw forbidden('Only platform staff can create communities at the moment.', 'CREATE_RESTRICTED');
+    await assertCanCreate(db, req.user);
     const name = cleanName(req.body.name);
     const description = String(req.body.description ?? '').trim().slice(0, 1000) || null;
     const settings = cleanSettings(req.body.settings);
+    // Category, starting topics and the template (if any): the same checks with or without one.
+    const plan = await prepareCommunity(db, req.body);
     const id = newId('com');
     let accent;
     try {
       await db.tx(async (t) => {
         await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings, accent) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [id, slugOf(name), name, description, String(req.body.category ?? '').slice(0, 40) || null, String(req.body.emoji ?? '').slice(0, 8) || null, req.body.visibility, uid, JSON.stringify(settings), accent = await pickAccent(t)]);
+          [id, slugOf(name), name, description, plan.category, String(req.body.emoji ?? '').slice(0, 8) || null, req.body.visibility, uid, JSON.stringify(settings), accent = await pickAccent(t)]);
         await t.query(`insert into memberships (community_id, user_id, role, state, joined_at) values ($1, $2, 'owner', 'active', now())`, [id, uid]);
+        await recordCreation(t, id, plan);
       });
     } catch (err) {
       if (err.code === UNIQUE_VIOLATION) throw conflict('DUPLICATE_NAME', 'A community with a very similar name already exists. Choose a different name.', { field: 'name' });
       throw err;
     }
-    await audit(db, { actorId: uid, action: 'community.create', targetType: 'community', targetId: id, context: { name, visibility: req.body.visibility }, ip: req.ip });
+    await audit(db, { actorId: uid, action: 'community.create', targetType: 'community', targetId: id, context: { name, visibility: req.body.visibility, template: plan.template ? { key: plan.template.key, version: plan.template.version } : undefined }, ip: req.ip });
     reply.status(201);
     return { community: { id, name, accent, visibility: req.body.visibility, membership: { state: 'active', role: 'owner' } } };
   }));
@@ -273,7 +283,7 @@ export default async function communityRoutes(app, { ctx }) {
         `update communities set name = $3, slug = $4, description = $5, category = $6, emoji = $7, visibility = $8, settings = $9, version = version + 1
           where id = $1 and version = $2 returning *`,
         [c.id, b.version, name, slugOf(name), 'description' in b ? (String(b.description ?? '').trim().slice(0, 1000) || null) : c.description,
-          'category' in b ? (String(b.category ?? '').slice(0, 40) || null) : c.category, 'emoji' in b ? (String(b.emoji ?? '').slice(0, 8) || null) : c.emoji,
+          'category' in b ? checkCategory(b.category, { current: c.category }) : c.category, 'emoji' in b ? (String(b.emoji ?? '').slice(0, 8) || null) : c.emoji,
           b.visibility ?? c.visibility, JSON.stringify(settings)]);
       if (!rows.length) throw conflict('STALE_VERSION', 'Someone else changed this community. Reload to see the latest settings.');
       // A pending request to a community that's no longer Private is re-evaluated (VIS-13):

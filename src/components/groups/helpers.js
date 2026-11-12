@@ -1,4 +1,5 @@
-export const GROUP_TYPES = ['Batch', 'City', 'Interest', 'Department', 'Project'];
+// Community categories (v2): the server's list, shared with it.
+export { CATEGORIES as GROUP_TYPES } from '../../../shared/categories.js';
 
 // Keys are the app's internal names; labels follow CommunityOne's Public / Private / Closed.
 export const ACCESS = {
