@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore, uid, timeAgo } from '../../lib/store.jsx';
 import { Avatar } from '../ui.jsx';
+import { Icon } from '../icons.jsx';
 
 export function Video({ stream, muted = true, mirror = false, className = '' }) {
   const ref = useRef(null);
@@ -12,7 +13,7 @@ export function ControlButton({ on = true, onClick, label, icon, offIcon, danger
   return (
     <button onClick={onClick} disabled={disabled} aria-label={label} title={label} aria-pressed={on}
       className={`grid h-12 w-12 place-items-center rounded-full text-lg transition disabled:opacity-40 ${danger ? 'bg-rose-600 text-white hover:bg-rose-500' : on ? 'bg-white/10 hover:bg-white/20' : 'bg-rose-500/80 text-white hover:bg-rose-500'}`}>
-      {on ? icon : offIcon ?? icon}
+      <Icon name={on ? icon : offIcon ?? icon} />
     </button>
   );
 }

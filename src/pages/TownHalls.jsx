@@ -7,6 +7,7 @@ import { Avatar, Empty, Field, Modal, PageHeader, Tabs, UserLink } from '../comp
 import TownHallList, { STATUS_STYLES, displayStatus } from '../components/events/TownHallList.jsx';
 import PeoplePicker from '../components/events/PeoplePicker.jsx';
 import { canSeeTownhall, fromInput, toInput } from '../components/events/eventUtils.js';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function TownHalls() {
   const { id } = useParams();
@@ -157,7 +158,7 @@ function Session({ id }) {
         {isMod && th.status !== 'ended' && (
           <div className="mt-5 flex flex-wrap gap-2">
             {th.status === 'upcoming' && <button className="btn btn-primary" onClick={goLive}>● Go live</button>}
-            {th.status === 'live' && <button className="btn btn-ghost !text-rose-300" onClick={() => { if (confirm('End this session? New questions will be closed.')) setTh({ status: 'ended', end: Date.now() }); }}>■ End session</button>}
+            {th.status === 'live' && <button className="btn btn-ghost !text-rose-300" onClick={async () => { if (await confirmAction('End this session? New questions will be closed.')) setTh({ status: 'ended', end: Date.now() }); }}>■ End session</button>}
           </div>
         )}
       </section>

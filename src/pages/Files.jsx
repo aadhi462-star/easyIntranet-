@@ -7,6 +7,8 @@ import { DocEditor, SheetEditor, SlidesEditor, useObjectUrl } from '../component
 import { fmtSize, getBlob } from '../components/collab/fileStore.js';
 import { toast } from '../lib/toast.js';
 import { canSeeGroupItem } from '../components/collab/common.jsx';
+import { Icon } from '../components/icons.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function Files() {
   const { id } = useParams();
@@ -96,7 +98,7 @@ function FileView({ file }) {
     <div>
       <Link to="/files" className="text-sm text-brand-400 hover:underline">← Files</Link>
       <div className="mb-4 mt-2 flex flex-wrap items-center gap-3">
-        <span className="text-2xl" aria-hidden="true">{fileIcon(file)}</span>
+        <Icon name={fileIcon(file)} size={26} />
         <input className="min-w-0 flex-1 bg-transparent text-xl font-bold outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-1" defaultValue={file.name} readOnly={!canEdit}
           aria-label="File name" onBlur={(e) => e.target.value.trim() && e.target.value !== file.name && dispatch({ type: 'update', col: 'files', id: file.id, patch: { name: e.target.value.trim() } })} />
         {created && <span className="text-xs text-slate-400" role="status">{saved ? '✓ Saved' : 'Saving…'}</span>}
@@ -182,8 +184,8 @@ function Versions({ file, canEdit, flush }) {
             <div className="font-medium">{created ? `Snapshot ${versions.length - i}` : `v${versions.length - i}`}{!created && i === 0 && <span className="chip ml-2">current</span>}</div>
             <div className="text-xs text-slate-400">{user(v.by)?.name} · {fmtDate(v.at)}{v.size != null ? ` · ${fmtSize(v.size)}` : ''}</div>
             {created && canEdit && v.content != null && (
-              <button className="mt-1 text-xs text-brand-400 hover:underline" onClick={() => {
-                if (!confirm('Restore this snapshot? Current content is kept as a new snapshot.')) return;
+              <button className="mt-1 text-xs text-brand-400 hover:underline" onClick={async () => {
+                if (!(await confirmAction('Restore this snapshot? Current content is kept as a new snapshot.'))) return;
                 flush();
                 dispatch({ type: 'update', col: 'files', id: file.id, patch: (x, uid) => ({ ...x, content: v.content, restoredAt: Date.now(), updatedAt: Date.now(), versions: [...x.versions, { at: Date.now(), by: uid, content: x.content }] }) });
               }}>Restore</button>

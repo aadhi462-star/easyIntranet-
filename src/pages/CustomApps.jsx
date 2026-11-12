@@ -5,6 +5,7 @@ import { fmtDate, timeAgo, uid, useStore } from '../lib/store.jsx';
 import { Empty, Field, Modal, PageHeader, Tabs, UserLink } from '../components/ui.jsx';
 import { BarList, PieChart, download, toCsv } from '../components/admin/charts.jsx';
 import { OptionsInput } from '../components/collab/common.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 const FIELD_TYPES = [['text', 'Single line'], ['longtext', 'Long text'], ['number', 'Number'], ['date', 'Date'], ['select', 'Dropdown'], ['checkbox', 'Checkbox'], ['user', 'Member']];
 
@@ -136,8 +137,8 @@ function AppView({ id }) {
         actions={<>
           <button className="btn btn-primary" onClick={() => setRecord('new')}>+ New record</button>
           {isOwner && <button className="btn btn-ghost" onClick={() => setEditing(true)}>Edit app</button>}
-          {isOwner && <button className="btn btn-ghost" onClick={() => {
-            if (!confirm(`Delete “${app.name}” and all its records?`)) return;
+          {isOwner && <button className="btn btn-ghost" onClick={async () => {
+            if (!(await confirmAction(`Delete “${app.name}” and all its records?`))) return;
             (state.appRecords || []).filter((r) => r.appId === id).forEach((r) => dispatch({ type: 'remove', col: 'appRecords', id: r.id, silent: true }));
             dispatch({ type: 'remove', col: 'customApps', id });
             nav('/apps');
@@ -164,7 +165,7 @@ function AppView({ id }) {
                       <td className="whitespace-nowrap p-3 text-right">
                         {(r.authorId === me.id || isOwner) && <>
                           <button className="btn btn-ghost h-9 text-xs" onClick={() => setRecord(r)}>Edit</button>
-                          <button className="btn btn-ghost ml-1 h-9 text-xs" onClick={() => confirm('Delete this record?') && dispatch({ type: 'remove', col: 'appRecords', id: r.id })}>Delete</button>
+                          <button className="btn btn-ghost ml-1 h-9 text-xs" onClick={async () => (await confirmAction('Delete this record?')) && dispatch({ type: 'remove', col: 'appRecords', id: r.id })}>Delete</button>
                         </>}
                       </td>
                     </tr>

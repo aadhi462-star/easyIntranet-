@@ -104,7 +104,7 @@ export function IdeaCard({ idea }) {
         <div className="flex flex-wrap items-center gap-2"><IdeaStatus status={idea.status} /><span className="chip !bg-white/10 !text-slate-300">{idea.category}</span></div>
         <Link to={`/ideas/${idea.id}`} className="mt-2 block font-semibold hover:underline">{idea.title}</Link>
         <p className="mt-1 line-clamp-2 text-sm text-slate-400">{idea.description}</p>
-        <div className="mt-2 text-xs text-slate-500">{user(idea.authorId)?.name} · {timeAgo(idea.createdAt)} · 💬 {idea.comments.length}</div>
+        <div className="mt-2 text-xs text-slate-500">{user(idea.authorId)?.name} · {timeAgo(idea.createdAt)} · <Glyph value="channels" tile={false} size={12} /> {idea.comments.length}<span className="sr-only"> comments</span></div>
       </div>
     </article>
   );

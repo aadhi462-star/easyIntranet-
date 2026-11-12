@@ -6,6 +6,7 @@ import { Avatar, Field, Modal, PageHeader, UserLink } from '../components/ui.jsx
 import ManualList, { ManualForm } from '../components/collab/ManualList.jsx';
 import { Menu, Prose, Select, UserPicker, canSeeGroupItem, toDateTimeInput } from '../components/collab/common.jsx';
 import { canReadArticle, canWriteArticle, findArticle, isLive, manualRoles, patchArticle, sharedAccess } from '../components/collab/manual.js';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function Manuals() {
   const { id, articleId } = useParams();
@@ -97,7 +98,7 @@ function ManualView({ manual, articleId }) {
                   <Menu label="Manual actions" items={[
                     { label: 'Edit details', onClick: () => setModal({ type: 'edit' }) },
                     { label: 'Settings', onClick: () => setModal({ type: 'settings' }) },
-                    { label: 'Delete manual', danger: true, onClick: () => { if (confirm('Delete this manual and all its articles?')) { dispatch({ type: 'remove', col: 'manuals', id: manual.id }); nav('/manuals'); } } },
+                    { label: 'Delete manual', danger: true, onClick: async () => { if (await confirmAction('Delete this manual and all its articles?')) { dispatch({ type: 'remove', col: 'manuals', id: manual.id }); nav('/manuals'); } } },
                   ]} />
                 </>
               )} />
@@ -111,7 +112,7 @@ function ManualView({ manual, articleId }) {
                       <Menu label={`Chapter ${c.title} actions`} items={[
                         { label: 'New article', onClick: () => setModal({ type: 'new', chapterId: c.id }) },
                         { label: 'Rename chapter', onClick: () => { const t = prompt('Chapter name', c.title); if (t?.trim()) dispatch({ type: 'update', col: 'manuals', id: manual.id, patch: (m) => ({ ...m, chapters: m.chapters.map((x) => (x.id === c.id ? { ...x, title: t.trim() } : x)) }) }); } },
-                        { label: 'Delete chapter', danger: true, hidden: !roles.admin, onClick: () => confirm(`Delete “${c.title}” and its articles?`) && dispatch({ type: 'update', col: 'manuals', id: manual.id, patch: (m) => ({ ...m, chapters: m.chapters.filter((x) => x.id !== c.id) }) }) },
+                        { label: 'Delete chapter', danger: true, hidden: !roles.admin, onClick: async () => (await confirmAction(`Delete “${c.title}” and its articles?`)) && dispatch({ type: 'update', col: 'manuals', id: manual.id, patch: (m) => ({ ...m, chapters: m.chapters.filter((x) => x.id !== c.id) }) }) },
                       ]} />
                     )}
                   </div>
@@ -241,8 +242,8 @@ function ArticleView({ manual, chapter, article }) {
                 { label: 'Share Article', hidden: !roles.admin, onClick: () => setModal('share') },
                 { label: article.mandatory ? 'Manage Mandatory Read' : 'Mark as Mandatory Read', hidden: !roles.admin, onClick: () => setModal('mandatory') },
                 { label: 'Version history', onClick: () => setModal('versions') },
-                { label: 'Delete article', danger: true, hidden: !roles.admin, onClick: () => {
-                  if (!confirm('Delete this article?')) return;
+                { label: 'Delete article', danger: true, hidden: !roles.admin, onClick: async () => {
+                  if (!(await confirmAction('Delete this article?'))) return;
                   dispatch({ type: 'update', col: 'manuals', id: manual.id, patch: (m) => ({ ...m, chapters: m.chapters.map((c) => ({ ...c, articles: c.articles.filter((x) => x.id !== article.id) })) }) });
                   nav(`/manuals/${manual.id}`);
                 } },

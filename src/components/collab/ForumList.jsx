@@ -3,6 +3,7 @@ import { useStore, timeAgo } from '../../lib/store.jsx';
 import { Empty, Tabs } from '../ui.jsx';
 import { ForumCard, ForumEditor } from './forum.jsx';
 import { canSeeGroupItem } from './common.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 /**
  * Forum posts list. Embeddable in a group (`groupId`) or used by the Forums page with a
@@ -26,7 +27,7 @@ export default function ForumList({ groupId, categoryId, view = 'all', showCompo
             <div className="min-w-0 flex-1"><div className="font-semibold">{d.title}</div><div className="text-xs text-slate-500">Saved {timeAgo(d.createdAt)}</div></div>
             <button className="btn btn-ghost" onClick={() => setEditing(d)}>Edit</button>
             <button className="btn btn-primary" onClick={() => dispatch({ type: 'forum/save', post: { id: d.id, status: 'published', createdAt: Date.now() } })}>Publish</button>
-            <button className="btn btn-ghost text-rose-300" onClick={() => confirm('Delete this draft?') && dispatch({ type: 'forum/delete', id: d.id })}>Delete</button>
+            <button className="btn btn-ghost text-rose-300" onClick={async () => (await confirmAction('Delete this draft?')) && dispatch({ type: 'forum/delete', id: d.id })}>Delete</button>
           </div>
         ))}
         {editing && <ForumEditor post={editing} onClose={() => setEditing(null)} />}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore, timeAgo } from '../../lib/store.jsx';
 import { Avatar, Field, Modal, UserLink } from '../ui.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 import { Menu, Prose, Select, slugify } from './common.jsx';
 
 export const canPostIn = (cat, me) => !cat || cat.whoCanPost !== 'admins' || me?.admin;
@@ -39,7 +40,7 @@ export function ForumEditor({ post, groupId, defaultCategory, onClose }) {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative">
           <button type="button" className="btn btn-ghost" onClick={() => setShowCats(!showCats)} aria-expanded={showCats}>
-            🏷️ {cats.length ? `${cats.length} categor${cats.length > 1 ? 'ies' : 'y'}` : 'Choose Category'}
+            <Glyph value="label" tile={false} size={16} /> {cats.length ? `${cats.length} categor${cats.length > 1 ? 'ies' : 'y'}` : 'Choose Category'}
           </button>
           {showCats && (
             <div className="glass glass-strong absolute left-0 z-30 mt-1 w-60 p-2">
@@ -160,7 +161,7 @@ export function ForumPostView({ post }) {
           <Menu items={[
             { label: 'Edit', onClick: () => setEdit(true), hidden: !mine && !me.admin },
             { label: post.commentsDisabled ? 'Enable comments' : 'Disable comments', onClick: () => dispatch({ type: 'forum/save', post: { id: post.id, commentsDisabled: !post.commentsDisabled } }), hidden: !mine && !me.admin },
-            { label: 'Delete', danger: true, onClick: () => { if (confirm('Delete this forum post?')) { dispatch({ type: 'forum/delete', id: post.id }); nav('/forums'); } }, hidden: !mine && !me.admin },
+            { label: 'Delete', danger: true, onClick: async () => { if (await confirmAction('Delete this forum post?')) { dispatch({ type: 'forum/delete', id: post.id }); nav('/forums'); } }, hidden: !mine && !me.admin },
           ]} />
         </div>
         <div className="mt-5"><Prose text={post.body} /></div>

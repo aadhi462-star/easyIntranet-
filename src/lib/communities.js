@@ -13,7 +13,7 @@ export const communityPath = (c, tab) => {
   return `/c/${encodeURIComponent(key)}${tab && tab !== 'overview' ? `/${tab}` : ''}`;
 };
 
-// Server visibility ↔ the store's access types.
+// Server visibility to and from the store's access types.
 const TO_ACCESS = { public: 'public', private: 'restricted', closed: 'private' };
 const TO_VISIBILITY = { public: 'public', restricted: 'private', private: 'closed' };
 export const visibilityOf = (accessType) => TO_VISIBILITY[accessType] ?? 'public';

@@ -3,17 +3,20 @@ import { Link } from 'react-router-dom';
 import { useStore, timeAgo } from '../lib/store.jsx';
 import { statsFor, leaderboard, LEVELS, BADGES, POINTS } from '../lib/gamify.js';
 import { Avatar, PageHeader, Tabs } from '../components/ui.jsx';
+import { Icon } from '../components/icons.jsx';
 import { PraiseModal, PRAISE_BADGES, praiseBadge, isActiveUser } from '../components/people/shared.jsx';
 
 const day = 86400e3;
+// Gold, silver and bronze tints for the top three ranks.
+const MEDAL = ['text-amber-300', 'text-slate-300', 'text-orange-400'];
 const PERIODS = [{ id: 'week', label: 'This week', ms: 7 * day }, { id: 'month', label: 'This month', ms: 30 * day }, { id: 'all', label: 'All time', ms: null }];
 
 // Arcade: challenges computed from scoring activity (see challengeCounts).
 const CHALLENGES = [
-  { id: 'post3', icon: '✍️', title: 'Post 3 times on the wall', goal: 3, count: (c) => c['post/create'] || 0, reward: 'Storyteller' },
-  { id: 'rsvp2', icon: '🎟️', title: 'RSVP to 2 events', goal: 2, count: (c) => c['event/rsvp'] || 0, reward: 'Show Up' },
+  { id: 'post3', icon: 'pen', title: 'Post 3 times on the wall', goal: 3, count: (c) => c['post/create'] || 0, reward: 'Storyteller' },
+  { id: 'rsvp2', icon: 'ticket', title: 'RSVP to 2 events', goal: 2, count: (c) => c['event/rsvp'] || 0, reward: 'Show Up' },
   { id: 'answer1', icon: 'questions', title: 'Answer a question', goal: 1, count: (c) => (c['add:answers'] || 0) + (c['forum/reply'] || 0), reward: 'Helping Hand' },
-  { id: 'praise2', icon: '🙌', title: 'Praise 2 fellow alumni', goal: 2, count: (c) => c['add:praise'] || 0, reward: 'Cheerleader' },
+  { id: 'praise2', icon: 'thanks', title: 'Praise 2 fellow alumni', goal: 2, count: (c) => c['add:praise'] || 0, reward: 'Cheerleader' },
   { id: 'idea1', icon: 'ideas', title: 'Share an idea', goal: 1, count: (c) => c['add:ideas'] || 0, reward: 'Spark' },
   { id: 'comment5', icon: 'channels', title: 'Leave 5 comments', goal: 5, count: (c) => c['post/comment'] || 0, reward: 'Chatterbox' },
   { id: 'join2', icon: 'groups', title: 'Join 2 groups', goal: 2, count: (c) => c['group/join'] || 0, reward: 'Joiner' },
@@ -70,7 +73,7 @@ export default function Leaderboard() {
   const claimed = (state.badgeAwards || []).filter((b) => b.toId === me.id).map((b) => b.badgeId);
   const claim = (c) => {
     dispatch({ type: 'add', col: 'badgeAwards', item: { toId: me.id, badgeId: `arcade-${c.id}` } });
-    dispatch({ type: 'notify', notification: { userId: me.id, kind: 'badge', text: `You unlocked the ${c.reward} badge ${c.icon}`, link: '/leaderboard' } });
+    dispatch({ type: 'notify', notification: { userId: me.id, kind: 'badge', text: `You unlocked the ${c.reward} badge`, link: '/leaderboard' } });
   };
 
   return (
@@ -102,7 +105,7 @@ export default function Leaderboard() {
               <ol className="mt-3 space-y-1">
                 {contributors.map((r) => (
                   <li key={r.user.id} className={`flex items-center gap-3 rounded-xl p-2 ${r.user.id === me.id ? 'bg-brand-500/15' : ''}`}>
-                    <span className="w-8 text-center text-lg font-bold" aria-label={`Rank ${r.rank}`}>{['🥇', '🥈', '🥉'][r.rank - 1] ?? r.rank}</span>
+                    <span className={`flex w-8 items-center justify-center gap-0.5 text-sm font-bold ${MEDAL[r.rank - 1] ?? ''}`} aria-label={`Rank ${r.rank}`}>{r.rank <= 3 && <Icon name="medal" size={16} />}{r.rank}</span>
                     <Avatar user={r.user} size={36} />
                     <Link to={`/people/${r.user.id}`} className="min-w-0 flex-1"><div className="truncate font-semibold">{r.user.name}</div><div className="text-xs text-slate-400">{r.level.name}</div></Link>
                     <span className="font-bold text-amber-200">{r.points}</span>
@@ -124,7 +127,7 @@ export default function Leaderboard() {
         <div className="grid gap-3 sm:grid-cols-2">
           {[...(state.praise || [])].sort((a, b) => b.createdAt - a.createdAt).map((p) => { const b = praiseBadge(p.badge); return (
             <article key={p.id} className="glass p-5">
-              <div className="flex items-center gap-2 text-sm"><span className="text-2xl">{b.icon}</span><b>{b.name}</b><span className="ml-auto text-xs text-slate-500">{timeAgo(p.createdAt)}</span></div>
+              <div className="flex items-center gap-2 text-sm"><Icon name={b.icon} size={24} className="text-brand-300" /><b>{b.name}</b><span className="ml-auto text-xs text-slate-500">{timeAgo(p.createdAt)}</span></div>
               <p className="mt-3 text-slate-200">“{p.message}”</p>
               <p className="mt-3 text-sm text-slate-400"><Link className="font-semibold text-white hover:underline" to={`/people/${p.fromId}`}>{user(p.fromId)?.name}</Link> → <Link className="font-semibold text-white hover:underline" to={`/people/${p.toId}`}>{user(p.toId)?.name}</Link></p>
             </article>); })}
@@ -137,13 +140,13 @@ export default function Leaderboard() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {BADGES.map((b) => { const got = mine.badges.includes(b.id); return (
                 <div key={b.id} className={`glass p-4 text-center ${got ? '' : 'opacity-45 grayscale'}`}>
-                  <div className="text-3xl">{b.icon}</div><div className="mt-2 font-semibold">{b.name}</div><div className="text-xs text-slate-400">{b.desc}</div>
+                  <Icon name={b.icon} size={30} className="mx-auto text-brand-300" /><div className="mt-2 font-semibold">{b.name}</div><div className="text-xs text-slate-400">{b.desc}</div>
                   <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider">{got ? '✓ Earned' : 'Locked'}</div>
                 </div>); })}
             </div>
           </section>
           <section><h2 className="mb-3 font-bold">Praise badges you can give</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">{PRAISE_BADGES.map((b) => <div key={b.id} className="glass p-3 text-center"><div className="text-2xl">{b.icon}</div><div className="mt-1 text-sm">{b.name}</div></div>)}</div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">{PRAISE_BADGES.map((b) => <div key={b.id} className="glass p-3 text-center"><Icon name={b.icon} size={24} className="mx-auto text-brand-300" /><div className="mt-1 text-sm">{b.name}</div></div>)}</div>
           </section>
         </div>
       )}
@@ -156,7 +159,7 @@ export default function Leaderboard() {
             const has = claimed.includes(`arcade-${c.id}`);
             return (
               <article key={c.id} className="glass flex items-center gap-4 p-4">
-                <span className="text-3xl" aria-hidden="true">{c.icon}</span>
+                <Icon name={c.icon} size={30} className="text-brand-300" />
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold">{c.title}</div>
                   <div className="text-xs text-slate-400">Reward: {c.reward} badge</div>

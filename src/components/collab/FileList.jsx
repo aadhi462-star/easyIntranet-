@@ -1,4 +1,4 @@
-import { Glyph } from '../icons.jsx';
+import { Glyph, Icon } from '../icons.jsx';
 import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore, timeAgo, uid } from '../../lib/store.jsx';
@@ -6,17 +6,18 @@ import { Empty, Field, Modal, Tabs } from '../ui.jsx';
 import { Menu, Select, UserPicker } from './common.jsx';
 import { deleteBlob, downloadBlob, fmtSize, getBlob, putBlob } from './fileStore.js';
 import { sheetToCsv } from './editors.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 export const MAX_SIZE = 30 * 1024 * 1024; // 30 MB per attachment, as in Connect
 
-const KIND_ICON = { doc: 'drafts', sheet: 'poll', slides: '📽️', folder: 'files' };
+/** Icon name for a file, drawn with <Icon name={fileIcon(f)} />. */
+const KIND_ICON = { doc: 'drafts', sheet: 'poll', slides: 'slides', folder: 'files' };
 export function fileIcon(f) {
   if (KIND_ICON[f.kind]) return KIND_ICON[f.kind];
   if (f.type?.startsWith('image/')) return 'image';
-  if (f.type?.startsWith('video/')) return '🎬';
-  if (f.type?.startsWith('audio/')) return '🎵';
-  if (f.type === 'application/pdf') return '📕';
-  if (f.type?.startsWith('text/')) return 'doc';
+  if (f.type?.startsWith('video/')) return 'video';
+  if (f.type?.startsWith('audio/')) return 'music';
+  if (f.type === 'application/pdf' || f.type?.startsWith('text/')) return 'doc';
   return 'paperclip';
 }
 
@@ -48,8 +49,8 @@ function FileActions({ f, folders, onShare, onRename, onMove }) {
       { label: 'Rename', onClick: onRename, hidden: !mine },
       { label: 'Move to…', onClick: onMove, hidden: !mine || !folders.length },
       { label: 'Share', onClick: onShare, hidden: !mine },
-      { label: 'Delete', danger: true, hidden: !mine, onClick: () => {
-        if (!confirm(`Delete “${f.name}”? This can’t be undone.`)) return;
+      { label: 'Delete', danger: true, hidden: !mine, onClick: async () => {
+        if (!(await confirmAction(`Delete “${f.name}”? This can’t be undone.`))) return;
         f.versions?.forEach((v) => deleteBlob(v.key).catch(() => {}));
         dispatch({ type: 'remove', col: 'files', id: f.id });
       } },
@@ -177,8 +178,8 @@ export default function FileList({ groupId }) {
               </button>
               <Menu label={`Actions for folder ${fo.name}`} items={[
                 { label: 'Rename', hidden: fo.authorId !== me.id && !me.admin, onClick: () => setModal({ type: 'renameFolder', folder: fo }) },
-                { label: 'Delete folder', danger: true, hidden: fo.authorId !== me.id && !me.admin, onClick: () => {
-                  if (!confirm(`Delete folder “${fo.name}”? Its files and subfolders move up one level.`)) return;
+                { label: 'Delete folder', danger: true, hidden: fo.authorId !== me.id && !me.admin, onClick: async () => {
+                  if (!(await confirmAction(`Delete folder “${fo.name}”? Its files and subfolders move up one level.`))) return;
                   (state.files ?? []).filter((f) => f.folderId === fo.id).forEach((f) => dispatch({ type: 'update', col: 'files', id: f.id, patch: { folderId: fo.parentId ?? null }, silent: true }));
                   (state.folders ?? []).filter((x) => x.parentId === fo.id).forEach((x) => dispatch({ type: 'update', col: 'folders', id: x.id, patch: { parentId: fo.parentId ?? null }, silent: true }));
                   dispatch({ type: 'remove', col: 'folders', id: fo.id });
@@ -189,7 +190,7 @@ export default function FileList({ groupId }) {
           {files.map((f) => (
             <div key={f.id} className="flex items-center gap-3 p-3">
               <Link to={`/files/${f.id}`} className="flex min-h-10 min-w-0 flex-1 items-center gap-3">
-                <span className="text-xl" aria-hidden="true">{fileIcon(f)}</span>
+                <Icon name={fileIcon(f)} size={20} />
                 <span className="min-w-0"><span className="block truncate font-medium">{f.name}</span>
                   <span className="text-xs text-slate-500">{state.users.find((u) => u.id === f.authorId)?.name} · {timeAgo(f.updatedAt ?? f.createdAt)}
                     {f.kind === 'upload' ? ` · ${fmtSize(f.size)}` : ''}{f.versions?.length > 1 ? ` · v${f.versions.length}` : ''}{f.sharedWith?.length ? ' · shared' : ''}</span></span>

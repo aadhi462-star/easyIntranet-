@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../lib/store.jsx';
 import { Empty, Field, Modal } from '../ui.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 import { Menu, ScopeBadge, Select } from './common.jsx';
 
 export const visibleTab = (state, me, t) => t.scope === 'network' || (t.scope === 'private' && t.ownerId === me.id)
@@ -47,7 +48,7 @@ export function WebTabFrame({ tab }) {
     <div>
       <div className="glass mb-3 flex flex-wrap items-center gap-2 p-3 text-sm">
         <span className="min-w-0 flex-1 truncate text-slate-400">{tab.url}</span>
-        <a href={tab.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">Open in new tab ↗</a>
+        <a href={tab.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">Open in new tab <Glyph value="external" tile={false} size={14} /></a>
       </div>
       <iframe src={tab.url} title={tab.name} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerPolicy="no-referrer"
         className="h-[70vh] w-full rounded-2xl border border-white/10 bg-white" />
@@ -86,7 +87,7 @@ export default function WebTabList({ groupId }) {
               </Link>
               {canManage(t) && <Menu label={`Actions for ${t.name}`} items={[
                 { label: 'Edit', onClick: () => setForm(t) },
-                { label: 'Delete', danger: true, onClick: () => confirm(`Delete the “${t.name}” tab?`) && dispatch({ type: 'remove', col: 'webTabs', id: t.id }) },
+                { label: 'Delete', danger: true, onClick: async () => (await confirmAction(`Delete the “${t.name}” tab?`)) && dispatch({ type: 'remove', col: 'webTabs', id: t.id }) },
               ]} />}
             </div>
           ))}
