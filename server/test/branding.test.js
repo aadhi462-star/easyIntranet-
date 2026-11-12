@@ -13,13 +13,15 @@ const upload = async (who, cid, name, buf) => c[who].post(`/api/communities/${ci
 const image = async (who, cid, name = 'logo.png') => (await upload(who, cid, name, PNG)).body.file.id;
 const brand = (who, cid, body) => c[who].patch(`/api/communities/${cid}/branding`, body);
 const apps = async (cid, list) => q(`update communities set settings = settings || jsonb_build_object('apps', $2::jsonb) where id = $1`, [cid, JSON.stringify(list)]);
-const allOn = async (cid) => q(`update communities set settings = settings - 'apps' where id = $1`, [cid]);
+const sections = async (cid, list) => q(`update communities set settings = settings || jsonb_build_object('sections', $2::jsonb) where id = $1`, [cid, JSON.stringify(list)]);
+const allOn = async (cid) => q(`update communities set settings = settings - 'apps' - 'sections' where id = $1`, [cid]);
 const soon = (h) => new Date(Date.now() + h * 3600e3).toISOString();
 const event = (who, cid, title = 'Meetup') => c[who].post(`/api/communities/${cid}/events`, { title, start: soon(48), end: soon(50) });
 
 before(async () => {
   env = await setup();
   for (const id of ['own', 'adm', 'mod', 'mem', 'out']) await makeUser(env.db, { id, email: `${id}@example.com`, name: `${id} person` });
+  await makeUser(env.db, { id: 'pa', email: 'pa@example.com', name: 'pa person', roles: ['platform_admin'] });
   for (const [id, vis] of [['pub', 'public'], ['pri', 'private'], ['clo', 'closed'], ['oth', 'public'], ['sus', 'public'], ['del', 'public']]) {
     await q(`insert into communities (id, slug, name, visibility, created_by) values ($1, $1, $2, $3, 'own')`, [id, `Brand ${id}`, vis]);
     await q(`insert into memberships (community_id, user_id, role, state, joined_at) values ($1, 'own', 'owner', 'active', now())`, [id]);
@@ -27,7 +29,7 @@ before(async () => {
       await q(`insert into memberships (community_id, user_id, role, state, joined_at) values ($1, $2, $3, 'active', now())`, [id, u, role]);
     }
   }
-  for (const id of ['own', 'adm', 'mod', 'mem', 'out']) c[id] = await signIn(env.app, { email: `${id}@example.com`, password: 'correct-horse-battery' });
+  for (const id of ['own', 'adm', 'mod', 'mem', 'out', 'pa']) c[id] = await signIn(env.app, { email: `${id}@example.com`, password: 'correct-horse-battery' });
   c.anon = client(env.app);
 });
 after(() => env?.close());
@@ -35,7 +37,7 @@ after(() => env?.close());
 describe('logo and cover', () => {
   test('COM-04 owners upload an image, then set it as the logo and cover; null clears; audited', async () => {
     const logo = await image('own', 'pub');
-    const cover = await image('adm', 'pub', 'cover.png');
+    const cover = await image('own', 'pub', 'cover.png');
     const set = await brand('own', 'pub', { logoFileId: logo, coverFileId: cover });
     assert.equal(set.status, 200);
     assert.equal(set.body.community.logoUrl, `/api/communities/pub/logo?v=${logo}`);
@@ -80,6 +82,43 @@ describe('logo and cover', () => {
     assert.equal((await brand('own', 'pub', {})).status, 400, 'an empty change is refused');
   });
 
+  test('COM-04 the logo and cover can’t be reused as a resource or an attachment, so deleting those never takes them', async () => {
+    const logo = await image('own', 'oth', 'kept.png');
+    const cover = await image('own', 'oth', 'kept-cover.png');
+    assert.equal((await brand('own', 'oth', { logoFileId: logo, coverFileId: cover })).status, 200);
+    for (const fileId of [logo, cover]) {
+      assert.equal((await c.own.post('/api/communities/oth/resources', { title: 'Logo', fileId })).body.error.code, 'INVALID_FILE', 'as a resource');
+      assert.equal((await c.own.post('/api/communities/oth/posts', { body: 'Look', attachments: [fileId] })).body.error.code, 'INVALID_FILE', 'as an attachment');
+    }
+    const r = (await c.own.post('/api/communities/oth/resources', { title: 'Other', fileId: await image('own', 'oth', 'other.png') })).body.resource;
+    assert.equal((await c.own.patch(`/api/resources/${r.id}`, { version: r.version, fileId: logo })).body.error.code, 'INVALID_FILE', 'nor as a replacement file');
+    assert.equal((await c.anon.get('/api/communities/oth/logo')).status, 200, 'the logo still serves');
+    assert.equal((await c.anon.get('/api/communities/oth/cover')).status, 200);
+  });
+
+  test('VIS-04 an admin can only choose an image they uploaded, never a member’s', async () => {
+    const theirs = await image('mem', 'pub', 'member-photo.png');
+    assert.equal((await brand('own', 'pub', { logoFileId: theirs })).body.error.code, 'INVALID_FILE');
+    assert.equal((await brand('adm', 'pub', { coverFileId: theirs })).body.error.code, 'INVALID_FILE');
+  });
+
+  test('SET-03 two admins saving different fields keep both; a save that changes nothing bumps nothing', async () => {
+    const logo = await image('adm', 'pri', 'both.png');
+    const before = (await c.own.get('/api/communities/pri')).body.community;
+    await Promise.all([brand('adm', 'pri', { logoFileId: logo }), brand('own', 'pri', { accent: 'amber' })]);
+    const after = (await c.own.get('/api/communities/pri')).body.community;
+    assert.equal(after.logoUrl, `/api/communities/pri/logo?v=${logo}`);
+    assert.equal(after.accent, 'amber');
+    assert.equal(after.version, before.version + 2);
+    const { rows: [{ n }] } = await q(`select count(*)::int as n from audit_log where action = 'community.branding' and target_id = 'pri'`);
+    const same = await brand('own', 'pri', { accent: 'amber', logoFileId: logo });
+    assert.equal(same.status, 200);
+    assert.equal(same.body.community.version, after.version, 'no version bump');
+    assert.equal((await c.adm.patch('/api/communities/pri', { version: after.version, description: 'Still fresh' })).status, 200, 'another admin’s open form isn’t stale');
+    const { rows: [{ n: n2 }] } = await q(`select count(*)::int as n from audit_log where action = 'community.branding' and target_id = 'pri'`);
+    assert.equal(n2, n, 'and no audit row');
+  });
+
   test('members and moderators can’t change branding; outsiders can’t see Closed ones at all', async () => {
     const f = await image('mem', 'pub', 'mine.png');
     assert.equal((await brand('mem', 'pub', { logoFileId: f })).status, 403);
@@ -118,8 +157,21 @@ describe('logo and cover', () => {
     assert.equal((await c.own.get('/api/communities/sus/logo')).status, 200, 'its owner');
     assert.equal((await c.mem.get('/api/communities/sus/logo')).status, 404, 'a member');
     assert.equal((await c.anon.get('/api/communities/sus/logo')).status, 404, 'a visitor');
-    assert.equal((await brand('own', 'sus', { accent: 'rose' })).body.error.code, 'ARCHIVED', 'and it can’t be changed');
-    for (const who of ['own', 'mem', 'anon']) assert.equal((await c[who].get('/api/communities/del/logo')).status, 404);
+    assert.equal((await brand('own', 'sus', { accent: 'rose' })).body.error.code, 'SUSPENDED', 'and it can’t be changed');
+    for (const who of ['own', 'mem', 'anon', 'pa']) assert.equal((await c[who].get('/api/communities/del/logo')).status, 404);
+  });
+
+  test('platform staff see the pictures on their lists without admin mode; deleted communities list none', async () => {
+    const list = (await c.pa.get('/api/admin/communities')).body.communities;
+    const sus = list.find((x) => x.id === 'sus');
+    assert.ok(sus.logoUrl);
+    assert.equal((await c.pa.get(sus.logoUrl)).status, 200, 'a suspended community’s logo');
+    assert.equal((await c.pa.get('/api/communities/clo/logo')).status, 200, 'a Closed community’s logo');
+    const del = (await c.pa.get('/api/admin/communities?show=deleted')).body.communities.find((x) => x.id === 'del');
+    assert.equal(del.logoUrl, null, 'a deleted community lists no logo: nobody can fetch it');
+    const analytics = (await c.pa.get('/api/admin/analytics')).body.communities.find((x) => x.id === 'pub');
+    assert.ok('logoUrl' in analytics && 'coverUrl' in analytics, 'the analytics list carries them');
+    assert.equal((await c.pa.get('/api/admin/communities/pub')).body.community.logoUrl, (await c.own.get('/api/communities/pub')).body.community.logoUrl, 'and the community panel');
   });
 
   test('a deleted file clears the picture: the community falls back to its tile', async () => {
@@ -190,6 +242,7 @@ describe('enabled sections', () => {
   test('Discussions off: no new posts, replies or reactions; the list is gone for members, kept for staff', async () => {
     await allOn('pub');
     const p = (await c.mem.post('/api/communities/pub/posts', { body: 'Before the switch' })).body.post;
+    assert.ok('logoUrl' in p.community && 'coverUrl' in p.community, 'post cards carry the community’s pictures');
     await apps('pub', ['events', 'resources', 'members', 'learning']);
     for (const res of [await c.mem.post('/api/communities/pub/posts', { body: 'After' }), await c.mem.get('/api/feed?community=pub'),
       await c.mem.get(`/api/posts/${p.id}`), await c.mem.post(`/api/posts/${p.id}/comments`, { body: 'Reply' }), await c.mem.put(`/api/posts/${p.id}/reactions/like`)]) {
@@ -223,6 +276,7 @@ describe('enabled sections', () => {
   test('Learning off: the catalogue and courses are gone for members; staff read them but can’t create, enrol or edit', async () => {
     await allOn('pub');
     const course = (await c.own.post('/api/communities/pub/courses', { title: 'Kept course' })).body.course;
+    await q(`update courses set status = 'published', published_at = now() where id = $1`, [course.id]); // members see it while Learning is on
     await apps('pub', ['discussions', 'events', 'resources', 'members']);
     for (const res of [await c.mem.get('/api/communities/pub/courses'), await c.mem.get(`/api/courses/${course.id}`), await c.mem.post(`/api/courses/${course.id}/enroll`)]) {
       assert.equal(res.status, 404);
@@ -245,6 +299,78 @@ describe('enabled sections', () => {
     assert.equal((await c.mem.get('/api/communities/pub/resources')).body.error.code, 'SECTION_OFF');
     await apps('pub', ['forums', 'files', 'members']);
     assert.deepEqual((await c.mem.get('/api/communities/pub')).body.sections, { discussions: true, events: false, resources: true, learning: true });
+    await allOn('pub');
+  });
+
+  test('an empty list, or one with only Events (and Members), switches Learning off too', async () => {
+    const off = { discussions: false, events: false, resources: false, learning: false };
+    await apps('pub', []);
+    assert.deepEqual((await c.mem.get('/api/communities/pub')).body.sections, off);
+    assert.equal((await c.mem.get('/api/communities/pub/courses')).body.error.code, 'SECTION_OFF');
+    for (const list of [['events'], ['events', 'members']]) {
+      await apps('pub', list);
+      assert.deepEqual((await c.mem.get('/api/communities/pub')).body.sections, { ...off, events: true }, list.join(','));
+    }
+    await allOn('pub');
+  });
+
+  test('the section switches (settings.sections) decide over an older list; unknown names are refused', async () => {
+    let { version } = (await c.own.get('/api/communities/pub')).body.community;
+    const bad = await c.own.patch('/api/communities/pub', { version, settings: { sections: ['events', 'tasks'] } });
+    assert.equal(bad.status, 400);
+    assert.equal(bad.body.error.field, 'sections');
+    await apps('pub', ['dashboard', 'feed', 'files', 'members']);
+    ({ version } = (await c.own.get('/api/communities/pub')).body.community);
+    assert.equal((await c.own.patch('/api/communities/pub', { version, settings: { sections: ['events'] } })).status, 200);
+    assert.deepEqual((await c.mem.get('/api/communities/pub')).body.sections, { discussions: false, events: true, resources: false, learning: false });
+    await sections('pub', []);
+    assert.deepEqual((await c.mem.get('/api/communities/pub')).body.sections, { discussions: false, events: false, resources: false, learning: false }, 'everything off');
+    await allOn('pub');
+  });
+
+  test('VIS-02 outsiders get the same not-found for a Private community’s course whether Learning is on or off', async () => {
+    await allOn('pri');
+    const course = (await c.own.post('/api/communities/pri/courses', { title: 'Members only' })).body.course;
+    const on = await c.out.get(`/api/courses/${course.id}`);
+    await sections('pri', ['discussions', 'events', 'resources']);
+    const off = await c.out.get(`/api/courses/${course.id}`);
+    assert.equal(on.status, 404);
+    assert.deepEqual([off.status, off.body.error.code], [on.status, on.body.error.code]);
+    await allOn('pri');
+  });
+
+  test('one rule while a section is off: no approving or pinning; authors and staff can still delete', async () => {
+    await allOn('pub');
+    let { version } = (await c.own.get('/api/communities/pub')).body.community;
+    await c.own.patch('/api/communities/pub', { version, settings: { requireApproval: true } });
+    const pending = (await c.mem.post('/api/communities/pub/posts', { body: 'Waiting' })).body.post;
+    const mine = (await c.own.post('/api/communities/pub/posts', { body: 'Published' })).body.post;
+    const theirs = (await c.mod.post('/api/communities/pub/posts', { body: 'Not yours' })).body.post;
+    const comment = (await c.mem.post(`/api/posts/${mine.id}/comments`, { body: 'My comment' })).body.comment;
+    const course = (await c.own.post('/api/communities/pub/courses', { title: 'To delete' })).body.course;
+    await sections('pub', ['events', 'resources']);
+    assert.equal((await c.mod.post(`/api/posts/${pending.id}/approve`)).body.error.code, 'SECTION_OFF', 'approving waits');
+    assert.equal((await c.own.post(`/api/posts/${mine.id}/pin`, { pinned: true })).body.error.code, 'SECTION_OFF', 'pinning waits');
+    assert.equal((await c.mem.delete(`/api/posts/${theirs.id}`)).body.error.code, 'SECTION_OFF', 'a member can’t reach someone else’s post');
+    assert.equal((await c.mem.delete(`/api/comments/${comment.id}`)).status, 200, 'authors delete their own comments');
+    assert.equal((await c.mem.delete(`/api/posts/${pending.id}`)).status, 200, 'and their own posts');
+    assert.equal((await c.own.delete(`/api/courses/${course.id}`)).status, 200, 'admins delete a course, as they delete resources');
+    await allOn('pub');
+    ({ version } = (await c.own.get('/api/communities/pub')).body.community);
+    await c.own.patch('/api/communities/pub', { version, settings: { requireApproval: false } });
+  });
+
+  test('notifications about a switched-off section show as unavailable to members, as everywhere else', async () => {
+    await allOn('pub');
+    const p = (await c.own.post('/api/communities/pub/posts', { body: 'Notified' })).body.post;
+    for (const u of ['mem', 'mod']) {
+      await q(`insert into notifications (id, user_id, kind, actor_id, community_id, target_type, target_id, dedupe_key) values ($1, $2, 'mention', 'own', 'pub', 'post', $3, $1)`, [`ntf_off_${u}`, u, p.id]);
+    }
+    const mine = async (u) => (await c[u].get('/api/notifications')).body.notifications.find((n) => n.id === `ntf_off_${u}`);
+    assert.equal((await mine('mem')).available, true);
+    await sections('pub', ['events', 'resources', 'learning']);
+    assert.equal((await mine('mem')).available, false, 'no excerpt or link for a member');
+    assert.equal((await mine('mod')).available, true, 'staff still see it');
     await allOn('pub');
   });
 

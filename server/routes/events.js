@@ -233,13 +233,15 @@ export default async function eventRoutes(app, { ctx }) {
   // Loads an event the caller may see. Anything they may not see (another community's members-
   // only event, an invite-only event they aren't on, a deleted one) is "not found" (EVT-08).
   // With Events switched off, only staff still see it, and nobody changes or answers it (`write`).
-  async function loadEvent(req, id, { write = false } = {}) {
+  // `removing` names the author of what's being deleted ('event' for the event's host), so hosts
+  // and commenters can still delete their own while it's off.
+  async function loadEvent(req, id, { write = false, removing = null } = {}) {
     const uid = signedIn(req);
     const { rows: [e] } = await db.query(`select * from events where id = $1 and deleted_at is null`, [id]);
     if (!e) throw notFound('That event doesn’t exist or was deleted.');
     const a = await access(db, req, e.community_id);
     if (!a.canView) throw notFound('That event doesn’t exist or was deleted.');
-    requireSection(a, 'events', { write });
+    if ((removing === 'event' ? e.host_id : removing) !== uid) requireSection(a, 'events', { write });
     const { rows: [rel] } = await db.query(`select
         exists (select 1 from event_staff where event_id = $1 and user_id = $2) as staff,
         exists (select 1 from event_invitees where event_id = $1 and user_id = $2) as invited`, [e.id, uid]);
@@ -383,7 +385,7 @@ export default async function eventRoutes(app, { ctx }) {
   });
 
   app.delete('/events/:id', async (req) => {
-    const { e, a, isHost } = await loadEvent(req, req.params.id);
+    const { e, a, isHost } = await loadEvent(req, req.params.id, { removing: 'event' });
     if (!isHost && !a.canAdmin) throw forbidden('Only the host or community admins can delete this event.');
     await db.query(`update events set deleted_at = now() where id = $1 and deleted_at is null`, [e.id]);
     await audit(db, { actorId: req.user.id, action: 'event.delete', targetType: 'event', targetId: e.id, context: { byAdmin: !isHost, adminMode: a.adminMode }, ip: req.ip });
@@ -451,7 +453,7 @@ export default async function eventRoutes(app, { ctx }) {
     signedIn(req);
     const { rows: [c] } = await db.query(`select * from event_comments where id = $1 and deleted_at is null`, [req.params.id]);
     if (!c) throw notFound('That comment doesn’t exist.');
-    const { a } = await loadEvent(req, c.event_id);
+    const { a } = await loadEvent(req, c.event_id, { removing: c.author_id });
     if (c.author_id !== req.user.id && !a.canModerate) throw forbidden('You can only delete your own comments.');
     await db.query(`update event_comments set deleted_at = now() where id = $1`, [c.id]);
     await audit(db, { actorId: req.user.id, action: 'event_comment.delete', targetType: 'event_comment', targetId: c.id, context: { eventId: c.event_id, byModerator: c.author_id !== req.user.id }, ip: req.ip });

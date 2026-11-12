@@ -77,13 +77,17 @@ export function requireView(ctx) {
 }
 
 /**
- * Addresses of a community's logo and cover (v2 workstream E), or null when it has none. The
- * file id is in the address, so a new picture is a new address and no cache shows the old one.
+ * Addresses of a community's logo and cover (v2 workstream E), or null when it has none or is
+ * deleted (nobody can fetch those). The file id is in the address, so a new picture is a new
+ * address and no cache shows the old one.
  */
-export const brandingUrls = (c) => ({
-  logoUrl: c.logo_file_id ? `/api/communities/${c.id}/logo?v=${c.logo_file_id}` : null,
-  coverUrl: c.cover_file_id ? `/api/communities/${c.id}/cover?v=${c.cover_file_id}` : null,
-});
+export const brandingUrls = (c) => {
+  const shown = c.status !== 'deleted';
+  return {
+    logoUrl: shown && c.logo_file_id ? `/api/communities/${c.id}/logo?v=${c.logo_file_id}` : null,
+    coverUrl: shown && c.cover_file_id ? `/api/communities/${c.id}/cover?v=${c.cover_file_id}` : null,
+  };
+};
 
 /** Public metadata a non-member may see (Private communities show this, never content). */
 export const publicCommunity = (c, extra = {}) => ({
@@ -91,31 +95,39 @@ export const publicCommunity = (c, extra = {}) => ({
   accent: c.accent, ...brandingUrls(c), visibility: c.visibility, status: c.status, ...extra,
 });
 
-// Sections a community can switch off (settings.apps; Overview, Members and About always show).
-// A community with no stored list has every section on, as AlumniZone and older communities do.
-// Lists saved by the older settings screens use the prototype's app names, which map onto the
-// sections below; those screens never offered Learning, so a list in only the older names
-// leaves Learning on.
+// Sections a community can switch off (Overview, Members and About always show). The section
+// switches store the sections that are on as settings.sections, and that list decides. A
+// community with neither that nor an older list has every section on, as AlumniZone and older
+// communities do. A list saved by the older settings screens (settings.apps) uses the
+// prototype's app names, which map onto the sections below; those screens never offered
+// Learning, so Learning stays on only for a list that has an older-only name and none of the
+// newer ones (an empty list, or one with just Events, switches it off too).
 const SECTION_APPS = { discussions: ['discussions', 'feed', 'forums'], events: ['events'], resources: ['resources', 'files', 'manuals'], learning: ['learning'] };
 const NEWER_NAMES = ['discussions', 'resources', 'learning'];
+const OLDER_ONLY = ['feed', 'forums', 'files', 'manuals', 'dashboard', 'tasks', 'ideas', 'townhalls', 'webtabs'];
 export const SECTIONS = Object.keys(SECTION_APPS);
 const SECTION_LABEL = { discussions: 'Discussions', events: 'Events', resources: 'Resources', learning: 'Learning' };
 
 export function sectionOn(c, section) {
-  const apps = c.settings?.apps;
+  const { sections, apps } = c.settings ?? {};
+  if (Array.isArray(sections)) return sections.includes(section);
   if (!Array.isArray(apps)) return true;
-  if (section === 'learning' && !apps.some((x) => NEWER_NAMES.includes(x))) return true;
+  if (section === 'learning') return apps.includes('learning') || (apps.some((x) => OLDER_ONLY.includes(x)) && !apps.some((x) => NEWER_NAMES.includes(x)));
   return SECTION_APPS[section].some((x) => apps.includes(x));
 }
 export const sectionsOf = (c) => Object.fromEntries(SECTIONS.map((s) => [s, sectionOn(c, s)]));
 
 /**
- * A switched-off section is gone for members: its lists and items answer 404 SECTION_OFF.
- * Staff (Moderators and up, or admin mode) can still read it from Manage, but nobody adds to it
- * (`write`) until it's switched back on. Its content is kept either way.
+ * A switched-off section is gone for members: its lists and items answer 404 SECTION_OFF, and
+ * people who can't view the community at all get the ordinary not-found, so the switch isn't
+ * shown to outsiders. Staff (Moderators and up, or admin mode) can still read it from Manage.
+ * While it's off nothing is added, published or changed there (`write`: approving, pinning and
+ * editing included) until it's switched back on; removals are the exception (moderators remove,
+ * admins delete, authors delete their own; each route lets those through). Content is kept.
  */
 export function requireSection(a, section, { write = false } = {}) {
   if (sectionOn(a.community, section)) return a;
+  if (!a.canView) throw notFound('That doesn’t exist or isn’t visible to you.');
   if (!a.canModerate) throw new HttpError(404, 'SECTION_OFF', `${SECTION_LABEL[section]} is switched off in this community.`);
   if (write) throw new HttpError(409, 'SECTION_OFF', `${SECTION_LABEL[section]} is switched off in this community. Switch it on in Manage first.`);
   return a;

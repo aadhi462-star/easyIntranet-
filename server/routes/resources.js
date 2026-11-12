@@ -124,7 +124,7 @@ export default async function resourceRoutes(app, { ctx }) {
   });
 
   app.delete('/resources/:id', async (req) => {
-    const { r } = await own(db, req);
+    const { r } = await own(db, req, { removing: true });
     await db.tx(async (t) => {
       await t.query(`update resources set deleted_at = now() where id = $1`, [r.id]);
       if (r.file_id) await t.query(`update files set deleted_at = now() where id = $1`, [r.file_id]);
@@ -136,14 +136,15 @@ export default async function resourceRoutes(app, { ctx }) {
 
 /**
  * The resource and the caller's rights: the person who added it, or the community's admins.
- * With Resources switched off, only staff reach it, and they can delete but not edit (`write`).
+ * With Resources switched off, only staff reach it, and they can delete but not edit (`write`);
+ * the person who added it can still delete it (`removing`).
  */
-async function own(db, req, { write = false } = {}) {
+async function own(db, req, { write = false, removing = false } = {}) {
   const { rows: [r] } = await db.query(`select * from resources where id = $1 and deleted_at is null`, [req.params.id]);
   if (!r) throw notFound('That resource doesn’t exist.');
   const a = await access(db, req, r.community_id);
   if (!a.canView) throw notFound('That resource doesn’t exist.');
-  requireSection(a, 'resources', { write });
+  if (!(removing && r.added_by === req.user.id)) requireSection(a, 'resources', { write });
   if (!(a.canAdmin || (r.added_by === req.user.id && a.canParticipate))) throw forbidden('Only the person who added this, or an admin, can change it.');
   return { r, a };
 }
@@ -166,7 +167,8 @@ async function clean(db, b, communityId, userId, { creating = false, kind } = {}
     if (kind === 'link') throw badRequest('INVALID_INPUT', 'This resource is a link; edit the link instead.');
     // Only a file this person uploaded to this community, not yet used anywhere.
     const { rows: [f] } = await db.query(`select id from files f where f.id = $1 and f.community_id = $2 and f.uploaded_by = $3 and f.deleted_at is null
-        and not exists (select 1 from resources r where r.file_id = f.id) and not exists (select 1 from post_attachments p where p.file_id = f.id)`, [b.fileId, communityId, userId]);
+        and not exists (select 1 from resources r where r.file_id = f.id) and not exists (select 1 from post_attachments p where p.file_id = f.id)
+        and not exists (select 1 from communities co where co.logo_file_id = f.id or co.cover_file_id = f.id)`, [b.fileId, communityId, userId]);
     if (!f) throw badRequest('INVALID_FILE', 'That file isn’t available. Upload it again.');
     out.fileId = f.id;
   }
