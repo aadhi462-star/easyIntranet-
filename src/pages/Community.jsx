@@ -4,7 +4,7 @@
 // Resources, Members, About and, for Owners, Admins and Moderators, Manage. The page reads the
 // community from the server (by slug or id) and re-reads it after every change, so what it shows
 // is what the server stored and what this person may see.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, setAdminScope } from '../lib/api.js';
 import { isOn, useFeatures } from '../lib/features.js';
@@ -412,11 +412,13 @@ function DateTile({ at: when }) {
 /** The page's one featured item, with RSVP in place. */
 function NextEvent({ g, upcoming, loading }) {
   const [next, ...later] = upcoming;
+  // Rendered twice (first on phones, in the side column on desktop), so the id must differ.
+  const headId = useId();
   if (loading && !next) return <span className="skeleton block h-40 !rounded-2xl" aria-busy="true" aria-label="Loading events" />;
   if (!next) return null;
   return (
-    <section aria-labelledby="next-h" className="panel flex flex-col gap-4 p-5 shadow-[var(--az-shadow)]">
-      <span id="next-h" className="t-label cm-ink">Next event</span>
+    <section aria-labelledby={headId} className="panel flex flex-col gap-4 p-5 shadow-[var(--az-shadow)]">
+      <span id={headId} className="t-label cm-ink">Next event</span>
       <Link to={`/events/${next.id}`} className="flex items-center gap-3 hover:underline">
         <DateTile at={next.occStart} />
         <span className="min-w-0"><span className="t-h3 block">{next.title}</span><span className="t-small block">{whenText(next)}{next.location ? ` · ${isUrl(next.location) ? 'Map link' : next.location}` : ''}</span></span>

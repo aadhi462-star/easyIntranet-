@@ -65,7 +65,7 @@ export function AvatarStack({ ids, max = 4, size = 26 }) {
 export function UserLink({ id, className = '' }) {
   const { user } = useStore();
   const u = user(id);
-  return <Link to={`/people/${id}`} className={`font-semibold text-[var(--az-text)] hover:underline ${className}`}>{u?.name ?? 'Unknown'}</Link>;
+  return <Link to={`/people/${id}`} className={`font-semibold text-[var(--az-text)] hit hover:underline ${className}`}>{u?.name ?? 'Unknown'}</Link>;
 }
 
 // Open modals, innermost last, so Esc and the focus trap only act on the topmost one.

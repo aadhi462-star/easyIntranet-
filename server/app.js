@@ -33,7 +33,9 @@ import invitationRoutes from './routes/invitations.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
   const app = Fastify({
-    logger, trustProxy: true, bodyLimit: 1024 * 1024,
+    // Trust only the proxy in front of us (AppSail: one hop), so a client can't pick its own IP
+    // with X-Forwarded-For and dodge the rate limits. TRUST_PROXY_HOPS sets another count.
+    logger, trustProxy: Number(process.env.TRUST_PROXY_HOPS ?? 1), bodyLimit: 1024 * 1024,
     // Reject unknown fields instead of silently dropping them, so a request that tries to set
     // something it shouldn't (status, roles…) fails loudly (SET-08).
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false, allErrors: false } },

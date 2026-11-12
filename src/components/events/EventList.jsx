@@ -83,9 +83,12 @@ export default function EventList({ groupId, limit, showPast = true, member }) {
               <p className="text-2 max-w-md text-sm">{isMember ? 'Create one to get people together.' : 'When this community plans something, it will be here.'}</p>
             </div>
           ) : (
+            <>
+            {groupId && <h2 className="sr-only">Upcoming events</h2>}
             <ul aria-label="Upcoming events" className="list-rows">
               {shown.map((e) => <li key={`${e.id}-${e.occStart}`}><EventCard event={e} flat showCommunity={!groupId} /></li>)}
             </ul>
+            </>
           )}
           {limit && upcoming.length > limit && (
             <div className="border-t border-[var(--az-divider)] px-5 py-3"><Link to="/events?view=list" className="link text-sm">See all events</Link></div>

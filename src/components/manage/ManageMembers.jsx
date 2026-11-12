@@ -98,7 +98,7 @@ export default function ManageMembers({ g, perms }) {
         {shown.map((m) => (
           <li key={m.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
             <span className="min-w-0 flex-[1_1_220px]">
-              <Link to={`/people/${m.id}`} className="font-semibold text-[var(--az-text)] hover:underline">{m.name}</Link>{m.id === me.id && <span className="t-small"> · you</span>}
+              <Link to={`/people/${m.id}`} className="font-semibold text-[var(--az-text)] hit hover:underline">{m.name}</Link>{m.id === me.id && <span className="t-small"> · you</span>}
               <span className="t-small block">Joined {m.joined_at ? fmtDate(Date.parse(m.joined_at), { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} · {m.last_active ? `active ${timeAgo(Date.parse(m.last_active))}` : 'hasn’t posted yet'}</span>
             </span>
             <Badge>{m.role === 'member' ? 'Member' : m.role[0].toUpperCase() + m.role.slice(1)}</Badge>

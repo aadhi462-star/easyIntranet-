@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream G)
+# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream H)
 
 Read this first in a new session, then **`docs/communityone/MASTER_BRIEF_V2.md` (the user's newest brief, 12 Nov 2026: it reverses AlumniZone-as-default and the lime theme; a proposal + ETA is owed before any work on it)**, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -41,7 +41,9 @@ D1 Node.js + Fastify + **PostgreSQL** (PGlite locally, `DATABASE_URL` for a real
 npm install
 npm run db:seed        # migrations + idempotent seed from server/seed/prototype.json
 npm run build && npm run server   # http://localhost:5181 (API + built app)
-npm run test:server    # node:test, in-memory PGlite — 120 tests, all pass at last commit
+npm run test:server    # node:test, in-memory PGlite — 442 tests, all pass at last commit
+npm run test:e2e       # Playwright journeys (installed Chrome)
+npm run test:audit     # workstream H screen audit, ~5–30 min; findings in test-results/audit/
 ```
 
 Demo logins: `DEMO_ACCOUNTS.md` (most: `Community-Demo-2026`; hosts `neha.host@example.com` / `Lime-Host-4821`; member `ishita@example.com` / `Alumni-Member-2093`; test signup `riya.menon@example.com` / `riya-new-pass-1` exists only in the preview DB).
@@ -179,7 +181,22 @@ The creation wizard at `/communities/new`, template administration, invitations 
 Community settings in eleven sections, the restyled Manage overview and the single queue, the Instructor Teaching view, the Platform Admin restyle with permission-based sections, System health, and `light-invert.css` retired. Details are in the progress log ("v2 — Workstream G").
 - Rules to keep: new UI uses the `--az-*` tokens only; `source-rules.test.js` fails on the stock white, slate, rose, emerald, amber and orange palettes. Each settings section saves only its own fields with the version. Nothing deletes a community at once. Administration shows by permission, not by "is admin".
 
-**Next:** workstream H, the final pass: responsive checks on every screen, a WCAG 2.2 AA audit, a permissions and security review, and the final QA report. The AppSail bundle on record is from after D; build a new one only when the user asks. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
+### v2 workstream H: done (12 Nov 2026)
+The final pass. **`docs/communityone/QA_REPORT.md` is the final QA report.** It covers the screen audit (`npm run test:audit`: 161 screens, 4 roles, 3 widths plus dark mode, 0 findings on the final run), the accessibility fixes, and the security review (H-S1 to H-S10, tests in `server/test/h-security.test.js`). The progress log has a summary ("v2 — Workstream H").
+- Rules to keep:
+  - Accent text on the accent tint uses `--az-on-tint`.
+  - Short text links use `.link` or `.hit`, which give them 24 px targets.
+  - Write routes in a community call `requireChangeable(a)`.
+  - The member-state route changes only current members; removing and blocking need an Admin.
+  - Platform staff act only on people whose roles they could assign.
+  - The server trusts `TRUST_PROXY_HOPS` (default 1) proxies.
+
+**Next:** the user's answers to QA_REPORT.md §4:
+1. Account-enumeration wording.
+2. H-S9 file checks.
+3. Confirming the proxy hop count on AppSail after the next upload.
+
+The AppSail bundle on record is from after D; build a new one only when the user asks. Still open from the parallel round: category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle. Also open: Terms of Service text and a contact address.
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 

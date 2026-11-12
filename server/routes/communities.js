@@ -1,7 +1,8 @@
 // Communities and memberships (Phase 1 community foundation). MEM-*, VIS-*, PER-* cases are
 // referenced where handled.
 import { audit } from '../lib/audit.js';
-import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId, SECTIONS, sectionsOf } from '../lib/community.js';
+import { notBlockedSql } from '../lib/relations.js';
+import { access, atLeast, pickAccent, publicCommunity, requireChangeable, requireView, resolveCommunityId, SECTIONS, sectionsOf } from '../lib/community.js';
 import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { idempotent } from '../lib/session.js';
@@ -184,7 +185,11 @@ export default async function communityRoutes(app, { ctx }) {
                   order by e.is_primary desc, e.position)
                 from education e join institutions i on i.id = e.institution_id left join departments d on d.id = e.department_id where e.user_id = m.user_id), '[]') end as education
          from memberships m join users u on u.id = m.user_id left join profiles pr on pr.user_id = m.user_id
-        where m.community_id = $1 and m.state = any($2) and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id, states, a.canModerate, req.user.id]);
+        where m.community_id = $1 and m.state = any($2) and u.status = 'active'
+          -- People who turned off "List me in member directories", and blocked pairs, are left out
+          -- for members; moderators keep the full list to manage it (H security review).
+          and ($3 or m.user_id = $4 or (coalesce(pr.directory_visible, true) and ${notBlockedSql('m.user_id', '$4')}))
+        order by m.role = 'owner' desc, u.name`, [a.community.id, states, a.canModerate, req.user.id]);
     const years = new Set(); const departments = new Map();
     for (const r of rows) {
       for (const e of r.education ?? []) {
@@ -313,9 +318,15 @@ export default async function communityRoutes(app, { ctx }) {
   }, async (req) => {
     const a = await access(db, req, req.params.id);
     if (!a.canModerate) throw forbidden();
+    requireChangeable(a);
     const { rows: [target] } = await db.query(`select role, state from memberships where community_id = $1 and user_id = $2`, [a.community.id, req.params.userId]);
     if (!target) throw notFound('That person isn’t in this community.');
     if (target.role === 'owner') throw forbidden('The owner’s role changes only through an ownership transfer.', 'OWNER_PROTECTED');
+    // Only current members change here: this route never brings back someone who left, approves a
+    // request or undoes a removal (that's /lift, for Admins). Removing and blocking are Admin
+    // decisions, as in /sanction (H security review).
+    if (!['active', 'restricted'].includes(target.state)) throw notFound('That person isn’t in this community.');
+    if (['removed', 'blocked'].includes(req.body.state) && !a.canAdmin) throw forbidden('Only Admins and Owners remove or block members.');
     const myRank = a.adminMode ? 'owner' : a.role;
     if (req.params.userId === req.user.id && req.body.role) throw forbidden('You can’t change your own role.', 'SELF_ACTION');
     if (!a.adminMode && !atLeast(myRank, 'admin') && req.body.role) throw forbidden('Only admins can change roles.');
@@ -337,6 +348,7 @@ export default async function communityRoutes(app, { ctx }) {
   app.post('/communities/:id/transfer', { schema: { body: { type: 'object', required: ['toUserId'], properties: { toUserId: { type: 'string' } } } } }, async (req) => {
     const a = await access(db, req, req.params.id);
     if (!a.isOwner && !a.adminMode) throw forbidden('Only the owner can transfer ownership.');
+    requireChangeable(a);
     const to = req.body.toUserId;
     if (to === req.user.id && a.isOwner) throw badRequest('SELF_ACTION', 'You already own this community.');
     await db.tx(async (t) => {
@@ -446,6 +458,7 @@ export default async function communityRoutes(app, { ctx }) {
   }, async (req) => {
     const a = await access(db, req, req.params.id);
     if (!a.canAdmin) throw forbidden('Only community admins can change these settings.');
+    requireChangeable(a);
     const b = req.body; const c = a.community;
     const name = 'name' in b ? cleanName(b.name) : c.name;
     let settings = c.settings;

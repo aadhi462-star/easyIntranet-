@@ -87,7 +87,7 @@ export default function EventCard({ event, flat = false, showCommunity = true })
       <DateTile start={start} />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h3 className="t-h3 min-w-0 break-words"><Link to={`/events/${event.id}`} className="text-[var(--az-text)] hover:underline">{event.title}</Link></h3>
+          <h3 className="t-h3 min-w-0 break-words"><Link to={`/events/${event.id}`} className="text-[var(--az-text)] hit hover:underline">{event.title}</Link></h3>
           {online && <Badge tone="info" icon="video">Online</Badge>}
           {cancelled && <Badge tone="bad">Cancelled</Badge>}
           {!cancelled && past && <Badge>Ended</Badge>}

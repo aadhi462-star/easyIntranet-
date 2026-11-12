@@ -72,6 +72,8 @@
   --az-placeholder: #8a958f;
   --az-focus: #3cc79f;
   --az-link: #5ed6b2;
+  /* Accent text on the accent tint (chips, selected toggles). */
+  --az-on-tint: #5ed6b2;
   /* Primary actions: accent fill with near-black text, 8.8:1. */
   --az-fill: linear-gradient(#3cc79f, #3cc79f);
   --az-fill-hover: #5ed6b2;
@@ -144,6 +146,8 @@
   /* Focus ring and graphics use the brand accent #168C70; text uses #127A61 (B2). */
   --az-focus: #168c70;
   --az-link: #127a61;
+  /* Accent text on the 14% accent tint: #127A61 there is 4.34:1, this is 5.3:1 (H audit). */
+  --az-on-tint: #0f6b55;
   --az-fill: linear-gradient(#127a61, #127a61);
   --az-fill-hover: #0f6b55;
   --az-on-fill: #ffffff;
@@ -289,7 +293,7 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
   .chip {
     display: inline-flex; align-items: center; gap: .3rem;
     font-size: .72rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px;
-    background: color-mix(in srgb, var(--color-brand-400) 14%, transparent); color: var(--color-brand-300);
+    background: color-mix(in srgb, var(--color-brand-400) 14%, transparent); color: var(--az-on-tint);
   }
 
   /*
@@ -342,6 +346,10 @@ h1, h2, h3, .font-display { font-family: var(--font-display); }
 /* v2 workstream C: public pages and sign-in (boards V2CLanding, V2CAuth). */
 @layer components {
   .link { color: var(--az-link); font-weight: 600; text-underline-offset: 3px; }
+  /* Target size (WCAG 2.5.8): a one-line text link or button is at least 24px tall. The padding
+     makes up the difference to its own line height, so the text doesn't move. Inline-block, since
+     an inline box is only as tall as its font; a display utility (block, flex) still wins (H audit). */
+  .link, .hit { display: inline-block; padding-block: max(0px, calc((24px - 1lh) / 2)); }
   .link:hover { text-decoration: underline; }
   .panel { background: var(--az-surface); border: 1px solid var(--az-hairline); border-radius: 16px; }
   .filter-chip {

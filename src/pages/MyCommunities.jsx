@@ -201,7 +201,7 @@ function Row({ c, onDone }) {
     <li className={`px-4 py-3 ${GRID}`}>
       <div className="flex min-w-0 items-center gap-3 pb-2 md:pb-0">
         <CommunityTile c={c} size={36} />
-        <Link to={communityPath(c)} className="truncate font-semibold hover:underline">{c.name}</Link>
+        <Link to={communityPath(c)} className="truncate font-semibold hit hover:underline">{c.name}</Link>
       </div>
       {cell('Your role', roleLabel(role))}
       {cell('Status', <><Badge tone={tone}>{label}</Badge>{note && <span className="t-small mt-0.5 block">{note}</span>}</>)}

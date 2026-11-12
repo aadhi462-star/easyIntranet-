@@ -383,8 +383,8 @@ describe('member lists and rules', () => {
     const row = (b, id) => b.members.find((m) => m.id === id);
     assert.equal(row(all, 'mem').gradYear, 2015);
     assert.deepEqual(row(all, 'mem').department, { id: 'dep_cs', name: 'Computer Science' });
-    assert.equal(row(all, 'adm').gradYear, null, 'a profile hidden from the directory shows no education');
-    assert.equal(row(all, 'adm').department, null);
+    // "Off: you won’t appear in Members tabs" (profile privacy): not listed at all (H-S4).
+    assert.equal(row(all, 'adm'), undefined, 'a profile hidden from the directory isn’t listed');
     assert.equal(row(all, 'own').gradYear, null);
     assert.deepEqual(all.filters, { gradYears: [2018, 2015], departments: [{ id: 'dep_cs', name: 'Computer Science' }, { id: 'dep_me', name: 'Mechanical' }] });
     const ids = (b) => b.members.map((m) => m.id).sort();

@@ -189,7 +189,7 @@ export function Announcements() {
         <Field label="Link" hint="Optional, to a page in CommunityOne, like /events"><input className="input" value={f.link} onChange={(e) => setF({ ...f, link: e.target.value })} placeholder="/events" /></Field>
         <fieldset className="flex flex-col gap-2"><legend className="mb-2 text-sm font-medium">Who sees it</legend>
           {[['all', 'Everyone'], ['communities', 'Members of chosen communities']].map(([id, label]) => (
-            <label key={id} className="flex items-center gap-3 text-[15px]"><input type="radio" name="aud" checked={f.audience === id} onChange={() => setF({ ...f, audience: id })} className="h-[18px] w-[18px] accent-[var(--az-focus)]" /><span>{label}</span></label>
+            <label key={id} className="flex min-h-6 items-center gap-3 text-[15px]"><input type="radio" name="aud" checked={f.audience === id} onChange={() => setF({ ...f, audience: id })} className="h-[18px] w-[18px] accent-[var(--az-focus)]" /><span>{label}</span></label>
           ))}
           {f.audience === 'communities' && (
             <div className="sunken flex max-h-48 flex-col gap-2 overflow-y-auto p-3">

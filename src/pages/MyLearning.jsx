@@ -95,7 +95,7 @@ export default function MyLearning() {
                   <li key={c.id} className={`cm-${accentOf(c.community)} flex items-center gap-3 py-3`}>
                     <CommunityTile c={c.community} size={32} />
                     <span className="min-w-0 flex-1">
-                      <Link to={coursePath(c.community, c.id)} className="block truncate text-sm font-semibold text-[var(--az-text)] hover:underline">{c.title}</Link>
+                      <Link to={coursePath(c.community, c.id)} className="block truncate text-sm font-semibold text-[var(--az-text)] hit hover:underline">{c.title}</Link>
                       <span className="t-small block truncate">{c.community.name} · On the waitlist</span>
                     </span>
                     <Button variant="ghost" size="sm" className="shrink-0" onClick={() => leave(c)} aria-label={`Leave the waitlist for ${c.title}`}>Leave</Button>
@@ -195,7 +195,7 @@ function Row({ c, action, done = false }) {
     <li className={`cm-${accentOf(c.community)} flex flex-wrap items-center gap-3 py-3`}>
       <CommunityTile c={c.community} size={40} />
       <span className="min-w-0 flex-[1_1_200px]">
-        <Link to={coursePath(c.community, c.id)} className="block truncate font-semibold text-[var(--az-text)] hover:underline">{c.title}</Link>
+        <Link to={coursePath(c.community, c.id)} className="block truncate font-semibold text-[var(--az-text)] hit hover:underline">{c.title}</Link>
         <span className="t-small">{c.community.name} · {detail}</span>
         {!done && <Progress p={c.progress} label={`${c.title} progress`} className="mt-2 max-w-[240px]" />}
       </span>

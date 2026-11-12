@@ -57,7 +57,7 @@ export default async function platformRoutes(app, { ctx }) {
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
 
   // D4: re-entering the password. Marks this session fresh for 10 minutes.
-  app.post('/confirm-password', { schema: { body: { type: 'object', required: ['password'], additionalProperties: false, properties: { password: { type: 'string' } } } } }, async (req) => {
+  app.post('/confirm-password', { config: { rateLimit: ctx.rateLimits ? { max: 5, timeWindow: '1 minute' } : false }, schema: { body: { type: 'object', required: ['password'], additionalProperties: false, properties: { password: { type: 'string' } } } } }, async (req) => {
     const uid = signedIn(req);
     const { rows: [u] } = await db.query(`select password_hash from users where id = $1`, [uid]);
     if (!u || !(await verifyPassword(req.body.password, u.password_hash))) {

@@ -32,7 +32,12 @@ export default async function connectionRoutes(app, { ctx }) {
     };
   });
 
-  app.get('/connections/:id', async (req) => ({ relation: await relation(db, me(req), req.params.id) }));
+  // Someone who blocked you looks like someone who doesn't exist here too (H security review).
+  app.get('/connections/:id', async (req) => {
+    const { blockedMe, ...rel } = await relation(db, me(req), req.params.id);
+    if (blockedMe) throw notFound('That member doesn’t exist.');
+    return { relation: rel };
+  });
 
   // Send a request. If they already asked you, this accepts theirs instead of making a second
   // one; repeating a request is a no-op (MEM-01 pattern: one record per pair).

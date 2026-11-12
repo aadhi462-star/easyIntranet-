@@ -132,6 +132,8 @@ export default function Admin() {
 
   return (
     <PasswordGateProvider Dialog={PasswordDialog}>
+      {/* On phones and tablets an open section hides the header, so the page keeps its h1 here. */}
+      {current && <h1 className="sr-only lg:hidden">Administration</h1>}
       <header className={`mb-6 flex flex-wrap items-center justify-between gap-3 ${current ? 'max-lg:hidden' : ''}`}>
         <div className="min-w-0">
           <h1 className="t-h1 max-lg:text-[1.375rem] max-lg:leading-[1.875rem]">Administration</h1>

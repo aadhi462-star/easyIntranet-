@@ -1344,3 +1344,35 @@ The boards were approved as drawn (G1–G12: the user said "start" on the unchan
   - The parked modules' new colours weren't looked at in a browser.
   - Retry on a failed email and the `data_not_persistent` warning weren't seen live: there's no failed email in the seed, and the warning only appears in production.
   - No test for the waiting-accounts fix.
+
+### v2 — Workstream H: responsive, accessibility, security and final QA (12 Nov 2026)
+
+The full report is in `QA_REPORT.md`. In short:
+
+- **Audit tool:** `e2e/audit.spec.js` + `e2e/audit-checks.js`, run with `npm run test:audit`. It crawls every in-app link as four roles and checks each screen at 375, 768 and 1280 px plus dark mode: reflow, 24 px targets, contrast, names from Chrome's accessibility tree, headings, landmarks, ids and focus. The final run covered 161 screens with 0 findings. `AUDIT_STRICT=1` fails on any finding.
+- **Accessibility fixes:**
+  - `--az-on-tint` for accent text on the tint (4.34:1 → 5.3:1).
+  - `.link`/`.hit` reach 24 px.
+  - Heading levels on community Members, Events, Manage, Explore, the post page and phone Administration.
+  - Unique id for "Next event".
+- **Security fixes** (review by a second agent; tests in `server/test/h-security.test.js`, H-S1 to H-S10):
+  - The member-state route no longer adds, approves, blocks or un-removes people for Moderators (high).
+  - The server trusts one proxy hop (`TRUST_PROXY_HOPS`), so the rate limits can't be bypassed.
+  - Staff can't suspend or sign out people with a role they couldn't assign.
+  - Members lists respect "List me in member directories" and blocks.
+  - `GET /connections/:id` hides blocks.
+  - Suspended communities are read-only for their own staff (`requireChangeable`).
+  - Reactivation uses the lockout.
+  - Merged links don't reveal a Closed home.
+  - `/admin/confirm-password` is limited to 5 a minute.
+- **Rule changed:** a member with the directory listing off is no longer listed in Members, as the setting promises. This replaces "listed without education" (test in `communities.test.js` updated).
+- **Checked:**
+  - `npm run test:server`: 442 of 442.
+  - `vite build` passes.
+  - Screenshots of community Overview, Discussions and Explore at 1280 and 375 px after the link change.
+  - `npm run test:e2e`: each full run had one journey fail, a different one each time (`/` search focus, then create-from-template), on a heavily loaded machine. Each passes when run alone.
+- **Not done:**
+  - H-S9 (file access by owner object).
+  - The account-enumeration half of H-S7.
+  - The AppSail proxy-hop check. These are the decisions in `QA_REPORT.md` §4.
+  - No screen-reader walkthrough and no Moderator role in the crawl.

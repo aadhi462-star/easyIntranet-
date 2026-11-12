@@ -24,7 +24,7 @@ export const personOf = (row, profile) => profile ?? { id: row.id, name: row.nam
 export const joinedText = (iso) => (iso ? `Joined ${fmtDate(Date.parse(iso), { month: 'short', year: 'numeric' })}` : null);
 
 export function NameLink({ id, name }) {
-  return <Link to={`/people/${encodeURIComponent(id)}`} className="block truncate font-semibold text-[var(--az-text)] hover:underline">{name}</Link>;
+  return <Link to={`/people/${encodeURIComponent(id)}`} className="block truncate font-semibold text-[var(--az-text)] hit hover:underline">{name}</Link>;
 }
 
 export default function MemberCard({ row, person, action, note }) {

@@ -19,9 +19,11 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   const user = req.user;
   if (!user) throw unauthorized();
   const { rows } = await db.query(
-    `select c.*, m.role, m.state as member_state, m.joined_at as member_joined_at, t.slug as merged_slug from communities c
+    `select c.*, m.role, m.state as member_state, m.joined_at as member_joined_at, t.slug as merged_slug,
+            (t.status = 'active' and (t.visibility <> 'closed' or tm.state in ('active', 'restricted'))) as merged_findable from communities c
        left join memberships m on m.community_id = c.id and m.user_id = $2
-       left join communities t on t.id = c.merged_into where c.id = $1`, [communityId, user.id]);
+       left join communities t on t.id = c.merged_into
+       left join memberships tm on tm.community_id = t.id and tm.user_id = $2 where c.id = $1`, [communityId, user.id]);
   const c = rows[0];
   const adminMode = wantsAdminMode(req) && can(user, 'communities.manage');
   if (!c) {
@@ -44,7 +46,9 @@ export async function access(db, req, communityId, { audited = true } = {}) {
   if (!adminMode && ((c.status === 'suspended' && !staff) || (c.visibility === 'closed' && !member))) throw notFound('That community doesn’t exist.');
   if (state === 'blocked' && !adminMode) throw notFound('That community doesn’t exist.');
   // A merged community (R4) has moved: say where, so old links can follow it. Only its new
-  // home's address is given, and that page checks access again on its own.
+  // home's address is given, and that page checks access again on its own. A Closed (or
+  // suspended) new home isn't revealed to people outside it (H security review).
+  if (c.merged_into && !adminMode && !c.merged_findable) throw notFound('That community doesn’t exist.');
   if (c.merged_into && !adminMode) throw new HttpError(404, 'MERGED', 'This community is now part of another one.', { mergedInto: { id: c.merged_into, slug: c.merged_slug } });
   const canView = adminMode || member || c.visibility === 'public';
   const writable = c.status === 'active';
@@ -69,6 +73,11 @@ export async function resolveCommunityId(db, key) {
   if (rows[0]) return rows[0].id;
   const { rows: gone } = await db.query(`select id from removed_communities where id = $1 or lower(slug) = lower($1) limit 1`, [String(key)]);
   return gone[0]?.id ?? String(key);
+}
+
+/** Suspended communities can be read by their own staff but not changed (Stage 7). */
+export function requireChangeable(ctx) {
+  if (ctx.community.status === 'suspended' && !ctx.adminMode) throw new HttpError(409, 'SUSPENDED', 'This community is suspended, so it can’t be changed.');
 }
 
 export function requireView(ctx) {

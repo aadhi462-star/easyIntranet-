@@ -13,7 +13,8 @@
     "db:export-prototype": "node server/scripts/export-prototype.mjs",
     "db:seed": "node server/scripts/seed.mjs",
     "test:server": "NODE_ENV=test node --test --test-concurrency=1 server/test/*.test.js",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "test:audit": "npm run build && AUDIT=1 playwright test e2e/audit.spec.js --project=desktop"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.12",

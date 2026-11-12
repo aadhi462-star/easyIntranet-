@@ -22,12 +22,12 @@ import { confirmAction } from '../ui/Confirm.jsx';
 
 const MOOD_LABEL = { happy: 'Happy', neutral: 'Neutral', sad: 'Sad' };
 // Reaction buttons (E9): 44 px targets; your own reaction is pressed and tinted.
-const REACT = 'inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium sm:px-2.5 text-[var(--az-text-2)] hover:bg-[var(--az-sunken)] disabled:cursor-not-allowed aria-pressed:bg-[color-mix(in_srgb,var(--az-focus)_14%,transparent)] aria-pressed:text-[var(--az-link)]';
+const REACT = 'inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium sm:px-2.5 text-[var(--az-text-2)] hover:bg-[var(--az-sunken)] disabled:cursor-not-allowed aria-pressed:bg-[color-mix(in_srgb,var(--az-focus)_14%,transparent)] aria-pressed:text-[var(--az-on-tint)]';
 
 /** The author's name: a profile link, or plain "Deleted member". */
 export function AuthorName({ author, className = '' }) {
   if (!author || author.deleted) return <span className={`font-semibold text-[var(--az-text-3)] ${className}`}>Deleted member</span>;
-  return <Link to={`/people/${author.id}`} className={`font-semibold text-[var(--az-text)] hover:underline ${className}`}>{author.name || 'Member'}</Link>;
+  return <Link to={`/people/${author.id}`} className={`font-semibold text-[var(--az-text)] hit hover:underline ${className}`}>{author.name || 'Member'}</Link>;
 }
 
 const commentLabel = (n, question) => {
@@ -115,10 +115,10 @@ export default function PostCard({ post, expanded = false, embedded = false, rea
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[15px]">
             <AuthorName author={author} />
             {!author.deleted && <UserLabels userId={author.id} context="post" max={2} small />}
-            {where && <span className="t-small">in <Link className="font-semibold text-[var(--az-text)] hover:underline" to={communityPath(where.id)}>{where.name}</Link></span>}
+            {where && <span className="t-small">in <Link className="font-semibold text-[var(--az-text)] hit hover:underline" to={communityPath(where.id)}>{where.name}</Link></span>}
           </div>
           <div className="t-small">
-            <Link to={`/post/${post.id}`} className="hover:underline">{status === 'scheduled' && post.publishAt ? `Scheduled for ${fmtDate(post.publishAt)}` : timeAgo(new Date(post.createdAt).getTime())}</Link>
+            <Link to={`/post/${post.id}`} className="hit min-w-6 text-center hover:underline">{status === 'scheduled' && post.publishAt ? `Scheduled for ${fmtDate(post.publishAt)}` : timeAgo(new Date(post.createdAt).getTime())}</Link>
             {post.editedAt && ' · edited'}
           </div>
         </div>

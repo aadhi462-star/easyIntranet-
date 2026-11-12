@@ -275,7 +275,7 @@ function Learners({ course, courses, onCourse }) {
                         <tbody>
                           {shown.map((l) => (
                             <tr key={l.user?.id} className="border-b border-[var(--az-divider)] last:border-0">
-                              <td className="py-2.5 pr-3 break-words">{l.user?.id ? <Link to={`/people/${enc(l.user.id)}`} className="hover:underline">{l.user.name}</Link> : 'A learner'}</td>
+                              <td className="py-2.5 pr-3 break-words">{l.user?.id ? <Link to={`/people/${enc(l.user.id)}`} className="hit hover:underline">{l.user.name}</Link> : 'A learner'}</td>
                               <td className="py-2.5 pr-3">{progress(l)}</td>
                               <td className="text-2 py-2.5 pr-3 whitespace-nowrap">{last(l)}</td>
                               <td className="py-2.5">{grade(l)}</td>

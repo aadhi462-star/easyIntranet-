@@ -183,7 +183,7 @@ function ExploreCard({ c, onChange }) {
       <div className="flex items-center gap-3">
         <CommunityTile c={c} />
         <div className="min-w-0">
-          <h2 className="t-h3 truncate"><Link to={communityPath(c)} className="hover:underline">{c.name}</Link></h2>
+          <h2 className="t-h3 truncate"><Link to={communityPath(c)} className="hit block truncate hover:underline">{c.name}</Link></h2>
           <p className="t-small">{categoryOf(c.category)} · {members(c.memberCount ?? 0)}</p>
         </div>
       </div>

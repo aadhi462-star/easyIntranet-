@@ -123,6 +123,17 @@ export default async function authRoutes(app, { ctx }) {
     });
 
   // ---- Sign in / out ------------------------------------------------------------------------
+  // A wrong password counts toward the lockout (REG-17), from sign-in and reactivation alike.
+  const countFailure = async (req, u) => {
+    const sec = await security();
+    await db.query(
+      `update users set failed_login_count = failed_login_count + 1,
+              locked_until = case when failed_login_count + 1 >= $2 then now() + ($3 || ' minutes')::interval else locked_until end
+        where id = $1`, [u.id, sec.maxFailedLogins, String(sec.lockMinutes)]);
+    await audit(db, { actorId: null, action: 'auth.login_failed', targetType: 'user', targetId: u.id, ip: req.ip });
+  };
+  const locked = (u) => u.locked_until && new Date(u.locked_until) > new Date();
+
   app.post('/auth/login', {
     ...authLimit(10),
     schema: { body: { type: 'object', required: ['email', 'password'], properties: { email: { type: 'string', maxLength: 254 }, password: { type: 'string', maxLength: 200 } } } },
@@ -132,16 +143,11 @@ export default async function authRoutes(app, { ctx }) {
     const invalid = () => new HttpError(401, 'INVALID_CREDENTIALS', 'That email and password don’t match an account.');
     if (!u || u.status === 'deleted') { await verifyPassword(req.body.password, DUMMY_HASH); throw invalid(); }
     // Lockout after repeated failures (REG-17). Same wording for every account.
-    if (u.locked_until && new Date(u.locked_until) > new Date()) {
+    if (locked(u)) {
       throw new HttpError(429, 'LOCKED', 'Too many sign-in attempts. Try again in a few minutes, or reset your password.');
     }
     if (!(await verifyPassword(req.body.password, u.password_hash))) {
-      const sec = await security();
-      await db.query(
-        `update users set failed_login_count = failed_login_count + 1,
-                locked_until = case when failed_login_count + 1 >= $2 then now() + ($3 || ' minutes')::interval else locked_until end
-          where id = $1`, [u.id, sec.maxFailedLogins, String(sec.lockMinutes)]);
-      await audit(db, { actorId: null, action: 'auth.login_failed', targetType: 'user', targetId: u.id, ip: req.ip });
+      await countFailure(req, u);
       throw invalid();
     }
     await db.query(`update users set failed_login_count = 0, locked_until = null where id = $1`, [u.id]);
@@ -162,10 +168,12 @@ export default async function authRoutes(app, { ctx }) {
     async (req, reply) => {
       const { rows } = await db.query(`select * from users where email_norm = $1`, [normEmail(req.body.email)]);
       const u = rows[0];
-      if (!u || u.status !== 'deactivated' || !(await verifyPassword(req.body.password, u.password_hash))) {
-        throw new HttpError(401, 'INVALID_CREDENTIALS', 'That email and password don’t match a deactivated account.');
-      }
-      const { rows: [active] } = await db.query(`update users set status = 'active', status_reason = null, updated_at = now(), version = version + 1 where id = $1 returning *`, [u.id]);
+      const invalid = () => new HttpError(401, 'INVALID_CREDENTIALS', 'That email and password don’t match a deactivated account.');
+      // Same work for every email (no timing hint), and the sign-in lockout applies here too.
+      if (!u || u.status !== 'deactivated') { await verifyPassword(req.body.password, DUMMY_HASH); throw invalid(); }
+      if (locked(u)) throw new HttpError(429, 'LOCKED', 'Too many sign-in attempts. Try again in a few minutes, or reset your password.');
+      if (!(await verifyPassword(req.body.password, u.password_hash))) { await countFailure(req, u); throw invalid(); }
+      const { rows: [active] } = await db.query(`update users set status = 'active', status_reason = null, failed_login_count = 0, locked_until = null, updated_at = now(), version = version + 1 where id = $1 returning *`, [u.id]);
       await audit(db, { actorId: u.id, action: 'account.reactivate', targetType: 'user', targetId: u.id, ip: req.ip });
       return signIn(reply, req, active);
     });

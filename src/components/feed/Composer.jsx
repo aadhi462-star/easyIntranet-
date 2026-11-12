@@ -214,7 +214,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
           <div role="group" aria-label="Kind of post" className="no-scrollbar inline-flex max-w-full overflow-x-auto rounded-lg border border-[var(--az-control)]">
             {TYPES.map((t, i) => (
               <button key={t.id} type="button" aria-pressed={type === t.id} onClick={() => setType(t.id)}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 px-3 text-sm ${i ? 'border-l border-[var(--az-control)]' : ''} ${type === t.id ? 'bg-[color-mix(in_srgb,var(--az-focus)_14%,transparent)] font-semibold text-[var(--az-link)]' : 'bg-[var(--az-surface)] font-medium text-[var(--az-text)] hover:bg-[var(--az-sunken)]'}`}>
+                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 px-3 text-sm ${i ? 'border-l border-[var(--az-control)]' : ''} ${type === t.id ? 'bg-[color-mix(in_srgb,var(--az-focus)_14%,transparent)] font-semibold text-[var(--az-on-tint)]' : 'bg-[var(--az-surface)] font-medium text-[var(--az-text)] hover:bg-[var(--az-sunken)]'}`}>
                 <Icon name={t.icon} size={16} className="hidden sm:block" />{t.label}
               </button>
             ))}

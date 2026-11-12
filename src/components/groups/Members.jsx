@@ -84,10 +84,10 @@ export default function Members({ group, perms }) {
 
       <section aria-labelledby="mem-h" className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 id="mem-h" className="t-h3">
+          <h2 id="mem-h" className="t-h3">
             {total} {total === 1 ? 'member' : 'members'}
             {filtered && list.status === 'ready' && <span className="text-3 font-normal"> · {shown.length} shown</span>}
-          </h3>
+          </h2>
           {perms.canModerate && <Link to={managePath(group, 'members')} className="link text-sm">Manage members</Link>}
         </div>
         <label className="relative block min-w-0">

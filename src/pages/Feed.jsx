@@ -60,6 +60,7 @@ function PostDetail({ id }) {
   const post = useLivePost(state.post);
   return (
     <div className="mx-auto max-w-2xl">
+      <h1 className="sr-only">Post</h1>
       <Link to="/feed" className="link mb-4 inline-flex min-h-9 items-center text-sm">Back to feed</Link>
       {state.status === 'loading' ? <Loading />
         : state.status === 'error' ? <LoadError message={state.error} onRetry={load} />

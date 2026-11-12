@@ -52,14 +52,15 @@ export function CommunityTile({ c, size = 44 }) {
   );
 }
 
-export function CommunityCard({ c }) {
+/** `level` is the heading for the name: h3 under a section heading (Landing), h2 under the page title (Explore). */
+export function CommunityCard({ c, level: H = 'h3' }) {
   const label = c.visibility === 'private' ? 'Request to join' : 'Join';
   return (
     <article className="panel flex min-w-0 flex-col gap-3 p-5">
       <div className="flex items-center gap-3">
         <CommunityTile c={c} />
         <div className="min-w-0">
-          <h3 className="t-h3 truncate">{c.name}</h3>
+          <H className="t-h3 truncate">{c.name}</H>
           <p className="t-small">{[c.category, members(c.memberCount)].filter(Boolean).join(' · ')}</p>
         </div>
       </div>

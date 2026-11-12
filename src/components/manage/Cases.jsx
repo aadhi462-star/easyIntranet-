@@ -26,7 +26,7 @@ export function QueueEmpty({ title, children }) {
   return (
     <section className="panel flex flex-col items-center gap-2 p-8 text-center">
       <span className="text-[var(--az-text-3)]"><Icon name="inbox" size={28} /></span>
-      <h3 className="t-h3">{title}</h3>
+      <h2 className="t-h3">{title}</h2>
       <p className="text-2 max-w-md text-sm">{children}</p>
     </section>
   );

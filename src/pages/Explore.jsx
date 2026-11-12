@@ -65,7 +65,7 @@ function PublicExplore() {
             <>
               <p className="mb-4 text-sm text-[var(--az-text-2)]">{communities.length} {communities.length === 1 ? 'community' : 'communities'}</p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                {communities.map((c) => <CommunityCard key={c.id} c={c} />)}
+                {communities.map((c) => <CommunityCard key={c.id} c={c} level="h2" />)}
               </div>
             </>
           )}

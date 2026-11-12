@@ -118,7 +118,7 @@ function Directory() {
             {requests.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-3">
                 <Avatar user={state.users.find((x) => x.id === r.id) ?? { id: r.id, name: r.name }} size={36} />
-                <Link to={`/people/${r.id}`} className="min-w-0 flex-1 truncate font-semibold hover:underline">{r.name}</Link>
+                <Link to={`/people/${r.id}`} className="min-w-0 flex-1 truncate font-semibold hit hover:underline">{r.name}</Link>
                 <ConnectButton userId={r.id} initial="incoming" onChange={(next) => { if (next !== 'incoming') setRequests((list) => list.filter((x) => x.id !== r.id)); }} />
               </li>
             ))}

@@ -26,6 +26,9 @@ export default async function adminRoutes(app, { ctx }) {
     return rows[0];
   };
   const isSuper = (u) => u.roles.includes('super_admin');
+  // Staff act only on people below them: someone holding a platform role the actor couldn't
+  // assign (a Platform Admin, for Trust & Safety) is out of reach (H security review).
+  const outranks = (actor, target) => target.roles.every((r) => canAssignRole(actor, r));
 
   // Users (Stage 7, board S7Users): search, status and role filters, 25 per page. "Restricted"
   // means restricted in at least one community: set by its moderators, shown here so nothing is
@@ -82,6 +85,7 @@ export default async function adminRoutes(app, { ctx }) {
     authorize(req.user, 'users.suspend');
     const target = await loadUser(req.params.id);
     if (isSuper(target) && !req.user.roles.includes('super_admin')) throw forbidden('Only a Super Admin can sign out a Super Admin.');
+    if (target.id !== req.user.id && !outranks(req.user, target)) throw forbidden('You can’t sign out someone with a platform role you can’t assign.', 'RANK');
     const res = await revokeAllSessions(db, target.id, target.id === req.user.id ? { except: req.sessionHash } : {});
     await audit(db, { actorId: req.user.id, action: 'user.sessions_revoke', targetType: 'user', targetId: target.id, context: { count: res.rowCount ?? res.affectedRows ?? null }, ip: req.ip });
     return { ok: true };
@@ -107,6 +111,7 @@ export default async function adminRoutes(app, { ctx }) {
     const target = await loadUser(req.params.id);
     if (target.id === req.user.id) throw badRequest('SELF_ACTION', 'You can’t suspend your own account.');
     if (isSuper(target) && !req.user.roles.includes('super_admin')) throw forbidden('Only a Super Admin can suspend a Super Admin.');
+    if (!outranks(req.user, target)) throw forbidden('You can’t suspend someone with a platform role you can’t assign.', 'RANK');
     if (target.status === 'deleted') throw conflict('INVALID_STATE', 'Deleted accounts can’t be suspended.');
     const reason = String(req.body?.reason ?? '').trim().slice(0, 500);
     if (!reason) throw badRequest('REASON_REQUIRED', 'Give a reason for the suspension.');

@@ -96,7 +96,7 @@ function CommunityRow({ c, own }) {
   return (
     <li className="flex min-h-12 items-center gap-3 py-1.5">
       <CommunityTile c={c} size={32} />
-      <Link to={communityPath(c)} className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--az-text)] hover:underline">{c.name}</Link>
+      <Link to={communityPath(c)} className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--az-text)] hit hover:underline">{c.name}</Link>
       {own && c.visibility !== 'public' && <Badge icon={c.visibility === 'closed' ? 'eyeoff' : 'lock'}>{c.visibility === 'closed' ? 'Closed' : 'Private'}</Badge>}
       <span className="t-small shrink-0">{ROLE[c.role] ?? 'Member'}</span>
     </li>
@@ -176,7 +176,7 @@ export function Posts({ id, as, own, firstName }) {
         {s.posts.map((p) => (
           <li key={p.id} className="panel p-4">
             <div className="t-small flex flex-wrap items-center gap-x-2 gap-y-1">
-              <Link to={communityPath(p.community)} className="font-semibold text-[var(--az-text-2)] hover:underline">{p.community.name}</Link>
+              <Link to={communityPath(p.community)} className="font-semibold text-[var(--az-text-2)] hit hover:underline">{p.community.name}</Link>
               <span aria-hidden="true">·</span>
               <time dateTime={p.publishedAt}>{timeAgo(Date.parse(p.publishedAt))}</time>
               {TYPE[p.type] && <Badge tone={TYPE[p.type][0]}>{TYPE[p.type][1]}</Badge>}
@@ -208,7 +208,7 @@ export function Connections() {
     <li key={p.id} className="flex flex-wrap items-center gap-3 py-2.5">
       <Avatar user={who(p)} size={40} />
       <span className="min-w-0 flex-1">
-        <Link to={`/people/${enc(p.id)}`} className="block truncate text-sm font-semibold text-[var(--az-text)] hover:underline">{p.name}</Link>
+        <Link to={`/people/${enc(p.id)}`} className="block truncate text-sm font-semibold text-[var(--az-text)] hit hover:underline">{p.name}</Link>
         <span className="t-small block truncate">{[who(p).title, note].filter(Boolean).join(' · ')}</span>
       </span>
       <span className="flex gap-2">{actions}</span>
