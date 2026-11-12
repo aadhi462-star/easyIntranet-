@@ -24,15 +24,24 @@ export async function access(db, req, communityId, { audited = true } = {}) {
        left join communities t on t.id = c.merged_into where c.id = $1`, [communityId, user.id]);
   const c = rows[0];
   const adminMode = wantsAdminMode(req) && can(user, 'communities.manage');
-  if (!c) throw notFound('That community doesn’t exist.');
+  if (!c) {
+    // Removed for good (Stage 7): an old link says so and nothing else (DEL-12).
+    const { rows: [gone] } = await db.query(`select 1 from removed_communities where id = $1`, [communityId]);
+    if (gone) throw new HttpError(404, 'COMMUNITY_REMOVED', 'This community has been removed.');
+    throw notFound('That community doesn’t exist.');
+  }
+  // Deleted, restorable for 30 days: the same for everyone, staff included (D1, DEL-12).
+  if (c.status === 'deleted') throw new HttpError(404, 'COMMUNITY_REMOVED', 'This community has been removed.');
   if (adminMode && audited) {
     await audit(db, { actorId: user.id, action: 'admin_mode.access', targetType: 'community', targetId: c.id, context: { path: req.url, method: req.method }, ip: req.ip });
   }
   const state = c.member_state ?? null;
   const member = state === 'active' || state === 'restricted';
   const role = state === 'active' ? c.role : null;
-  // Closed and suspended communities don't exist for anyone outside them.
-  if (!adminMode && (c.status === 'suspended' || (c.visibility === 'closed' && !member))) throw notFound('That community doesn’t exist.');
+  // Closed communities don't exist for anyone outside them. A suspended one is hidden from
+  // everyone but its own staff, who can read it but not change it (Stage 7).
+  const staff = state === 'active' && atLeast(c.role, 'moderator');
+  if (!adminMode && ((c.status === 'suspended' && !staff) || (c.visibility === 'closed' && !member))) throw notFound('That community doesn’t exist.');
   if (state === 'blocked' && !adminMode) throw notFound('That community doesn’t exist.');
   // A merged community (R4) has moved: say where, so old links can follow it. Only its new
   // home's address is given, and that page checks access again on its own.
@@ -70,7 +79,9 @@ export async function joinDefaultCommunity(q, userId) {
  */
 export async function resolveCommunityId(db, key) {
   const { rows } = await db.query(`select id from communities where id = $1 or lower(slug) = lower($1) order by (id = $1) desc limit 1`, [String(key)]);
-  return rows[0]?.id ?? String(key);
+  if (rows[0]) return rows[0].id;
+  const { rows: gone } = await db.query(`select id from removed_communities where id = $1 or lower(slug) = lower($1) limit 1`, [String(key)]);
+  return gone[0]?.id ?? String(key);
 }
 
 export function requireView(ctx) {

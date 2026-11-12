@@ -27,6 +27,15 @@ const TEMPLATES = {
     subject: 'Your CommunityOne password was changed',
     body: `Hi ${name},\n\nYour password was just changed and your other sessions were signed out. If this wasn't you, reset your password now.`,
   }),
+  // Stage 7 (D3): the reason is the platform's own words to the account holder.
+  account_suspended: ({ name, reason }) => ({
+    subject: 'Your CommunityOne account has been suspended',
+    body: `Hi ${name},\n\nYour CommunityOne account has been suspended, and you've been signed out.\n\nReason: ${reason}\n\nYour posts stay where they are unless they're removed separately. If you think this is a mistake, contact the CommunityOne team.`,
+  }),
+  account_reactivated: ({ name, link }) => ({
+    subject: 'Your CommunityOne account is active again',
+    body: `Hi ${name},\n\nYour CommunityOne account has been reactivated. You can sign in again:\n${link}`,
+  }),
   // Event emails name the event and its community only: the recipient is already a registrant
   // who can see it, and the details live behind sign-in (NTF privacy).
   event_changed: ({ name, title, community, link }) => ({

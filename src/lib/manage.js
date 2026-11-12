@@ -17,6 +17,6 @@ export const ACTION_LABEL = {
   dismiss: 'Dismissed', remove: 'Removed', warn: 'Warned', restrict: 'Restricted',
   remove_member: 'Removed from the community', block: 'Blocked',
   reported: 'Reported', restored: 'Restored', appealed: 'Appealed',
-  appeal_upheld: 'Appeal decided: kept', appeal_overturned: 'Appeal decided: undone',
+  appeal_upheld: 'Appeal decided: kept', appeal_overturned: 'Appeal decided: undone', escalated: 'Sent to CommunityOne',
 };
 export const TARGET_LABEL = { post: 'Post', comment: 'Reply', event: 'Event', member: 'Member' };

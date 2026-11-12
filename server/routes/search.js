@@ -57,7 +57,7 @@ export default async function searchRoutes(app, { ctx }) {
         `select p.id, p.body, p.type, p.community_id, coalesce(p.published_at, p.created_at) as at, c.name as community, u.name as author
            from posts p join communities c on c.id = p.community_id join users u on u.id = p.author_id
            left join memberships m on m.community_id = c.id and m.user_id = $1
-          where p.status = 'published' and p.deleted_at is null and c.merged_into is null and c.status <> 'suspended'
+          where p.status = 'published' and p.deleted_at is null and c.merged_into is null and c.status not in ('suspended', 'deleted')
             and (m.state in ('active', 'restricted') or (c.visibility = 'public' and c.status = 'active' and coalesce(m.state, '') <> 'blocked'))
             and u.status <> 'deleted' and ${notBlockedSql('p.author_id', '$1')}
             and lower(p.body) like $2

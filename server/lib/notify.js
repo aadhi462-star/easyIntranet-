@@ -43,7 +43,17 @@ export const TYPES = {
   appeal_decided: { cat: 'moderation', own: true, line: (x) => `An appeal was decided in ${x.community}` },
   submission_returned: { cat: 'learning', line: (x) => `${x.actor} returned your work in ${x.community} with a grade` },
   certificate_issued: { cat: 'learning', line: (x) => `You earned a certificate in ${x.community}` },
+  // Stage 7: platform decisions about a whole community. Its members see these even once they
+  // can't open it any more (`own`, and `PLATFORM_NOTICES` in routes/notifications.js).
+  community_deleted: { cat: 'moderation', own: true, line: (x) => `${x.community} has been removed by CommunityOne` },
+  community_restored: { cat: 'moderation', own: true, line: (x) => `${x.community} has been restored` },
+  community_suspended: { cat: 'moderation', own: true, line: (x) => `${x.community} has been suspended by CommunityOne` },
+  deletion_declined: { cat: 'moderation', own: true, line: (x) => `Your request to delete ${x.community} was declined` },
+  owner_assigned: { cat: 'joins', own: true, line: (x) => `You’re now an Owner of ${x.community}` },
+  appeal_platform: { cat: 'moderation', own: true, line: (x) => `CommunityOne decided an appeal in ${x.community}` },
 };
+
+export const PLATFORM_NOTICES = new Set(['member_sanction', 'community_deleted', 'community_restored', 'community_suspended', 'deletion_declined']);
 
 const origin = (ctx, req) => ctx.appOrigin || (req ? `${req.protocol}://${req.headers.host}` : '');
 
@@ -61,7 +71,7 @@ export async function notify(ctx, req, { to, type, actorId = null, communityId =
       where u.id = any($1) and u.status = 'active'
         and ($2::text is null or not exists (select 1 from blocks b where (b.blocker_id = u.id and b.blocked_id = $2) or (b.blocker_id = $2 and b.blocked_id = u.id)))
         and ($3::text is null or $4::boolean or $5::boolean or exists (select 1 from memberships m join communities c on c.id = m.community_id
-              where m.community_id = $3 and m.user_id = u.id and m.state in ('active', 'restricted') and c.merged_into is null))`,
+              where m.community_id = $3 and m.user_id = u.id and m.state in ('active', 'restricted') and c.merged_into is null and c.status <> 'deleted'))`,
     [ids, actorId, communityId, !!t.outsider, !!t.own]);
   const notified = [];
   for (const u of eligible) {

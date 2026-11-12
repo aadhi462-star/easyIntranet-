@@ -13,6 +13,8 @@ const ACTIONS = {
   'community.update': 'Community edited', 'community.archive': 'Community archived', 'community.delete': 'Community deleted',
   'admin_mode.access': 'Administrative Mode visit', 'settings.update': 'Setting changed', 'user.suspend': 'Account suspended',
   'user.reactivate': 'Account reactivated', 'user.approve': 'Account approved', 'user.decline': 'Account declined', 'user.roles': 'Roles changed',
+  'community.suspend': 'Community suspended', 'community.restore': 'Community restored', 'community.purged': 'Community removed for good',
+  'role.grant': 'Platform role granted', 'role.revoke': 'Platform role removed', 'announcement.publish': 'Announcement published',
 };
 const actionText = (a) => ACTIONS[a] ?? a.replace(/[._]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 const n = (x, one, many = `${one}s`) => `${x} ${x === 1 ? one : many}`;
@@ -24,6 +26,8 @@ export default function Overview() {
     api('/admin/overview').then((data) => setS({ status: 'ready', data })).catch((e) => setS({ status: 'error', message: e.message }));
   }, []);
   useEffect(load, [load]);
+  const [waitingNow, setWaitingNow] = useState({});
+  useEffect(() => { api('/admin/waiting').then((d) => setWaitingNow(d.waiting)).catch(() => {}); }, []);
 
   if (s.status === 'loading') return <div aria-busy="true" aria-label="Loading overview" className="glass h-40 animate-pulse" />;
   if (s.status === 'error') {
@@ -33,8 +37,10 @@ export default function Overview() {
   const t = totals;
   const otherStatuses = Object.entries(t.accounts.byStatus).filter(([k, v]) => k !== 'active' && v);
   const waiting = [
-    pendingAccounts != null && { label: 'Accounts waiting for approval', value: pendingAccounts, to: '/admin/members' },
-    t.communities.suspended > 0 && { label: 'Suspended communities', value: t.communities.suspended },
+    pendingAccounts != null && { label: 'Accounts waiting for approval', value: pendingAccounts, to: '/admin/users' },
+    waitingNow.deletionRequests != null && { label: 'Deletion requests', value: waitingNow.deletionRequests, to: '/admin/communities' },
+    waitingNow.moderationCentre != null && { label: 'In the moderation centre', value: waitingNow.moderationCentre, to: '/admin/moderation' },
+    t.communities.suspended > 0 && { label: 'Suspended communities', value: t.communities.suspended, to: '/admin/communities' },
   ].filter(Boolean);
 
   return (

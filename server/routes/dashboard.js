@@ -15,14 +15,14 @@ export default async function dashboardRoutes(app, { ctx }) {
     const uid = req.user.id;
     const now = Date.now();
     const mine = `select m.community_id from memberships m join communities c on c.id = m.community_id
-      where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended' and c.merged_into is null`;
+      where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null`;
 
     const [communities, events, mandatory, announcements, requests, newMembers, replies, recent, suggested] = await Promise.all([
       db.query(`select c.id, c.slug, c.name, c.emoji, c.accent, c.visibility, c.status, m.role, m.state,
           (select count(*)::int from memberships mm join users uu on uu.id = mm.user_id
             where mm.community_id = c.id and mm.state in ('active', 'restricted') and uu.status = 'active') as member_count
         from memberships m join communities c on c.id = m.community_id
-        where m.user_id = $1 and m.state in ('active', 'restricted') and c.status <> 'suspended' and c.merged_into is null
+        where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null
         order by c.status = 'active' desc, c.name`, [uid]),
       listEvents(db, req, { from: new Date(now), to: new Date(now + 60 * DAY) }),
       // Mandatory Reads waiting for this member's acknowledgement (not their own posts).

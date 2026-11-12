@@ -1,6 +1,6 @@
-# CommunityOne — Session handoff (12 Nov 2026, after Stage 6)
+# CommunityOne — Session handoff (12 Nov 2026, after Stage 7)
 
-Read this first in a new session, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
+Read this first in a new session, then **`docs/communityone/MASTER_BRIEF_V2.md` (the user's newest brief, 12 Nov 2026: it reverses AlumniZone-as-default and the lime theme; a proposal + ETA is owed before any work on it)**, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
 ## What this project is
 
@@ -126,7 +126,15 @@ Details in PHASE0_ASSESSMENT.md ("Redesign Stage 6 — community management"); M
 - Client: `src/components/manage/` (Manage, Cases, ManageMembers, Analytics, Report), `src/pages/Notice.jsx`, `src/lib/manage.js`. The community page's Settings tab became Manage (`/c/:slug/manage/:section`); `CommunityView` now compares the real address to rewrite old ones.
 - Rules to keep: a case's audience is fixed at the first report (D1); moderators' removals of replies/events set `deleted_at` too, so existing queries hide them; reporters are never named in the review.
 
-**Next:** Stage 7 (platform administration), approved 12 Nov 2026, not started yet. Then Stage 8 (polish). Smart Assist comes last and needs a decision from the user, because the no-paid/no-external rule rules out most AI providers. The final AppSail zip is built once, at the end, from the alumnizone folder.
+### Stage 7: built and browser-checked (12 Nov 2026)
+Details in PHASE0_ASSESSMENT.md ("Redesign Stage 7 — platform administration"); COM-08, PER-14, MOD-10, SET-05, DEL-07/09/10/12/13/14 in the register.
+- Server: `012_platform.sql`, `server/routes/platform.js` (communities, deletion + `purgeDeletedCommunities`, moderation centre, settings sections, features, roles, announcements, activity log, analytics, `/admin/waiting`, `/admin/confirm-password`), users/roles changes in `routes/admin.js`, escalation + MOD-06 conflict in `routes/moderation.js`, file limits from settings in `lib/files.js`, `requireFreshPassword` in `lib/session.js`. 23 tests in `server/test/platform.test.js`.
+- Client: `src/pages/Admin.jsx`, `src/components/platform/*`, `src/lib/platform.js`; announcement bar on Home; "Send to CommunityOne…" in the Stage 6 case view; `api(path, { adminMode: true })`.
+- Rules to keep: a deleted community is `status = 'deleted'` — every new community query must exclude it (lists already require `status = 'active'`/archived; places that said `<> 'suspended'` now say `not in ('suspended', 'deleted')`). Losing a platform role ends sessions (so tests expect 401). A community has one Owner (`memberships_one_owner`).
+- **Test runner quirk:** every file passes on its own (platform 23/23, all others as before), but the full `npm run test:server` run sometimes stalls with an idle child process (seen in assessment and platform). Under investigation at the end of the session — see the progress log.
+- Preview for this session: launch entry `communityone-7` (port **5184**) in the Portfolio folder's `.claude/launch.json`.
+
+**Next:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 
 ## Working style that's been effective
 

@@ -6,7 +6,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../../lib/api.js';
 import { errorText } from '../../lib/communities.js';
 import { ACTION_LABEL, REASON_LABEL, TARGET_LABEL } from '../../lib/manage.js';
-import { timeAgo } from '../../lib/store.jsx';
+import { timeAgo, useStore } from '../../lib/store.jsx';
+import { roleOf } from '../groups/helpers.js';
 import { toast } from '../../lib/toast.js';
 import { Pill } from '../learning/bits.jsx';
 
@@ -48,6 +49,7 @@ export default function Cases({ g, resolved = false, initial = null, onChange })
 }
 
 function CaseView({ id, g, onDecided }) {
+  const { me } = useStore();
   const [c, setC] = useState(null);
   const [error, setError] = useState('');
   const [held, setHeld] = useState('');
@@ -109,6 +111,8 @@ function CaseView({ id, g, onDecided }) {
         </p>
       )}
 
+      {c.escalatedAt && c.status === 'open' && <p role="status" className="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-100">Sent to CommunityOne {when(c.escalatedAt)}{c.escalationNote ? `: “${c.escalationNote}”` : ''}. A Platform Admin will decide; you can still decide it here first.</p>}
+      {c.status === 'open' && !held && !c.escalatedAt && ['owner', 'admin'].includes(roleOf(g, me?.id)) && <Escalate c={c} onDone={(d) => setC(d)} />}
       {c.status === 'open' && !held ? <Decide c={c} onDone={onDecided} /> : c.status !== 'open' && (
         <div className="flex flex-col gap-3">
           {c.decisionReason && <p className="text-2 text-sm">Reason given: “{c.decisionReason}”</p>}
@@ -126,6 +130,28 @@ function CaseView({ id, g, onDecided }) {
         </details>
       )}
     </article>
+  );
+}
+
+/** Stage 7 (D5): an Owner or Admin hands a hard case to the platform, with a note. */
+function Escalate({ c, onDone }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (!open) return <button type="button" className="btn btn-ghost self-start" onClick={() => setOpen(true)}>Send to CommunityOne…</button>;
+  const send = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError('');
+    try { const d = await api(`/cases/${c.id}/escalate`, { method: 'POST', body: { note: note.trim() } }); toast('Sent to CommunityOne'); onDone(d.case); } catch (err) { setError(errorText(err)); setBusy(false); }
+  };
+  return (
+    <form onSubmit={send} className="band flex flex-col gap-3 p-4">
+      <label className="flex flex-col gap-1 text-sm"><b className="text-white">Why should the platform decide this?</b><span className="t-small">Platform Admins see your note in their moderation centre.</span>
+        <textarea className="input min-h-20" required maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+      <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={busy || !note.trim()}>{busy ? 'Sending…' : 'Send'}</button></div>
+    </form>
   );
 }
 

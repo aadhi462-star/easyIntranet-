@@ -3,7 +3,7 @@
 // event or resource its owner can no longer open (NTF-10). The item stays, marked unavailable.
 import { access } from '../lib/community.js';
 import { badRequest, unauthorized } from '../lib/errors.js';
-import { CATEGORIES, TYPES } from '../lib/notify.js';
+import { CATEGORIES, PLATFORM_NOTICES, TYPES } from '../lib/notify.js';
 
 const excerpt = (s, n = 120) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
@@ -93,7 +93,7 @@ export default async function notificationRoutes(app, { ctx }) {
         target = available ? { href: `/c/${n.community_slug || n.community_id}${n.kind === 'join_request' ? '/members' : ''}` } : null;
       }
       // A sanction notice is for its subject even when they can't open the community any more.
-      if (n.kind === 'member_sanction' && !available) { available = true; target = { href: null }; }
+      if (PLATFORM_NOTICES.has(n.kind) && !available) { available = true; target = { href: null }; }
       const actor = n.actor_status === 'deleted' ? 'Deleted member' : n.actor_name ?? 'Someone';
       out.push({
         id: n.id, kind: n.kind, category: t.cat, createdAt: n.created_at, read: !!n.read_at,

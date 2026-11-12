@@ -25,6 +25,7 @@ import notificationRoutes from './routes/notifications.js';
 import learningRoutes from './routes/learning.js';
 import moderationRoutes from './routes/moderation.js';
 import manageRoutes from './routes/manage.js';
+import platformRoutes, { announcementRoutes } from './routes/platform.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
   const app = Fastify({
@@ -85,6 +86,8 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   await app.register(learningRoutes, { prefix: '/api', ctx });
   await app.register(moderationRoutes, { prefix: '/api', ctx });
   await app.register(manageRoutes, { prefix: '/api', ctx });
+  await app.register(platformRoutes, { prefix: '/api/admin', ctx });
+  await app.register(announcementRoutes, { prefix: '/api', ctx });
   if (process.env.NODE_ENV !== 'production') await app.register(devRoutes, { prefix: '/api/dev', ctx });
 
   if (staticDir) {

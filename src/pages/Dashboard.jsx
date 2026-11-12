@@ -13,6 +13,8 @@ import { useCommunityWrite } from '../components/groups/useCommunity.js';
 import { Avatar } from '../components/ui.jsx';
 import { CommunityTile } from '../components/public/CommunityCards.jsx';
 import { Progress } from '../components/learning/bits.jsx';
+import { AnnouncementBar } from '../components/platform/bits.jsx';
+import { api } from '../lib/api.js';
 import { coursePath, lessonPath, useMyLearning } from '../lib/learning.js';
 
 /**
@@ -59,9 +61,14 @@ export default function Dashboard() {
   const dash = useDashboard();
   const d = dash.data;
   useEffect(() => { document.title = 'Home · CommunityOne'; }, []);
+  // A platform announcement (Stage 7, D7), above the greeting until it ends or is dismissed.
+  const [notice, setNotice] = useState(null);
+  useEffect(() => { api('/announcements/current').then((x) => setNotice(x.announcement)).catch(() => {}); }, []);
+  const dismiss = () => { const id = notice.id; setNotice(null); api(`/announcements/${id}/dismiss`, { method: 'POST' }).catch(() => {}); };
 
   return (
     <div className="mx-auto flex max-w-[1080px] flex-col gap-8">
+      {notice && <AnnouncementBar a={notice} onDismiss={dismiss} />}
       <div>
         <h1 className="t-h1 text-white">{greeting()}, {me.name.split(' ')[0]}</h1>
         <p className="text-2 mt-1">{d ? summary(d) : 'Here’s what’s happening across your communities.'}</p>

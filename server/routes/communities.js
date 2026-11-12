@@ -232,6 +232,9 @@ export default async function communityRoutes(app, { ctx }) {
       visibility: { type: 'string', enum: ['public', 'private', 'closed'] }, settings: { type: 'object' } } } },
   }, async (req, reply) => idempotent(db, req, reply, async () => {
     const uid = signedIn(req);
+    // Platform setting (Stage 7): creating communities can be limited to platform staff.
+    const { rows: [who] } = await db.query(`select value->>'whoCanCreate' as v from platform_settings where key = 'communities'`);
+    if (who?.v === 'staff' && !can(req.user, 'communities.manage')) throw forbidden('Only platform staff can create communities at the moment.', 'CREATE_RESTRICTED');
     const name = cleanName(req.body.name);
     const description = String(req.body.description ?? '').trim().slice(0, 1000) || null;
     const settings = cleanSettings(req.body.settings);

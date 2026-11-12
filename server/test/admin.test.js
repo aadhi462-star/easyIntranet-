@@ -66,9 +66,12 @@ describe('roles and scope', () => {
   });
 
   test('the last Super Admin cannot be removed', async () => {
+    // Stage 7 (PER-02): nobody changes their own platform role, so the last Super Admin can't
+    // remove themselves; LAST_SUPER_ADMIN stays as a second guard in the server.
     const res = await superA.post('/api/admin/users/sa/roles', { role: 'super_admin', grant: false });
-    assert.equal(res.status, 409);
-    assert.equal(res.body.error.code, 'LAST_SUPER_ADMIN');
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'SELF_ACTION');
+    assert.equal((await env.db.query(`select count(*)::int as n from platform_roles where role = 'super_admin'`)).rows[0].n, 1);
   });
 
   test('role changes take effect on the very next request (PER-05)', async () => {
@@ -77,7 +80,8 @@ describe('roles and scope', () => {
     await admin.post('/api/admin/users/temp/roles', { role: 'user_manager', grant: true });
     assert.equal((await t.get('/api/admin/users')).status, 200);
     await admin.post('/api/admin/users/temp/roles', { role: 'user_manager', grant: false });
-    assert.equal((await t.get('/api/admin/users')).status, 403);
+    // Stage 7: losing a role also ends their sessions (PER-12), so the next request is 401.
+    assert.equal((await t.get('/api/admin/users')).status, 401);
   });
 });
 
@@ -106,7 +110,8 @@ describe('settings', () => {
     const logged = (await env.db.query(`select 1 from audit_log where action = 'settings.denied' and actor_id = 'pa'`)).rows.length;
     assert.equal(logged, 1);
     assert.equal((await superA.put('/api/admin/settings/security', { version: cur._version, value: { maxFailedLogins: 5 } })).status, 200);
-    assert.equal((await member.put('/api/admin/settings/general', { version: 1, value: { name: 'Hacked' } })).status, 403);
+    // `member` lost a platform role earlier, which signed them out (Stage 7): refused either way.
+    assert.ok([401, 403].includes((await member.put('/api/admin/settings/general', { version: 1, value: { name: 'Hacked' } })).status));
   });
 });
 

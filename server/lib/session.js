@@ -21,7 +21,7 @@ export async function startSession(db, reply, user, req, { days = 14, secure = f
   const { token, hash } = newToken();
   const expires = new Date(Date.now() + days * 864e5);
   await db.query(
-    `insert into sessions (id_hash, user_id, expires_at, ip, user_agent) values ($1, $2, $3, $4, $5)`,
+    `insert into sessions (id_hash, user_id, expires_at, ip, user_agent, password_at) values ($1, $2, $3, $4, $5, now())`,
     [hash, user.id, expires, req.ip, String(req.headers['user-agent'] || '').slice(0, 300)],
   );
   reply.setCookie(SESSION_COOKIE, token, { ...cookieOpts(secure), expires });
@@ -37,6 +37,15 @@ export const revokeAllSessions = (db, userId, { except } = {}) => db.query(
   `update sessions set revoked_at = now() where user_id = $1 and revoked_at is null and ($2::text is null or id_hash <> $2)`,
   [userId, except ?? null],
 );
+
+// D4 (PER-14): the riskiest actions need the password entered in the last 10 minutes.
+export const FRESH_MINUTES = 10;
+export async function requireFreshPassword(db, req) {
+  const { rows: [s] } = await db.query(`select password_at from sessions where id_hash = $1`, [req.sessionHash]);
+  if (!s?.password_at || Date.now() - new Date(s.password_at).getTime() > FRESH_MINUTES * 60e3) {
+    throw forbidden('Enter your password again to do this.', 'PASSWORD_REQUIRED');
+  }
+}
 
 /** Loads req.user (with platform roles) from the session cookie, or leaves it null. */
 export async function loadSession(db, req) {

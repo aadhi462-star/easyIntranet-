@@ -4,9 +4,18 @@ import { audit } from '../lib/audit.js';
 import { joinDefaultCommunity } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { authorize, can, canAssignRole, PLATFORM_ROLES } from '../lib/permissions.js';
-import { revokeAllSessions } from '../lib/session.js';
+import { requireFreshPassword, revokeAllSessions } from '../lib/session.js';
 import { CRITICAL_SETTINGS, getSetting, updateSetting } from '../lib/settings.js';
 import { publicUser } from './auth.js';
+
+const CRITICAL_ROLE_SET = new Set(['super_admin', 'platform_admin']);
+const iso = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+/** A spreadsheet cell: quoted, and text that starts like a formula is kept as text (ANL-09). */
+export const csvCell = (v) => {
+  let x = v == null ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(x)) x = `'${x}`;
+  return `"${x.replace(/"/g, '""')}"`;
+};
 
 export default async function adminRoutes(app, { ctx }) {
   const { db } = ctx;
@@ -18,19 +27,77 @@ export default async function adminRoutes(app, { ctx }) {
   };
   const isSuper = (u) => u.roles.includes('super_admin');
 
+  // Users (Stage 7, board S7Users): search, status and role filters, 25 per page. "Restricted"
+  // means restricted in at least one community: set by its moderators, shown here so nothing is
+  // missed. Emails are for staff who can view users.
+  const USER_FILTER = `($1 = '' or u.email_norm like '%' || $1 || '%' or lower(u.name) like '%' || $1 || '%')
+      and ($2::text is null or ($2 = 'restricted' and exists (select 1 from memberships rm where rm.user_id = u.id and rm.state = 'restricted'))
+           or ($2 = 'pending' and u.status in ('pending_approval', 'unverified')) or u.status = $2)
+      and ($3::text is null or ($3 = 'none' and not exists (select 1 from platform_roles pr where pr.user_id = u.id))
+           or exists (select 1 from platform_roles pr where pr.user_id = u.id and pr.role = $3))`;
+  const userFilters = (req) => [String(req.query.q ?? '').trim().toLowerCase().slice(0, 100), req.query.status ? String(req.query.status) : null, req.query.role ? String(req.query.role) : null];
+  const USER_COLUMNS = `u.*, coalesce((select array_agg(role) from platform_roles where user_id = u.id), '{}') as roles,
+      (select count(*)::int from memberships m join communities c on c.id = m.community_id where m.user_id = u.id and m.state in ('active', 'restricted') and c.merged_into is null and c.status <> 'deleted') as community_count,
+      (select max(last_seen_at) from sessions where user_id = u.id) as last_active`;
+  const userRow = (u) => ({ ...publicUser(u, u.roles), createdAt: u.created_at, statusReason: u.status_reason, communityCount: u.community_count, lastActive: u.last_active });
+
   app.get('/users', async (req) => {
     authorize(req.user, 'users.view');
-    const q = String(req.query.q ?? '').trim().toLowerCase();
-    const status = req.query.status ? String(req.query.status) : null;
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const limit = Math.min(Number(req.query.limit) || 25, 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
-    const { rows } = await db.query(
-      `select u.*, coalesce(array_agg(r.role) filter (where r.role is not null), '{}') as roles
-         from users u left join platform_roles r on r.user_id = u.id
-        where ($1 = '' or u.email_norm like '%' || $1 || '%' or lower(u.name) like '%' || $1 || '%')
-          and ($2::text is null or u.status = $2)
-        group by u.id order by u.created_at desc limit $3 offset $4`, [q, status, limit, offset]);
-    return { users: rows.map((u) => ({ ...publicUser(u, u.roles), createdAt: u.created_at, statusReason: u.status_reason })) };
+    const [{ rows }, { rows: [{ total }] }, { rows: counts }] = await Promise.all([
+      db.query(`select ${USER_COLUMNS} from users u where ${USER_FILTER} order by u.created_at desc limit $4 offset $5`, [...userFilters(req), limit, offset]),
+      db.query(`select count(*)::int as total from users u where ${USER_FILTER}`, userFilters(req)),
+      db.query(`select 'all' as k, count(*)::int as n from users where status <> 'deleted'
+        union all select 'pending', count(*)::int from users where status in ('pending_approval', 'unverified')
+        union all select 'suspended', count(*)::int from users where status = 'suspended'
+        union all select 'deactivated', count(*)::int from users where status = 'deactivated'
+        union all select 'restricted', count(distinct user_id)::int from memberships where state = 'restricted'`),
+    ]);
+    return { users: rows.map(userRow), total, counts: Object.fromEntries(counts.map((c) => [c.k, c.n])) };
+  });
+
+  // One person's panel: their communities with role and state (and any restriction), sign-in
+  // and sessions, and reports about them.
+  app.get('/users/:id', async (req) => {
+    authorize(req.user, 'users.view');
+    const { rows: [u] } = await db.query(`select ${USER_COLUMNS} from users u where u.id = $1`, [req.params.id]);
+    if (!u) throw notFound('That account doesn’t exist.');
+    const [{ rows: communities }, { rows: [sess] }, { rows: [reports] }] = await Promise.all([
+      db.query(`select c.id, c.slug, c.name, c.accent, c.visibility, m.role, m.state,
+          (select json_build_object('until', s.until, 'by', b.name) from sanctions s left join users b on b.id = s.created_by
+            where s.community_id = c.id and s.user_id = m.user_id and s.kind = 'restrict' and s.lifted_at is null order by s.created_at desc limit 1) as restriction
+        from memberships m join communities c on c.id = m.community_id
+        where m.user_id = $1 and m.state in ('active', 'restricted', 'pending') and c.merged_into is null and c.status <> 'deleted' order by (m.role = 'member'), c.name`, [u.id]),
+      db.query(`select count(*)::int as active, max(last_seen_at) as last from sessions where user_id = $1 and revoked_at is null and expires_at > now()`, [u.id]),
+      db.query(`select count(*)::int as n, count(distinct community_id)::int as communities from moderation_cases where subject_id = $1`, [u.id]),
+    ]);
+    return { user: { ...userRow(u), emailConfirmed: !!u.email_verified_at },
+      communities: communities.map((c) => ({ id: c.id, slug: c.slug, name: c.name, accent: c.accent, visibility: c.visibility, role: c.role, state: c.state, restriction: c.restriction })),
+      sessions: { active: sess.active, last: sess.last }, reports: { count: reports.n, communities: reports.communities } };
+  });
+
+  // Sign out everywhere (S7Users): every session of theirs ends now.
+  app.post('/users/:id/sessions/revoke', async (req) => {
+    authorize(req.user, 'users.suspend');
+    const target = await loadUser(req.params.id);
+    if (isSuper(target) && !req.user.roles.includes('super_admin')) throw forbidden('Only a Super Admin can sign out a Super Admin.');
+    const res = await revokeAllSessions(db, target.id, target.id === req.user.id ? { except: req.sessionHash } : {});
+    await audit(db, { actorId: req.user.id, action: 'user.sessions_revoke', targetType: 'user', targetId: target.id, context: { count: res.rowCount ?? res.affectedRows ?? null }, ip: req.ip });
+    return { ok: true };
+  });
+
+  // Users CSV (D6): Platform Admins only; emails only when asked for; every export is logged.
+  app.get('/users.csv', async (req, reply) => {
+    authorize(req.user, 'users.export');
+    const withEmail = req.query.email === '1';
+    const { rows } = await db.query(`select ${USER_COLUMNS} from users u where ${USER_FILTER} order by u.created_at desc limit 10000`, userFilters(req));
+    const [q, status, role] = userFilters(req);
+    await audit(db, { actorId: req.user.id, action: 'users.export', targetType: 'platform', context: { q, status, role, email: withEmail, rows: rows.length }, ip: req.ip });
+    const head = ['Name', ...(withEmail ? ['Email'] : []), 'Status', 'Platform roles', 'Communities', 'Joined', 'Last active'];
+    const lines = rows.map((u) => [u.name, ...(withEmail ? [u.email] : []), u.status, u.roles.join(' '), u.community_count, iso(u.created_at), iso(u.last_active)]);
+    reply.header('content-type', 'text/csv; charset=utf-8').header('content-disposition', `attachment; filename="communityone-users-${iso(new Date())}.csv"`);
+    return [head, ...lines].map((r) => r.map(csvCell).join(',')).join('\r\n');
   });
 
   // Suspension ends every session at once (REG-13, USR-06). Staff can't suspend themselves,
@@ -46,6 +113,8 @@ export default async function adminRoutes(app, { ctx }) {
     await db.query(`update users set status = 'suspended', status_reason = $2, updated_at = now(), version = version + 1 where id = $1`, [target.id, reason]);
     await revokeAllSessions(db, target.id);
     await audit(db, { actorId: req.user.id, action: 'user.suspend', targetType: 'user', targetId: target.id, context: { reason }, ip: req.ip });
+    // D3: they're told why. A failed email stays in the outbox; the suspension stands.
+    try { await ctx.mailer?.send(target.email, 'account_suspended', { name: target.name, reason }, { req }); } catch { /* recorded in the outbox */ }
     return { ok: true };
   });
 
@@ -55,6 +124,8 @@ export default async function adminRoutes(app, { ctx }) {
     if (target.status !== 'suspended') throw conflict('INVALID_STATE', 'Only suspended accounts can be reactivated here.');
     await db.query(`update users set status = 'active', status_reason = null, updated_at = now(), version = version + 1 where id = $1`, [target.id]);
     await audit(db, { actorId: req.user.id, action: 'user.reactivate', targetType: 'user', targetId: target.id, ip: req.ip });
+    const origin = ctx.appOrigin || `${req.protocol}://${req.headers.host}`;
+    try { await ctx.mailer?.send(target.email, 'account_reactivated', { name: target.name, link: `${origin}/#/login` }, { req }); } catch { /* recorded in the outbox */ }
     return { ok: true };
   });
 
@@ -85,6 +156,10 @@ export default async function adminRoutes(app, { ctx }) {
     if (!req.user) throw forbidden();
     const { role, grant } = req.body;
     if (!canAssignRole(req.user, role)) throw forbidden('Your role can’t assign that platform role.');
+    // PER-02: nobody changes their own platform role. D4: Super Admin and Platform Admin need
+    // the password entered in the last 10 minutes.
+    if (req.params.id === req.user.id) throw badRequest('SELF_ACTION', 'You can’t change your own platform role.');
+    if (CRITICAL_ROLE_SET.has(role)) await requireFreshPassword(db, req);
     const target = await loadUser(req.params.id);
     if (target.status !== 'active') throw conflict('INVALID_STATE', 'Roles can only be given to active accounts.');
     if (grant) {
@@ -95,6 +170,8 @@ export default async function adminRoutes(app, { ctx }) {
         if (n <= 1 && target.roles.includes('super_admin')) throw conflict('LAST_SUPER_ADMIN', 'The platform needs at least one Super Admin.');
       }
       await db.query(`delete from platform_roles where user_id = $1 and role = $2`, [target.id, role]);
+      // Losing a role takes effect at once: their sessions end (PER-12).
+      if (target.roles.includes(role)) await revokeAllSessions(db, target.id);
     }
     await audit(db, { actorId: req.user.id, action: grant ? 'role.grant' : 'role.revoke', targetType: 'user', targetId: target.id, context: { role }, ip: req.ip });
     return { ok: true };
@@ -173,7 +250,7 @@ export default async function adminRoutes(app, { ctx }) {
 
   app.get('/me/permissions', async (req) => {
     if (!req.user) throw forbidden();
-    const actions = ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'settings.platform', 'audit.view', 'analytics.platform', 'roles.assign.critical'];
+    const actions = ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'users.export', 'settings.platform', 'audit.view', 'audit.export', 'analytics.platform', 'analytics.export', 'roles.assign.critical', 'communities.manage', 'moderation.manage', 'announcements.manage'];
     return { roles: req.user.roles, can: Object.fromEntries(actions.map((a) => [a, can(req.user, a)])) };
   });
 }

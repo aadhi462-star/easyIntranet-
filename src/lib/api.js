@@ -42,9 +42,11 @@ const inAdminScope = (path) => {
  * api('/auth/login', { method: 'POST', body: {...} }). Pass `idempotencyKey` (or `idempotent: true`)
  * on creates so double submits and network retries return the first result.
  */
-export async function api(path, { method = 'GET', body, idempotent = false, idempotencyKey } = {}) {
+export async function api(path, { method = 'GET', body, idempotent = false, idempotencyKey, adminMode = false } = {}) {
   const headers = { accept: 'application/json' };
-  if (inAdminScope(path)) headers['x-admin-mode'] = '1';
+  // `adminMode`: one request in Administrative Mode, for routes outside a community's own path
+  // (the moderation centre acting on /cases/… and /appeals/…, Stage 7). The server checks and logs it.
+  if (adminMode || inAdminScope(path)) headers['x-admin-mode'] = '1';
   if (method !== 'GET') {
     if (body !== undefined) headers['content-type'] = 'application/json';
     headers['x-csrf-token'] = await ensureCsrf();

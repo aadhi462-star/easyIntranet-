@@ -6,6 +6,16 @@ const SCHEMAS = {
   general: { name: 'string', tagline: 'string' },
   registration: { open: 'boolean', requireApproval: 'boolean', allowedDomains: 'string[]' },
   security: { sessionDays: 'number', maxFailedLogins: 'number', lockMinutes: 'number' },
+  // Stage 7 (D8): both apply forward only; existing files and communities are untouched.
+  files: { maxFileMb: 'number', types: 'string[]' },
+  communities: { whoCanCreate: 'string' },
+};
+
+// Values a field may take, where it's a choice (SET-08).
+const CHOICES = {
+  'files.maxFileMb': [5, 10],
+  'files.types': ['pdf', 'image', 'office', 'text'],
+  'communities.whoCanCreate': ['anyone', 'staff'],
 };
 
 // Changing these needs Super Admin (critical security configuration, prompt §9).
@@ -24,6 +34,8 @@ export async function updateSetting(db, key, patch, { version, actorId }) {
     if (!type) throw badRequest('FIELD_NOT_ALLOWED', `“${field}” can’t be changed here.`);
     const ok = type === 'string[]' ? Array.isArray(value) && value.every((v) => typeof v === 'string') : typeof value === type;
     if (!ok) throw badRequest('INVALID_INPUT', `“${field}” has the wrong type.`);
+    const choices = CHOICES[`${key}.${field}`];
+    if (choices && ![].concat(value).every((v) => choices.includes(v))) throw badRequest('INVALID_INPUT', `“${field}” can’t be set to that.`);
   }
   // Only succeeds if nobody saved since the caller loaded `version`.
   const { rows } = await db.query(

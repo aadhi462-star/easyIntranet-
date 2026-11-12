@@ -65,6 +65,15 @@ export default async function moderationRoutes(app, { ctx }) {
   const canReview = (a, c, uid) => c.subject_id !== uid && (a.adminMode
     || (c.audience === 'moderators' && a.canModerate)
     || (c.audience === 'owners' && a.isOwner));
+  // MOD-06 (Stage 7): a Platform Admin acting in Administrative Mode who holds a role in the
+  // community, or took part (subject, reporter, the one who decided), sees the case but another
+  // Platform Admin decides it.
+  async function platformConflict(c, uid) {
+    if (c.subject_id === uid || c.resolved_by === uid) return true;
+    const { rows } = await db.query(`select 1 from reports where case_id = $1 and reporter_id = $2
+      union all select 1 from memberships where community_id = $3 and user_id = $2 and state = 'active' and role in ('owner', 'admin', 'moderator') limit 1`, [c.id, uid, c.community_id]);
+    return rows.length > 0;
+  }
   const visibleAudiences = (a) => (a.adminMode ? ['moderators', 'owners', 'platform'] : a.isOwner ? ['moderators', 'owners'] : a.canModerate ? ['moderators'] : []);
 
   // ---- Reporting (any member or viewer) -------------------------------------------------------
@@ -114,6 +123,7 @@ export default async function moderationRoutes(app, { ctx }) {
     id: c.id, targetType: c.target_type, targetId: c.target_type === 'member' ? c.target_id.split(':')[1] : c.target_id, audience: c.audience,
     status: c.status, decision: c.decision, reportCount: c.report_count, openedAt: c.opened_at, lastReportAt: c.last_report_at, resolvedAt: c.resolved_at,
     subject: c.subject_id ? { id: c.subject_id, name: c.subject_name ?? 'Deleted member' } : null, snapshot: c.snapshot,
+    escalatedAt: c.escalated_at ?? null, escalationNote: c.escalation_note ?? null,
     lockedBy: c.status === 'open' && c.lock_by && lockFresh(c.lock_at) && c.lock_role ? { id: c.lock_by, name: c.lock_name, me: c.lock_by === uid } : null,
   });
 
@@ -241,6 +251,7 @@ export default async function moderationRoutes(app, { ctx }) {
     action: { type: 'string', enum: ACTIONS }, reason: { type: ['string', 'null'] }, days: { type: ['integer', 'null'], enum: [1, 7, 30, null] }, alsoWarn: { type: 'boolean' } } } } }, async (req) => {
     const { c, a, uid, reviewer } = await caseFor(req, req.params.id);
     if (!reviewer) throw notFound('That case doesn’t exist.');
+    if (a.adminMode && (c.audience === 'platform' || c.escalated_at) && await platformConflict(c, uid)) throw forbidden('You took part in this or hold a role in this community, so another Platform Admin decides it.', 'CONFLICTED');
     const { action } = req.body;
     const reason = text(req.body.reason, 500);
     if (action !== 'dismiss' && !reason) throw badRequest('REASON_REQUIRED', 'Give a reason; the person sees it.', { field: 'reason' });
@@ -288,6 +299,23 @@ export default async function moderationRoutes(app, { ctx }) {
       await event(t, c.id, uid, 'restored', { note: text(req.body?.note, 500) });
     });
     await audit(db, { actorId: uid, action: 'moderation.restore', targetType: c.target_type, targetId: c.target_id, context: { caseId: c.id }, ip: req.ip });
+    const fresh = await caseFor(req, c.id);
+    return { case: await caseDetail(fresh.c, a, uid, true) };
+  });
+
+  // Stage 7 (D5): an Owner or Admin can hand a case to the platform, with a note. It leaves the
+  // community's queue view of "open" only once the platform decides it.
+  app.post('/cases/:id/escalate', { schema: { body: { type: 'object', required: ['note'], additionalProperties: false, properties: { note: { type: 'string' } } } } }, async (req) => {
+    const { c, a, uid, reviewer } = await caseFor(req, req.params.id);
+    if (!reviewer || a.adminMode || !a.canAdmin) throw forbidden('Owners and Admins can send a case to CommunityOne.', 'NOT_AN_ADMIN');
+    if (c.status !== 'open') throw conflict('ALREADY_DECIDED', 'Someone already decided this.');
+    const note = text(req.body.note, 1000);
+    if (!note) throw badRequest('INVALID_INPUT', 'Say why the platform should decide this.', { field: 'note' });
+    const { rows } = await db.query(`update moderation_cases set escalated_at = now(), escalated_by = $2, escalation_note = $3, lock_by = null, lock_at = null
+      where id = $1 and status = 'open' and escalated_at is null returning id`, [c.id, uid, note]);
+    if (!rows.length) throw conflict('ALREADY_ESCALATED', 'This case has already been sent to CommunityOne.');
+    await db.query(`insert into case_events (id, case_id, actor_id, action, detail) values ($1, $2, $3, 'escalated', $4)`, [newId('cev'), c.id, uid, JSON.stringify({ note })]);
+    await audit(db, { actorId: uid, action: 'case.escalate', targetType: 'case', targetId: c.id, context: { communityId: c.community_id }, ip: req.ip });
     const fresh = await caseFor(req, c.id);
     return { case: await caseDetail(fresh.c, a, uid, true) };
   });
@@ -340,6 +368,9 @@ export default async function moderationRoutes(app, { ctx }) {
     if (!ap) throw notFound('That appeal doesn’t exist.');
     const a = await access(db, req, ap.community_id);
     if (!a.adminMode && !(await appealDeciders(ap)).includes(uid)) throw forbidden('Someone who didn’t take the action decides the appeal.', 'CONFLICTED');
+    if (a.adminMode && await platformConflict({ id: ap.case_id, community_id: ap.community_id, subject_id: ap.subject_id, resolved_by: ap.resolved_by }, uid)) {
+      throw forbidden('You took part in this or hold a role in this community, so another Platform Admin decides it.', 'CONFLICTED');
+    }
     const note = text(req.body.note, 1000);
     if (!note) throw badRequest('INVALID_INPUT', 'Add a note for both people.', { field: 'note' });
     await db.tx(async (t) => {

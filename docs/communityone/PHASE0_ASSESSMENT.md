@@ -767,3 +767,40 @@ Built to the approved boards (design canvas page "Stage 6 — Management") and d
   - A notice page for sanctions applied from the Members list (the in-app line only).
   - Withdrawing a deletion request through its confirm dialog wasn't clicked in the browser (covered by tests).
   - Stage 7 handles deciding deletion requests, the moderation centre (reports about Owners, appeals no one can decide) and MOD-10 exports.
+
+### Redesign Stage 7 — platform administration (12 Nov 2026)
+
+Built to the approved boards (design canvas page "Stage 7 — Platform administration") and decisions D1–D8, approved by the user on 12 Nov.
+
+- **Server** (`012_platform.sql`, `routes/platform.js`, additions to `routes/admin.js` and `routes/moderation.js`, 23 tests in `server/test/platform.test.js`):
+  - **Users:** search with status filters (waiting, suspended, restricted in a community, deactivated) and role filters, 25 per page. A person's panel lists their communities (with any restriction), active sessions and reports about them. Sign out everywhere. Suspension emails the reason (D3). Losing a platform role ends that person's sessions. Nobody changes their own platform role (PER-02).
+  - **Password again (D4):** `sessions.password_at` is set at sign-in and by `POST /admin/confirm-password`. Granting Super Admin or Platform Admin, approving a deletion, deleting directly and exporting the activity log need it within 10 minutes (`PASSWORD_REQUIRED` otherwise).
+  - **Communities:** filters (all, deletion requests, no active Owner, suspended, archived, deleted and restorable). A panel shows staff, counts and what deleting affects. Suspend: the community is hidden from everyone but its own staff, who can read it but not change it. A new Owner can be set when there's no active one (COM-08); the old Owner becomes Admin, since a community has one Owner.
+  - **Deletion (D1, D2):** opening a request takes it for 30 minutes (DEL-15). Approving needs the name typed, a note and a fresh password, and is refused while reports or appeals are open (DEL-09). Platform Admins can also delete without a request. A deleted community is `status = 'deleted'`: it's 404 `COMMUNITY_REMOVED` for everyone and gone from every list. It can be restored for 30 days, memberships included. After that, `purgeDeletedCommunities` (job runner) removes it in steps that resume (files, posts, then the row). A tombstone in `removed_communities` keeps old links saying "removed". Certificates keep verifying. AlumniZone (the default community) can't be deleted or suspended.
+  - **Moderation centre (D5):** reports about Owners, cases escalated by an Owner or Admin (`POST /cases/:id/escalate`), reports open 7 days where no Owner, Admin or Moderator has signed in for 7 days, and appeals nobody in the community can decide. Platform Admins decide through the Stage 6 routes in Administrative Mode. A Platform Admin who holds a staff role there or took part is refused (`CONFLICTED`, MOD-06). Owners get a day-3 reminder (`remindStaleReports`).
+  - **Settings (D8):** new sections `files` (largest file 5 or 10 MB, allowed types; new uploads only) and `communities` (who can create). Feature switches are edited in place; Smart Assist can't be turned on.
+  - **Announcements (D7):** one at a time, to everyone or to members of chosen communities, in-app links only, an end date, and dismissal per person.
+  - **Activity log and analytics (D6):** filters (who, community, dates, kind), pagination, and a CSV that needs the password and is itself logged. Platform analytics count people and memberships separately and fold small numbers (under 5). Users, activity and analytics exports are all logged.
+- **Client:**
+  - `src/pages/Admin.jsx` follows the board: Overview, Users, Communities, Moderation centre, Activity log, Analytics, then Platform: Settings, Roles and permissions, Announcements, Institutions.
+  - New screens are in `src/components/platform/`; shared helpers (`PasswordGateProvider`, `downloadCsv`) are in `src/lib/platform.js`.
+  - The old browser-data Members, Moderation and Analytics screens are removed. The other older screens stay under "Older tools · this browser only", labelled as such.
+  - Home shows the announcement bar. The Stage 6 case view has "Send to CommunityOne…" for Owners and Admins.
+  - `api()` takes `adminMode: true` for one request.
+- **Browser, 1024 and 375 px** (preview copy on port 5184):
+  - **Users:** Sara suspended Harsh Patel with a reason; the list showed "Suspended · 1". She then reactivated him. The activity log shows both, naming him.
+  - **Delete and restore:** Sara deleted Mumbai Chapter directly; `GET /communities/mumbai-chapter` answered 404 `COMMUNITY_REMOVED`. She restored it; it was back to 200 and active.
+  - **Other screens:** the moderation centre, activity log and analytics rendered real data.
+  - **Announcement:** published from Administration, shown above the greeting on Home, dismissed, and stayed gone.
+  - **Phone width:** no horizontal overflow on Users at 375 px.
+- **Fixed while checking:**
+  - Communities have no `updated_at` column.
+  - Assigning an Owner hit the one-Owner constraint.
+  - "Back to the app" went to the Feed instead of Home.
+- **Not checked in the browser** (covered by tests): the password prompt dialog itself (Sara's sign-in was always fresh), approving or declining a request from an Owner, deciding cases from the centre, and CSV downloads.
+- **Not built or limits:**
+  - Moderation and Notifications settings sections, and a Learning section beyond the module switch.
+  - A cross-community Learning screen in Administration.
+  - Custom platform roles.
+  - Notifications about a community that was removed for good disappear with it, because their rows cascade.
+  - The conflict rule counts staff roles, not plain membership: every account is a member of AlumniZone, so the stricter reading would block everyone there.

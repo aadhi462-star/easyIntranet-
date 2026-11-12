@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { badRequest } from './errors.js';
 import { newId } from './crypto.js';
 
+// The most the server ever accepts; the platform setting `files.maxFileMb` can lower it (D8).
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const OFFICE = { docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -44,9 +45,14 @@ export function cleanName(name) {
 /** Stores a file for a community after checking its size and type. Returns its public fields. */
 export async function storeFile(db, { communityId, userId, name, buf }) {
   if (!buf?.length) throw badRequest('FILE_EMPTY', 'That file is empty.');
-  if (buf.length > MAX_FILE_BYTES) throw badRequest('FILE_TOO_LARGE', 'Files can be up to 10 MB.');
+  // Platform limits apply to new uploads only; files already stored keep opening (D8, SET-05).
+  const { rows: [setting] } = await db.query(`select value from platform_settings where key = 'files'`);
+  const maxMb = Math.min(Number(setting?.value?.maxFileMb) || 10, MAX_FILE_BYTES / 1024 / 1024);
+  if (buf.length > maxMb * 1024 * 1024) throw badRequest('FILE_TOO_LARGE', `Files can be up to ${maxMb} MB.`);
   const display = cleanName(name);
   const { kind, mime } = sniff(buf, display);
+  const types = setting?.value?.types;
+  if (Array.isArray(types) && !types.includes(kind)) throw badRequest('FILE_TYPE', 'That kind of file isn’t allowed on this platform at the moment.');
   const id = newId('fil');
   const sha256 = createHash('sha256').update(buf).digest('hex');
   await db.query(`insert into files (id, community_id, uploaded_by, name, mime, kind, size, sha256, data) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
