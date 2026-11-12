@@ -207,7 +207,7 @@ export default function Layout() {
         <div role="menu" className={`${popover} w-64`}>
           {postIn.length > 0 && <button type="button" role="menuitem" className={menuItem} onClick={startPost}><Icon name="pen" size={18} className="text-[var(--az-text-2)]" /><span>Post<span className="t-small block">in a community</span></span></button>}
           {eventIn.length > 0 && <Link role="menuitem" className={menuItem} to="/events?new=1"><Icon name="events" size={18} className="text-[var(--az-text-2)]" /><span>Event<span className="t-small block">where you may</span></span></Link>}
-          {canCreate && <Link role="menuitem" className={menuItem} to="/communities?new=1"><Icon name="groups" size={18} className="text-[var(--az-text-2)]" />Community</Link>}
+          {canCreate && <Link role="menuitem" className={menuItem} to="/communities/new"><Icon name="groups" size={18} className="text-[var(--az-text-2)]" />Community</Link>}
         </div>
       )}
     </div>
@@ -228,7 +228,7 @@ export default function Layout() {
             <GroupLabel id="side-communities">Your communities</GroupLabel>
             <CommunityList communities={communities} path={path} />
           </nav>
-          {canCreate && <Link to="/communities?new=1" className={navCls(false)}><Icon name="create" size={20} className="text-[var(--az-text-2)]" />Create Community</Link>}
+          {canCreate && <Link to="/communities/new" className={navCls(false)}><Icon name="create" size={20} className="text-[var(--az-text-2)]" />Create Community</Link>}
           {me.admin && (
             <nav aria-labelledby="side-admin" className="flex flex-col gap-0.5">
               <GroupLabel id="side-admin">Administration</GroupLabel>
@@ -312,7 +312,7 @@ export default function Layout() {
             <GroupLabel id="sheet-communities">Your communities</GroupLabel>
             <CommunityList communities={communities} path={path} onPick={() => setSheet(false)} />
           </nav>
-          {canCreate && <Link to="/communities?new=1" onClick={() => setSheet(false)} className={navCls(false)}><Icon name="create" size={20} className="text-[var(--az-text-2)]" />Create Community</Link>}
+          {canCreate && <Link to="/communities/new" onClick={() => setSheet(false)} className={navCls(false)}><Icon name="create" size={20} className="text-[var(--az-text-2)]" />Create Community</Link>}
           {me.admin && (
             <nav aria-labelledby="sheet-admin" className="flex flex-col gap-0.5">
               <GroupLabel id="sheet-admin">Administration</GroupLabel>

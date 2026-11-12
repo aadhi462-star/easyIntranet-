@@ -13,7 +13,7 @@ const ROLE_PERMISSIONS = {
     'announcements.manage', 'health.view', 'templates.manage',
   ],
   user_manager: ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'institutions.manage'],
-  community_manager: ['communities.*'],
+  community_manager: ['communities.*', 'templates.manage'],
   lms_manager: ['learning.*'],
   trust_safety: ['moderation.*', 'users.view', 'users.suspend'],
   finance_manager: ['analytics.revenue'],

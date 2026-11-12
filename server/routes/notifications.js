@@ -72,8 +72,8 @@ export default async function notificationRoutes(app, { ctx }) {
     // to. Open: it points at the invitee's list. Accepted: at the community. Otherwise it says the
     // invitation is over (NTF-05), without the community's name.
     if (type === 'invitation') {
-      const { rows: [i] } = await db.query(`select c.name, i.community_id, i.accepted_by,
-          (i.accepted_at is null and i.revoked_at is null and i.superseded_at is null and i.expires_at > now() and c.status = 'active' and c.merged_into is null) as open
+      const { rows: [i] } = await db.query(`select c.name, i.community_id, i.accepted_by, i.declined_at is not null as declined,
+          (i.accepted_at is null and i.revoked_at is null and i.superseded_at is null and i.declined_at is null and i.expires_at > now() and c.status = 'active' and c.merged_into is null) as open
         from community_invitations i join communities c on c.id = i.community_id
         where i.id = $1 and (i.user_id = $2 or (i.user_id is null and i.email = (select email_norm from users where id = $2 and email_verified_at is not null)))`, [id, uid]);
       if (!i) return null;
@@ -82,7 +82,7 @@ export default async function notificationRoutes(app, { ctx }) {
         const a = await accessOf(req, i.community_id, cache);
         return a?.canView ? { title: a.community.name, href: `/c/${a.community.slug || a.community.id}` } : null;
       }
-      return { closed: 'This invitation has expired or was withdrawn' };
+      return { closed: i.declined ? 'You declined this invitation' : 'This invitation has expired or was withdrawn' };
     }
     if (type === 'certificate') {
       const { rows: [c] } = await db.query(`select code, course_title from certificates where code = $1 and user_id = $2 and revoked_at is null`, [id, uid]);

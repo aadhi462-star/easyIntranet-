@@ -184,6 +184,7 @@ function JoinRequests({ reqs, busy, decide }) {
             <Link to={`/people/${r.id}`} className="font-semibold hover:underline">{r.name}</Link>
             <span className="t-small"> · asked {timeAgo(Date.parse(r.updated_at))}</span>
             {r.message && <span className="mt-0.5 block text-sm text-[var(--az-text-2)]">“{r.message}”</span>}
+            {r.answer && <span className="mt-0.5 block text-sm text-[var(--az-text-2)]"><b className="font-semibold text-[var(--az-text)]">{r.joinQuestion ?? 'Answer'}</b> {r.answer}</span>}
           </span>
           <span className="flex gap-2">
             <button type="button" className="btn btn-secondary btn-sm" disabled={busy === r.id} onClick={() => decide(r, false)} aria-label={`Decline ${r.name}`}>Decline</button>

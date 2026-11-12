@@ -10,6 +10,7 @@ import { audit } from './audit.js';
 import { CATEGORIES, categoryOf } from './categories.js';
 import { badRequest, conflict } from './errors.js';
 import { SECTIONS, sectionOn } from './community.js';
+import { convertVersion } from './templates.js';
 
 export const P1 = 'p1-alumnizone-ordinary';
 
@@ -67,6 +68,12 @@ export async function undoDataMigration(db, name) {
         res = await t.query(`update communities set settings = (settings - 'sections') || jsonb_build_object('apps', $2::jsonb), version = version + 1
             where id = $1 and settings->'sections' = $3::jsonb and not (settings ? 'apps') returning id`,
           [r.row_key.id, JSON.stringify(r.before.apps), JSON.stringify(r.after.sections)]);
+      } else if (r.table_name === 'template_versions' && name === F12) {
+        // F12: only if the version hasn't been edited since (a draft can be).
+        res = await t.query(`update template_versions set questionnaire = $3::jsonb, blueprint = $4::jsonb
+            where template_id = $1 and version = $2 and questionnaire = $5::jsonb and blueprint = $6::jsonb returning version`,
+          [r.row_key.template_id, r.row_key.version, JSON.stringify(r.before.questionnaire), JSON.stringify(r.before.blueprint),
+            JSON.stringify(r.after.questionnaire), JSON.stringify(r.after.blueprint)]);
       } else if (r.table_name === 'communities') {
         // D6: only if the Owner hasn't picked another category since.
         res = await t.query(`update communities set category = $2, version = version + 1 where id = $1 and category is not distinct from $3 returning id`,
@@ -180,6 +187,41 @@ export async function convertSectionLists(db) {
         [E2, JSON.stringify({ id: r.id }), JSON.stringify({ apps: r.apps }), JSON.stringify({ sections: r.sections })]);
     }
     await audit(t, { action: 'data_migration.apply', targetType: 'data_migration', targetId: E2, context: { name: E2, ...summary } });
+    return summary;
+  });
+}
+
+// ---- F12 (v2 workstream F, approved 12 Nov 2026): five question types -------------------------
+// Template versions saved before F12 used six question types. Each stored questionnaire (every
+// version, published or draft) is converted, once, by lib/templates.js convertVersion: long_text
+// becomes text, single_choice and multiple_choice become choice, yes_no becomes a choice of Yes
+// and No, and the rules and conditions that used the old answers use the new option values. The
+// version number doesn't change: the questions ask the same things and suggest the same
+// configuration. Every changed row is logged with its old content, so the undo script puts it back.
+export const F12 = 'f12-question-types';
+
+/** Runs F12 once. Returns its summary, or null if it already ran (undone counts as ran). */
+export async function convertQuestionTypes(db) {
+  const { rows: [done] } = await db.query(`select 1 from data_migrations where name = $1`, [F12]);
+  if (done) return null;
+  return db.tx(async (t) => {
+    const { rows } = await t.query(`select template_id, version, questionnaire, blueprint from template_versions order by template_id, version for update`);
+    const changed = [];
+    for (const r of rows) {
+      const after = convertVersion(r.questionnaire, r.blueprint);
+      if (JSON.stringify(after.questionnaire) === JSON.stringify(r.questionnaire) && JSON.stringify(after.blueprint) === JSON.stringify(r.blueprint)) continue;
+      changed.push({ ...r, after });
+    }
+    const summary = { versions: changed.length, templates: new Set(changed.map((r) => r.template_id)).size };
+    await t.query(`insert into data_migrations (name, summary) values ($1, $2)`, [F12, JSON.stringify(summary)]);
+    for (const r of changed) {
+      await t.query(`update template_versions set questionnaire = $3::jsonb, blueprint = $4::jsonb where template_id = $1 and version = $2`,
+        [r.template_id, r.version, JSON.stringify(r.after.questionnaire), JSON.stringify(r.after.blueprint)]);
+      await t.query(`insert into migration_log (migration, table_name, row_key, before, after) values ($1, 'template_versions', $2, $3, $4)`,
+        [F12, JSON.stringify({ template_id: r.template_id, version: r.version }), JSON.stringify({ questionnaire: r.questionnaire, blueprint: r.blueprint }),
+          JSON.stringify({ questionnaire: r.after.questionnaire, blueprint: r.after.blueprint })]);
+    }
+    await audit(t, { action: 'data_migration.apply', targetType: 'data_migration', targetId: F12, context: { name: F12, ...summary } });
     return summary;
   });
 }

@@ -1,54 +1,37 @@
-import { useState } from 'react';
+// The community header menu's "Invite people" dialog (v2 workstream F, F10): adding people
+// directly became an invitation, so this is the same invite form as Manage, Members,
+// Invitations. Nobody joins until they accept.
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../../lib/api.js';
+import { managePath } from '../../lib/manage.js';
 import { useStore } from '../../lib/store.jsx';
-import { Avatar, Modal } from '../ui.jsx';
-import { isActiveUser } from '../people/shared.jsx';
-import { toast } from '../../lib/toast.js';
-import { communityApi } from '../../lib/communities.js';
-import { useChannelSync, useCommunityWrite } from './useCommunity.js';
+import { Modal } from '../ui.jsx';
+import { Skeleton } from '../ui/Controls.jsx';
+import InviteForm from '../invitations/InviteForm.jsx';
+import { roleOf } from './helpers.js';
 
 export default function AddMembers({ group, onClose }) {
-  const { state, dispatch, me } = useStore();
-  const { run } = useCommunityWrite();
-  const channels = useChannelSync();
-  const [q, setQ] = useState('');
-  const [picked, setPicked] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const candidates = state.users.filter((u) => isActiveUser(u) && !group.members.includes(u.id) && `${u.name} ${u.city} ${u.batch}`.toLowerCase().includes(q.toLowerCase()));
-
-  const add = async () => {
-    setBusy(true);
-    const res = await run(group.id, () => communityApi.addMembers(group.id, picked));
-    setBusy(false);
-    if (!res) return;
-    const added = res.added || [];
-    // The server skips people it can't add (inactive accounts, or removed/blocked from here).
-    const skipped = picked.length - added.length;
-    toast(added.length ? `Added ${added.length} ${added.length === 1 ? 'member' : 'members'}${skipped ? `. ${skipped} couldn’t be added.` : ''}` : 'Nobody could be added.', added.length ? 'ok' : 'error');
-    channels.add(group.id, added);
-    added.forEach((userId) => dispatch({ type: 'notify', silent: true, notification: { userId, kind: 'group', text: `${me.name} added you to ${group.name}`, link: `/groups/${group.id}` } }));
-    onClose();
-  };
+  const { me } = useStore();
+  const [ctx, setCtx] = useState(null); // { members, invitations }
+  useEffect(() => {
+    let live = true;
+    const id = encodeURIComponent(group.id);
+    Promise.allSettled([api(`/communities/${id}/members`), api(`/communities/${id}/invitations?status=open`)]).then(([m, i]) => {
+      if (live) setCtx({ members: m.status === 'fulfilled' ? m.value.members : [], invitations: i.status === 'fulfilled' ? i.value.invitations : [] });
+    });
+    return () => { live = false; };
+  }, [group.id]);
+  const myRole = group.adminMode ? 'admin' : (ctx?.members.find((m) => m.id === me.id)?.role ?? roleOf(group, me.id));
 
   return (
-    <Modal title={`Add members to ${group.name}`} onClose={onClose}>
-      <input className="input" type="search" placeholder="Search by name, city or batch" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
-      <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto scroll-thin">
-        {candidates.length === 0 && <li className="p-4 text-center text-sm text-slate-400">Everyone matching is already a member.</li>}
-        {candidates.map((u) => (
-          <li key={u.id}>
-            <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl px-2 hover:bg-white/5">
-              <input type="checkbox" className="accent-brand-500" checked={picked.includes(u.id)}
-                onChange={() => setPicked(picked.includes(u.id) ? picked.filter((x) => x !== u.id) : [...picked, u.id])} />
-              <Avatar user={u} size={32} />
-              <span className="text-sm"><b>{u.name}</b><span className="block text-xs text-slate-400">{u.batch} · {u.city}</span></span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 flex justify-end gap-2">
-        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" disabled={!picked.length || busy} onClick={add}>Add {picked.length || ''}</button>
-      </div>
+    <Modal title={`Invite people to ${group.name}`} onClose={onClose} wide>
+      <p className="text-2 mb-4 text-sm">Each person gets an invitation by notification or email. Nobody joins until they accept. You can follow every invitation in <Link className="link" to={`${managePath(group, 'members')}?view=invitations`} onClick={onClose}>Manage, Members, Invitations</Link>.</p>
+      {group.adminMode ? (
+        <p className="notice notice-info">You’re viewing in Administrative Mode. Only the community’s Owners and Admins send invitations.</p>
+      ) : !ctx ? <Skeleton lines={4} label="Loading" /> : (
+        <InviteForm g={group} me={me} myRole={myRole} members={ctx.members} invitations={ctx.invitations} onCancel={onClose} idPrefix="invite-dialog" />
+      )}
     </Modal>
   );
 }

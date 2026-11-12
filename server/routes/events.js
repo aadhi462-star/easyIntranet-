@@ -10,6 +10,7 @@ import { idempotent } from '../lib/session.js';
 import { notBlockedSql } from '../lib/relations.js';
 import { isValidTimeZone, nextOccurrence, seriesEnd } from '../../shared/recurrence.js';
 import { notify } from '../lib/notify.js';
+import { pickCategory } from '../lib/categories.js';
 
 export const EVENT_TYPES = ['Meetup', 'Reunion', 'Conference', 'Contest', 'Webinar', 'ShowTime', 'Meeting'];
 const REMINDERS = [5, 15, 30, 60, 120, 1440, 10080];
@@ -36,6 +37,8 @@ export const timing = (r) => ({
 const FIELDS = {
   type: 'object', additionalProperties: false, properties: {
     title: { type: 'string' }, description: { type: ['string', 'null'] }, eventType: { type: 'string', enum: EVENT_TYPES },
+    // F13: one of the community's event categories (settings.eventCategories), or null.
+    category: { type: ['string', 'null'], maxLength: 80 },
     start: { type: 'string' }, end: { type: 'string' }, allDay: { type: 'boolean' }, timezone: { type: 'string' },
     location: { type: ['string', 'null'] }, inviteOnly: { type: 'boolean' }, rsvpEnabled: { type: 'boolean' },
     capacity: { type: ['integer', 'null'] }, rsvpDeadline: { type: ['string', 'null'] },
@@ -160,7 +163,7 @@ export async function presentEvents(db, req, rows, accessById, now = Date.now())
     return {
       id: e.id, communityId: e.community_id,
       community: community[e.community_id] ? { id: e.community_id, name: community[e.community_id].name, emoji: community[e.community_id].emoji, visibility: community[e.community_id].visibility } : null,
-      title: e.title, description: e.description, eventType: e.event_type,
+      title: e.title, description: e.description, eventType: e.event_type, category: e.category ?? null,
       start: new Date(e.start_at).toISOString(), end: new Date(e.end_at).toISOString(), allDay: e.all_day, timezone: e.timezone,
       location: e.location, recurrence: e.recurrence, inviteOnly: e.invite_only, rsvpEnabled: e.rsvp_enabled,
       capacity: e.capacity, rsvpDeadline: e.rsvp_deadline ? new Date(e.rsvp_deadline).toISOString() : null, reminders: e.reminders,
@@ -290,6 +293,7 @@ export default async function eventRoutes(app, { ctx }) {
       if (!a.canParticipate) throw forbidden(a.state === 'restricted' ? 'You’ve been restricted from taking part here.' : 'Join this community to create events in it.', 'CANNOT_POST');
       requireSection(a, 'events', { write: true });
       const v = readEvent(req.body);
+      const category = pickCategory(req.body.category, a.community.settings?.eventCategories, { label: 'event category' });
       // Communities can keep open events to admins; any member may still arrange an
       // invite-only event with other members (the prototype's "invited members only").
       if (a.community.settings?.whoCanCreateEvents === 'admins' && !a.canAdmin && !v.inviteOnly) {
@@ -301,10 +305,10 @@ export default async function eventRoutes(app, { ctx }) {
       const id = newId('evt');
       await db.tx(async (t) => {
         await t.query(`insert into events (id, community_id, host_id, title, description, event_type, start_at, end_at, all_day, timezone, location,
-            recurrence, invite_only, rsvp_enabled, capacity, rsvp_deadline, reminders)
-          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+            recurrence, invite_only, rsvp_enabled, capacity, rsvp_deadline, reminders, category)
+          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
         [id, a.community.id, req.user.id, v.title, v.description, v.eventType, v.start, v.end, v.allDay, v.timezone, v.location,
-          JSON.stringify(v.recurrence), v.inviteOnly, v.rsvpEnabled, v.capacity, v.rsvpDeadline, v.reminders]);
+          JSON.stringify(v.recurrence), v.inviteOnly, v.rsvpEnabled, v.capacity, v.rsvpDeadline, v.reminders, category]);
         for (const u of assistants) await t.query(`insert into event_staff (event_id, user_id) values ($1, $2)`, [id, u]);
         for (const u of invitees) await t.query(`insert into event_invitees (event_id, user_id) values ($1, $2)`, [id, u]);
       });
@@ -322,6 +326,9 @@ export default async function eventRoutes(app, { ctx }) {
     if (e.status === 'cancelled') throw conflict('CANCELLED', 'This event was cancelled, so it can’t be edited.');
     if (!a.canComment) throw forbidden('You can’t take part in this community right now.', 'READ_ONLY');
     const v = readEvent(req.body, e);
+    // An unchanged older category is kept even if the community's list no longer has it.
+    const category = 'category' in req.body
+      ? pickCategory(req.body.category, a.community.settings?.eventCategories, { previous: e.category, label: 'event category' }) : e.category;
     const q = (s, p) => db.query(s, p);
     let assistants = null;
     if ('assistants' in req.body) {
@@ -332,10 +339,10 @@ export default async function eventRoutes(app, { ctx }) {
     const rows = await db.tx(async (t) => {
       const res = await t.query(`update events set title = $3, description = $4, event_type = $5, start_at = $6, end_at = $7, all_day = $8, timezone = $9,
           location = $10, recurrence = $11, invite_only = $12, rsvp_enabled = $13, capacity = $14, rsvp_deadline = $15, reminders = $16,
-          updated_at = now(), version = version + 1
+          category = $17, updated_at = now(), version = version + 1
         where id = $1 and version = $2 and status = 'scheduled' and deleted_at is null returning *`,
       [e.id, req.body.version, v.title, v.description, v.eventType, v.start, v.end, v.allDay, v.timezone, v.location,
-        JSON.stringify(v.recurrence), v.inviteOnly, v.rsvpEnabled, v.capacity, v.rsvpDeadline, v.reminders]);
+        JSON.stringify(v.recurrence), v.inviteOnly, v.rsvpEnabled, v.capacity, v.rsvpDeadline, v.reminders, category]);
       if (!res.rows.length) return res.rows;
       if (assistants) {
         await t.query(`delete from event_staff where event_id = $1`, [e.id]);

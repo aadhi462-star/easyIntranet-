@@ -26,6 +26,7 @@ import ModerationCentre from '../components/platform/ModerationCentre.jsx';
 import ActivityLog from '../components/platform/ActivityLog.jsx';
 import PlatformAnalytics from '../components/platform/PlatformAnalytics.jsx';
 import PlatformSettings, { Announcements, Institutions, RolesMatrix } from '../components/platform/PlatformSettings.jsx';
+import Templates from '../components/platform/Templates.jsx';
 
 const OLDER = 'Older tools · this browser only';
 const TABS = [
@@ -38,6 +39,8 @@ const TABS = [
   { id: 'analytics', label: 'Analytics', el: PlatformAnalytics, perm: 'admin.analytics' },
   { id: 'settings', label: 'Settings', el: PlatformSettings, group: 'Platform' },
   { id: 'roles', label: 'Roles and permissions', el: RolesMatrix, group: 'Platform' },
+  // Workstream F (F11): Platform Admins and Community Managers, who hold the communities permission.
+  { id: 'templates', label: 'Templates', el: Templates, group: 'Platform', perm: 'communities.manage' },
   { id: 'announcements', label: 'Announcements', el: Announcements, group: 'Platform' },
   { id: 'institutions', label: 'Institutions', el: Institutions, group: 'Platform' },
   { id: 'policies', label: 'Policies', icon: 'list', el: Policies, group: OLDER },

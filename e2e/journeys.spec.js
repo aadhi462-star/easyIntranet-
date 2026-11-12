@@ -32,8 +32,10 @@ test('a member joins a Public community and posts in it', async ({ page }, info)
   await page.goto(`/#/c/${target.slug}/discussions`);
   const text = `Hello from the ${info.project.name} journey ${Date.now()}`;
   // Desktop shows the composer open; phones fold it into "Write a post" (board V2EDiscussions).
-  const fold = page.getByRole('button', { name: /^Write a post/ });
-  if (await fold.count()) await fold.first().click();
+  const fold = page.getByRole('button', { name: /^Write a post/ }).first();
+  const field = page.getByLabel('Post text');
+  await expect(field.or(fold)).toBeVisible(); // wait for Discussions to load before deciding
+  if (await fold.isVisible()) await fold.click();
   await page.getByLabel('Post text').fill(text);
   await page.getByRole('button', { name: /^(Post|Publish)/ }).last().click();
   await expect(page.getByText(text)).toBeVisible();

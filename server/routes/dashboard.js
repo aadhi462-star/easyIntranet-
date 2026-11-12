@@ -9,7 +9,7 @@ import { listEvents } from './events.js';
 const DAY = 864e5;
 // Open community invitations for this account, one per community (the newest), exactly as
 // GET /me/invitations in routes/invitations.js picks them.
-const OPEN_INVITE = `i.accepted_at is null and i.revoked_at is null and i.superseded_at is null`;
+const OPEN_INVITE = `i.accepted_at is null and i.revoked_at is null and i.superseded_at is null and i.declined_at is null`;
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 
 export default async function dashboardRoutes(app, { ctx }) {

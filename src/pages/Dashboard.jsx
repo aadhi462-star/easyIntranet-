@@ -425,7 +425,7 @@ function FirstRun({ me, d }) {
           <section aria-labelledby="own-h" className="panel flex flex-col items-start gap-2 p-5">
             <h2 id="own-h" className="t-h3">Start your own community</h2>
             <p className="text-sm text-[var(--az-text-2)]">Choose its name, category and who can join. You become its Owner.</p>
-            <Link to="/communities?new=1" className="btn btn-secondary btn-sm mt-1">Create Community</Link>
+            <Link to="/communities/new" className="btn btn-secondary btn-sm mt-1">Create Community</Link>
           </section>
         )}
         <section aria-labelledby="prof-h" className="panel flex flex-col items-start gap-2 p-5">

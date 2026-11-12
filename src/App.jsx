@@ -46,6 +46,8 @@ window.addEventListener('load', () => { setTimeout(() => { try { sessionStorage.
 
 const Welcome = page('Welcome');
 const ForgotPage = page('Forgot');
+const InvitationPage = page('InvitationPage');
+const CreateCommunity = page('CreateCommunity');
 
 function Missing({ name }) {
   return <div className="glass p-8 text-slate-300">The <b>{name}</b> module isn’t available yet.</div>;
@@ -90,7 +92,7 @@ function Protected({ children }) {
 function GroupsRedirect() {
   const q = new URLSearchParams(useLocation().search);
   if (q.get('tab') === 'discover') { q.delete('tab'); return <Navigate to={`/explore${q.size ? `?${q}` : ''}`} replace />; }
-  return <Navigate to={q.get('new') === '1' ? '/communities?new=1' : '/communities'} replace />;
+  return <Navigate to={q.get('new') === '1' ? '/communities/new' : '/communities'} replace />;
 }
 
 const CertificatePage = page('Verify');
@@ -133,6 +135,9 @@ export default function App() {
         <Route path="/reset" element={<ResetPassword />} />
         <Route path="/forgot" element={<Suspense fallback={null}><ForgotPage /></Suspense>} />
         <Route path="/confirm-email" element={<ConfirmEmail />} />
+        {/* v2 F: an invitation link works signed in or out; creation is its own focused page (F1). */}
+        <Route path="/invite/c/:token" element={<Suspense fallback={null}><InvitationPage /></Suspense>} />
+        <Route path="/communities/new" element={<Protected><Suspense fallback={null}><CreateCommunity /></Suspense></Protected>} />
         <Route element={<Protected><Layout /></Protected>}>
           {/* Old addresses keep working (D11). */}
           <Route path="/dashboard" element={<Navigate to="/home" replace />} />

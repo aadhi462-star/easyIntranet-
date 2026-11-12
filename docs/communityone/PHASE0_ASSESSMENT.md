@@ -1249,3 +1249,48 @@ The boards were approved as drawn (E1–E13: the user said "start" on the unchan
   - A removed post vanishes from a moderator's list until reload.
   - The Manage link next to a member doesn't jump to that person.
   - Older classes remain in Report.jsx, the general Feed page, Settings outside the Sections panel, and the parked Town Hall and Live parts.
+
+### v2 — Workstream F: creation, templates and invitations (12 Nov 2026)
+
+The boards were approved as drawn (F1–F14: the user said "start" on the unchanged boards). Where the server built in the parallel round differed from the board, the board won: F12's five question types, and TPL-02 accepting an older published version.
+
+- **Server (agent 1):**
+  - Five question types: text, list, choice (with `multiple`), years and institution. `f12-question-types` converts the stored questionnaires (logged, undoable, runs at start).
+  - Slots are written `{key}`. A sentence whose slot is empty is left out whole.
+  - Any published version can be suggested from and published with. A draft or unknown version answers TEMPLATE_VERSION_UNKNOWN.
+  - `POST /communities/validate` runs every create check and writes nothing.
+  - Invitations can be declined (by token, signed out too, and from `/me`).
+  - `POST /communities/:id/members` now sends invitations (F10).
+  - Migration 019: an event category, `settings.eventCategories`, and resource categories from the community's list. It also adds the decline columns and `memberships.join_answer`.
+  - `settings.audience` and `settings.joinQuestion`; the join route takes an `answer`.
+  - Members filters: `?gradYear=&department=`, returning `filters`.
+- **Creation wizard (agent 2):** `/communities/new` with Choose, Questions, Configure, Preview and Publish. The draft lives in localStorage under its own id. Validate runs before the single, repeat-safe publish, and logo and cover upload after it.
+- **Invitations and categories (agent 3):**
+  - Manage → Members → Invitations.
+  - "Invite people" replaces Add members.
+  - The invitation page `/invite/c/:token`.
+  - Decline in My Communities.
+  - Event and resource category editors, and category pickers.
+  - Alumni filters in Members.
+- **Template administration (agent 4):** Platform Admin → Templates, with the list, a questions editor, a blueprint editor, save (revision-checked), publish with the server's problems shown by field, deactivate and activate, version history, and the phone list only (F14).
+- **Mine:**
+  - The routes, and every Create Community link pointing at `/communities/new`.
+  - Join text switched on in the wizard.
+  - Community Managers hold `templates.manage` (F11, test updated).
+  - The join question is asked with a Private request (`JoinButton`), answers show on join requests, and "Who this is for" shows in About.
+  - Event categories reach the server (`toServer`).
+  - The `e2e/create.spec.js` journeys.
+  - `RATE_LIMITS=off` for the e2e server only (production ignores it), because the suite signs in more than the login limit allows.
+- **Checked:**
+  - Full `npm run test:server`: 413 of 413.
+  - `npm run test:e2e`: 23 passed, 1 skipped, including both creation journeys at both widths.
+  - `vite build` passes.
+  - Each agent checked its screens against a real server. My own browser check was cut short: the shared browser pane was in use.
+- **Not done:**
+  - Discarding a template draft and deleting a template (no route).
+  - The list of communities made from each version (only counts are shown).
+  - A typed-in institution that isn't on the list isn't sent.
+  - Explore's Request to join doesn't ask the join question; it's asked from the community page and the welcome steps.
+  - Community Managers can't open Administration in the web app yet (`me.admin` only covers Platform and Super Admins; workstream G).
+  - The seed doesn't record template ids on demo communities.
+  - `mergeCommunity` still adds members directly. It's only used by the seed's All Hands merge.

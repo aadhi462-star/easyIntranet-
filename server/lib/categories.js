@@ -24,3 +24,22 @@ export function checkCategory(input, { current } = {}) {
   }
   throw badRequest('INVALID_CATEGORY', `Choose a category: ${CATEGORIES.join(', ')}.`, { field: 'category', categories: CATEGORIES });
 }
+
+/**
+ * A category for an event or resource, checked against the community's list (F13). `list` is the
+ * community's list; `previous` the stored value, which an edit may keep even if the list has
+ * changed since. `other` also allows "Other". Returns the stored spelling, or null.
+ */
+export function pickCategory(input, list, { previous = null, other = false, label = 'category' } = {}) {
+  if (input == null) return null;
+  const s = String(input).trim().replace(/\s+/g, ' ');
+  if (!s) return null;
+  if (previous != null && s === previous) return previous;
+  const allowed = [...(Array.isArray(list) ? list : []), ...(other ? ['Other'] : [])];
+  const hit = allowed.find((x) => x.toLowerCase() === s.toLowerCase());
+  if (!hit) {
+    const message = allowed.length ? `Choose a ${label} from this community’s list: ${allowed.join(', ')}.` : `This community has no ${label} list yet.`;
+    throw badRequest('INVALID_CATEGORY', message, { field: 'category', categories: allowed });
+  }
+  return hit;
+}

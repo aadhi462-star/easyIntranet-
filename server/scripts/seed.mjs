@@ -11,7 +11,7 @@ import { migrate } from '../db/migrate.js';
 import { hashPassword } from '../lib/crypto.js';
 import { mergeCommunity } from '../lib/merge.js';
 import { pickAccent } from '../lib/community.js';
-import { convertSectionLists, retireDefaultCommunity } from '../lib/data-migrations.js';
+import { convertQuestionTypes, convertSectionLists, retireDefaultCommunity } from '../lib/data-migrations.js';
 
 export const DEV_PASSWORD = 'Community-Demo-2026';
 // The demo passwords are published in DEMO_ACCOUNTS.md, so a production seed must never use them:
@@ -59,6 +59,9 @@ export async function runSeed(database, { log = console.log } = {}) {
   // E2 (v2 workstream E): stored module lists become section switches. Runs once, logged, undoable.
   const e2 = await convertSectionLists(db);
   if (e2) log('E2: module lists converted to sections', e2);
+  // F12 (v2 workstream F): stored questionnaires use the five question types. Once, logged, undoable.
+  const f12 = await convertQuestionTypes(db);
+  if (f12?.versions) log('F12: template questionnaires converted', f12);
   return true;
 }
 

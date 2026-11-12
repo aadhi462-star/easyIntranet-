@@ -361,3 +361,14 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | UX-06 | P2 | All | User submits a form with errors across multiple steps. | Preserve valid entries, identify each error and return focus to the relevant field. | Not run | |
 | UX-07 | P0 | All | Destructive action confirmation is vague or does not identify target. | State the exact community/content/action and consequence before confirmation. | Not run | |
 | UX-08 | P2 | All | Loading state persists after a failed request. | Resolve to a clear error/retry state and avoid leaving controls permanently disabled. | Not run | |
+
+## Templates (v2 workstream F)
+
+| ID | Pri | Phase | Scenario | Expected behaviour | Status | Evidence |
+| --- | --- | --- | --- | --- | --- | --- |
+| TPL-01 | P1 | F | A template is deactivated while someone is creating from it. | Publish refuses the template; the configuration is kept and can be published without it. | Pass | server/test/templates.test.js TPL-01; the wizard offers "Publish without the template" |
+| TPL-02 | P1 | F | A new template version is published. | Existing communities don't change; drafts started on the old version can still publish with it. | Pass | server/test/templates.test.js TPL-02 |
+| TPL-03 | P1 | F | Two communities are made from one template. | They share nothing; changing one never changes the other. | Pass | server/test/templates.test.js COM-12 / TPL-03 |
+| TPL-04 | P2 | F | An answer changes after fields were edited in Configure. | Only fields not edited are updated. | Pass | client: src/components/create/draft.js (edited fields kept); checked by hand by the wizard's author, no automated test |
+| TPL-05 | P1 | F | A blueprint uses a slot no question fills, or an invalid value. | Publishing the version is refused, naming the problem. | Pass | server/test/templates.test.js TPL-05 |
+| TPL-06 | P1 | F | Two staff edit the same template draft. | The second save is refused as stale (version check). | Pass | server/test/templates.test.js TPL-06 |

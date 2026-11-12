@@ -34,7 +34,7 @@ export function fromServer(e) {
 export function toServer(f) {
   const out = {};
   const iso = (t) => new Date(t).toISOString();
-  for (const k of ['title', 'description', 'eventType', 'allDay', 'location', 'inviteOnly', 'rsvpEnabled', 'capacity', 'reminders', 'assistants', 'invitees', 'timezone']) {
+  for (const k of ['title', 'description', 'eventType', 'allDay', 'location', 'inviteOnly', 'rsvpEnabled', 'capacity', 'reminders', 'assistants', 'invitees', 'timezone', 'category']) {
     if (k in f) out[k] = f[k];
   }
   if ('start' in f) out.start = iso(f.start);

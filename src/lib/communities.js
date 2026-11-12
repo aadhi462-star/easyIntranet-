@@ -20,7 +20,7 @@ export const visibilityOf = (accessType) => TO_VISIBILITY[accessType] ?? 'public
 
 // Screen settings stored on the community. A key the server doesn't have is left out, so a
 // community seeded without it keeps the local value; null on the server clears it.
-const SETTING_FIELDS = ['apps', 'dashboard', 'guidelines', 'dynamicRule', 'announceOnly', 'allHands', 'requireApproval'];
+const SETTING_FIELDS = ['apps', 'dashboard', 'guidelines', 'dynamicRule', 'announceOnly', 'allHands', 'requireApproval', 'audience', 'joinQuestion'];
 
 const enc = encodeURIComponent;
 
@@ -75,9 +75,12 @@ export function toLocalGroup(c, { members, membership = c.membership ?? null, pe
   if (requests) {
     out.joinRequests = requests.map((r) => r.id);
     out.requestNotes = Object.fromEntries(requests.filter((r) => r.message).map((r) => [r.id, r.message]));
+    // F7: the answer to the community's join question.
+    out.requestAnswers = Object.fromEntries(requests.filter((r) => r.answer).map((r) => [r.id, r.answer]));
   } else {
     out.joinRequests = membership?.state === 'pending' && me ? [me] : [];
     out.requestNotes = {};
+    out.requestAnswers = {};
   }
   return out;
 }
@@ -164,7 +167,8 @@ const dedupe = (list) => [...new Map(list.map((x) => [x.id, x])).values()];
 export const communityApi = {
   create: (body) => api('/communities', { method: 'POST', body, idempotent: true }),
   update: (id, body) => api(`/communities/${enc(id)}`, { method: 'PATCH', body }),
-  join: (id, message) => api(`/communities/${enc(id)}/join`, { method: 'POST', body: message ? { message } : {} }),
+  // `answer`: to the community's join question, sent with a Private request (F7).
+  join: (id, message, answer) => api(`/communities/${enc(id)}/join`, { method: 'POST', body: { ...(message ? { message } : {}), ...(answer ? { answer } : {}) } }),
   leave: (id) => api(`/communities/${enc(id)}/leave`, { method: 'POST', body: {} }),
   decide: (id, userId, approve) => api(`/communities/${enc(id)}/requests/${enc(userId)}/${approve ? 'approve' : 'decline'}`, { method: 'POST', body: {} }),
   addMembers: (id, userIds) => api(`/communities/${enc(id)}/members`, { method: 'POST', body: { userIds } }),

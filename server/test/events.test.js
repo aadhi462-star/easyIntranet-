@@ -297,3 +297,70 @@ describe('member dashboard', () => {
     assert.ok(!(await c.out.get('/api/dashboard')).body.upcomingEvents.some((x) => x.id === soon.id), 'outsiders see only their own communities');
   });
 });
+
+describe('event and resource categories (F13)', () => {
+  const setLists = async (settings) => {
+    const v = (await c.own.get('/api/communities/pri')).body.community.version;
+    const res = await c.own.patch('/api/communities/pri', { version: v, settings });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  };
+
+  test('F13 community settings keep up to 12 event categories of up to 40 characters', async () => {
+    const v = (await c.own.get('/api/communities/pri')).body.community.version;
+    for (const eventCategories of [Array.from({ length: 13 }, (_, i) => `Kind ${i}`), ['x'.repeat(41)], ['Talks', 'talks'], 'Talks']) {
+      assert.equal((await c.own.patch('/api/communities/pri', { version: v, settings: { eventCategories } })).body.error.code, 'INVALID_INPUT');
+    }
+    await setLists({ eventCategories: [' Talks ', 'Reunions'], resourceCategories: ['Guides', 'Slides'] });
+    assert.deepEqual((await c.own.get('/api/communities/pri')).body.community.settings.eventCategories, ['Talks', 'Reunions']);
+  });
+
+  test('F13 an event category comes from the community list (or none); lists return it; an older value survives edits', async () => {
+    const made = await create('mem', 'pri', { title: 'Panel night', category: 'talks' });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    assert.equal(made.body.event.category, 'Talks', 'stored with the list’s spelling');
+    const bad = await create('mem', 'pri', { category: 'Picnics' });
+    assert.equal(bad.status, 400);
+    assert.equal(bad.body.error.code, 'INVALID_CATEGORY');
+    assert.deepEqual(bad.body.error.categories, ['Talks', 'Reunions']);
+    assert.equal((await create('mem', 'pri', { category: null })).body.event.category, null);
+    assert.equal((await create('mem', 'pub', { category: 'Talks' })).body.error.code, 'INVALID_CATEGORY', 'a community without a list takes none');
+    const listed = (await c.mem.get('/api/events?community=pri')).body.events.find((e) => e.id === made.body.event.id);
+    assert.equal(listed.category, 'Talks');
+    assert.equal((await c.mem.get(`/api/events/${made.body.event.id}`)).body.event.category, 'Talks');
+    // The list changes; the event keeps its category through an unrelated edit and an unchanged one.
+    await setLists({ eventCategories: ['Reunions'] });
+    const id = made.body.event.id;
+    let e = (await c.mem.patch(`/api/events/${id}`, { version: 1, title: 'Panel night two' })).body.event;
+    assert.equal(e.category, 'Talks');
+    e = (await c.mem.patch(`/api/events/${id}`, { version: e.version, category: 'Talks' })).body.event;
+    assert.equal(e.category, 'Talks');
+    assert.equal((await c.mem.patch(`/api/events/${id}`, { version: e.version, category: 'Picnics' })).body.error.code, 'INVALID_CATEGORY');
+    e = (await c.mem.patch(`/api/events/${id}`, { version: e.version, category: 'Reunions' })).body.event;
+    assert.equal(e.category, 'Reunions');
+    assert.equal((await c.mem.patch(`/api/events/${id}`, { version: e.version, category: 'Talks' })).body.error.code, 'INVALID_CATEGORY', 'once changed, the old value is gone');
+    e = (await c.mem.patch(`/api/events/${id}`, { version: e.version, category: null })).body.event;
+    assert.equal(e.category, null);
+  });
+
+  test('F13 with a resource category list, a resource uses one of it or Other; an older value survives edits; without a list it stays free text', async () => {
+    const add = (cid, body) => c.own.post(`/api/communities/${cid}/resources`, { title: 'Handbook', url: 'https://example.org/h', ...body });
+    const r = await add('pri', { category: 'guides' });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.equal(r.body.resource.category, 'Guides');
+    assert.equal((await add('pri', { category: 'other' })).body.resource.category, 'Other');
+    const bad = await add('pri', { category: 'Recipes' });
+    assert.equal(bad.body.error.code, 'INVALID_CATEGORY');
+    assert.deepEqual(bad.body.error.categories, ['Guides', 'Slides', 'Other']);
+    assert.equal((await add('pub', { category: 'Anything goes' })).body.resource.category, 'Anything goes');
+    const lib = (await c.own.get('/api/communities/pri/resources')).body;
+    assert.deepEqual(lib.categoryOptions, ['Guides', 'Slides']);
+    assert.ok(lib.resources.every((x) => 'category' in x));
+    // An older value (saved before the list, here written directly) can stay on edit.
+    await q(`update resources set category = 'Old notes' where id = $1`, [r.body.resource.id]);
+    let x = (await c.own.patch(`/api/resources/${r.body.resource.id}`, { version: 1, title: 'Handbook v2' })).body.resource;
+    assert.equal(x.category, 'Old notes');
+    x = (await c.own.patch(`/api/resources/${r.body.resource.id}`, { version: x.version, category: 'Old notes' })).body.resource;
+    assert.equal(x.category, 'Old notes');
+    assert.equal((await c.own.patch(`/api/resources/${r.body.resource.id}`, { version: x.version, category: 'Other notes' })).body.error.code, 'INVALID_CATEGORY');
+  });
+});

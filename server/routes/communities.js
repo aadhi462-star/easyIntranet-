@@ -115,7 +115,12 @@ export default async function communityRoutes(app, { ctx }) {
     const n = (await db.query(`select count(*)::int as n from memberships m join users u on u.id = m.user_id
       where m.community_id = $1 and m.state in ('active', 'restricted') and u.status = 'active'`, [a.community.id])).rows[0].n;
     return {
-      community: publicCommunity(a.community, { memberCount: n, version: a.community.version, settings: a.canView ? a.community.settings : undefined }),
+      community: {
+        ...publicCommunity(a.community, { memberCount: n, version: a.community.version, settings: a.canView ? a.community.settings : undefined }),
+        // The join screen's "Who this is for" line and a Private community's join question (F7):
+        // shown to people who can't open the community yet, too.
+        audience: a.community.settings?.audience ?? null, joinQuestion: a.community.settings?.joinQuestion ?? null,
+      },
       // Which sections are switched on (settings.apps, lib/community.js sectionOn).
       sections: sectionsOf(a.community),
       membership: a.state ? { state: a.state, role: a.role, joinedAt: a.joinedAt } : null,
@@ -124,8 +129,17 @@ export default async function communityRoutes(app, { ctx }) {
     };
   });
 
+  // The member list. Optional filters (the alumni directory, from workstream A): `gradYear` and
+  // `department` (a department id or name) match one education entry of a member's profile. A
+  // member's education is used, and returned, only when their profile shows in the directory (or
+  // it's the viewer's own): each row then has `gradYear` and `department` ({ id, name }) from the
+  // main entry, and `education` with every entry; otherwise those are null. `filters` lists the
+  // years and departments of the members shown, for the menus.
   app.get('/communities/:id/members', async (req) => {
     const a = requireView(await access(db, req, req.params.id));
+    const gradYear = req.query.gradYear == null || req.query.gradYear === '' ? null : Number(req.query.gradYear);
+    if (gradYear != null && !(Number.isInteger(gradYear) && gradYear >= 1950 && gradYear <= 2100)) throw badRequest('INVALID_INPUT', 'Choose a graduation year between 1950 and 2100.', { field: 'gradYear' });
+    const department = req.query.department ? String(req.query.department).trim().slice(0, 120).toLowerCase() : null;
     // Restricted members are members (they can read), so they're listed with their state;
     // moderators also see removed and blocked people so those decisions can be reversed.
     const states = a.canModerate ? ['active', 'restricted', 'removed', 'blocked'] : ['active', 'restricted'];
@@ -135,10 +149,33 @@ export default async function communityRoutes(app, { ctx }) {
               case when $3 then greatest(
                 (select max(p.published_at) from posts p where p.community_id = $1 and p.author_id = m.user_id and p.status = 'published'),
                 (select max(c.created_at) from comments c join posts p on p.id = c.post_id where p.community_id = $1 and c.author_id = m.user_id)) end as last_active,
-              case when $3 and m.state = 'restricted' then (select max(s.until) from sanctions s where s.community_id = $1 and s.user_id = m.user_id and s.kind = 'restrict' and s.lifted_at is null) end as restricted_until
-         from memberships m join users u on u.id = m.user_id
-        where m.community_id = $1 and m.state = any($2) and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id, states, a.canModerate]);
-    return { members: rows };
+              case when $3 and m.state = 'restricted' then (select max(s.until) from sanctions s where s.community_id = $1 and s.user_id = m.user_id and s.kind = 'restrict' and s.lifted_at is null) end as restricted_until,
+              case when coalesce(pr.directory_visible, true) or m.user_id = $4 then coalesce((select json_agg(json_build_object(
+                  'gradYear', e.grad_year, 'departmentId', e.department_id, 'department', d.name, 'institutionId', e.institution_id, 'institution', i.name, 'isPrimary', e.is_primary)
+                  order by e.is_primary desc, e.position)
+                from education e join institutions i on i.id = e.institution_id left join departments d on d.id = e.department_id where e.user_id = m.user_id), '[]') end as education
+         from memberships m join users u on u.id = m.user_id left join profiles pr on pr.user_id = m.user_id
+        where m.community_id = $1 and m.state = any($2) and u.status = 'active' order by m.role = 'owner' desc, u.name`, [a.community.id, states, a.canModerate, req.user.id]);
+    const years = new Set(); const departments = new Map();
+    for (const r of rows) {
+      for (const e of r.education ?? []) {
+        if (e.gradYear != null) years.add(e.gradYear);
+        if (e.departmentId) departments.set(e.departmentId, e.department);
+      }
+    }
+    const inDept = (e) => !department || e.departmentId?.toLowerCase() === department || e.department?.toLowerCase() === department;
+    const match = (r) => (gradYear == null && !department) || (r.education ?? []).some((e) => (gradYear == null || e.gradYear === gradYear) && inDept(e));
+    const shape = (r) => {
+      const main = r.education?.[0] ?? null;
+      return { ...r, gradYear: main?.gradYear ?? null, department: main?.departmentId ? { id: main.departmentId, name: main.department } : null };
+    };
+    return {
+      members: rows.filter(match).map(shape),
+      filters: {
+        gradYears: [...years].sort((x, y) => y - x),
+        departments: [...departments].map(([id, name]) => ({ id, name })).sort((x, y) => x.name.localeCompare(y.name)),
+      },
+    };
   });
 
   // Join: Public → member at once; Private → a request; Closed → needs an invitation (VIS-03).
@@ -158,11 +195,16 @@ export default async function communityRoutes(app, { ctx }) {
     if (c.visibility === 'closed') throw forbidden('This community is invitation-only.', 'INVITE_ONLY');
     const state = c.visibility === 'public' ? 'active' : 'pending';
     const message = String(req.body?.message ?? '').trim().slice(0, 500) || null;
+    // F7: the answer to the community's join question, kept with a Private request.
+    const rawAnswer = req.body?.answer;
+    if (rawAnswer != null && typeof rawAnswer !== 'string') throw badRequest('INVALID_INPUT', 'Answer the question in words.', { field: 'answer' });
+    const answer = state === 'pending' && c.settings?.joinQuestion ? (String(rawAnswer ?? '').trim() || null) : null;
+    if (answer && answer.length > 500) throw badRequest('TOO_LONG', 'Keep your answer under 500 characters.', { field: 'answer' });
     await db.query(
-      `insert into memberships (community_id, user_id, role, state, request_message, joined_at) values ($1, $2, 'member', $3, $4, case when $3 = 'active' then now() end)
-       on conflict (community_id, user_id) do update set state = excluded.state, request_message = excluded.request_message,
+      `insert into memberships (community_id, user_id, role, state, request_message, join_answer, joined_at) values ($1, $2, 'member', $3, $4, $5, case when $3 = 'active' then now() end)
+       on conflict (community_id, user_id) do update set state = excluded.state, request_message = excluded.request_message, join_answer = excluded.join_answer,
          joined_at = excluded.joined_at, role = 'member', updated_at = now()
-       where memberships.state in ('left', 'invited') or (memberships.state = 'removed' and memberships.updated_at <= now() - interval '${REJOIN_COOLDOWN}')`, [c.id, uid, state, message]);
+       where memberships.state in ('left', 'invited') or (memberships.state = 'removed' and memberships.updated_at <= now() - interval '${REJOIN_COOLDOWN}')`, [c.id, uid, state, message, answer]);
     await audit(db, { actorId: uid, action: state === 'active' ? 'community.join' : 'community.request', targetType: 'community', targetId: c.id, ip: req.ip });
     const now = (await db.query(`select state, role, updated_at from memberships where community_id = $1 and user_id = $2`, [c.id, uid])).rows[0];
     // A new request tells the community's admins (once per request).
@@ -192,9 +234,9 @@ export default async function communityRoutes(app, { ctx }) {
   app.get('/communities/:id/requests', async (req) => {
     const a = await access(db, req, req.params.id);
     if (!a.canAdmin) throw forbidden();
-    const { rows } = await db.query(`select m.user_id as id, u.name, m.request_message as message, m.updated_at from memberships m join users u on u.id = m.user_id
+    const { rows } = await db.query(`select m.user_id as id, u.name, m.request_message as message, m.join_answer as answer, m.updated_at from memberships m join users u on u.id = m.user_id
       where m.community_id = $1 and m.state = 'pending' and u.status = 'active' order by m.updated_at`, [a.community.id]);
-    return { requests: rows };
+    return { requests: rows, joinQuestion: a.community.settings?.joinQuestion ?? null };
   });
 
   // The owner's and admins' view of how the community is doing (refined designs, role views):
@@ -279,15 +321,17 @@ export default async function communityRoutes(app, { ctx }) {
   });
 
   // Create (COM-05/06: idempotent; COM-01: duplicate names refused). The creator becomes owner.
-  app.post('/communities', {
-    schema: { body: { type: 'object', required: ['name', 'visibility'], additionalProperties: false, properties: {
-      name: { type: 'string' }, description: { type: ['string', 'null'] }, category: { type: ['string', 'null'] }, emoji: { type: ['string', 'null'] },
-      visibility: { type: 'string', enum: ['public', 'private', 'closed'] }, settings: { type: 'object' },
-      // v2: discussion topics to start with, and the template the configuration came from.
-      topics: { type: 'array', items: { type: 'string' }, maxItems: 50 },
-      template: { type: 'object', required: ['key', 'version'], additionalProperties: false, properties: { key: { type: 'string' }, version: { type: 'integer' } } } } } },
-  }, async (req, reply) => idempotent(db, req, reply, async () => {
-    const uid = signedIn(req);
+  const createBody = { type: 'object', required: ['name', 'visibility'], additionalProperties: false, properties: {
+    name: { type: 'string' }, description: { type: ['string', 'null'] }, category: { type: ['string', 'null'] }, emoji: { type: ['string', 'null'] },
+    visibility: { type: 'string', enum: ['public', 'private', 'closed'] }, settings: { type: 'object' },
+    // v2: discussion topics to start with, and the template the configuration came from.
+    topics: { type: 'array', items: { type: 'string' }, maxItems: 50 },
+    template: { type: 'object', required: ['key', 'version'], additionalProperties: false, properties: { key: { type: 'string' }, version: { type: 'integer' } } } } };
+  const duplicateName = () => conflict('DUPLICATE_NAME', 'A community with a very similar name already exists. Choose a different name.', { field: 'name' });
+
+  /** Every check creating makes, in order, before anything is written (F5: validate runs the same). */
+  async function checkCreate(req) {
+    signedIn(req);
     // Platform setting (Stage 7): creating communities can be limited to platform staff.
     await assertCanCreate(db, req.user);
     const name = cleanName(req.body.name);
@@ -295,17 +339,33 @@ export default async function communityRoutes(app, { ctx }) {
     const settings = cleanSettings(req.body.settings);
     // Category, starting topics and the template (if any): the same checks with or without one.
     const plan = await prepareCommunity(db, req.body);
+    return { name, description, settings, plan, slug: slugOf(name) };
+  }
+
+  // F5: the checks of POST /communities on the same body, without writing anything. Answers
+  // { ok: true }, or the error the real request would give (COM-01 near-duplicate names included;
+  // a name taken between this check and the publish is still refused by the publish).
+  app.post('/communities/validate', { schema: { body: createBody } }, async (req) => {
+    const v = await checkCreate(req);
+    const { rows } = await db.query(`select 1 from communities where lower(slug) = lower($1) limit 1`, [v.slug]);
+    if (rows.length) throw duplicateName();
+    return { ok: true };
+  });
+
+  app.post('/communities', { schema: { body: createBody } }, async (req, reply) => idempotent(db, req, reply, async () => {
+    const { name, description, settings, plan, slug } = await checkCreate(req);
+    const uid = req.user.id;
     const id = newId('com');
     let accent;
     try {
       await db.tx(async (t) => {
         await t.query(`insert into communities (id, slug, name, description, category, emoji, visibility, created_by, settings, accent) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [id, slugOf(name), name, description, plan.category, String(req.body.emoji ?? '').slice(0, 8) || null, req.body.visibility, uid, JSON.stringify(settings), accent = await pickAccent(t)]);
+          [id, slug, name, description, plan.category, String(req.body.emoji ?? '').slice(0, 8) || null, req.body.visibility, uid, JSON.stringify(settings), accent = await pickAccent(t)]);
         await t.query(`insert into memberships (community_id, user_id, role, state, joined_at) values ($1, $2, 'owner', 'active', now())`, [id, uid]);
         await recordCreation(t, id, plan);
       });
     } catch (err) {
-      if (err.code === UNIQUE_VIOLATION) throw conflict('DUPLICATE_NAME', 'A community with a very similar name already exists. Choose a different name.', { field: 'name' });
+      if (err.code === UNIQUE_VIOLATION) throw duplicateName();
       throw err;
     }
     await audit(db, { actorId: uid, action: 'community.create', targetType: 'community', targetId: id, context: { name, visibility: req.body.visibility, template: plan.template ? { key: plan.template.key, version: plan.template.version } : undefined }, ip: req.ip });
@@ -348,23 +408,7 @@ export default async function communityRoutes(app, { ctx }) {
     }
   });
 
-  // Admins add people directly (active platform members only). Existing members are left alone;
-  // removed or blocked people need their state changed explicitly first (MEM-05).
-  // `source: 'rule'` (automatic membership rules) never re-adds people who left on their own.
-  app.post('/communities/:id/members', { schema: { body: { type: 'object', required: ['userIds'], additionalProperties: false, properties: { userIds: { type: 'array', items: { type: 'string' }, maxItems: 200 }, source: { type: 'string', enum: ['admin', 'rule'] } } } } },
-    async (req) => {
-      const a = await access(db, req, req.params.id);
-      if (!a.canAdmin) throw forbidden('Only community admins can add members.');
-      if (a.community.status !== 'active') throw conflict('ARCHIVED', 'This community is archived.');
-      const { rows } = await db.query(
-        `insert into memberships (community_id, user_id, role, state, joined_at)
-         select $1, u.id, 'member', 'active', now() from users u where u.id = any($2) and u.status = 'active'
-         on conflict (community_id, user_id) do update set state = 'active', joined_at = now(), updated_at = now()
-           where memberships.state = any($3)
-         returning user_id`, [a.community.id, req.body.userIds, req.body.source === 'rule' ? ['pending', 'invited'] : ['pending', 'left', 'invited']]);
-      await audit(db, { actorId: req.user.id, action: 'community.add_members', targetType: 'community', targetId: a.community.id, context: { added: rows.map((r) => r.user_id), adminMode: a.adminMode }, ip: req.ip });
-      return { added: rows.map((r) => r.user_id) };
-    });
+  // Adding people (POST /communities/:id/members) sends invitations (F10): routes/invitations.js.
 
   // Archive / restore (owner or admin). Archived communities stay readable for members, accept no
   // new content and leave discovery (VIS-14). Permanent deletion is Platform-only (DEL-01).

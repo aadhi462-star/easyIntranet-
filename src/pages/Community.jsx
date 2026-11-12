@@ -278,7 +278,7 @@ function ActionsMenu({ g, perms, role }) {
     leave(g);
   };
   const admin = perms.canAdmin && !g.allHands ? [
-    !archived && ['Add members', () => setAdding(true)],
+    !archived && ['Invite people', () => setAdding(true)],
     ['Community settings', () => nav(managePath(g, 'settings'))],
     ['Branding', () => nav(managePath(g, 'branding'))],
     archived ? ['Restore community', () => lifecycle.archive(g, false)] : ['Archive community', () => lifecycle.archive(g, true)],
@@ -585,6 +585,7 @@ function AboutText({ g, short = false }) {
     <>
       {g.description ? <p className={`text-sm leading-relaxed ${short ? 'line-clamp-4' : 'whitespace-pre-line'}`}>{g.description}</p>
         : <p className="t-small">No description yet.</p>}
+      {g.audience && <p className="t-small"><b className="font-semibold text-[var(--az-text)]">Who this is for:</b> {g.audience}</p>}
       {access && <p className="t-small"><b className="font-semibold text-[var(--az-text)]">{access.label}:</b> {access.desc}</p>}
     </>
   );

@@ -13,7 +13,7 @@ import { createDb } from './db/index.js';
 import { migrate } from './db/migrate.js';
 import { runJobs } from './lib/jobs.js';
 import { runSeed } from './scripts/seed.mjs';
-import { convertSectionLists } from './lib/data-migrations.js';
+import { convertQuestionTypes, convertSectionLists } from './lib/data-migrations.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Links in emails (confirm, reset) use APP_ORIGIN; without it they'd come from the request's Host
@@ -38,11 +38,16 @@ if (!process.env.DATABASE_URL && !(await exists(path.join(dataDir, 'PG_VERSION')
 const db = await createDb({ dataDir });
 await migrate(db, { log: (m) => console.log(m) });
 // Data migrations that must reach every database, not only freshly seeded ones (each runs once,
-// logged and undoable): older section lists become the section switches (v2 E2).
+// logged and undoable): older section lists become the section switches (v2 E2), and stored
+// template questionnaires move to the five question types (v2 F12).
 await convertSectionLists(db);
+await convertQuestionTypes(db);
 if (process.env.SEED_PASSWORD || process.env.SEED_ON_START === '1') await runSeed(db);
 
-const app = await buildApp({ db, appOrigin, staticDir: process.env.STATIC_DIR || path.join(root, 'dist'), logger: { level: process.env.LOG_LEVEL || 'info' } });
+// RATE_LIMITS=off is for the browser tests, which sign in many times a minute; production always
+// keeps the limits, whatever the variable says.
+const rateLimits = process.env.NODE_ENV === 'production' || process.env.RATE_LIMITS !== 'off';
+const app = await buildApp({ db, appOrigin, rateLimits, staticDir: process.env.STATIC_DIR || path.join(root, 'dist'), logger: { level: process.env.LOG_LEVEL || 'info' } });
 // Background jobs each minute: scheduled posts, event reminders, email retries, waitlists
 // (lib/jobs.js; each is safe to run twice).
 setInterval(() => { runJobs(app.ctx, app.log); }, 60e3).unref();

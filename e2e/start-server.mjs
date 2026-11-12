@@ -6,5 +6,5 @@ import path from 'node:path';
 
 const dir = path.join(os.tmpdir(), 'communityone-e2e-db');
 await rm(dir, { recursive: true, force: true });
-Object.assign(process.env, { PGLITE_DIR: dir, SEED_ON_START: '1', PORT: process.env.E2E_PORT || '5190', LOG_LEVEL: 'warn', NODE_ENV: 'development' });
+Object.assign(process.env, { PGLITE_DIR: dir, SEED_ON_START: '1', PORT: process.env.E2E_PORT || '5190', LOG_LEVEL: 'warn', NODE_ENV: 'development', RATE_LIMITS: 'off' });
 await import('../server/index.js');

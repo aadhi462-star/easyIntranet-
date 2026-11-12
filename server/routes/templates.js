@@ -11,10 +11,10 @@ import { newId } from '../lib/crypto.js';
 import { badRequest, conflict, HttpError } from '../lib/errors.js';
 import { authorize } from '../lib/permissions.js';
 import { idempotent } from '../lib/session.js';
-import { assertCanCreate, checkAnswers, checkPublishable, seedTemplates, suggestConfig, usableTemplate, validateBlueprint, validateQuestionnaire } from '../lib/templates.js';
+import { assertCanCreate, checkAnswers, checkPublishable, institutionLookup, seedTemplates, suggestConfig, usableTemplate, validateBlueprint, validateQuestionnaire } from '../lib/templates.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
 
-const card = (t) => ({ key: t.key, category: t.category, name: t.name, description: t.description, version: t.current_version, questions: (t.questionnaire ?? []).length });
+const card = (t) => ({ key: t.key, category: t.category, name: t.name, description: t.description, version: t.version ?? t.current_version, currentVersion: t.current_version, questions: (t.questionnaire ?? []).length });
 
 export default async function templateRoutes(app, { ctx }) {
   const { db } = ctx;
@@ -31,22 +31,27 @@ export default async function templateRoutes(app, { ctx }) {
     return { templates: rows.sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name)).map(card) };
   });
 
+  // ?version=N gives an earlier published version (TPL-02: a draft started on it can still
+  // finish with it); without it, the current one.
+  const versionParam = (v) => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    if (!Number.isInteger(n)) throw badRequest('TEMPLATE_VERSION_UNKNOWN', 'Choose a published version of this template.', { field: 'version' });
+    return n;
+  };
   app.get('/templates/:key', async (req) => {
     await assertCanCreate(db, req.user);
-    const t = await usableTemplate(db, req.params.key);
+    const t = await usableTemplate(db, req.params.key, versionParam(req.query.version));
     return { template: { ...card(t), questionnaire: t.questionnaire, blueprint: t.blueprint } };
   });
 
-  // Answers → a suggested configuration. Pure: nothing is written. Sending the version the form
-  // was built from catches a template republished while someone was answering.
+  // Answers → a suggested configuration. Pure: nothing is written. `version` is the version the
+  // questions came from: any published version is accepted (TPL-02), a draft or unknown one isn't.
   app.post('/templates/:key/suggest', { schema: { body: { type: 'object', required: ['answers'], additionalProperties: false, properties: {
     answers: { type: 'object' }, version: { type: 'integer' } } } } }, async (req) => {
     await assertCanCreate(db, req.user);
-    const t = await usableTemplate(db, req.params.key);
-    if (req.body.version != null && req.body.version !== t.current_version) {
-      throw conflict('TEMPLATE_VERSION_CHANGED', `This template was updated to version ${t.current_version}. Its questions may have changed.`, { currentVersion: t.current_version });
-    }
-    return { config: suggestConfig(t, checkAnswers(t.questionnaire, req.body.answers)) };
+    const t = await usableTemplate(db, req.params.key, req.body.version ?? null);
+    return { config: suggestConfig(t, await checkAnswers(t.questionnaire, req.body.answers, { institutionName: institutionLookup(db) })) };
   });
 }
 
@@ -171,7 +176,7 @@ export async function templateAdminRoutes(app, { ctx }) {
     const t = await load(req.params.key);
     const { rows: [d] } = await db.query(`select version, questionnaire, blueprint from template_versions where template_id = $1 and published_at is null`, [t.id]);
     if (!d) throw conflict('NO_DRAFT', 'There are no unpublished changes to publish.');
-    checkPublishable(t, d.questionnaire, d.blueprint);
+    await checkPublishable(t, d.questionnaire, d.blueprint);
     await db.tx(async (tx) => {
       const { rows } = await tx.query(`update community_templates set current_version = $3, status = case when status = 'draft' then 'published' else status end, revision = revision + 1
         where id = $1 and revision = $2 returning id`, [t.id, req.body.revision, d.version]);

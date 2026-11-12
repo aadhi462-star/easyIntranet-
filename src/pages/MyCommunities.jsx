@@ -2,21 +2,21 @@
 // then your pending requests), Managing (Owner, Admin, Moderator, Instructor, Teaching Assistant)
 // and Member, each row with your role in that community (PER-01), its status, visibility and
 // members, Open and a menu with Leave. An Owner's Leave is disabled with the reason (MEM-09).
-// Left and removed communities are not listed. ?new=1 opens Create Community (/groups?new=1
-// redirects here), with the same form and creation call as the old Groups page.
+// Left and removed communities are not listed. Creating a community has its own page (F1):
+// Create Community opens /communities/new, and an old ?new=1 link (/groups?new=1 lands here)
+// is sent there too. Invitations offer Accept and Decline (F9).
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useStore } from '../lib/store.jsx';
 import { toast } from '../lib/toast.js';
-import { communityApi, communityPath, errorText, onCommunityChange, visibilityOf } from '../lib/communities.js';
+import { communityApi, communityPath, errorText, onCommunityChange } from '../lib/communities.js';
 import { useChannelSync, useCommunityWrite } from '../components/groups/useCommunity.js';
 import { Icon } from '../components/icons.jsx';
 import { Badge, Button, IconButton } from '../components/ui/Controls.jsx';
 import { confirmAction } from '../components/ui/Confirm.jsx';
 import { CommunityTile, NoCommunities, VisibilityBadge } from '../components/public/CommunityCards.jsx';
 import MembershipAction, { roleLabel, shortDate } from '../components/groups/MembershipAction.jsx';
-import GroupForm from '../components/groups/GroupForm.jsx';
 
 const MANAGING = ['owner', 'admin', 'moderator', 'instructor', 'teaching_assistant'];
 const CAN_MANAGE = ['owner', 'admin', 'moderator'];
@@ -26,23 +26,6 @@ const COME_BACK = {
   private: 'It’s Private, so you’ll need to ask again to come back.',
   closed: 'It’s Closed, so you’ll need a new invitation to come back.',
 };
-
-/** Creates a community on the server, then opens it (as src/pages/Groups.jsx does). */
-function useCreateGroup() {
-  const { refresh } = useCommunityWrite();
-  const nav = useNavigate();
-  // Errors are rethrown so the form can show them next to the fields.
-  return async (values) => {
-    const { community } = await communityApi.create({
-      name: values.name, description: values.description || null, category: values.type,
-      visibility: visibilityOf(values.accessType),
-      settings: { apps: values.apps, dashboard: [{ id: 'w-about', kind: 'about' }, { id: 'w-members', kind: 'members' }] },
-    });
-    await refresh(community.id);
-    toast('Community created');
-    nav(communityPath(community));
-  };
-}
 
 /** Your communities (GET /communities) and open invitations (GET /me/invitations). */
 function useMine() {
@@ -63,14 +46,12 @@ function useMine() {
 
 export default function MyCommunities() {
   const { can } = useStore();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const allowed = can('group.create');
-  const creating = params.get('new') === '1' && allowed;
-  const setCreating = (on) => setParams(on ? { ...Object.fromEntries(params), new: '1' } : (({ new: _n, ...rest }) => rest)(Object.fromEntries(params)));
-  const create = useCreateGroup();
   const { status, communities, invitations, message, load, retry } = useMine();
 
   useEffect(() => { document.title = 'My Communities · CommunityOne'; }, []);
+  if (params.get('new') === '1' && allowed) return <Navigate to="/communities/new" replace />;
 
   const byName = (a, b) => a.name.localeCompare(b.name);
   const member = communities.filter((c) => ['active', 'restricted'].includes(c.membership?.state));
@@ -90,7 +71,7 @@ export default function MyCommunities() {
           <p className="mt-1 text-[var(--az-text-2)]">Communities you belong to or manage. Only you see this list.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {allowed && <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>Create Community</Button>}
+          {allowed && <Link to="/communities/new" className="btn btn-primary"><Icon name="plus" size={18} />Create Community</Link>}
           <Link to="/explore" className="btn btn-secondary"><Icon name="explore" size={18} />Explore</Link>
         </div>
       </header>
@@ -106,7 +87,7 @@ export default function MyCommunities() {
             <p>Nothing is joined for you. Find ones that fit, or start your own.</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Link to="/explore" className="btn btn-primary">Explore communities</Link>
-              {allowed && <Button onClick={() => setCreating(true)}>Create Community</Button>}
+              {allowed && <Link to="/communities/new" className="btn btn-secondary">Create Community</Link>}
             </div>
           </NoCommunities>
         ) : (
@@ -133,7 +114,6 @@ export default function MyCommunities() {
             {belonging.length > 0 && <Section title="Member" count={belonging.length}><Rows list={belonging} onDone={load} /></Section>}
           </>
         )}
-      {creating && <GroupForm onClose={() => setCreating(false)} onSave={(v) => create(v)} />}
     </div>
   );
 }
@@ -150,26 +130,37 @@ function Section({ title, count, children }) {
 
 function InvitationRow({ i, onDone }) {
   const { refresh } = useCommunityWrite();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(null); // 'accept' | 'decline'
   const accept = async () => {
-    setBusy(true);
+    setBusy('accept');
     try {
       const res = await api(`/me/invitations/${encodeURIComponent(i.id)}/accept`, { method: 'POST', body: {} });
       toast(`You joined ${res.community?.name ?? i.community.name}`);
       if (res.community?.id) await refresh(res.community.id);
-    } catch (err) { toast(errorText(err), 'error'); } finally { setBusy(false); await onDone(); }
+    } catch (err) { toast(errorText(err), 'error'); } finally { setBusy(null); await onDone(); }
+  };
+  // Declining is recorded and safe to repeat; the inviter sees it, and they can invite again.
+  const decline = async () => {
+    setBusy('decline');
+    try {
+      await api(`/me/invitations/${encodeURIComponent(i.id)}/decline`, { method: 'POST', body: {} });
+      toast(`Invitation to ${i.community.name} declined`);
+    } catch (err) { toast(errorText(err), 'error'); } finally { setBusy(null); await onDone(); }
   };
   return (
     <li className="flex flex-wrap items-center gap-3 p-4">
       <CommunityTile c={{ id: i.id, name: i.community.name }} size={40} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-[1_1_220px]">
         <p className="truncate font-semibold">{i.community.name}</p>
         <p className="t-small">
           {[i.inviter?.name ? `Invitation from ${i.inviter.name}` : 'Invitation', VIS_LABEL[i.community.visibility], `Expires ${shortDate(i.expiresAt)}`].filter(Boolean).join(' · ')}
           {i.role && i.role !== 'member' ? ` · as ${roleLabel(i.role)}` : ''}
         </p>
       </div>
-      <Button variant="primary" size="sm" busy={busy} onClick={accept} aria-label={`Accept invitation to ${i.community.name}`}>Accept</Button>
+      <div className="flex gap-2">
+        <Button variant="primary" size="sm" busy={busy === 'accept'} disabled={!!busy} onClick={accept} aria-label={`Accept invitation to ${i.community.name}`}>Accept</Button>
+        <Button variant="secondary" size="sm" busy={busy === 'decline'} disabled={!!busy} onClick={decline} aria-label={`Decline invitation to ${i.community.name}`}>Decline</Button>
+      </div>
     </li>
   );
 }

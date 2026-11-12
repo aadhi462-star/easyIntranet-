@@ -45,6 +45,7 @@ export default function JoinRequests({ group }) {
                 <NameLink id={id} name={u.name} />
                 {meta && <span className="t-small">{meta}</span>}
                 {note && <span className="t-small mt-0.5 break-words">“{note}”</span>}
+                {group.requestAnswers?.[id] && <span className="t-small mt-0.5 break-words"><b className="font-semibold text-[var(--az-text)]">{group.joinQuestion ?? 'Answer'}</b> {group.requestAnswers[id]}</span>}
               </span>
               <span className="flex flex-wrap gap-2">
                 <Button variant="primary" size="sm" busy={busy === `${id}-yes`} disabled={!!busy} onClick={() => decide(id, true)} aria-label={`Approve ${u.name}`}>Approve</Button>

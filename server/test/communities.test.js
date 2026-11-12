@@ -298,6 +298,19 @@ describe('creating and managing communities', () => {
     assert.equal((await c.out.patch(`/api/communities/${id}`, { version: v2, name: 'Taken over' })).status, 403);
   });
 
+  test('F7 a Private community’s join question: the answer goes with the request and admins see it', async () => {
+    const id = (await c.mem.post('/api/communities', { name: 'Asking Club', visibility: 'private', settings: { joinQuestion: 'Which batch are you from?' } })).body.community.id;
+    assert.equal((await c.out.post(`/api/communities/${id}/join`, { answer: 'x'.repeat(501) })).body.error.code, 'TOO_LONG');
+    assert.equal((await c.out.post(`/api/communities/${id}/join`, { answer: ' 2014, Civil ', message: 'Hello' })).body.membership.state, 'pending');
+    const reqs = (await c.mem.get(`/api/communities/${id}/requests`)).body;
+    assert.equal(reqs.joinQuestion, 'Which batch are you from?');
+    assert.deepEqual(reqs.requests.map((r) => [r.id, r.answer, r.message]), [['out', '2014, Civil', 'Hello']]);
+    // A Public community asks nothing: an answer sent anyway isn't kept.
+    const pub = (await c.mem.post('/api/communities', { name: 'Open Asking Club', visibility: 'public', settings: { joinQuestion: 'Ignored?' } })).body.community.id;
+    await c.out.post(`/api/communities/${pub}/join`, { answer: 'Something' });
+    assert.equal((await env.db.query(`select join_answer from memberships where community_id = $1 and user_id = 'out'`, [pub])).rows[0].join_answer, null);
+  });
+
   test('VIS-13 pending requests are re-evaluated when visibility changes', async () => {
     const id = (await c.mem.post('/api/communities', { name: 'Quiet Readers', visibility: 'private' })).body.community.id;
     await c.out.post(`/api/communities/${id}/join`);
@@ -308,11 +321,19 @@ describe('creating and managing communities', () => {
     assert.equal((await c.out.get(`/api/communities/${id}`)).status, 404);
   });
 
-  test('admins add members directly; removed members are not silently restored (MEM-05)', async () => {
+  test('F10 MEM-05 adding people invites them; nobody joins until they accept; removed members are not silently restored', async () => {
     const id = (await c.mem.post('/api/communities', { name: 'Book Club', visibility: 'closed' })).body.community.id;
-    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out', 'res'] })).body.added.sort(), ['out', 'res']);
+    const added = await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out', 'res'] });
+    assert.deepEqual(added.body.results.map((r) => [r.userId, r.status]).sort(), [['out', 'invited'], ['res', 'invited']]);
+    const state = async (uid) => (await env.db.query(`select state from memberships where community_id = $1 and user_id = $2`, [id, uid])).rows[0]?.state ?? null;
+    assert.equal(await state('out'), null, 'an invitation, not a membership');
+    assert.equal((await c.out.get(`/api/communities/${id}`)).status, 404);
+    const inv = added.body.results.find((r) => r.userId === 'out').invitation;
+    assert.equal((await c.out.post(`/api/me/invitations/${inv.id}/accept`)).body.membership.state, 'active');
     await c.mem.post(`/api/communities/${id}/members/out`, { state: 'removed' });
-    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.added, []);
+    // Removed after the invitation: adding them again sends a new invitation; they stay removed until they accept it.
+    assert.equal((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.results[0].status, 'invited');
+    assert.equal(await state('out'), 'removed');
     assert.equal((await c.out.post(`/api/communities/${id}/members`, { userIds: ['adm'] })).status, 404, 'removed member sees nothing');
   });
 
@@ -336,12 +357,44 @@ describe('member lists and rules', () => {
     assert.ok(memberView.every((m) => ['active', 'restricted'].includes(m.state)));
   });
 
-  test('rule-based adds never bring back someone who left', async () => {
+  test('F10 rule-based adds never invite someone who left; an admin can still invite them on purpose', async () => {
     const id = (await c.mem.post('/api/communities', { name: 'Rule Club', visibility: 'public' })).body.community.id;
     await c.out.post(`/api/communities/${id}/join`);
     await c.out.post(`/api/communities/${id}/leave`);
-    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'], source: 'rule' })).body.added, []);
-    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.added, ['out'], 'an admin can still add them on purpose');
+    assert.deepEqual((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'], source: 'rule' })).body.results.map((r) => r.code), ['LEFT']);
+    assert.equal((await c.mem.post(`/api/communities/${id}/members`, { userIds: ['out'] })).body.results[0].status, 'invited', 'an admin can still invite them on purpose');
+    assert.equal((await env.db.query(`select state from memberships where community_id = $1 and user_id = 'out'`, [id])).rows[0].state, 'left');
+  });
+
+  test('directory filters: graduation year and department, only from education the member lets people see', async () => {
+    const q = (s, p) => env.db.query(s, p);
+    await q(`insert into institutions (id, name) values ('ins1', 'Riverside College')`);
+    await q(`insert into departments (id, institution_id, name) values ('dep_cs', 'ins1', 'Computer Science'), ('dep_me', 'ins1', 'Mechanical')`);
+    await q(`insert into profiles (user_id, directory_visible) values ('mem', true), ('mod', true), ('adm', false)`);
+    await q(`insert into education (user_id, institution_id, department_id, grad_year, is_primary, position) values
+      ('mem', 'ins1', 'dep_cs', 2015, true, 0), ('mem', 'ins1', 'dep_me', 2018, false, 1),
+      ('mod', 'ins1', 'dep_me', 2015, true, 0), ('adm', 'ins1', 'dep_cs', 2015, true, 0)`);
+    const list = async (who, qs = '') => (await c[who].get(`/api/communities/pub/members${qs}`)).body;
+    const all = await list('out');
+    const row = (b, id) => b.members.find((m) => m.id === id);
+    assert.equal(row(all, 'mem').gradYear, 2015);
+    assert.deepEqual(row(all, 'mem').department, { id: 'dep_cs', name: 'Computer Science' });
+    assert.equal(row(all, 'adm').gradYear, null, 'a profile hidden from the directory shows no education');
+    assert.equal(row(all, 'adm').department, null);
+    assert.equal(row(all, 'own').gradYear, null);
+    assert.deepEqual(all.filters, { gradYears: [2018, 2015], departments: [{ id: 'dep_cs', name: 'Computer Science' }, { id: 'dep_me', name: 'Mechanical' }] });
+    const ids = (b) => b.members.map((m) => m.id).sort();
+    assert.deepEqual(ids(await list('out', '?gradYear=2015')), ['mem', 'mod']);
+    assert.deepEqual(ids(await list('out', '?department=dep_cs')), ['mem']);
+    assert.deepEqual(ids(await list('out', '?department=computer%20science')), ['mem'], 'by name too');
+    assert.deepEqual(ids(await list('out', '?gradYear=2015&department=dep_me')), ['mod'], 'both match the same entry');
+    assert.deepEqual(ids(await list('out', '?gradYear=2018&department=dep_me')), ['mem']);
+    assert.deepEqual(ids(await list('out', '?gradYear=1990')), []);
+    // Your own education always counts for you.
+    assert.ok(ids(await list('adm', '?gradYear=2015')).includes('adm'));
+    assert.equal((await c.out.get('/api/communities/pub/members?gradYear=abc')).body.error.code, 'INVALID_INPUT');
+    // Private community: still members only.
+    assert.equal((await c.out.get('/api/communities/pri/members?gradYear=2015')).status, 403);
   });
 
   test('archived communities stay listed for their members only', async () => {

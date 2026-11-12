@@ -33,9 +33,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 const text = (v, max) => { const s = String(v ?? '').trim(); return s ? s.slice(0, max) : null; };
 
-const OPEN = `i.accepted_at is null and i.revoked_at is null and i.superseded_at is null`;
-const STATUS = `case when i.accepted_at is not null then 'accepted' when i.revoked_at is not null then 'revoked'
+const OPEN = `i.accepted_at is null and i.revoked_at is null and i.superseded_at is null and i.declined_at is null`;
+const STATUS = `case when i.accepted_at is not null then 'accepted' when i.declined_at is not null then 'declined' when i.revoked_at is not null then 'revoked'
   when i.superseded_at is not null or i.expires_at <= now() then 'expired' else 'open' end`;
+const STATUSES = ['open', 'accepted', 'declined', 'expired', 'revoked'];
 
 // A dead link says why, and what to do next (VIS-10, NTF-05). 410: the link existed but is spent.
 const ASK = 'Ask the person who invited you for a new one.';
@@ -43,6 +44,7 @@ const DEAD = {
   expired: () => new HttpError(410, 'INVITE_EXPIRED', `This invitation has expired. ${ASK}`),
   revoked: () => new HttpError(410, 'INVITE_REVOKED', `This invitation was withdrawn. ${ASK}`),
   accepted: () => new HttpError(410, 'INVITE_USED', `This invitation has already been used. ${ASK}`),
+  declined: () => new HttpError(410, 'INVITE_DECLINED', `You declined this invitation. ${ASK}`),
 };
 const invalid = () => new HttpError(404, 'INVITE_INVALID', `This invitation link isn’t valid. Check the link, or ${ASK.charAt(0).toLowerCase()}${ASK.slice(1)}`);
 
@@ -70,6 +72,7 @@ export default async function invitationRoutes(app, { ctx }) {
     invitedBy: i.invited_by ? { id: i.invited_by, name: i.invited_by_name } : null, createdAt: i.created_at, sentAt: i.sent_at, expiresAt: i.expires_at,
     acceptedAt: i.accepted_at, acceptedBy: i.accepted_by ? { id: i.accepted_by, name: i.accepted_by_name } : null,
     revokedAt: i.revoked_at, revokedBy: i.revoked_by ? { id: i.revoked_by, name: i.revoked_by_name } : null,
+    declinedAt: i.declined_at,
   });
 
   // Owners and Admins with a real membership invite. Administrative Mode never changes
@@ -158,16 +161,27 @@ export default async function invitationRoutes(app, { ctx }) {
       userIds: { type: 'array', items: { type: 'string', maxLength: 64 }, maxItems: PER_CALL },
       emails: { type: 'array', items: { type: 'string', maxLength: 254 }, maxItems: PER_CALL },
       role: { type: 'string', enum: ['member', 'moderator', 'admin'] }, message: { type: ['string', 'null'], maxLength: 500 } } } },
-  }, async (req, reply) => idempotent(db, req, reply, async () => {
+  }, async (req, reply) => idempotent(db, req, reply, () => invite(req, reply, req.body)));
+
+  // F10: "adding" people to a community invites them, through exactly the same path and with the
+  // same answer as POST /communities/:id/invitations: nobody becomes a member without accepting.
+  // `source: 'rule'` (an automatic membership rule) also skips people who left on their own.
+  app.post('/communities/:id/members', {
+    ...limit(10, true),
+    schema: { body: { type: 'object', required: ['userIds'], additionalProperties: false, properties: {
+      userIds: { type: 'array', items: { type: 'string', maxLength: 64 }, maxItems: PER_CALL }, source: { type: 'string', enum: ['admin', 'rule'] } } } },
+  }, async (req, reply) => idempotent(db, req, reply, () => invite(req, reply, { userIds: req.body.userIds, role: 'member' }, { rule: req.body.source === 'rule' })));
+
+  async function invite(req, reply, body, { rule = false } = {}) {
     signedIn(req);
     const a = await inviterAccess(req, req.params.id);
     const c = a.community;
-    const role = req.body.role ?? 'member';
+    const role = body.role ?? 'member';
     // Nobody offers a role equal to or above their own (PER-02): Owners can invite Admins,
     // Admins can invite Moderators.
     if (atLeast(role, a.role)) throw forbidden('You can’t invite someone to a role equal to or above your own.', 'ROLE_TOO_HIGH');
-    const emails = [...new Set((req.body.emails ?? []).map(normEmail))];
-    const userIds = [...new Set(req.body.userIds ?? [])];
+    const emails = [...new Set((body.emails ?? []).map(normEmail))];
+    const userIds = [...new Set(body.userIds ?? [])];
     const bad = emails.find((e) => !EMAIL_RE.test(e));
     if (bad) throw badRequest('INVALID_EMAIL', `“${bad.slice(0, 80)}” isn’t a valid email address.`, { field: 'emails' });
     const total = emails.length + userIds.length;
@@ -177,15 +191,15 @@ export default async function invitationRoutes(app, { ctx }) {
     // most (and each person makes at most 10 calls a minute).
     const n = await sentToday(c.id);
     if (n + total > PER_DAY) throw new HttpError(429, 'INVITE_LIMIT', `This community can send up to ${PER_DAY} invitations a day. Try again tomorrow, or invite fewer people.`, { remaining: Math.max(0, PER_DAY - n) });
-    const message = text(req.body.message, 500);
+    const message = text(body.message, 500);
     const results = [];
-    for (const userId of userIds) results.push(await inviteOne(req, a, { userId }, { role, message }));
+    for (const userId of userIds) results.push(await inviteOne(req, a, { userId }, { role, message, rule }));
     for (const email of emails) results.push(await inviteOne(req, a, { email }, { role, message }));
     if (results.some((r) => r.status === 'invited')) reply.status(201);
     return { results };
-  }));
+  }
 
-  async function inviteOne(req, a, to, { role, message }) {
+  async function inviteOne(req, a, to, { role, message, rule = false }) {
     const c = a.community;
     const me = req.user;
     const skip = (code, msg) => ({ ...to, status: 'skipped', code, message: msg });
@@ -196,6 +210,10 @@ export default async function invitationRoutes(app, { ctx }) {
     if (to.userId) {
       const no = await ineligible(c.id, to.userId, me);
       if (no) return skip(no.code, no.message);
+      if (rule) {
+        const { rows: [m] } = await db.query(`select state from memberships where community_id = $1 and user_id = $2`, [c.id, to.userId]);
+        if (m?.state === 'left') return skip('LEFT', 'This person left the community, so a membership rule doesn’t invite them again.');
+      }
       userId = to.userId; notifyId = userId;
       address = (await db.query(`select email from users where id = $1`, [userId])).rows[0].email;
     } else {
@@ -228,17 +246,17 @@ export default async function invitationRoutes(app, { ctx }) {
     }
     const [i] = await load(`i.id = $1`, [id]);
     // The same entry whether or not anything is sent (an inviter's data export includes it).
-    await audit(db, { actorId: me.id, action: 'community.invite', targetType: 'community', targetId: c.id, context: { invitationId: id, userId, byEmail: !!email, role }, ip: req.ip });
+    await audit(db, { actorId: me.id, action: 'community.invite', targetType: 'community', targetId: c.id, context: { invitationId: id, userId, byEmail: !!email, role, ...(rule ? { source: 'rule' } : {}) }, ip: req.ip });
     if (send) await sendInvite(req, i, { to: address, token, inviter: me.name, communityName: c.name, notifyId });
     return { ...to, status: 'invited', invitation: present(i) };
   }
 
-  // Every invitation of a community, newest first: open, accepted, expired and revoked.
+  // Every invitation of a community, newest first: open, accepted, declined, expired and revoked.
   app.get('/communities/:id/invitations', async (req) => {
     signedIn(req);
     const a = await access(db, req, req.params.id);
     if (!a.canAdmin) throw forbidden('Only Owners and Admins can see invitations.');
-    const status = ['open', 'accepted', 'expired', 'revoked'].includes(req.query.status) ? req.query.status : null;
+    const status = STATUSES.includes(req.query.status) ? req.query.status : null;
     const rows = await load(`i.community_id = $1 and ($2::text is null or ${STATUS} = $2::text) order by i.created_at desc limit 500`, [a.community.id, status]);
     return { invitations: rows.map(present) };
   });
@@ -251,8 +269,8 @@ export default async function invitationRoutes(app, { ctx }) {
     const a = await access(db, req, i.community_id);
     if (!a.canAdmin) throw notFound('That invitation doesn’t exist.');
     if (i.status === 'accepted') throw conflict('INVITE_USED', 'This invitation was already accepted. Remove the member instead.');
-    if (!i.revoked_at) {
-      await db.query(`update community_invitations set revoked_at = now(), revoked_by = $2 where id = $1 and revoked_at is null and accepted_at is null`, [i.id, uid]);
+    if (!i.revoked_at && !i.declined_at) {
+      await db.query(`update community_invitations set revoked_at = now(), revoked_by = $2 where id = $1 and revoked_at is null and accepted_at is null and declined_at is null`, [i.id, uid]);
       await audit(db, { actorId: uid, action: 'community.invite_revoke', targetType: 'community', targetId: i.community_id, context: { invitationId: i.id, adminMode: a.adminMode }, ip: req.ip });
     }
     const [now] = await load(`i.id = $1`, [i.id]);
@@ -266,7 +284,7 @@ export default async function invitationRoutes(app, { ctx }) {
     const [i] = await load(`i.id = $1`, [req.params.id]);
     if (!i) throw notFound('That invitation doesn’t exist.');
     const a = await inviterAccess(req, i.community_id);
-    if (i.status === 'accepted' || i.status === 'revoked') throw DEAD[i.status]();
+    if (['accepted', 'revoked', 'declined'].includes(i.status)) throw DEAD[i.status]();
     if (i.superseded_at) throw conflict('INVITE_REPLACED', 'A newer invitation replaced this one.');
     if (atLeast(i.role, a.role)) throw forbidden('You can’t invite someone to a role equal to or above your own.', 'ROLE_TOO_HIGH');
     // The same per-person rules as a new invitation, for whoever resends (MEM-05). An account
@@ -285,7 +303,7 @@ export default async function invitationRoutes(app, { ctx }) {
     const { token, hash } = newToken();
     // A new link moves `sent_at`, so a removal before now no longer voids it.
     const { rows } = await db.query(`update community_invitations set token_hash = $2, invited_by = $3, sent_at = now(), expires_at = now() + make_interval(days => $4::int)
-      where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null returning id`, [i.id, hash, uid, DAYS]);
+      where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null and declined_at is null returning id`, [i.id, hash, uid, DAYS]);
     if (!rows.length) throw conflict('INVITE_CHANGED', 'This invitation changed. Reload to see it.');
     await audit(db, { actorId: uid, action: 'community.invite_resend', targetType: 'community', targetId: i.community_id, context: { invitationId: i.id }, ip: req.ip });
     const [now] = await load(`i.id = $1`, [i.id]);
@@ -336,6 +354,61 @@ export default async function invitationRoutes(app, { ctx }) {
     return accept(req, i);
   });
 
+  // F9: decline. By link (signed in as the account it's for, or signed out: the link is the
+  // invitee's alone) or from the in-app list. Safe to repeat: a second decline gives the same
+  // answer. An accepted invitation can't be declined (leave the community instead); an expired or
+  // revoked one is over already and says so. The inviter is told in the app, never by email.
+  app.post('/invitations/:token/decline', { ...quiet, ...limit(30) }, async (req) => {
+    const [i] = await load(`i.token_hash = $1`, [sha256(req.params.token)]);
+    if (!i) throw invalid();
+    return decline(req, i);
+  });
+
+  app.post('/me/invitations/:id/decline', async (req) => {
+    signedIn(req);
+    const [i] = await load(`i.id = $1`, [req.params.id]);
+    if (!i || !forAccount(i, req.user)) throw notFound('That invitation doesn’t exist.');
+    return decline(req, i);
+  });
+
+  async function decline(req, i) {
+    const uid = req.user?.id ?? null;
+    if (req.user && !forAccount(i, req.user)) {
+      throw forbidden(`This invitation was sent to someone else. Sign in with the account it was sent to, or ${ASK.charAt(0).toLowerCase()}${ASK.slice(1)}`, 'WRONG_ACCOUNT');
+    }
+    if (i.status === 'declined') return declined(i);
+    if (i.status !== 'open') throw DEAD[i.status]();
+    try {
+      await db.tx(async (t) => {
+        const { rows } = await t.query(`update community_invitations set declined_at = now(), declined_by = $2
+          where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null and declined_at is null returning id`, [i.id, uid]);
+        if (!rows.length) throw conflict('INVITE_CHANGED', 'This invitation just changed.');
+        // Invited both by account and by address: saying no to one says no to both.
+        if (req.user) {
+          await t.query(`update community_invitations i set declined_at = now(), declined_by = $2
+            where i.community_id = $3 and i.id <> $1 and ${OPEN} and (i.user_id = $2 or (i.user_id is null and $5::boolean and i.email = $4))`,
+          [i.id, uid, i.community_id, normEmail(req.user.email), req.user.emailVerified]);
+        }
+      });
+    } catch (err) {
+      if (err.code !== 'INVITE_CHANGED') throw err;
+      const [now] = await load(`i.id = $1`, [i.id]);
+      if (now.status === 'declined') return declined(now);
+      throw DEAD[now.status]?.() ?? err;
+    }
+    await audit(db, { actorId: uid, action: 'community.invite_decline', targetType: 'community', targetId: i.community_id, context: { invitationId: i.id, signedIn: !!uid }, ip: req.ip });
+    // The inviter learns who said no only for an invitation by account: an email invitation
+    // never reveals which account (if any) holds the address.
+    if (i.invited_by) {
+      await notify(ctx, req, { to: [i.invited_by], type: 'invite_declined', actorId: i.user_id ?? null, communityId: i.community_id,
+        targetType: 'community', targetId: i.community_id, dedupe: `invite_declined:${i.id}`, email: false });
+    }
+    const [now] = await load(`i.id = $1`, [i.id]);
+    return declined(now);
+  }
+
+  const declined = (i) => ({ invitation: { id: i.id, status: 'declined', declinedAt: i.declined_at, community: { name: i.community_name, visibility: i.visibility } } });
+
   async function accept(req, i) {
     const uid = req.user.id;
     // A second click (or a second tab) after it worked: the same answer, not an error.
@@ -354,7 +427,7 @@ export default async function invitationRoutes(app, { ctx }) {
     try {
       await db.tx(async (t) => {
         const { rows } = await t.query(`update community_invitations set accepted_at = now(), accepted_by = $2
-          where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null and expires_at > now() returning id`, [i.id, uid]);
+          where id = $1 and accepted_at is null and revoked_at is null and superseded_at is null and declined_at is null and expires_at > now() returning id`, [i.id, uid]);
         if (!rows.length) throw conflict('INVITE_CHANGED', 'This invitation just changed.');
         // Invited both by account and by address: the other one is used up with this one.
         await t.query(`update community_invitations i set accepted_at = now(), accepted_by = $2

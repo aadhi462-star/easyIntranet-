@@ -1,10 +1,10 @@
 // Community templates (v2 brief, Part 4; PROPOSAL_V2 §3.3 and §5).
 //
-// A template version holds a questionnaire and a blueprint. Answers fill the blueprint
-// ({{answer.key}} placeholders and simple rules) into a suggested configuration with the same
-// shape as the body of POST /communities, so the person can change any of it before creating.
-// The community keeps its own copy of that configuration and records only which template and
-// version it came from: a template is never read again for an existing community.
+// A template version holds a questionnaire and a blueprint. Answers fill the blueprint ({key}
+// slots and simple rules) into a suggested configuration with the same shape as the body of
+// POST /communities, so the person can change any of it before creating. The community keeps its
+// own copy of that configuration and records only which template and version it came from: a
+// template is never read again for an existing community.
 //
 // The configuration checks here (category, topics, setting values) run for every new community,
 // from a template or from scratch, so both paths accept and refuse exactly the same things.
@@ -26,7 +26,12 @@ const APP_NAMES = new Set([...SECTIONS, ...OLDER_APPS]);
 // Community roles a configuration can say are in use (Owner, Admin and Member always are).
 export const OPTIONAL_ROLES = ['moderator', 'instructor', 'teaching_assistant'];
 // Settings keys added for templates; communities.js adds them to its allow-list.
-export const CONFIG_SETTING_KEYS = ['resourceCategories', 'eventDefaults', 'roles'];
+// `audience` is the "Who this is for" line on the join screen; `joinQuestion` is asked with a
+// Private community's join requests (F7).
+export const CONFIG_SETTING_KEYS = ['resourceCategories', 'eventCategories', 'eventDefaults', 'roles', 'audience', 'joinQuestion'];
+export const SHORT_TEXT_MAX = 200;
+// A community's own category lists (F13): up to 12 names of up to 40 characters each.
+export const CATEGORY_LIST = { max: 12, len: 40 };
 const EVENT_DEFAULT_KEYS = new Set(['eventType', 'durationMinutes', 'location', 'capacity', 'rsvpEnabled']);
 
 const invalid = (field, message) => badRequest('INVALID_INPUT', message, { field });
@@ -56,7 +61,14 @@ export function checkSettings(s) {
   for (const k of ['requireApproval', 'membersAddResources']) {
     if (k in s && typeof s[k] !== 'boolean') throw invalid(`settings.${k}`, `“${k}” must be on or off.`);
   }
-  if ('resourceCategories' in s) s.resourceCategories = shortList(s.resourceCategories, 'settings.resourceCategories', { max: 12, len: 40, label: 'Resource categories' });
+  if ('resourceCategories' in s) s.resourceCategories = shortList(s.resourceCategories, 'settings.resourceCategories', { ...CATEGORY_LIST, label: 'Resource categories' });
+  if ('eventCategories' in s) s.eventCategories = shortList(s.eventCategories, 'settings.eventCategories', { ...CATEGORY_LIST, label: 'Event categories' });
+  for (const k of ['audience', 'joinQuestion']) {
+    if (!(k in s)) continue;
+    if (s[k] != null && typeof s[k] !== 'string') throw invalid(`settings.${k}`, `“${k}” must be text.`);
+    s[k] = s[k] == null ? null : (s[k].replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim() || null);
+    if (s[k] && s[k].length > SHORT_TEXT_MAX) throw invalid(`settings.${k}`, `Keep it under ${SHORT_TEXT_MAX} characters.`);
+  }
   if ('roles' in s) {
     if (!Array.isArray(s.roles) || s.roles.some((r) => !OPTIONAL_ROLES.includes(r)) || new Set(s.roles).size !== s.roles.length) {
       throw invalid('settings.roles', `Roles in use can be: ${OPTIONAL_ROLES.join(', ')}.`);
@@ -94,15 +106,24 @@ export async function assertCanCreate(db, user) {
   if (who?.v === 'staff' && !can(user, 'communities.manage')) throw forbidden('Only platform staff can create communities at the moment.', 'CREATE_RESTRICTED');
 }
 
-/** A published template a person may use, or the reason they can't. */
-export async function usableTemplate(db, key) {
-  const { rows: [t] } = await db.query(
-    `select t.*, v.questionnaire, v.blueprint from community_templates t
-       left join template_versions v on v.template_id = t.id and v.version = t.current_version
-      where lower(t.key) = lower($1)`, [String(key ?? '')]);
+/**
+ * A published template a person may use, at `version` (any published version, TPL-02) or its
+ * current one, or the reason they can't. A draft, inactive or unknown template is refused first
+ * (TPL-01); then a version that is a draft or doesn't exist.
+ */
+export async function usableTemplate(db, key, version = null) {
+  const { rows: [t] } = await db.query(`select * from community_templates where lower(key) = lower($1)`, [String(key ?? '')]);
   if (!t) throw new HttpError(404, 'TEMPLATE_NOT_FOUND', 'That template doesn’t exist.');
   if (t.status !== 'published' || !t.current_version) throw conflict('TEMPLATE_INACTIVE', 'This template isn’t available any more. Choose another, or start from scratch.');
-  return t;
+  const v = version ?? t.current_version;
+  const { rows: [row] } = Number.isInteger(v)
+    ? await db.query(`select questionnaire, blueprint from template_versions where template_id = $1 and version = $2 and published_at is not null`, [t.id, v])
+    : { rows: [] };
+  if (!row) {
+    throw badRequest('TEMPLATE_VERSION_UNKNOWN', `This template has no published version ${String(v).slice(0, 12)}. Start again from the current version.`,
+      { field: 'template', currentVersion: t.current_version });
+  }
+  return { ...t, version: v, questionnaire: row.questionnaire, blueprint: row.blueprint };
 }
 
 /**
@@ -112,11 +133,8 @@ export async function usableTemplate(db, key) {
 export async function prepareCommunity(db, body) {
   const plan = { category: checkCategory(body.category), topics: cleanTopics(body.topics), template: null };
   if (body.template) {
-    const t = await usableTemplate(db, body.template.key);
-    if (body.template.version !== t.current_version) {
-      throw conflict('TEMPLATE_VERSION_CHANGED', `This template was updated to version ${t.current_version}. Review the new suggestion before creating.`, { currentVersion: t.current_version });
-    }
-    plan.template = { id: t.id, key: t.key, version: t.current_version };
+    const t = await usableTemplate(db, body.template.key, body.template.version);
+    plan.template = { id: t.id, key: t.key, version: t.version };
   }
   return plan;
 }
@@ -129,48 +147,91 @@ export async function recordCreation(t, communityId, plan) {
   }
 }
 
-// ---- Questionnaires -----------------------------------------------------------------------------
+// ---- Questionnaires (F12) -----------------------------------------------------------------------
+//
+// Five safe question types. Every question can be skipped by the person creating (F3);
+// `required` only matters when the template itself is checked for publishing.
+//   text         a short answer: a string of up to `maxLength` (at most 200) characters
+//   list         up to 12 short items (each up to 60 characters): a string array
+//   choice       one of `options` ({ value, label }), or with `multiple` an array of values
+//   years        a range { from, to }: whole years 1900–2100, from ≤ to
+//   institution  the id of an institution from GET /api/institutions; its slot gets the name
 
-export const QUESTION_TYPES = ['text', 'long_text', 'single_choice', 'multiple_choice', 'list', 'yes_no'];
-const QUESTION_KEYS = new Set(['key', 'label', 'help', 'type', 'required', 'options', 'max', 'showIf']);
+export const QUESTION_TYPES = ['text', 'list', 'choice', 'years', 'institution'];
+const QUESTION_KEYS = new Set(['key', 'label', 'help', 'type', 'required', 'showIf', 'maxLength', 'options', 'multiple']);
 const KEY = /^[a-z][a-z0-9_]{0,39}$/;
 const MAX_QUESTIONS = 15;
-const TEXT_MAX = { text: 120, long_text: 1000 };
-const LIST_ITEM_MAX = 60;
+export const TEXT_MAX = 200;
+export const LIST_MAX_ITEMS = 12;
+export const LIST_ITEM_MAX = 60;
+export const YEAR_MIN = 1900;
+export const YEAR_MAX = 2100;
 const adminInvalid = (code, message, field) => badRequest(code, message, { field });
+
+const isYear = (n) => Number.isInteger(n) && n >= YEAR_MIN && n <= YEAR_MAX;
+
+/**
+ * Whether a condition (a rule's `when`, a question's `showIf`) is one the question it names can
+ * meet: a choice's values, a list's items, or simply answered. Returns an error message or null.
+ */
+function conditionProblem(cond, q) {
+  if (!q) return `{${cond.key}} isn’t a question in this template.`;
+  if ('answered' in cond) return typeof cond.answered === 'boolean' ? null : '“answered” must be true or false.';
+  const [op, v] = 'equals' in cond ? ['equals', cond.equals] : ['includes', cond.includes];
+  if (q.type === 'choice') {
+    if (op === 'equals' && q.multiple) return `{${q.key}} allows several answers: use “includes”.`;
+    if (op === 'includes' && !q.multiple) return `{${q.key}} allows one answer: use “equals”.`;
+    if (!q.options.some((o) => o.value === v)) return `“${String(v).slice(0, 80)}” isn’t one of the options of {${q.key}}.`;
+    return null;
+  }
+  if (q.type === 'list') return op === 'includes' && typeof v === 'string' && v.trim() ? null : `{${q.key}} is a list: use “includes” with an item, or “answered”.`;
+  if (q.type === 'text') return op === 'equals' && typeof v === 'string' ? null : `{${q.key}} is text: use “equals” with text, or “answered”.`;
+  return `{${q.key}} can only be checked with “answered”.`;
+}
 
 export function validateQuestionnaire(q) {
   if (!Array.isArray(q) || q.length > MAX_QUESTIONS) throw adminInvalid('INVALID_QUESTIONNAIRE', `A questionnaire is a list of up to ${MAX_QUESTIONS} questions.`, 'questionnaire');
   const seen = new Map();
   return q.map((x, i) => {
     const at = `questionnaire[${i}]`;
-    if (!x || typeof x !== 'object' || Array.isArray(x)) throw adminInvalid('INVALID_QUESTIONNAIRE', 'Each question must be an object.', at);
+    const fail = (message) => adminInvalid('INVALID_QUESTIONNAIRE', `Question ${i + 1}: ${message}`, at);
+    if (!x || typeof x !== 'object' || Array.isArray(x)) throw fail('each question must be an object.');
     const extra = Object.keys(x).find((k) => !QUESTION_KEYS.has(k));
-    if (extra) throw adminInvalid('INVALID_QUESTIONNAIRE', `“${extra}” isn’t a question field.`, at);
-    if (typeof x.key !== 'string' || !KEY.test(x.key)) throw adminInvalid('INVALID_QUESTIONNAIRE', 'A question key is lowercase letters, digits and _, starting with a letter.', at);
-    if (seen.has(x.key)) throw adminInvalid('INVALID_QUESTIONNAIRE', `Two questions use the key “${x.key}”.`, at);
-    if (!QUESTION_TYPES.includes(x.type)) throw adminInvalid('INVALID_QUESTIONNAIRE', `Question type can be: ${QUESTION_TYPES.join(', ')}.`, at);
+    if (extra) throw fail(`“${extra}” isn’t a question field.`);
+    if (typeof x.key !== 'string' || !KEY.test(x.key)) throw fail('a slot name is lowercase letters, digits and _, starting with a letter.');
+    if (seen.has(x.key)) throw fail(`two questions use the slot {${x.key}}.`);
+    if (!QUESTION_TYPES.includes(x.type)) throw fail(`the answer type can be: ${QUESTION_TYPES.join(', ')}.`);
     const label = typeof x.label === 'string' ? x.label.trim() : '';
-    if (!label || label.length > 160) throw adminInvalid('INVALID_QUESTIONNAIRE', 'Each question needs a label of up to 160 characters.', at);
-    if (x.help != null && (typeof x.help !== 'string' || x.help.length > 300)) throw adminInvalid('INVALID_QUESTIONNAIRE', 'Keep help text under 300 characters.', at);
-    if ('required' in x && typeof x.required !== 'boolean') throw adminInvalid('INVALID_QUESTIONNAIRE', '“required” must be true or false.', at);
+    if (!label || label.length > 160) throw fail('it needs the question people will read, up to 160 characters.');
+    if (x.help != null && (typeof x.help !== 'string' || x.help.length > 300)) throw fail('keep help text under 300 characters.');
+    if ('required' in x && typeof x.required !== 'boolean') throw fail('“required” must be true or false.');
     const out = { key: x.key, label, help: x.help?.trim() ?? '', type: x.type, required: !!x.required };
-    if (x.type === 'single_choice' || x.type === 'multiple_choice') {
-      const o = x.options;
-      if (!Array.isArray(o) || o.length < 2 || o.length > 20 || o.some((v) => typeof v !== 'string' || !v.trim() || v.length > 80) || new Set(o).size !== o.length) {
-        throw adminInvalid('INVALID_QUESTIONNAIRE', 'A choice question needs 2–20 different options of up to 80 characters.', at);
+    if (x.type === 'text') {
+      if (x.maxLength != null) {
+        if (!(Number.isInteger(x.maxLength) && x.maxLength >= 1 && x.maxLength <= TEXT_MAX)) throw fail(`a short answer can be 1–${TEXT_MAX} characters long.`);
+        out.maxLength = x.maxLength;
       }
-      out.options = o.map((v) => v.trim());
-    } else if (x.options != null) throw adminInvalid('INVALID_QUESTIONNAIRE', 'Only choice questions have options.', at);
-    if (x.type === 'list') {
-      if (x.max != null && !(Number.isInteger(x.max) && x.max >= 1 && x.max <= 20)) throw adminInvalid('INVALID_QUESTIONNAIRE', 'A list allows 1–20 items.', at);
-      out.max = x.max ?? 10;
-    } else if (x.max != null) throw adminInvalid('INVALID_QUESTIONNAIRE', 'Only list questions have a maximum.', at);
+    } else if (x.maxLength != null) throw fail('only short text answers have a maximum length.');
+    if (x.type === 'choice') {
+      const o = x.options;
+      const ok = Array.isArray(o) && o.length >= 2 && o.length <= 20 && o.every((v) => v && typeof v === 'object' && !Array.isArray(v)
+        && Object.keys(v).every((k) => k === 'value' || k === 'label')
+        && typeof v.value === 'string' && v.value.trim() && v.value.trim().length <= 80
+        && typeof v.label === 'string' && v.label.trim() && v.label.trim().length <= 80);
+      if (!ok) throw fail('a choice needs 2–20 options, each with a label and a saved value of up to 80 characters.');
+      out.options = o.map((v) => ({ value: v.value.trim(), label: v.label.trim() }));
+      if (new Set(out.options.map((v) => v.value)).size !== out.options.length) throw fail('two options are saved with the same value.');
+      if ('multiple' in x && typeof x.multiple !== 'boolean') throw fail('“multiple” must be true or false.');
+      out.multiple = !!x.multiple;
+    } else if (x.options != null || x.multiple != null) throw fail('only choice questions have options.');
     // Only the relevant questions are asked: one can depend on an earlier answer.
     if (x.showIf != null) {
-      const s = x.showIf; const dep = seen.get(s?.key);
-      if (!dep || Object.keys(s).length !== 2 || !('equals' in s || 'includes' in s)) throw adminInvalid('INVALID_QUESTIONNAIRE', '“showIf” names an earlier question and the answer that shows this one.', at);
-      out.showIf = { key: s.key, ...('equals' in s ? { equals: s.equals } : { includes: s.includes }) };
+      const s = x.showIf;
+      const shape = s && typeof s === 'object' && typeof s.key === 'string' && Object.keys(s).length === 2 && ('equals' in s || 'includes' in s || 'answered' in s);
+      if (!shape || !seen.has(s.key)) throw fail('“Show this question” names an earlier question and the answer that shows this one.');
+      const problem = conditionProblem(s, seen.get(s.key));
+      if (problem) throw fail(problem);
+      out.showIf = { key: s.key, ...('equals' in s ? { equals: s.equals } : 'includes' in s ? { includes: s.includes } : { answered: s.answered }) };
     }
     seen.set(x.key, out);
     return out;
@@ -181,93 +242,162 @@ const empty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 
 const matches = (cond, answers) => {
   const v = answers[cond.key];
   if ('equals' in cond) return v === cond.equals;
-  if ('includes' in cond) return Array.isArray(v) && v.includes(cond.includes);
+  if ('includes' in cond) return Array.isArray(v) && v.some((x) => x === cond.includes || (typeof x === 'string' && typeof cond.includes === 'string' && x.toLowerCase() === cond.includes.toLowerCase()));
   if ('answered' in cond) return empty(v) !== cond.answered;
   return false;
 };
 
+/** The name of an institution from the platform's list, or null. */
+export const institutionLookup = (db) => async (id) => (await db.query(`select name from institutions where id = $1`, [String(id)])).rows[0]?.name ?? null;
+
 /**
- * Checks answers against a questionnaire and returns them cleaned. Questions hidden by an
- * earlier answer are skipped (their answers are dropped); every missing required answer is
- * named at once so the form can mark them all.
+ * Checks answers against a questionnaire and returns them cleaned. Any question can be left out
+ * (F3). Questions hidden by an earlier answer are skipped (their answers are dropped). An
+ * institution answer becomes { id, name }; `institutionName(id)` gives the name, or null.
  */
-export function checkAnswers(questionnaire, input) {
+export async function checkAnswers(questionnaire, input, { institutionName = async () => null } = {}) {
   if (input == null || typeof input !== 'object' || Array.isArray(input)) throw badRequest('INVALID_INPUT', 'Answers must be an object.', { field: 'answers' });
   const known = new Set(questionnaire.map((q) => q.key));
   const unknown = Object.keys(input).find((k) => !known.has(k));
-  if (unknown) throw badRequest('UNKNOWN_ANSWER', `“${unknown}” isn’t one of this template’s questions.`, { field: unknown });
-  const out = {}; const missing = [];
+  if (unknown) throw badRequest('UNKNOWN_ANSWER', `“${unknown.slice(0, 40)}” isn’t one of this template’s questions.`, { field: unknown.slice(0, 40) });
+  const out = {};
   const bad = (q, msg) => badRequest('INVALID_ANSWER', `${q.label} ${msg}`, { field: q.key });
   for (const q of questionnaire) {
     if (q.showIf && !matches(q.showIf, out)) continue;
     let v = input[q.key];
     if (typeof v === 'string') v = v.trim();
-    if (empty(v)) { if (q.required) missing.push(q.key); continue; }
+    if (empty(v)) continue;
     switch (q.type) {
-      case 'text': case 'long_text':
+      case 'text': {
+        const max = q.maxLength ?? TEXT_MAX;
         if (typeof v !== 'string') throw bad(q, 'needs a written answer.');
-        if (v.length > TEXT_MAX[q.type]) throw bad(q, `can be up to ${TEXT_MAX[q.type]} characters.`);
-        v = q.type === 'text' ? v.replace(/\s+/g, ' ') : v;
+        v = v.replace(/\s+/g, ' ');
+        if (v.length > max) throw bad(q, `can be up to ${max} characters.`);
         break;
-      case 'single_choice':
-        if (!q.options.includes(v)) throw bad(q, 'needs one of the listed options.');
-        break;
-      case 'multiple_choice':
-        if (!Array.isArray(v) || v.some((x) => !q.options.includes(x)) || new Set(v).size !== v.length) throw bad(q, 'needs options from the list, each once.');
-        break;
+      }
       case 'list':
-        if (!Array.isArray(v) || v.length > q.max) throw bad(q, `can list up to ${q.max} items.`);
+        if (!Array.isArray(v) || v.length > LIST_MAX_ITEMS) throw bad(q, `can list up to ${LIST_MAX_ITEMS} items.`);
         v = v.map((x) => (typeof x === 'string' ? x.trim().replace(/\s+/g, ' ') : ''));
         if (v.some((x) => !x || x.length > LIST_ITEM_MAX)) throw bad(q, `needs items of 1–${LIST_ITEM_MAX} characters.`);
         v = v.filter((x, i) => v.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
         break;
-      case 'yes_no':
-        if (typeof v !== 'boolean') throw bad(q, 'needs yes or no.');
+      case 'choice': {
+        const values = new Set(q.options.map((o) => o.value));
+        if (q.multiple) {
+          if (!Array.isArray(v) || v.some((x) => !values.has(x)) || new Set(v).size !== v.length) throw bad(q, 'needs options from the list, each once.');
+        } else if (!values.has(v)) throw bad(q, 'needs one of the listed options.');
         break;
+      }
+      case 'years':
+        if (!v || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).some((k) => k !== 'from' && k !== 'to') || !isYear(v.from) || !isYear(v.to)) {
+          throw bad(q, `needs a range of years from ${YEAR_MIN} to ${YEAR_MAX}.`);
+        }
+        if (v.from > v.to) throw bad(q, 'needs the first year before the last.');
+        v = { from: v.from, to: v.to };
+        break;
+      case 'institution': {
+        if (typeof v !== 'string' || v.length > 64) throw bad(q, 'needs an institution from the list.');
+        const name = await institutionName(v);
+        if (!name) throw bad(q, 'needs an institution from the list.');
+        v = { id: v, name };
+        break;
+      }
       default:
+        throw bad(q, 'has a type this version doesn’t support.');
     }
     out[q.key] = v;
   }
-  if (missing.length) throw badRequest('ANSWERS_REQUIRED', 'Answer the questions marked as required.', { fields: missing });
   return out;
 }
 
 // ---- Blueprints and suggestions -----------------------------------------------------------------
 
-const BLUEPRINT_KEYS = new Set(['name', 'description', 'sections', 'learning', 'topics', 'membership', 'resourceCategories', 'eventDefaults', 'guidelines', 'roles', 'rules']);
+const BLUEPRINT_KEYS = new Set(['name', 'description', 'audience', 'joinQuestion', 'sections', 'learning', 'topics', 'membership', 'resourceCategories', 'eventCategories', 'eventDefaults', 'guidelines', 'roles', 'rules']);
+const TEXT_FIELDS = ['name', 'description', 'audience', 'joinQuestion', 'guidelines'];
 const MEMBERSHIP_KEYS = new Set(['visibility', 'requireApproval', 'whoCanPost', 'whoCanCreateEvents', 'membersAddResources']);
-const LIST_FIELDS = ['sections', 'topics', 'resourceCategories', 'roles'];
-const SET_FIELDS = new Set(['name', 'description', 'guidelines', 'learning', 'membership', 'eventDefaults']);
-const PLACEHOLDER = /\{\{\s*answer\.([a-z][a-z0-9_]*)\s*\}\}/g;
+const LIST_FIELDS = ['sections', 'topics', 'resourceCategories', 'eventCategories', 'roles'];
+const SET_FIELDS = new Set(['name', 'description', 'audience', 'joinQuestion', 'guidelines', 'learning', 'membership', 'eventDefaults']);
+// A slot is {key}; the older {{answer.key}} spelling is still read.
+const SLOT = /\{\{\s*answer\.([a-z][a-z0-9_]*)\s*\}\}|\{([a-z][a-z0-9_]*)\}/g;
+const WHOLE_SLOT = /^(?:\{\{\s*answer\.([a-z][a-z0-9_]*)\s*\}\}|\{([a-z][a-z0-9_]*)\})$/;
 
-const asText = (v) => (Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v ?? ''));
-// Fills placeholders; an unanswered optional question leaves no gap, stray separator or "()".
-const fill = (s, answers) => String(s ?? '').replace(PLACEHOLDER, (_, k) => asText(answers[k]))
-  .replace(/\(\s*\)/g, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:)])/g, '$1').replace(/\( +/g, '(')
-  .split('\n').map((l) => l.trim()).join('\n').trim();
-// A list item that is exactly one placeholder for a list answer becomes one item per answer.
-const fillList = (items, answers) => {
+/** What a slot becomes for one answer: the text people read (choice labels, the institution's name). */
+const slotText = (q, v) => {
+  if (v == null) return '';
+  const label = (x) => q?.options?.find((o) => o.value === x)?.label ?? String(x);
+  switch (q?.type) {
+    case 'list': return v.join(', ');
+    case 'choice': return Array.isArray(v) ? v.map(label).join(', ') : label(v);
+    case 'years': return v.from === v.to ? String(v.from) : `${v.from} to ${v.to}`;
+    case 'institution': return v.name ?? '';
+    default: return String(v);
+  }
+};
+// Slot texts for every answer, and the item lists of list and multiple-choice answers.
+const slotsFor = (questionnaire, answers) => {
+  const text = {}; const items = {};
+  for (const q of questionnaire ?? []) {
+    const v = answers[q.key];
+    if (v == null) continue;
+    text[q.key] = slotText(q, v);
+    if (q.type === 'list') items[q.key] = v;
+    if (q.type === 'choice' && q.multiple) items[q.key] = v.map((x) => slotText(q, x));
+  }
+  return { text, items };
+};
+// Fills slots; an unanswered question never leaves broken text. A bracket holding only an
+// unanswered slot disappears. In prose (`sentences`: descriptions, guidelines, the join screen's
+// lines) a sentence that still needs an unanswered slot is left out whole, so "The alumni
+// community of {institution}." never reads "The alumni community of."; elsewhere (a name, a
+// place) the empty slot is closed up. The pattern is split before filling, so an answer's own
+// full stops don't count.
+const ONLY_SLOT_IN_BRACKETS = /\(\s*(?:\{\{\s*answer\.([a-z][a-z0-9_]*)\s*\}\}|\{([a-z][a-z0-9_]*)\})\s*\)/g;
+const fill = (s, slots, { sentences = false } = {}) => {
+  const missing = (k) => !slots.text[k];
+  let p = String(s ?? '').replace(ONLY_SLOT_IN_BRACKETS, (m, a, b) => (missing(a ?? b) ? '' : m));
+  if (sentences) {
+    p = p.split('\n').map((line) => line.split(/(?<=[.!?])\s+/)
+      .filter((part) => ![...part.matchAll(SLOT)].some((m) => missing(m[1] ?? m[2]))).join(' ')).join('\n');
+  }
+  return p.replace(SLOT, (_, a, b) => slots.text[a ?? b] ?? '')
+    .replace(/\(\s*\)/g, '').replace(/[ \t]+/g, ' ').replace(/ +([,.;:)])/g, '$1').replace(/\( +/g, '(')
+    .split('\n').map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+// A list item that is exactly one slot for a list answer becomes one item per answer.
+const fillList = (list, slots) => {
   const out = [];
-  for (const item of items ?? []) {
-    const whole = /^\{\{\s*answer\.([a-z][a-z0-9_]*)\s*\}\}$/.exec(String(item).trim());
-    const values = whole && Array.isArray(answers[whole[1]]) ? answers[whole[1]] : [fill(item, answers)];
+  for (const item of list ?? []) {
+    const whole = WHOLE_SLOT.exec(String(item).trim());
+    const k = whole && (whole[1] ?? whole[2]);
+    const values = k && slots.items[k] ? slots.items[k] : [fill(item, slots)];
     for (const v of values) if (v && !out.some((o) => o.toLowerCase() === v.toLowerCase())) out.push(v);
   }
   return out;
 };
-const placeholdersIn = (v) => [...JSON.stringify(v ?? null).matchAll(PLACEHOLDER)].map((m) => m[1]);
+const slotsIn = (v) => [...JSON.stringify(v ?? null).matchAll(SLOT)].map((m) => m[1] ?? m[2]);
 
-/** Structure checks for a blueprint. `complete` (publishing) also needs a name pattern. */
+/**
+ * Structure checks for a blueprint. `complete` (publishing) also needs a name pattern. Every slot
+ * must be filled by a question, and every rule must name a question and a value it can have
+ * (TPL-05): the message names the problem and the field says where it is.
+ */
 export function validateBlueprint(bp, questionnaire, { complete = false } = {}) {
   const fail = (message, field = 'blueprint') => adminInvalid('INVALID_BLUEPRINT', message, field);
   if (!bp || typeof bp !== 'object' || Array.isArray(bp)) throw fail('A blueprint must be an object.');
   const extra = Object.keys(bp).find((k) => !BLUEPRINT_KEYS.has(k));
   if (extra) throw fail(`“${extra}” isn’t a blueprint field.`);
-  for (const k of ['name', 'description', 'guidelines']) if (k in bp && typeof bp[k] !== 'string') throw fail(`“${k}” must be text.`, `blueprint.${k}`);
+  for (const k of TEXT_FIELDS) if (k in bp && typeof bp[k] !== 'string') throw fail(`“${k}” must be text.`, `blueprint.${k}`);
+  for (const k of ['audience', 'joinQuestion']) if (k in bp && bp[k].length > SHORT_TEXT_MAX) throw fail(`Keep “${k}” under ${SHORT_TEXT_MAX} characters.`, `blueprint.${k}`);
   if (complete && !String(bp.name ?? '').trim()) throw fail('Give the blueprint a name pattern.', 'blueprint.name');
   for (const k of LIST_FIELDS) if (k in bp && (!Array.isArray(bp[k]) || bp[k].some((x) => typeof x !== 'string'))) throw fail(`“${k}” must be a list of text.`, `blueprint.${k}`);
   if ((bp.sections ?? []).some((s) => !SECTIONS.includes(s))) throw fail(`Sections can be: ${SECTIONS.join(', ')}.`, 'blueprint.sections');
   if ((bp.roles ?? []).some((r) => !OPTIONAL_ROLES.includes(r))) throw fail(`Roles can be: ${OPTIONAL_ROLES.join(', ')}.`, 'blueprint.roles');
+  if ((bp.topics ?? []).length > MAX_TOPICS) throw fail(`A community can have up to ${MAX_TOPICS} topics.`, 'blueprint.topics');
+  for (const k of ['resourceCategories', 'eventCategories']) {
+    if ((bp[k] ?? []).length > CATEGORY_LIST.max || (bp[k] ?? []).some((x) => !x.trim() || x.length > CATEGORY_LIST.len)) {
+      throw fail(`Categories: up to ${CATEGORY_LIST.max}, each of 1–${CATEGORY_LIST.len} characters.`, `blueprint.${k}`);
+    }
+  }
   if ('learning' in bp && typeof bp.learning !== 'boolean') throw fail('“learning” must be true or false.', 'blueprint.learning');
   const membership = (m, field) => {
     if (!m || typeof m !== 'object' || Array.isArray(m) || Object.keys(m).some((k) => !MEMBERSHIP_KEYS.has(k))) throw fail(`Membership can set ${[...MEMBERSHIP_KEYS].join(', ')}.`, field);
@@ -275,19 +405,26 @@ export function validateBlueprint(bp, questionnaire, { complete = false } = {}) 
     for (const k of ['whoCanPost', 'whoCanCreateEvents']) if (k in m && !['members', 'admins'].includes(m[k])) throw fail(`“${k}” is members or admins.`, field);
     for (const k of ['requireApproval', 'membersAddResources']) if (k in m && typeof m[k] !== 'boolean') throw fail(`“${k}” must be true or false.`, field);
   };
+  const eventDefaults = (e, field) => {
+    try { checkSettings({ eventDefaults: e }); } catch (err) { throw fail(err.message, field); }
+  };
   if ('membership' in bp) membership(bp.membership, 'blueprint.membership');
-  if ('eventDefaults' in bp) checkSettings({ eventDefaults: bp.eventDefaults });
+  if ('eventDefaults' in bp) eventDefaults(bp.eventDefaults, 'blueprint.eventDefaults');
+  const byKey = new Map(questionnaire.map((q) => [q.key, q]));
   if ('rules' in bp) {
     if (!Array.isArray(bp.rules) || bp.rules.length > 30) throw fail('Rules are a list of up to 30.', 'blueprint.rules');
     bp.rules.forEach((r, i) => {
       const field = `blueprint.rules[${i}]`;
-      if (!r || typeof r !== 'object' || Object.keys(r).some((k) => !['when', 'set', 'add'].includes(k)) || !r.when || !(r.set || r.add)) throw fail('A rule has “when” and “set” or “add”.', field);
+      if (!r || typeof r !== 'object' || Object.keys(r).some((k) => !['when', 'set', 'add'].includes(k)) || !r.when || !(r.set || r.add)) throw fail(`Rule ${i + 1} needs “when” and “set” or “add”.`, field);
       const w = r.when;
-      if (typeof w !== 'object' || Object.keys(w).length !== 2 || typeof w.key !== 'string' || !('equals' in w || 'includes' in w || typeof w.answered === 'boolean')) throw fail('“when” names a question and equals, includes or answered.', field);
+      if (typeof w !== 'object' || Object.keys(w).length !== 2 || typeof w.key !== 'string' || !('equals' in w || 'includes' in w || 'answered' in w)) throw fail(`Rule ${i + 1}: “when” names a question and equals, includes or answered.`, field);
+      const problem = conditionProblem(w, byKey.get(w.key));
+      if (problem) throw fail(`Rule ${i + 1}: ${problem}`, field);
       if (r.set) {
         if (typeof r.set !== 'object' || Object.keys(r.set).some((k) => !SET_FIELDS.has(k))) throw fail(`A rule can set ${[...SET_FIELDS].join(', ')}.`, field);
+        for (const k of TEXT_FIELDS) if (k in r.set && typeof r.set[k] !== 'string') throw fail(`Rule ${i + 1}: “${k}” must be text.`, field);
         if (r.set.membership) membership(r.set.membership, field);
-        if (r.set.eventDefaults) checkSettings({ eventDefaults: r.set.eventDefaults });
+        if (r.set.eventDefaults) eventDefaults(r.set.eventDefaults, field);
         if ('learning' in r.set && typeof r.set.learning !== 'boolean') throw fail('“learning” must be true or false.', field);
       }
       if (r.add) {
@@ -297,17 +434,18 @@ export function validateBlueprint(bp, questionnaire, { complete = false } = {}) 
       }
     });
   }
-  // Every placeholder and rule must refer to a question in the same version.
-  const keys = new Set(questionnaire.map((q) => q.key));
-  const unknown = [...placeholdersIn(bp), ...(bp.rules ?? []).map((r) => r.when.key)].find((k) => !keys.has(k));
-  if (unknown) throw fail(`“${unknown}” isn’t a question in this template.`);
+  // Every slot must be filled by a question in the same version (TPL-05).
+  for (const [k, v] of Object.entries(bp)) {
+    const unknown = slotsIn(k === 'rules' ? v.map((r) => ({ set: r.set, add: r.add })) : v).find((s) => !byKey.has(s));
+    if (unknown) throw fail(`The blueprint uses the slot {${unknown}}, but no question fills it. Remove it or add a question with that slot.`, `blueprint.${k}`);
+  }
   return bp;
 }
 
 /**
  * Answers + blueprint → a suggested configuration, shaped like the body of POST /communities.
- * Pure: no database, no writes. Lists are trimmed to their limits because it's a suggestion;
- * creating the community checks everything again.
+ * Pure: no database, no writes. `template` carries its questionnaire, blueprint and version.
+ * Lists are trimmed to their limits because it's a suggestion; creating checks everything again.
  */
 export function suggestConfig(template, answers) {
   const bp = structuredClone(template.blueprint ?? {});
@@ -316,53 +454,116 @@ export function suggestConfig(template, answers) {
     for (const [k, v] of Object.entries(r.set ?? {})) bp[k] = (k === 'membership' || k === 'eventDefaults') ? { ...bp[k], ...v } : v;
     for (const [k, v] of Object.entries(r.add ?? {})) bp[k] = [...(bp[k] ?? []), ...v];
   }
+  const slots = slotsFor(template.questionnaire, answers);
   const m = bp.membership ?? {};
   const sections = [...new Set(bp.sections ?? ['discussions', 'events', 'resources', 'members'])].filter((s) => s !== 'learning');
   const ev = bp.eventDefaults ? { ...bp.eventDefaults } : undefined;
-  if (ev && typeof ev.location === 'string') ev.location = fill(ev.location, answers).slice(0, 200) || null;
+  if (ev && typeof ev.location === 'string') ev.location = fill(ev.location, slots).slice(0, 200) || null;
+  const categories = (list) => fillList(list, slots).map((x) => x.slice(0, CATEGORY_LIST.len).trim()).filter(Boolean).slice(0, CATEGORY_LIST.max);
   return {
-    name: fill(bp.name, answers).slice(0, 80).trim() || template.name,
-    description: fill(bp.description, answers).slice(0, 1000) || null,
+    name: fill(bp.name, slots).slice(0, 80).trim() || template.name,
+    description: fill(bp.description, slots, { sentences: true }).slice(0, 1000) || null,
     category: template.category,
     visibility: m.visibility ?? 'public',
     settings: {
       // The section switches' list (lib/community.js sectionOn); Members always shows.
       sections: (bp.learning ? [...sections, 'learning'] : sections).filter((s) => s !== 'members'),
-      guidelines: fill(bp.guidelines, answers).slice(0, 5000),
+      guidelines: fill(bp.guidelines, slots, { sentences: true }).slice(0, 5000),
+      audience: fill(bp.audience, slots, { sentences: true }).slice(0, SHORT_TEXT_MAX) || null,
+      joinQuestion: fill(bp.joinQuestion, slots, { sentences: true }).slice(0, SHORT_TEXT_MAX) || null,
       requireApproval: m.requireApproval ?? false,
       whoCanPost: m.whoCanPost ?? 'members',
       whoCanCreateEvents: m.whoCanCreateEvents ?? 'members',
       membersAddResources: m.membersAddResources ?? false,
-      resourceCategories: fillList(bp.resourceCategories, answers).map((x) => x.slice(0, 40)).slice(0, 12),
+      resourceCategories: categories(bp.resourceCategories),
+      eventCategories: categories(bp.eventCategories),
       ...(ev ? { eventDefaults: ev } : {}),
       roles: OPTIONAL_ROLES.filter((r) => (bp.roles ?? []).includes(r)),
     },
-    topics: fillList(bp.topics, answers).map((x) => x.slice(0, 40)).slice(0, MAX_TOPICS),
-    template: { key: template.key, version: template.current_version },
+    topics: fillList(bp.topics, slots).map((x) => x.slice(0, 40).trim()).filter(Boolean).slice(0, MAX_TOPICS),
+    template: { key: template.key, version: template.version ?? template.current_version },
   };
 }
 
-// Answers that satisfy every required question, for checking a blueprint before it's published.
-const sampleAnswers = (questionnaire) => {
-  const out = {};
-  for (const q of questionnaire) {
-    if (!q.required) continue;
-    out[q.key] = { text: 'Sample', long_text: 'Sample', single_choice: q.options?.[0], multiple_choice: q.options?.slice(0, 1), list: ['Sample'], yes_no: true }[q.type];
-  }
-  return out;
-};
+// A valid answer for every question, for checking a blueprint before it's published.
+const sampleAnswer = (q) => ({
+  text: 'Sample', list: ['Sample one', 'Sample two'], years: { from: 2000, to: 2010 }, institution: 'sample',
+  choice: q.multiple ? q.options?.slice(0, 1).map((o) => o.value) : q.options?.[0]?.value,
+})[q.type];
 
 /**
- * Publishing check: the version must be complete, and a suggestion from sample answers must be a
- * configuration that creating a community would accept.
+ * Publishing check (TPL-05): the version must be complete, and the suggestion must be a
+ * configuration that creating a community would accept, whether every question is answered, only
+ * the required ones, or none (people may skip any question).
  */
-export function checkPublishable(template, questionnaire, blueprint) {
+export async function checkPublishable(template, questionnaire, blueprint) {
   const q = validateQuestionnaire(questionnaire);
   validateBlueprint(blueprint, q, { complete: true });
-  const config = suggestConfig({ ...template, blueprint, current_version: 1 }, checkAnswers(q, sampleAnswers(q)));
-  if (config.name.length < 2) throw adminInvalid('INVALID_BLUEPRINT', 'The name pattern gives a name that is too short.', 'blueprint.name');
-  checkSettings(config.settings);
-  cleanTopics(config.topics);
+  const samples = [
+    Object.fromEntries(q.map((x) => [x.key, sampleAnswer(x)])),
+    Object.fromEntries(q.filter((x) => x.required).map((x) => [x.key, sampleAnswer(x)])),
+    {},
+  ];
+  for (const sample of samples) {
+    const answers = await checkAnswers(q, sample, { institutionName: async () => 'Sample Institution' });
+    const config = suggestConfig({ ...template, questionnaire: q, blueprint, version: 1 }, answers);
+    if (config.name.length < 2) throw adminInvalid('INVALID_BLUEPRINT', 'The name pattern gives a name that is too short.', 'blueprint.name');
+    try {
+      checkSettings(config.settings);
+      cleanTopics(config.topics);
+    } catch (err) {
+      throw adminInvalid('INVALID_BLUEPRINT', `With sample answers the blueprint gives an invalid configuration: ${err.message}`, err.extra?.field?.replace(/^settings\./, 'blueprint.') ?? 'blueprint');
+    }
+  }
+}
+
+// ---- Converting questionnaires saved before F12 -------------------------------------------------
+//
+// Earlier versions had six types. long_text becomes text, single_choice and multiple_choice
+// become choice (with `multiple`), yes_no becomes a choice of Yes and No, and a list loses its own
+// maximum (every list allows 12). Option texts become { value, label } with a value made from the
+// label, and the rules and conditions that used the old option texts (or true and false) use the
+// new values. Questions already in the new shape are left as they are. Pure: used by the data
+// migration (lib/data-migrations.js, F12).
+
+export const valueFor = (label) => String(label).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'option';
+const YES_NO = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }];
+
+export function convertVersion(questionnaire, blueprint) {
+  const maps = new Map();
+  const qs = (Array.isArray(questionnaire) ? questionnaire : []).map((x) => {
+    if (!x || typeof x !== 'object') return x;
+    const { max, ...rest } = x;
+    if (x.type === 'long_text') return { ...rest, type: 'text' };
+    if (x.type === 'list') return rest;
+    if (x.type === 'yes_no') {
+      maps.set(x.key, new Map([[true, 'yes'], [false, 'no']]));
+      return { ...rest, type: 'choice', options: YES_NO, multiple: false };
+    }
+    if ((x.type === 'single_choice' || x.type === 'multiple_choice') && Array.isArray(x.options) && x.options.every((o) => typeof o === 'string')) {
+      const map = new Map(); const used = new Set();
+      const options = x.options.map((o) => {
+        const base = valueFor(o); let v = base; let n = 2;
+        while (used.has(v)) v = `${base.slice(0, 36)}_${n++}`;
+        used.add(v); map.set(o, v);
+        return { value: v, label: o };
+      });
+      maps.set(x.key, map);
+      return { ...rest, type: 'choice', options, multiple: x.type === 'multiple_choice' };
+    }
+    return x;
+  });
+  const cond = (c) => {
+    const map = c && maps.get(c.key);
+    if (!map) return c;
+    if ('equals' in c && map.has(c.equals)) return { ...c, equals: map.get(c.equals) };
+    if ('includes' in c && map.has(c.includes)) return { ...c, includes: map.get(c.includes) };
+    return c;
+  };
+  const q = qs.map((x) => (x?.showIf ? { ...x, showIf: cond(x.showIf) } : x));
+  const bp = blueprint && typeof blueprint === 'object' && Array.isArray(blueprint.rules)
+    ? { ...blueprint, rules: blueprint.rules.map((r) => (r?.when ? { ...r, when: cond(r.when) } : r)) } : blueprint;
+  return { questionnaire: q, blueprint: bp };
 }
 
 // ---- The starting library -----------------------------------------------------------------------

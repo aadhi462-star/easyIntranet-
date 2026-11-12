@@ -472,3 +472,143 @@ describe('permissions and limits', () => {
     } finally { await limited.close(); }
   });
 });
+
+describe('declining (F9)', () => {
+  const emailsTo = async (to) => (await q(`select count(*)::int as n from email_outbox where lower(to_email) = $1`, [to])).rows[0].n;
+
+  test('F9 declining by link: declined once, the inviter told in the app only, gone from the lists; a second decline answers the same', async () => {
+    const x = await person('d1');
+    const inv = (await invite('adm', 'clo', { userIds: ['d1'] })).body.results[0].invitation;
+    const token = await tokenFor('d1@example.com');
+    const adminEmails = await emailsTo('adm@example.com');
+    const res = await x.post(`/api/invitations/${token}/decline`);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.invitation.id, inv.id);
+    assert.equal(res.body.invitation.status, 'declined');
+    assert.ok(res.body.invitation.declinedAt);
+    assert.equal(res.body.invitation.community.name, 'clo closed community');
+    const again = await x.post(`/api/invitations/${token}/decline`);
+    assert.equal(again.status, 200);
+    assert.deepEqual(again.body, res.body, 'the same answer');
+    assert.equal(await stateIn('clo', 'd1'), null, 'no membership');
+    // The inviter hears it in the app (once), never by email.
+    const notes = (await c.adm.get('/api/notifications')).body.notifications.filter((n) => n.kind === 'invite_declined');
+    assert.equal(notes.length, 1);
+    assert.equal(notes[0].line, 'Person d1 declined your invitation to join clo closed community');
+    assert.equal(await emailsTo('adm@example.com'), adminEmails);
+    // Out of the invitee's list and dashboard; marked declined in the community's list.
+    assert.ok(!(await x.get('/api/me/invitations')).body.invitations.some((i) => i.id === inv.id));
+    assert.ok(!((await x.get('/api/dashboard')).body.invitations ?? []).some((i) => i.id === inv.id));
+    const listed = (await c.own.get('/api/communities/clo/invitations?status=declined')).body.invitations;
+    assert.deepEqual(listed.map((i) => i.id), [inv.id]);
+    assert.ok(listed[0].declinedAt);
+    // The invitee's own notification says it's over.
+    const mine = (await x.get('/api/notifications')).body.notifications.find((n) => n.kind === 'community_invite');
+    assert.equal(mine.line, 'You declined this invitation');
+    const audit = (await q(`select actor_id, context from audit_log where action = 'community.invite_decline' and context->>'invitationId' = $1`, [inv.id])).rows;
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].actor_id, 'd1');
+  });
+
+  test('F9 a declined invitation can’t be accepted or resent; the link says so; a new invitation can be sent', async () => {
+    const x = await person('d2');
+    const inv = (await invite('adm', 'clo', { userIds: ['d2'] })).body.results[0].invitation;
+    const token = await tokenFor('d2@example.com');
+    assert.equal((await x.post(`/api/me/invitations/${inv.id}/decline`)).body.invitation.status, 'declined');
+    assert.equal((await x.post(`/api/invitations/${token}/accept`)).body.error.code, 'INVITE_DECLINED');
+    assert.equal((await x.post(`/api/me/invitations/${inv.id}/accept`)).body.error.code, 'INVITE_DECLINED');
+    assert.equal((await client(env.app).get(`/api/invitations/${token}`)).body.error.code, 'INVITE_DECLINED');
+    await q(`update community_invitations set sent_at = now() - interval '2 hours' where id = $1`, [inv.id]);
+    assert.equal((await c.adm.post(`/api/invitations/${inv.id}/resend`)).body.error.code, 'INVITE_DECLINED');
+    // Revoking a declined invitation changes nothing.
+    assert.equal((await c.adm.delete(`/api/invitations/${inv.id}`)).body.invitation.status, 'declined');
+    const fresh = await invite('adm', 'clo', { userIds: ['d2'] });
+    assert.equal(fresh.body.results[0].status, 'invited');
+    assert.notEqual(fresh.body.results[0].invitation.id, inv.id);
+  });
+
+  test('F9 an accepted invitation can’t be declined; expired and revoked ones say why; other accounts can’t decline', async () => {
+    const x = await person('d3'); const other = await person('d4');
+    const inv = (await invite('adm', 'clo', { userIds: ['d3'] })).body.results[0].invitation;
+    const token = await tokenFor('d3@example.com');
+    const wrong = await other.post(`/api/invitations/${token}/decline`);
+    assert.equal(wrong.status, 403);
+    assert.equal(wrong.body.error.code, 'WRONG_ACCOUNT');
+    assert.equal((await other.post(`/api/me/invitations/${inv.id}/decline`)).status, 404);
+    assert.equal((await client(env.app).post('/api/invitations/not-a-real-token/decline')).body.error.code, 'INVITE_INVALID');
+    assert.equal((await x.post(`/api/invitations/${token}/accept`)).status, 200);
+    const late = await x.post(`/api/invitations/${token}/decline`);
+    assert.equal(late.status, 410);
+    assert.equal(late.body.error.code, 'INVITE_USED');
+    assert.deepEqual(await stateIn('clo', 'd3'), { state: 'active', role: 'member' });
+
+    const y = await person('d5');
+    const old = (await invite('adm', 'clo', { userIds: ['d5'] })).body.results[0].invitation;
+    await q(`update community_invitations set expires_at = now() - interval '1 minute' where id = $1`, [old.id]);
+    assert.equal((await y.post(`/api/me/invitations/${old.id}/decline`)).body.error.code, 'INVITE_EXPIRED');
+    const z = await person('d6');
+    const gone = (await invite('adm', 'clo', { userIds: ['d6'] })).body.results[0].invitation;
+    await c.adm.delete(`/api/invitations/${gone.id}`);
+    assert.equal((await z.post(`/api/me/invitations/${gone.id}/decline`)).body.error.code, 'INVITE_REVOKED');
+  });
+
+  test('F9 an email invitation declined while signed out tells the inviter without naming any account', async () => {
+    await person('d7');
+    const inv = (await invite('own', 'pri', { emails: ['d7@example.com'] })).body.results[0].invitation;
+    const token = await tokenFor('d7@example.com');
+    const res = await client(env.app).post(`/api/invitations/${token}/decline`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.invitation.status, 'declined');
+    const note = (await c.own.get('/api/notifications')).body.notifications.find((n) => n.kind === 'invite_declined');
+    assert.equal(note.line, 'Someone declined your invitation to join pri private community');
+    assert.equal(note.actor, null);
+    const row = (await q(`select declined_by from community_invitations where id = $1`, [inv.id])).rows[0];
+    assert.equal(row.declined_by, null);
+  });
+
+  test('F9 invited by account and by address: declining one declines both', async () => {
+    const x = await person('d8');
+    await invite('adm', 'pub', { emails: ['d8@example.com'] });
+    await invite('adm', 'pub', { userIds: ['d8'] });
+    const [shown] = (await x.get('/api/me/invitations')).body.invitations.filter((i) => i.community.name === 'pub public community');
+    assert.equal((await x.post(`/api/me/invitations/${shown.id}/decline`)).status, 200);
+    assert.ok(!(await x.get('/api/me/invitations')).body.invitations.some((i) => i.community.name === 'pub public community'));
+    const open = (await q(`select count(*)::int as n from community_invitations where community_id = 'pub' and (user_id = 'd8' or email = 'd8@example.com') and declined_at is null`)).rows[0].n;
+    assert.equal(open, 0);
+  });
+});
+
+describe('adding people becomes an invitation (F10)', () => {
+  test('F10 POST /communities/:id/members invites, with the same answer as inviting; nobody is a member until they accept', async () => {
+    const x = await person('f1'); await person('f2');
+    const res = await c.adm.post('/api/communities/pri/members', { userIds: ['f1', 'f2', 'mem'] });
+    assert.equal(res.status, 201);
+    assert.deepEqual(res.body.results.map((r) => [r.userId, r.status, r.code]), [['f1', 'invited', undefined], ['f2', 'invited', undefined], ['mem', 'skipped', 'ALREADY_MEMBER']]);
+    assert.equal(res.body.results[0].invitation.status, 'open');
+    assert.equal(await stateIn('pri', 'f1'), null, 'not a member yet');
+    assert.equal(await stateIn('pri', 'f2'), null);
+    // Exactly what the invitations route answers for the same person now: the open invitation.
+    const same = await invite('adm', 'pri', { userIds: ['f1'] });
+    assert.equal(same.body.results[0].status, 'open');
+    assert.equal(same.body.results[0].invitation.id, res.body.results[0].invitation.id);
+    // Accepting is the only way in (Private: the invitation is the approval).
+    assert.equal((await x.post(`/api/me/invitations/${res.body.results[0].invitation.id}/accept`)).body.membership.state, 'active');
+    // The same rules: only Owners and Admins, never through Administrative Mode.
+    assert.equal((await c.mod.post('/api/communities/pri/members', { userIds: ['f2'] })).status, 403);
+    assert.equal((await c.pa.post('/api/communities/pri/members', { userIds: ['f2'] }, { 'x-admin-mode': '1' })).status, 403);
+    assert.equal((await c.adm.post('/api/communities/pri/members', { userIds: Array.from({ length: 51 }, (_, i) => `z${i}`) })).status, 400);
+    const actions = (await q(`select action from audit_log where target_id = 'pri' and actor_id = 'adm' order by id`)).rows.map((r) => r.action);
+    assert.ok(!actions.includes('community.add_members'));
+  });
+
+  test('F10 a membership rule doesn’t invite people who left on their own; an admin still can', async () => {
+    const x = await person('f3');
+    await x.post('/api/communities/tmp/join');
+    await x.post('/api/communities/tmp/leave');
+    const rule = await c.adm.post('/api/communities/tmp/members', { userIds: ['f3'], source: 'rule' });
+    assert.deepEqual(rule.body.results.map((r) => [r.status, r.code]), [['skipped', 'LEFT']]);
+    const manual = await c.adm.post('/api/communities/tmp/members', { userIds: ['f3'] });
+    assert.equal(manual.body.results[0].status, 'invited');
+    assert.deepEqual(await stateIn('tmp', 'f3'), { state: 'left', role: 'member' }, 'still left until they accept');
+  });
+});

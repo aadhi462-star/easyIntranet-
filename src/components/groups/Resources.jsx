@@ -14,6 +14,7 @@ import SaveButton from '../SaveButton.jsx';
 import { confirmAction } from '../ui/Confirm.jsx';
 import Field from '../events/FormField.jsx';
 import Menu from '../resources/Menu.jsx';
+import { useCategoryLists } from './Settings.jsx';
 
 const MB = 1024 * 1024;
 const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.xlsx,.pptx,.txt,.csv,.md';
@@ -225,6 +226,12 @@ function ResourceForm({ g, modal, onClose, onSaved }) {
   const picker = useRef(null);
   const isLink = modal.mode === 'link' || res?.kind === 'link';
   const set = (k) => (e) => setV({ ...v, [k]: e.target.value });
+  // F13: when the community has a resource category list, the category is one of it or Other; a
+  // resource keeps an older value it already has until someone changes it. Without a list, it
+  // stays free text.
+  const lists = useCategoryLists(g.id);
+  const choices = lists?.resourceCategories ?? [];
+  const kept = res?.category && !choices.includes(res.category) && res.category !== 'Other' ? res.category : null;
   const replace = async (e) => {
     const f = e.target.files?.[0];
     e.target.value = '';
@@ -261,7 +268,18 @@ function ResourceForm({ g, modal, onClose, onSaved }) {
         )}
         {isLink && <Field label="Link"><input className="input" type="url" required placeholder="https://" value={v.url} onChange={set('url')} /></Field>}
         <Field label="Title"><input className="input" required maxLength={200} value={v.title} onChange={set('title')} /></Field>
-        <Field label="Category" hint="Optional, for example Guides or Slides"><input className="input" maxLength={40} value={v.category} onChange={set('category')} /></Field>
+        {choices.length > 0 ? (
+          <Field label="Category" hint="Optional. The community’s Admins set the list.">
+            <select className="input" value={v.category} onChange={set('category')}>
+              <option value="">No category</option>
+              {choices.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="Other">Other</option>
+              {kept && <option value={kept}>{kept} (current)</option>}
+            </select>
+          </Field>
+        ) : lists ? (
+          <Field label="Category" hint="Optional, for example Guides or Slides"><input className="input" maxLength={40} value={v.category} onChange={set('category')} /></Field>
+        ) : null}
         <Field label="Description" hint="Optional"><textarea className="input min-h-20" maxLength={1000} value={v.description} onChange={set('description')} /></Field>
         {error && <p role="alert" className="notice notice-bad">{error}</p>}
         <div className="flex flex-wrap justify-end gap-2">

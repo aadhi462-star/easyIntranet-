@@ -11,6 +11,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { MAX_FILE_BYTES, publicFile, storeFile } from '../lib/files.js';
 import { idempotent } from '../lib/session.js';
+import { pickCategory } from '../lib/categories.js';
 
 const SORTS = { newest: 'r.created_at desc', oldest: 'r.created_at asc', name: 'lower(r.title) asc' };
 const isHttp = (u) => { try { return ['http:', 'https:'].includes(new URL(u).protocol); } catch { return false; } };
@@ -79,6 +80,8 @@ export default async function resourceRoutes(app, { ctx }) {
     return {
       resources: rows.map((r) => publicResource(r, req.user.id, a)),
       categories: cats.rows.map((c) => c.category),
+      // The community's own list (F13), for the add and edit forms; empty means free text.
+      categoryOptions: Array.isArray(a.community.settings?.resourceCategories) ? a.community.settings.resourceCategories : [],
       canAdd: canAdd(a) && sectionOn(a.community, 'resources'),
     };
   });
@@ -95,7 +98,7 @@ export default async function resourceRoutes(app, { ctx }) {
     const a = await access(db, req, req.params.id);
     if (!canAdd(a)) throw forbidden('Only admins add resources here.');
     requireSection(a, 'resources', { write: true });
-    const v = await clean(db, req.body, a.community.id, req.user.id, { creating: true });
+    const v = await clean(db, req.body, a.community, req.user.id, { creating: true });
     return idempotent(db, req, reply, async () => {
       const id = newId('res');
       await db.query(`insert into resources (id, community_id, kind, title, description, category, url, file_id, added_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -110,7 +113,7 @@ export default async function resourceRoutes(app, { ctx }) {
   // replaced file keeps the resource's id and link; the old file stops downloading (FIL-09).
   app.patch('/resources/:id', { schema: { body: { ...body, required: ['version'] } } }, async (req) => {
     const { r, a } = await own(db, req, { write: true });
-    const v = await clean(db, req.body, r.community_id, req.user.id, { kind: r.kind });
+    const v = await clean(db, req.body, a.community, req.user.id, { kind: r.kind, previous: r.category });
     const { rows } = await db.query(
       `update resources set title = coalesce($3, title), description = case when $4::boolean then $5 else description end,
               category = case when $6::boolean then $7 else category end, url = coalesce($8, url), file_id = coalesce($9, file_id),
@@ -149,14 +152,20 @@ async function own(db, req, { write = false, removing = false } = {}) {
   return { r, a };
 }
 
-async function clean(db, b, communityId, userId, { creating = false, kind } = {}) {
+async function clean(db, b, community, userId, { creating = false, kind, previous = null } = {}) {
+  const communityId = community.id;
   const out = {};
   if (creating || 'title' in b) {
     out.title = String(b.title ?? '').trim().slice(0, 200);
     if (!out.title) throw badRequest('INVALID_INPUT', 'Give the resource a title.', { field: 'title' });
   }
   out.description = b.description == null ? null : String(b.description).trim().slice(0, 1000) || null;
-  out.category = b.category == null ? null : String(b.category).trim().slice(0, 40) || null;
+  // F13: with a list of resource categories, a category is one of them or Other (an edit may
+  // keep an older value unchanged); without a list it's free text, as before.
+  const list = community.settings?.resourceCategories;
+  out.category = Array.isArray(list) && list.length
+    ? pickCategory(b.category, list, { previous, other: true, label: 'resource category' })
+    : (b.category == null ? null : String(b.category).trim().slice(0, 40) || null);
   if (creating && !!b.url === !!b.fileId) throw badRequest('INVALID_INPUT', 'Add either a link or a file.');
   if (b.url != null) {
     if (kind === 'file') throw badRequest('INVALID_INPUT', 'This resource is a file; replace the file instead.');

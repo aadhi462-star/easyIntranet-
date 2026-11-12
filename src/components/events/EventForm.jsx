@@ -8,6 +8,7 @@ import { Modal } from '../ui.jsx';
 import Field, { CheckRow } from './FormField.jsx';
 import PeoplePicker from './PeoplePicker.jsx';
 import { EVENT_TYPES, REMINDER_OPTIONS, fromInput, toInput } from './eventUtils.js';
+import { useCategoryLists } from '../groups/Settings.jsx';
 
 const DAY = 864e5;
 
@@ -17,6 +18,7 @@ function formOf(initial, defScope, groupId) {
   return {
     title: initial.title ?? '',
     eventType: initial.eventType ?? 'Meetup',
+    category: initial.category ?? '',
     allDay: initial.allDay ?? false,
     start: toInput(defStart, initial.allDay),
     end: toInput(initial.end ?? defStart + 2 * 3600e3, initial.allDay),
@@ -77,6 +79,14 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
 
   const communityId = editing ? initial.communityId : f.groupId;
   const communityName = (communities || []).find((c) => c.id === communityId)?.name ?? initial.community?.name ?? '';
+  // The community's event categories (F13): an optional choice, hidden when it has none. An
+  // event keeps a category its community has since removed, until someone changes it.
+  const lists = useCategoryLists(communityId);
+  const categories = lists?.eventCategories ?? [];
+  const categoryOptions = f.category && !categories.includes(f.category) ? [...categories, f.category] : categories;
+  useEffect(() => {
+    if (!editing && lists && f.category && !lists.eventCategories.includes(f.category)) set('category', '');
+  }, [communityId, lists]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Guests and co-hosts must be members of the event's community, so only those are offered.
   useEffect(() => {
@@ -113,7 +123,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
     const inviteOnly = editing ? f.inviteOnly : f.share === 'private';
 
     const event = {
-      title: f.title.trim(), eventType: f.eventType, allDay: f.allDay, start, end,
+      title: f.title.trim(), eventType: f.eventType, category: f.category || null, allDay: f.allDay, start, end,
       recurrence: { freq: f.freq, until }, description: f.description.trim(), location: f.location.trim(),
       inviteOnly, invitees: inviteOnly ? sorted(f.invitees) : [], rsvpEnabled: f.rsvpEnabled, capacity, rsvpDeadline,
       reminders: [...f.reminders].sort((a, b) => b - a),
@@ -124,7 +134,7 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
     setError('');
     try {
       if (editing) {
-        const was = { title: base.title, eventType: base.eventType, allDay: base.allDay, start: base.start, end: base.end,
+        const was = { title: base.title, eventType: base.eventType, category: base.category ?? null, allDay: base.allDay, start: base.start, end: base.end,
           recurrence: { freq: base.recurrence?.freq ?? 'none', until: base.recurrence?.until ?? null }, description: base.description ?? '', location: base.location ?? '',
           inviteOnly: base.inviteOnly, invitees: sorted(base.invitees), rsvpEnabled: base.rsvpEnabled, capacity: base.capacity ?? null,
           rsvpDeadline: base.rsvpDeadline ?? null, reminders: base.reminders ?? [], assistants: sorted(base.assistants) };
@@ -180,6 +190,15 @@ export default function EventForm({ initial = {}, onClose, onSaved }) {
             </select>
           </Field>
         </div>
+
+        {categoryOptions.length > 0 && (
+          <Field label="Category" hint="Optional. The community’s Admins set the list." className="sm:max-w-xs">
+            <select className="input" value={f.category} onChange={(e) => set('category', e.target.value)}>
+              <option value="">No category</option>
+              {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+        )}
 
         <CheckRow checked={f.allDay} onChange={toggleAllDay}>All-day event</CheckRow>
         <div className="grid gap-4 sm:grid-cols-2">
