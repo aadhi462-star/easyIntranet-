@@ -248,7 +248,7 @@ export default async function adminRoutes(app, { ctx }) {
 
   app.get('/me/permissions', async (req) => {
     if (!req.user) throw forbidden();
-    const actions = ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'users.export', 'settings.platform', 'audit.view', 'audit.export', 'analytics.platform', 'analytics.export', 'roles.assign.critical', 'communities.manage', 'moderation.manage', 'announcements.manage'];
+    const actions = ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'users.export', 'settings.platform', 'audit.view', 'audit.export', 'analytics.platform', 'analytics.export', 'roles.assign.critical', 'communities.manage', 'moderation.manage', 'announcements.manage', 'health.view'];
     return { roles: req.user.roles, can: Object.fromEntries(actions.map((a) => [a, can(req.user, a)])) };
   });
 }

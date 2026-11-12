@@ -7,6 +7,7 @@
 //   - restrictions: time-limited restrictions lift on their own when they end (Stage 6)
 //   - deleted communities: removed for good after 30 days, in steps that resume (Stage 7, DEL-13)
 //   - stale reports: Owners reminded on day 3 before a report goes to the platform (MOD-09)
+// Every run is recorded in job_runs for system health in Platform Admin (routes/health.js).
 import { nextOccurrence } from '../../shared/recurrence.js';
 import { COUNTED, promoteWaitlist, timing } from '../routes/events.js';
 import { publishDuePosts } from '../routes/posts.js';
@@ -62,8 +63,32 @@ export async function sweepWaitlists(ctx) {
   return promoted;
 }
 
-export async function runJobs(ctx, log = console) {
-  for (const [name, job] of [['posts', () => publishDuePosts(ctx.db)], ['reminders', () => sendReminders(ctx)], ['emails', () => retryEmails(ctx)], ['waitlists', () => sweepWaitlists(ctx)], ['restrictions', () => liftExpiredRestrictions(ctx.db)], ['purge', () => purgeDeletedCommunities(ctx.db)], ['stale-reports', () => remindStaleReports(ctx)]]) {
-    try { await job(); } catch (err) { log.error?.({ err: String(err.message || err) }, `job ${name} failed`); }
+// The jobs in the order they run. Each takes ctx and may return a count (or rows) of what it did.
+export const JOBS = [
+  ['posts', (ctx) => publishDuePosts(ctx.db)], ['reminders', (ctx) => sendReminders(ctx)], ['emails', (ctx) => retryEmails(ctx)],
+  ['waitlists', (ctx) => sweepWaitlists(ctx)], ['restrictions', (ctx) => liftExpiredRestrictions(ctx.db)],
+  ['purge', (ctx) => purgeDeletedCommunities(ctx.db)], ['stale-reports', (ctx) => remindStaleReports(ctx)],
+];
+export const JOB_RUN_DAYS = 7;
+
+// Error text kept for system health: the message only, email addresses masked, 500 characters.
+const runError = (err) => String(err?.message || err || 'failed').replace(/[^\s@<>"'(),;:]+@[^\s@<>"'(),;:]+/g, '[email]').slice(0, 500);
+const runCount = (out) => (Number.isInteger(out) ? out : Array.isArray(out) ? out.length : null);
+
+// Each job is independent: one failing doesn't stop the others. Every run is recorded in job_runs
+// (system health) and runs older than 7 days are pruned. Nothing here throws: a failure to record
+// is logged and the jobs carry on.
+export async function runJobs(ctx, log = console, { jobs = JOBS } = {}) {
+  for (const [name, job] of jobs) {
+    const started = new Date();
+    let ok = true; let error = null; let count = null;
+    try { count = runCount(await job(ctx)); } catch (err) {
+      ok = false; error = runError(err);
+      log.error?.({ err: error }, `job ${name} failed`);
+    }
+    try {
+      await ctx.db.query(`insert into job_runs (job, started_at, finished_at, ok, error, count) values ($1, $2, $3, $4, $5, $6)`, [name, started, new Date(), ok, error, count]);
+    } catch (err) { log.error?.({ err: runError(err) }, `job ${name}: run not recorded`); }
   }
+  try { await ctx.db.query(`delete from job_runs where started_at < now() - make_interval(days => $1)`, [JOB_RUN_DAYS]); } catch (err) { log.error?.({ err: runError(err) }, 'job runs not pruned'); }
 }
