@@ -63,6 +63,22 @@ export default async function notificationRoutes(app, { ctx }) {
       const a = await accessOf(req, id, cache);
       return a?.canView ? { title: a.community.name, href: `/c/${a.community.slug || a.community.id}` } : null;
     }
+    // v2 workstream F: an invitation, for the account it names or whose verified address it went
+    // to. Open: it points at the invitee's list. Accepted: at the community. Otherwise it says the
+    // invitation is over (NTF-05), without the community's name.
+    if (type === 'invitation') {
+      const { rows: [i] } = await db.query(`select c.name, i.community_id, i.accepted_by,
+          (i.accepted_at is null and i.revoked_at is null and i.superseded_at is null and i.expires_at > now() and c.status = 'active' and c.merged_into is null) as open
+        from community_invitations i join communities c on c.id = i.community_id
+        where i.id = $1 and (i.user_id = $2 or (i.user_id is null and i.email = (select email_norm from users where id = $2 and email_verified_at is not null)))`, [id, uid]);
+      if (!i) return null;
+      if (i.open) return { title: i.name, href: '/invitations' };
+      if (i.accepted_by === uid) {
+        const a = await accessOf(req, i.community_id, cache);
+        return a?.canView ? { title: a.community.name, href: `/c/${a.community.slug || a.community.id}` } : null;
+      }
+      return { closed: 'This invitation has expired or was withdrawn' };
+    }
     if (type === 'certificate') {
       const { rows: [c] } = await db.query(`select code, course_title from certificates where code = $1 and user_id = $2 and revoked_at is null`, [id, uid]);
       return c ? { title: c.course_title, href: `/verify/${c.code}` } : null;
@@ -86,7 +102,7 @@ export default async function notificationRoutes(app, { ctx }) {
       if (!t) continue;
       let target = n.target_type ? await resolve(req, n.target_type, n.target_id, cache) : null;
       // Join decisions point at the community, which the requester may not be able to open yet.
-      let available = !!target;
+      let available = !!target && !target.closed;
       if (n.kind.startsWith('join_')) {
         const a = await accessOf(req, n.community_id, cache);
         available = !!a && (n.kind !== 'join_request' || a.canAdmin);
@@ -98,7 +114,7 @@ export default async function notificationRoutes(app, { ctx }) {
       out.push({
         id: n.id, kind: n.kind, category: t.cat, createdAt: n.created_at, read: !!n.read_at,
         // Without access, only a generic line: no names of private communities, no content.
-        line: available ? t.line({ actor, community: n.community_name ?? 'CommunityOne' }) : 'This is no longer available to you',
+        line: available ? t.line({ actor, community: n.community_name ?? 'CommunityOne' }) : target?.closed ?? 'This is no longer available to you',
         actor: available && n.actor_id ? { id: n.actor_id, name: actor } : null,
         href: available ? target.href : null, available,
       });
