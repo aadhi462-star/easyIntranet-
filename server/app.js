@@ -27,6 +27,7 @@ import moderationRoutes from './routes/moderation.js';
 import manageRoutes from './routes/manage.js';
 import platformRoutes, { announcementRoutes } from './routes/platform.js';
 import healthRoutes from './routes/health.js';
+import templateRoutes, { templateAdminRoutes } from './routes/templates.js';
 
 export async function buildApp({ db, mailer, staticDir, logger = false, secureCookies = process.env.NODE_ENV === 'production', appOrigin, rateLimits = true } = {}) {
   const app = Fastify({
@@ -90,6 +91,8 @@ export async function buildApp({ db, mailer, staticDir, logger = false, secureCo
   await app.register(platformRoutes, { prefix: '/api/admin', ctx });
   await app.register(healthRoutes, { prefix: '/api/admin', ctx });
   await app.register(announcementRoutes, { prefix: '/api', ctx });
+  await app.register(templateRoutes, { prefix: '/api', ctx });
+  await app.register(templateAdminRoutes, { prefix: '/api/admin', ctx });
   if (process.env.NODE_ENV !== 'production') await app.register(devRoutes, { prefix: '/api/dev', ctx });
 
   if (staticDir) {

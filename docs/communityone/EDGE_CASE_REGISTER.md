@@ -63,14 +63,14 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | COM-02 | P1 | 2 | Community name contains prohibited terms, impersonation or misleading branding. | Reject or route for review under platform policy. | Not run | |
 | COM-03 | P1 | 2 | Description is empty, too long or contains unsafe markup. | Validate length and safely render allowed formatting only. | Not run | |
 | COM-04 | P1 | 2 | Logo or cover upload fails midway. | Do not publish a broken asset; allow retry and preserve other entered setup data. | Not run | |
-| COM-05 | P0 | 2 | User double-clicks Create or retries after a slow response. | Create one community only; return the existing result for an idempotent retry. | Pass | server/test/communities.test.js COM-05 create idempotent |
-| COM-06 | P0 | 2 | Network drops after server creates community but before client receives confirmation. | On retry, detect the existing creation and avoid duplicates. | Not run | |
-| COM-07 | P1 | 2 | Platform Admin disables community creation while a user is in the creation wizard. | Block final submission and explain that creation is currently unavailable. | Not run | |
+| COM-05 | P0 | 2 | User double-clicks Create or retries after a slow response. | Create one community only; return the existing result for an idempotent retry. | Pass | server/test/communities.test.js COM-05 create idempotent; server/test/templates.test.js COM-05 COM-06 (from a template: one community, one set of topics) |
+| COM-06 | P0 | 2 | Network drops after server creates community but before client receives confirmation. | On retry, detect the existing creation and avoid duplicates. | Pass | server/test/templates.test.js COM-05 COM-06 (a retry with the same Idempotency-Key replays the first result; without it the name rule refuses a second copy). Client retry behaviour not checked |
+| COM-07 | P1 | 2 | Platform Admin disables community creation while a user is in the creation wizard. | Block final submission and explain that creation is currently unavailable. | Pass | server/test/templates.test.js COM-07 (templates, suggestions and the final submit all answer CREATE_RESTRICTED; staff still can). Server only |
 | COM-08 | P0 | 2 | Creator is suspended during setup or immediately after publishing. | Prevent prohibited actions and preserve community ownership through an authorised reassignment process. | Pass | server/test/platform.test.js COM-08 (no-active-Owner filter; a Platform Admin makes an active member Owner, the old Owner becomes Admin; refused while an active Owner exists) |
 | COM-09 | P0 | 2 | Creator account is deleted or becomes inaccessible. | Trigger ownership transfer/recovery; do not orphan the community. | Pass | server/test/communities.test.js REG-15 / COM-09 |
-| COM-10 | P1 | 2 | Required category, rules or other mandatory field is missing. | Prevent publication and identify missing fields. | Not run | |
+| COM-10 | P1 | 2 | Required category, rules or other mandatory field is missing. | Prevent publication and identify missing fields. | Pass | server/test/templates.test.js COM-10 (missing required answers are all named; a category outside the 9 is refused; a missing name is refused). An omitted category is stored as Other, not refused |
 | COM-11 | P1 | 2 | Community requires approval before publication but user expects instant creation. | Show Pending Approval state and prevent premature public discovery. | Not run | |
-| COM-12 | P2 | 2 | User opens multiple creation wizards and submits different drafts. | Handle independent drafts safely and prevent accidental cross-population. | Not run | |
+| COM-12 | P2 | 2 | User opens multiple creation wizards and submits different drafts. | Handle independent drafts safely and prevent accidental cross-population. | Pass | server/test/templates.test.js COM-12 (two communities from one template share nothing: settings, topics and names change independently). Server only; the wizard keeps drafts in the browser |
 | COM-13 | P1 | 2 | Community creation limit per user has been reached. | Block creation with a clear limit explanation and route to existing communities. | Not run | |
 
 ## 4. Community Visibility, Privacy and Discovery
@@ -133,7 +133,7 @@ Last updated 11 Nov 2026 (Phase 1 steps 1–4c, redesign Stages 1–2). Status v
 | PER-13 | P1 | 2 | Two Platform Admins change the same community settings concurrently. | Prevent silent overwrite and retain a complete change history. | Not run | |
 | PER-14 | P0 | 2 | Platform Admin attempts a critical action such as deleting a community or granting admin privileges. | Apply additional confirmation/reauthentication or approval safeguards if configured; audit the action. | Pass | server/test/platform.test.js PER-02 PER-14 D4 (granting Platform Admin, approving/doing a deletion and exporting the activity log need the password within 10 minutes) |
 | PER-15 | P0 | 2 | Platform Admin is accidentally counted as a community member after admin-mode access. | Do not create membership or alter membership analytics. | Pass | server/test/communities.test.js PER-08/10/15 |
-| PER-16 | P0 | 2 | Specialist staff member accesses a module outside assigned scope. | Deny access at API and UI layers; log unauthorised attempts. | Pass | server/test/admin.test.js PER-16 staff scope |
+| PER-16 | P0 | 2 | Specialist staff member accesses a module outside assigned scope. | Deny access at API and UI layers; log unauthorised attempts. | Pass | server/test/admin.test.js PER-16 staff scope; server/test/templates.test.js PER-16 (Community Manager and Support can’t manage templates) |
 
 ## 7. Posts, Discussions, Comments and Reactions
 

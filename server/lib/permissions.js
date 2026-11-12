@@ -10,7 +10,7 @@ const ROLE_PERMISSIONS = {
   platform_admin: [
     'users.view', 'users.manage', 'users.suspend', 'users.approve', 'users.export', 'roles.assign.staff', 'institutions.manage',
     'communities.*', 'learning.*', 'moderation.*', 'settings.platform', 'analytics.platform', 'analytics.export', 'audit.view', 'audit.export',
-    'announcements.manage', 'health.view',
+    'announcements.manage', 'health.view', 'templates.manage',
   ],
   user_manager: ['users.view', 'users.manage', 'users.suspend', 'users.approve', 'institutions.manage'],
   community_manager: ['communities.*'],

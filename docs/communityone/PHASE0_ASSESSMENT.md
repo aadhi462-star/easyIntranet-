@@ -955,3 +955,45 @@ Brief Part 11 "system health", `PROPOSAL_V2.md` §3.5. Server only; the Platform
   - `version.json` isn't written by `scripts/appsail-bundle.sh` yet, so the version shown is `package.json`'s 0.1.0, with no commit.
   - Overlapping runs are not prevented: if a pass takes over a minute, the next interval starts another, as before.
   - No edge-case row in the register is specifically about system health, so none were marked. INT-01 (degraded providers) is only partly covered: email failures are now visible to staff.
+
+### v2 — Community templates (server) (built in parallel, 12 Nov 2026)
+
+Workstream F, server half (MASTER_BRIEF_V2 Part 4.1–4.4, PROPOSAL_V2 §3.3 and §5). Built on branch `v2-f-templates`.
+
+- **Data** (`015_templates.sql`):
+  - `community_templates` (key, category, name, description, status draft / published / inactive, `current_version`, `revision`) and `template_versions` (questionnaire, blueprint, `published_at`, `published_by`; one version per number). A version with no `published_at` is the draft; there's at most one.
+  - Communities gain `template_id` and `template_version`. Both are null for a community made from scratch.
+- **Categories** (`shared/categories.js`, `server/lib/categories.js`): exactly Alumni, Education, Professional Networking, Technology, Business, Hobbies and Interests, Organisation, General Community, Other.
+  - Create and edit refuse anything else (`INVALID_CATEGORY`, any capitalisation accepted and stored as listed).
+  - Omitting the category on create stores Other.
+  - An edit that sends back a community's old category unchanged is accepted, so older rows (City, Batch…) keep working and aren't rewritten.
+  - The current create and edit form lists the 9 categories, and still shows an older value until it's changed.
+- **Templates** (`server/lib/templates.js`, library in `server/lib/template-library.js`):
+  - 8 published version-1 templates, one per category except Other, each with its own questions. Question types: text, long text, single choice, multiple choice, list of short items, yes/no. Each question has a key, label, help and required flag. A question can depend on an earlier answer (`showIf`), so only the relevant ones count.
+  - A blueprint holds the name and description patterns, sections, Learning on or off, discussion topics, membership (visibility, post approval, who can post, who can create events, members add resources), resource categories, event defaults, guidelines and roles in use, plus rules ("when this answer, set or add that").
+  - The library is seeded once at start-up by key. A template a Platform Admin has since changed is left alone.
+- **Routes:**
+  - `GET /api/templates` and `GET /api/templates/:key`: published templates, only for people allowed to create communities (`CREATE_RESTRICTED` otherwise).
+  - `POST /api/templates/:key/suggest {answers, version?}` → `{config}`. It checks the answers (all missing required ones named in `fields`, `UNKNOWN_ANSWER`, `INVALID_ANSWER`) and writes nothing. `config` has exactly the shape of the `POST /communities` body: `name, description, category, visibility, settings {apps, guidelines, requireApproval, whoCanPost, whoCanCreateEvents, membersAddResources, resourceCategories, eventDefaults, roles}, topics, template {key, version}`.
+  - `POST /api/communities` now also takes `topics` (up to 12, created in the same transaction) and `template {key, version}`. Both paths go through the same checks: name, settings allow-list and values, category, topics. The template only adds its own checks: unknown is `TEMPLATE_NOT_FOUND`; draft or inactive is `TEMPLATE_INACTIVE`; an older version is `TEMPLATE_VERSION_CHANGED` with `currentVersion`. The configuration is copied into the community, and the template is never read for it again.
+  - New settings keys: `resourceCategories`, `eventDefaults`, `roles`. `settings.apps` must now name known sections: the new ones (discussions, events, resources, members, learning) or the older app names the current screens still send.
+  - Changes in `routes/communities.js` are kept small: imports, two schema properties, and calls into `lib/templates.js`.
+- **Administration** (`/api/admin/templates`, permission `templates.manage`, Platform Admin; Super Admin has everything):
+  - List with usage counts per version, and detail with the current version and the draft. `versions/:n` shows an older version.
+  - Create (a draft, idempotent).
+  - Edit: questions and blueprint go to the draft. Editing a published template starts the next version's draft from the current one. Name, description and category aren't versioned. A stale `revision` is refused.
+  - Publish: checks the draft, including a trial suggestion from sample answers that has to pass the community checks. It then becomes the current version. Communities made from earlier versions keep their configuration and their recorded version.
+  - Deactivate and reactivate.
+  - All of these are audited (`template.*`). Community creation's audit entry names the template and version.
+- **Checked:**
+  - `server/test/templates.test.js`: 17 pass. They cover: two communities from one template are independent; an inactive template is refused while communities already made from it keep working; publishing v2 leaves v1 communities unchanged and recorded as v1; a stale version is refused with the current one; an invalid configuration gets the same refusal with or without a template and writes nothing; a duplicate submit creates one community; suggestions name missing answers and fill placeholders; only Platform and Super Admins manage templates; scratch creation records no template; categories are enforced; creation turned off mid-wizard.
+  - Other server tests, one file at a time: communities 37, core 19, platform 24, admin 12, stage4 26, public 6 and moderation 20, all passing.
+  - The known intermittent stall happened four times: `platform.test.js` twice, and `templates.test.js` twice after the final edits. Each time the child sat idle at 0% CPU, with the machine's load average between 100 and 430 from parallel work. Each file passed when run again.
+  - A probe of `setup()` alone (migrate, build the app, seed the templates) finished normally, so the stall isn't in the new start-up seeding. Its cause is still unknown.
+  - `npx vite build` passes.
+- **Not done here:**
+  - The creation wizard and the template administration screens (client).
+  - Turning `settings.apps`, `resourceCategories`, `eventDefaults` and `roles` into behaviour. They're stored and validated; the client and the event and resource forms don't read them yet.
+  - Discarding a draft, and deleting a template.
+  - The seed's demo Alumni community made through a template.
+  - Category isn't required at the API (an omitted one becomes Other); the wizard should always send one.

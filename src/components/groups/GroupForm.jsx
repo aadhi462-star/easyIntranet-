@@ -9,7 +9,7 @@ import { errorText } from '../../lib/communities.js';
 export default function GroupForm({ initial, onSave, onClose }) {
   const editing = !!initial;
   const [v, setV] = useState({
-    name: '', description: '', type: 'Interest', accessType: 'public',
+    name: '', description: '', type: 'General Community', accessType: 'public',
     apps: ['dashboard', 'feed', 'forums', 'events', 'files', 'members'], ...initial,
   });
   const [createChannel, setCreateChannel] = useState(false);
@@ -38,8 +38,12 @@ export default function GroupForm({ initial, onSave, onClose }) {
       <form onSubmit={submit} className="space-y-4" noValidate>
         <Field label="Name"><input className="input" value={v.name} onChange={set('name')} placeholder="e.g. Harbour Rowers" /></Field>
         <Field label="Description"><textarea className="input min-h-20" value={v.description} onChange={set('description')} /></Field>
-        <Field label="Type">
-          <select className="input" value={v.type} onChange={set('type')}>{GROUP_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+        <Field label="Category">
+          {/* A community saved before the category list keeps its old value until it's changed. */}
+          <select className="input" value={v.type} onChange={set('type')}>
+            {!GROUP_TYPES.includes(v.type) && <option value={v.type}>{v.type || 'No category'}</option>}
+            {GROUP_TYPES.map((t) => <option key={t}>{t}</option>)}
+          </select>
         </Field>
         <fieldset>
           <legend className="mb-1.5 text-xs font-semibold text-slate-300">Access</legend>

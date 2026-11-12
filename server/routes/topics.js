@@ -6,8 +6,8 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { UNIQUE_VIOLATION } from '../db/index.js';
 
-const MAX_TOPICS = 12;
-const name = (v) => {
+export const MAX_TOPICS = 12;
+export const topicName = (v) => {
   const n = String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, 40);
   if (!n) throw badRequest('INVALID_INPUT', 'Give the topic a name.', { field: 'name' });
   return n;
@@ -36,7 +36,7 @@ export default async function topicRoutes(app, { ctx }) {
 
   app.post('/communities/:id/topics', { schema: { body: { type: 'object', required: ['name'], additionalProperties: false, properties: { name: { type: 'string' } } } } }, async (req, reply) => {
     const a = await admin(req, req.params.id);
-    const n = name(req.body.name);
+    const n = topicName(req.body.name);
     const { rows: [{ count }] } = await db.query(`select count(*)::int as count from topics where community_id = $1`, [a.community.id]);
     if (count >= MAX_TOPICS) throw badRequest('TOO_MANY_TOPICS', `A community can have up to ${MAX_TOPICS} topics.`);
     const id = newId('top');
@@ -51,7 +51,7 @@ export default async function topicRoutes(app, { ctx }) {
     if (!t) throw notFound('That topic doesn’t exist.');
     await admin(req, t.community_id);
     await save(() => db.query(`update topics set name = $2, position = $3 where id = $1`,
-      [t.id, 'name' in req.body ? name(req.body.name) : t.name, req.body.position ?? t.position]));
+      [t.id, 'name' in req.body ? topicName(req.body.name) : t.name, req.body.position ?? t.position]));
     return { topics: await list(t.community_id) };
   });
 
