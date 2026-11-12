@@ -16,11 +16,11 @@ export default function RichText({ text = '', mentions = [], className = '' }) {
     const tok = m[0];
     if (tok[0] === '@') {
       const u = people.find((p) => `@${p.name}` === tok);
-      out.push(<Link key={m.index} to={`/people/${u.id}`} className="font-semibold text-brand-400 hover:underline">{tok}</Link>);
+      out.push(<Link key={m.index} to={`/people/${u.id}`} className="font-semibold text-[var(--az-link)] hover:underline">{tok}</Link>);
     } else if (tok[0] === '#') {
-      out.push(<Link key={m.index} to={`/feed?tag=${tok.slice(1).toLowerCase()}`} className="font-medium text-leaf-300 hover:underline">{tok}</Link>);
+      out.push(<Link key={m.index} to={`/feed?tag=${tok.slice(1).toLowerCase()}`} className="font-medium text-[var(--az-link)] hover:underline">{tok}</Link>);
     } else {
-      out.push(<a key={m.index} href={tok} target="_blank" rel="noopener noreferrer" className="break-all text-brand-400 underline">{tok}</a>);
+      out.push(<a key={m.index} href={tok} target="_blank" rel="noopener noreferrer" className="break-all text-[var(--az-link)] underline underline-offset-2">{tok}</a>);
     }
     last = m.index + tok.length;
   }

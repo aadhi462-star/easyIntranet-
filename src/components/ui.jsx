@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useStore } from '../lib/store.jsx';
 import { useTheme } from '../lib/theme.js';
@@ -110,17 +111,20 @@ export function Modal({ title, onClose, children, wide = false }) {
       if (previous && typeof previous.focus === 'function' && document.contains(previous)) previous.focus();
     };
   }, []);
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+  // Drawn at the top of the page (a portal), so no layer it's opened from can hide it under the
+  // sidebar or the top bar.
+  return createPortal(
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(23,33,31,.4)] p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} role="dialog" aria-modal="true" aria-label={title}
-        className={`glass glass-strong max-h-[90vh] w-full overflow-y-auto p-6 scroll-thin ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
+        className={`panel max-h-[90vh] w-full overflow-y-auto p-6 shadow-[var(--az-shadow)] scroll-thin ${wide ? 'max-w-2xl' : 'max-w-lg'}`}>
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-bold">{title}</h2>
-          <button className="btn btn-ghost h-9 w-9 !p-0" onClick={onClose} aria-label="Close">✕</button>
+          <h2 className="t-h3">{title}</h2>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onClose} aria-label="Close"><Icon name="x" size={18} /></button>
         </div>
         <div ref={bodyRef}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

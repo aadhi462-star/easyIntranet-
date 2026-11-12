@@ -42,6 +42,7 @@ export function toLocalGroup(c, { members, membership = c.membership ?? null, pe
   const settings = c.settings || {};
   const out = {
     id: c.id, slug: c.slug || c.id, name: c.name, description: c.description || '', type: c.category || '', emoji: c.emoji || null, accent: c.accent,
+    logoUrl: c.logoUrl ?? null, coverUrl: c.coverUrl ?? null,
     accessType: TO_ACCESS[c.visibility] ?? 'public',
     status: c.status, memberCount: c.memberCount ?? members?.length ?? 0,
     myMembership: membership, permissions: permissions ?? null,
@@ -102,6 +103,8 @@ export async function loadCommunity(id, me) {
   ]);
   const group = toLocalGroup(community, { members, membership, permissions, requests, me });
   group.adminMode = !!detail.adminMode;
+  // Which sections are switched on (v2 E1; the server enforces it too).
+  group.sections = detail.sections ?? null;
   return { group, members: members || [] };
 }
 

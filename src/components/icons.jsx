@@ -6,7 +6,7 @@
 // emoji logo, reactions) map to an icon, and anything unmapped shows a neutral shape instead.
 import {
   Ban, Bell, BellOff, BookOpen, Bookmark, Building2, Cake, Calendar, CalendarDays, Camera, CameraOff, ChartColumn, ChartLine,
-  Check, ChevronDown, ChevronUp, CircleDot, CircleHelp, ClipboardList, Clock, Code, Compass, Download, Ellipsis, ExternalLink,
+  Check, ChevronDown, ChevronLeft, ChevronUp, CircleDot, CircleHelp, ClipboardList, Clock, Code, Compass, Download, Ellipsis, ExternalLink,
   Eye, EyeOff, FileCheck, FilePen, FileText, Flag, Folder, Footprints, Frown, Gift, Globe, GraduationCap, HandHeart, Heart,
   House, IdCard, Image, Inbox, Info, Laugh, Lightbulb, Link, List, ListChecks, Lock, LogOut, MapPin, Medal, Megaphone, Meh, Menu,
   MessageSquare, MessagesSquare, Mic, MicOff, Monitor, Moon, Music, Network, Newspaper, Palette, PartyPopper, Paperclip,
@@ -29,7 +29,7 @@ const ICONS = {
   ban: Ban, doc: FileText, cap: GraduationCap, check: Check, up: ChevronUp, down: ChevronDown, x: X,
   // v2 additions
   info: Info, heart: Heart, like: ThumbsUp, happy: Smile, neutral: Meh, sad: Frown, cake: Cake, party: PartyPopper,
-  video: Video, place: MapPin, image: Image, gift: Gift, repeat: Repeat, vote: Vote, shape: Shapes, logout: LogOut,
+  video: Video, place: MapPin, image: Image, gift: Gift, repeat: Repeat, vote: Vote, shape: Shapes, logout: LogOut, back: ChevronLeft,
   // parked modules (calls, files, reactions, arcade)
   camera: Camera, cameraoff: CameraOff, screen: ScreenShare, screenoff: ScreenShareOff, hangup: PhoneOff, speaker: Volume2,
   slides: Presentation, music: Music, laugh: Laugh, thanks: HandHeart, reply: Reply, external: ExternalLink, ticket: Ticket,

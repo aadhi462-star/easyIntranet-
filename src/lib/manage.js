@@ -1,7 +1,7 @@
 // Community management (redesign Stage 6): addresses and the words used across the Manage tab.
 import { communityPath } from './communities.js';
 
-export const MANAGE_SECTIONS = ['overview', 'queue', 'members', 'analytics', 'settings'];
+export const MANAGE_SECTIONS = ['overview', 'queue', 'members', 'analytics', 'settings', 'branding'];
 /** /c/<community>/manage[/<section>]; plain /manage opens the role's first section (D5). */
 export const managePath = (community, section) => `${communityPath(community, 'manage')}${section ? `/${section}` : ''}`;
 

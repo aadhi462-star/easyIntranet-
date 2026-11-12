@@ -1,11 +1,12 @@
-import { Glyph, Icon } from '../icons.jsx';
-import { useEffect, useRef, useState } from 'react';
+import { Icon } from '../icons.jsx';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { uid, useStore } from '../../lib/store.jsx';
 import { api, newKey, uploadFile } from '../../lib/api.js';
 import { toast } from '../../lib/toast.js';
 import { createPost, editPost, errorText, fetchMyCommunities, isCommunityAdmin, publishPost } from '../../lib/feed.js';
 import { Avatar } from '../ui.jsx';
+import { IconButton } from '../ui/Controls.jsx';
 import { MandatoryConfig } from './Mandatory.jsx';
 
 const MAX_TEXT = 5000;
@@ -18,8 +19,10 @@ const toLocal = (t) => (t ? new Date(t - new Date(t).getTimezoneOffset() * 6e4).
  * Post editor, backed by the API. `communityId` fixes where the post goes (a group wall, the
  * Company Wall); without it the author picks one of the communities they're an active member of.
  * `initial` (a server post) edits it: the server lets authors change the text and mentions only.
+ * `compact` starts it folded to one button (`prompt` is its text) and may change while mounted:
+ * Discussions folds it on phones only (board V2EDiscussions).
  */
-export default function Composer({ communityId: fixedId, initial, onDone, compact = false, defaultType }) {
+export default function Composer({ communityId: fixedId, initial, onDone, compact = false, defaultType, prompt = 'What’s on your mind right now?' }) {
   const { state, me, user } = useStore();
   const editing = !!initial;
   const [open, setOpen] = useState(!compact || editing);
@@ -47,6 +50,9 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
   // One idempotency key per composed post: a double click or network retry can't post twice.
   const submitKey = useRef(newKey());
   const ta = useRef(null);
+  const uidBase = useId().replace(/:/g, '');
+  // Unfolds when the caller stops asking for the folded form (a phone turned to a wide screen).
+  useEffect(() => { if (!compact) setOpen(true); }, [compact]);
 
   useEffect(() => {
     if (editing) return;
@@ -65,7 +71,7 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
   const canAdmin = !!community && isCommunityAdmin(community);
 
   const TYPES = [
-    { id: 'post', label: 'Status', icon: 'pen' },
+    { id: 'post', label: 'Post', icon: 'pen' },
     canAdmin && { id: 'announcement', label: 'Announcement', icon: 'announce' },
     { id: 'poll', label: 'Poll', icon: 'poll' },
     { id: 'question', label: 'Question', icon: 'questions' },
@@ -179,141 +185,162 @@ export default function Composer({ communityId: fixedId, initial, onDone, compac
     } finally { setBusy(false); }
   };
 
+
+  const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  const where = community?.name;
+  const placeholder = type === 'question'
+    ? `Ask ${where ?? 'the community'} a question. Type @ to mention someone.`
+    : `Share something${where ? ` with ${where}` : ''}. Type @ to mention someone.`;
+  const check = 'h-[18px] w-[18px] shrink-0 accent-[var(--az-focus)]';
+
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="glass flex w-full items-center gap-3 p-4 text-left text-3 hover:text-slate-200">
-        <Avatar user={me} size={40} /> What’s on your mind right now?
-      </button>
+      <section aria-label="Write a post" className="panel flex items-center gap-2.5 p-3">
+        <Avatar user={me} size={28} />
+        <button type="button" onClick={() => setOpen(true)} className="input min-h-11 min-w-0 flex-1 cursor-text truncate text-left text-[var(--az-text-3)]">{prompt}</button>
+      </section>
     );
   }
 
   if (notMember) {
-    return <p className="glass p-4 text-sm text-3">Join this community to post in it.</p>;
+    return <p className="notice notice-info">Join this community to post in it.</p>;
   }
 
   return (
-    <div className={editing ? '' : 'glass p-4'}>
+    <section aria-labelledby={editing ? undefined : `${uidBase}-h`} className={editing ? 'flex flex-col gap-3.5' : 'panel flex min-w-0 flex-col gap-3.5 p-4 sm:p-5'}>
+      {!editing && <h2 id={`${uidBase}-h`} className="sr-only">Write a post</h2>}
       {!editing && (
-        <div className="mb-3 flex flex-wrap gap-1" role="tablist" aria-label="Post type">
-          {TYPES.map((t) => (
-            <button key={t.id} role="tab" aria-selected={type === t.id} onClick={() => setType(t.id)}
-              className={`min-h-10 rounded-lg px-3 text-xs font-semibold ${type === t.id ? 'bg-[var(--az-text)] text-[var(--color-ink-950)]' : 'text-2 hover:bg-white/5'}`}>
-              <Glyph value={t.icon} tile={false} size={16} /> {t.label}
-            </button>
-          ))}
-          <Link to="/events?new=1" className="min-h-9 rounded-lg px-3 py-2 text-xs font-semibold text-2 hover:bg-white/5"><Glyph value="events" tile={false} size={16} /> Event</Link>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div role="group" aria-label="Kind of post" className="no-scrollbar inline-flex max-w-full overflow-x-auto rounded-lg border border-[var(--az-control)]">
+            {TYPES.map((t, i) => (
+              <button key={t.id} type="button" aria-pressed={type === t.id} onClick={() => setType(t.id)}
+                className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 px-3 text-sm ${i ? 'border-l border-[var(--az-control)]' : ''} ${type === t.id ? 'bg-[color-mix(in_srgb,var(--az-focus)_14%,transparent)] font-semibold text-[var(--az-link)]' : 'bg-[var(--az-surface)] font-medium text-[var(--az-text)] hover:bg-[var(--az-sunken)]'}`}>
+                <Icon name={t.icon} size={16} className="hidden sm:block" />{t.label}
+              </button>
+            ))}
+          </div>
+          {!fixedId && <Link to="/events?new=1" className="link inline-flex min-h-9 items-center gap-1.5 text-sm"><Icon name="events" size={16} /> Event</Link>}
         </div>
       )}
 
-      <div className="relative flex gap-3">
-        {!editing && <Avatar user={me} size={40} />}
-        <div className="flex-1">
-          <textarea ref={ta} className="input min-h-24 resize-y" value={text} onChange={onText} aria-label="Post text" maxLength={MAX_TEXT}
-            onKeyDown={(e) => { if (e.key === 'Escape') setMq(null); }}
-            placeholder={type === 'question' ? 'Ask the community a question…' : 'What’s on your mind right now? Use @ to mention and # to tag.'} />
-          {text.length > MAX_TEXT * 0.8 && (
-            <p className={`mt-1 text-right text-xs ${text.length > MAX_TEXT ? 'text-rose-300' : 'text-3'}`} aria-live="polite">{text.length}/{MAX_TEXT}</p>
-          )}
-          {suggestions.length > 0 && (
-            <ul className="glass glass-strong absolute z-20 mt-1 w-64 p-1" role="listbox" aria-label="Mention suggestions">
-              {suggestions.map((u) => (
-                <li key={u.id}><button type="button" onClick={() => pickMention(u)} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-white/10">
-                  <Avatar user={u} size={26} />{u.name}<span className="ml-auto text-xs text-3">{u.batch}</span></button></li>
-              ))}
-            </ul>
-          )}
-        </div>
+      <div className="relative">
+        <textarea ref={ta} className="input min-h-24 resize-y leading-6" rows={3} value={text} onChange={onText} aria-label="Post text" maxLength={MAX_TEXT}
+          onKeyDown={(e) => { if (e.key === 'Escape') setMq(null); }} placeholder={placeholder} />
+        {suggestions.length > 0 && (
+          <ul className="absolute left-0 z-20 mt-1 w-64 max-w-full rounded-[10px] border border-[var(--az-hairline)] bg-[var(--az-raised)] p-1 shadow-[var(--az-shadow)]" aria-label="Mention suggestions">
+            {suggestions.map((u) => (
+              <li key={u.id}><button type="button" onClick={() => pickMention(u)} className="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-[var(--az-text)] hover:bg-[var(--az-sunken)]">
+                <Avatar user={u} size={26} />{u.name}<span className="t-small ml-auto">{u.batch}</span></button></li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {editing && initial.poll && <p className="mt-2 text-xs text-3">Poll options can’t be changed after posting.</p>}
+      {editing && initial.poll && <p className="t-small">Poll options can’t be changed after posting.</p>}
 
       {!editing && type === 'poll' && (
-        <div className="mt-3 space-y-2">
+        <div className="flex flex-col gap-2">
           {options.map((o, i) => (
             <div key={o.id} className="flex gap-2">
-              <input className="input" placeholder={`Option ${i + 1}`} maxLength={MAX_OPTION} value={o.text} onChange={(e) => setOptions(options.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
-              {options.length > 2 && <button className="btn btn-ghost w-11 !p-0" aria-label={`Remove option ${i + 1}`} onClick={() => setOptions(options.filter((_, j) => j !== i))}>✕</button>}
+              <input className="input min-w-0" placeholder={`Option ${i + 1}`} aria-label={`Option ${i + 1}`} maxLength={MAX_OPTION} value={o.text}
+                onChange={(e) => setOptions(options.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
+              {options.length > 2 && <IconButton icon="x" variant="secondary" label={`Remove option ${i + 1}`} onClick={() => setOptions(options.filter((_, j) => j !== i))} />}
             </div>
           ))}
-          {options.length < MAX_OPTIONS && <button className="btn btn-ghost text-xs" onClick={() => setOptions([...options, blankOption()])}>+ Add option</button>}
+          {options.length < MAX_OPTIONS && (
+            <button type="button" className="btn btn-ghost btn-sm self-start" onClick={() => setOptions([...options, blankOption()])}><Icon name="plus" size={16} /> Add option</button>
+          )}
         </div>
       )}
 
       {mandatory && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-          <Icon name="mandatory" size={14} className="mr-1 inline align-[-2px]" />Mandatory Read{mandatory.deadline ? ` · due ${new Date(mandatory.deadline).toLocaleDateString()}` : ''}
-          <button className="ml-auto underline" onClick={() => setMandatoryOpen(true)}>Edit</button>
-          <button className="underline" onClick={() => setMandatory(null)}>Remove</button>
+        <div className="notice notice-warn flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Icon name="mandatory" size={16} className="text-[var(--az-warning)]" />
+          <span className="min-w-0 flex-1">Mandatory Read{mandatory.deadline ? ` · due ${new Date(mandatory.deadline).toLocaleDateString()}` : ''}</span>
+          <button type="button" className="link min-h-8 text-sm" onClick={() => setMandatoryOpen(true)}>Edit</button>
+          <button type="button" className="link min-h-8 text-sm" onClick={() => setMandatory(null)}>Remove</button>
         </div>
       )}
 
       {showSchedule && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <label className="text-xs font-semibold text-2" htmlFor="sched">Publish at</label>
-          <input id="sched" type="datetime-local" className="input !w-auto" value={toLocal(scheduleAt)}
+        <div className="sunken flex flex-wrap items-center gap-2 p-3">
+          <label className="text-sm font-medium text-[var(--az-text)]" htmlFor={`${uidBase}-at`}>Publish at</label>
+          <input id={`${uidBase}-at`} type="datetime-local" className="input min-w-0 !w-auto" value={toLocal(scheduleAt)}
             onChange={(e) => setScheduleAt(e.target.value ? new Date(e.target.value).getTime() : null)} />
-          <button className="btn btn-primary" disabled={busy} onClick={() => submit('schedule')}>Schedule</button>
-          <button className="btn btn-ghost" onClick={() => setShowSchedule(false)}>Cancel</button>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => submit('schedule')}>Schedule</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowSchedule(false)}>Cancel</button>
         </div>
       )}
 
       {(files.length > 0 || uploading) && (
-        <ul className="mt-3 flex flex-wrap gap-2" aria-label="Attachments">
+        <ul className="flex flex-wrap gap-2.5" aria-label="Attachments">
           {files.map((f) => (
-            <li key={f.id} className="sunken flex items-center gap-2 py-1.5 pl-3 pr-1 text-xs">
-              <span className="font-bold text-white">{f.kind === 'pdf' ? 'PDF' : 'IMG'}</span>
-              <span className="text-2 max-w-40 truncate">{f.name}</span>
-              <button type="button" className="btn btn-ghost h-8 w-8 !min-h-8 !p-0" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((x) => x.id !== f.id))}>✕</button>
+            <li key={f.id} className="flex min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-[var(--az-hairline)] bg-[var(--az-surface)] p-1.5">
+              {f.kind === 'pdf'
+                ? <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[var(--az-hairline)] text-xs font-bold text-[var(--az-text)]">PDF</span>
+                : <img src={`/api/files/${f.id}?inline=1`} alt="" className="h-11 w-11 shrink-0 rounded-lg bg-[var(--az-sunken)] object-cover" />}
+              <span className="t-small min-w-0 truncate !text-[var(--az-text)]">{f.name}{f.size ? ` · ${kb(f.size)}` : ''}</span>
+              <IconButton icon="x" size="sm" label={`Remove ${f.name}`} className="!border-0 !bg-transparent hover:!bg-[var(--az-sunken)]" onClick={() => setFiles(files.filter((x) => x.id !== f.id))} />
             </li>
           ))}
-          {uploading && <li className="text-3 self-center text-xs" role="status">Uploading…</li>}
+          {uploading && <li className="t-small self-center" role="status">Uploading…</li>}
         </ul>
       )}
-      {error && <p role="alert" className="mt-2 text-sm text-rose-300">{error}</p>}
+      {error && <p role="alert" className="notice notice-bad">{error}</p>}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
-        {!editing && <>
-          <button className="btn btn-ghost h-11 w-11 !p-0" title="Attach images or PDFs (up to 4, 10 MB each)" aria-label="Attach images or PDFs"
-            disabled={!communityId || uploading || files.length >= 4} onClick={() => picker.current?.click()}><Glyph value="paperclip" tile={false} size={16} /></button>
-          <input ref={picker} type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={attach} />
-          {topics.length > 0 && (
-            <select className="input !w-auto !py-2 text-sm" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
-              <option value="">No topic</option>
-              {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        {!editing && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <button type="button" className="btn btn-secondary btn-sm" disabled={!communityId || uploading || files.length >= 4} onClick={() => picker.current?.click()}>
+              <Icon name="paperclip" size={16} /> Attach
+            </button>
+            <input ref={picker} type="file" multiple accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={attach} />
+            {topics.length > 0 && (
+              <select className="input !min-h-9 !w-auto !py-1.5 text-sm" value={topicId} onChange={(e) => setTopicId(e.target.value)} aria-label="Topic">
+                <option value="">Topic: none</option>
+                {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+            {canAdmin && (
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-[var(--az-text)]">
+                <input type="checkbox" className={check} checked={pinned} onChange={(e) => setPinned(e.target.checked)} /> Pin to top
+              </label>
+            )}
+            {canAdmin && (
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-[var(--az-text)]">
+                <input type="checkbox" className={check} checked={!!mandatory} onChange={(e) => (e.target.checked ? setMandatoryOpen(true) : setMandatory(null))} /> Mandatory read
+              </label>
+            )}
+          </div>
+        )}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <span className={`t-small tabular-nums ${text.length > MAX_TEXT * 0.9 ? '!text-[var(--az-warning)]' : ''}`}>{text.length.toLocaleString('en')} / {MAX_TEXT.toLocaleString('en')}</span>
+          {!editing && !fixedId && (
+            <select className="input !min-h-9 !w-auto !py-1.5 text-sm" value={communityId} onChange={(e) => setCommunityId(e.target.value)} aria-label="Post to" disabled={!communities}>
+              {!communities && <option value="">Loading communities…</option>}
+              {communities?.length === 0 && <option value="">Join a community to post</option>}
+              {communities?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
-          {canAdmin && (
-            <button className={`btn btn-ghost h-11 w-11 !p-0 ${mandatory ? 'ring-1 ring-amber-300' : ''}`} title="Mandatory read" aria-label="Mark as mandatory read" onClick={() => setMandatoryOpen(true)}><Glyph value="check" tile={false} size={16} /></button>
-          )}
-          {canAdmin && (
-            <button className={`btn btn-ghost h-11 w-11 !p-0 ${pinned ? 'ring-1 ring-brand-400' : ''}`} title={pinned ? 'Will be pinned' : 'Pin to top'} aria-label="Pin to top" aria-pressed={pinned} onClick={() => setPinned(!pinned)}><Glyph value="pinned" tile={false} size={16} /></button>
-          )}
-        </>}
-        <span className="flex-1" />
-        {!editing && !fixedId && (
-          <select className="input !w-auto !py-2 text-sm" value={communityId} onChange={(e) => setCommunityId(e.target.value)} aria-label="Post to" disabled={!communities}>
-            {!communities && <option value="">Loading communities…</option>}
-            {communities?.length === 0 && <option value="">Join a community to post</option>}
-            {communities?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        )}
-        {(onDone && editing) && <button className="btn btn-ghost" onClick={() => onDone()}>Cancel</button>}
-        {compact && !editing && <button className="btn btn-ghost" onClick={reset}>Cancel</button>}
-        {!editing && <>
-          <button className="btn btn-ghost" disabled={busy} onClick={() => submit('draft')}>Save draft</button>
-          <button className="btn btn-ghost" onClick={() => setShowSchedule(true)} aria-label="Schedule post"><Glyph value="scheduled" tile={false} size={16} /></button>
-        </>}
-        {editing && ['draft', 'scheduled'].includes(initial.status) && <button className="btn btn-ghost" disabled={busy} onClick={() => submit('save')}>Save</button>}
-        <button className="btn btn-primary h-11 px-5" disabled={busy || uploading || (!editing && !communityId)} onClick={() => submit('publish')}>
-          {busy ? 'Saving…' : editing ? (['draft', 'scheduled'].includes(initial.status) ? 'Save & publish' : 'Save') : 'Post'}
-        </button>
+          {(onDone && editing) && <button type="button" className="btn btn-secondary btn-sm" onClick={() => onDone()}>Cancel</button>}
+          {compact && !editing && <button type="button" className="btn btn-secondary btn-sm" onClick={reset}>Cancel</button>}
+          {!editing && <>
+            <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => submit('draft')}>Save draft</button>
+            <button type="button" className="btn btn-secondary btn-sm" aria-expanded={showSchedule} onClick={() => setShowSchedule(!showSchedule)}><Icon name="clock" size={16} /> Schedule</button>
+          </>}
+          {editing && ['draft', 'scheduled'].includes(initial.status) && <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => submit('save')}>Save</button>}
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy || uploading || (!editing && !communityId)} onClick={() => submit('publish')}>
+            {busy ? 'Saving…' : editing ? (['draft', 'scheduled'].includes(initial.status) ? 'Save & publish' : 'Save') : 'Post'}
+          </button>
+        </div>
       </div>
+      {!editing && <p className="t-small">Images and PDFs, up to 4 per post, 10 MB each.</p>}
 
       {mandatoryOpen && (
         <MandatoryConfig initial={mandatory} onClose={() => setMandatoryOpen(false)}
           onSave={(cfg) => { setMandatory(cfg); setMandatoryOpen(false); }}
           onRemove={mandatory ? () => { setMandatory(null); setMandatoryOpen(false); } : null} />
       )}
-    </div>
+    </section>
   );
 }

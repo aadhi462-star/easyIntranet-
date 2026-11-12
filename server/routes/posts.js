@@ -15,6 +15,9 @@ const clean = (s, max, field) => {
   return t;
 };
 
+// E8: at most three pinned posts per community.
+const PIN_LIMIT = 3;
+
 export default async function postRoutes(app, { ctx }) {
   const { db } = ctx;
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
@@ -223,6 +226,12 @@ export default async function postRoutes(app, { ctx }) {
     const fileIds = await checkAttachments(a.community.id, req.user.id, b.attachments);
     const id = newId('pst');
     await db.tx(async (t) => {
+      // E8 applies to a post created already pinned too (the cap is checked under the same lock).
+      if (b.pinned) {
+        await t.query(`select id from communities where id = $1 for update`, [a.community.id]);
+        const { rows: [{ n }] } = await t.query(`select count(*)::int as n from posts where community_id = $1 and pinned and deleted_at is null and status <> 'removed'`, [a.community.id]);
+        if (n >= PIN_LIMIT) throw conflict('PIN_LIMIT', `This community already has ${PIN_LIMIT} pinned posts. Unpin one first.`, { limit: PIN_LIMIT, pinned: n });
+      }
       await t.query(`insert into posts (id, community_id, author_id, type, body, status, publish_at, pinned, mentions, mandatory, published_at, topic_id)
         values ($1, $2, $3, $4, $5, $6::text, $7, $8, $9, $10, case when $6::text = 'published' then now() end, $11)`,
       [id, a.community.id, req.user.id, type, body, status, publishAt, !!b.pinned, members, mandatory ? JSON.stringify(mandatory) : null, topicId]);
@@ -298,8 +307,21 @@ export default async function postRoutes(app, { ctx }) {
     const { p, a } = await loadPost(req, req.params.id, { change: true });
     if (!a.canAdmin) throw forbidden('Only community admins can pin posts.'); // CNT-14
     if (p.status !== 'published') throw conflict('NOT_PUBLISHED', 'Only published posts can be pinned.');
-    await db.query(`update posts set pinned = $2 where id = $1`, [p.id, req.body.pinned]);
-    await audit(db, { actorId: req.user.id, action: req.body.pinned ? 'post.pin' : 'post.unpin', targetType: 'post', targetId: p.id, ip: req.ip });
+    // E8: at most three pinned posts per community, for new pins only. A community already above
+    // three keeps them until they're unpinned, and pins again once it's under three. The
+    // community row is locked so two pins at once can't both take the last place.
+    await db.tx(async (t) => {
+      if (req.body.pinned) {
+        await t.query(`select id from communities where id = $1 for update`, [p.community_id]);
+        const { rows: [{ pinned: was }] } = await t.query(`select pinned from posts where id = $1`, [p.id]);
+        if (!was) {
+          const { rows: [{ n }] } = await t.query(`select count(*)::int as n from posts where community_id = $1 and pinned and deleted_at is null and status <> 'removed'`, [p.community_id]);
+          if (n >= PIN_LIMIT) throw conflict('PIN_LIMIT', `This community already has ${PIN_LIMIT} pinned posts. Unpin one first.`, { limit: PIN_LIMIT, pinned: n });
+        }
+      }
+      await t.query(`update posts set pinned = $2 where id = $1`, [p.id, req.body.pinned]);
+      await audit(t, { actorId: req.user.id, action: req.body.pinned ? 'post.pin' : 'post.unpin', targetType: 'post', targetId: p.id, ip: req.ip });
+    });
     return { ok: true };
   });
 

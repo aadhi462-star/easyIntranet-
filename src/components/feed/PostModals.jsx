@@ -8,15 +8,15 @@ import { Icon } from '../icons.jsx';
 export function SentimentMeter({ counts, label = 'Sentiment' }) {
   const total = counts.happy + counts.neutral + counts.unhappy;
   const pct = (k) => (total ? Math.round((counts[k] / total) * 100) : 0);
-  const colors = { happy: 'bg-emerald-400', neutral: 'bg-slate-400', unhappy: 'bg-rose-400' };
+  const colors = { happy: 'bg-[var(--az-ok)]', neutral: 'bg-[var(--az-text-3)]', unhappy: 'bg-[var(--az-danger)]' };
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between text-xs text-3"><span>{label}</span><span>{total} signals</span></div>
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-white/10" role="img"
+      <div className="t-small mb-1.5 flex items-center justify-between"><span>{label}</span><span>{total} signals</span></div>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-[var(--az-sunken)]" role="img"
         aria-label={`Happy ${pct('happy')}%, neutral ${pct('neutral')}%, unhappy ${pct('unhappy')}%`}>
         {Object.keys(colors).map((k) => <div key={k} className={colors[k]} style={{ width: `${pct(k)}%` }} />)}
       </div>
-      <div className="mt-1.5 flex gap-3 text-xs text-2">
+      <div className="mt-1.5 flex gap-3 text-xs text-[var(--az-text-2)]">
         {Object.keys(colors).map((k) => <span key={k} className="inline-flex items-center gap-1"><Icon name={MOODS[k]} size={14} />{pct(k)}%</span>)}
       </div>
     </div>

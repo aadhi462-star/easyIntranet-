@@ -62,24 +62,16 @@ export function useChannelSync() {
   return { add, drop };
 }
 
-/** Archive / restore (community admins) and permanent delete (platform staff only). */
+/** Archive / restore (community admins), and the way to deletion (platform staff only). */
 export function useCommunityLifecycle() {
-  const { state, dispatch } = useStore();
   const { run } = useCommunityWrite();
   const nav = useNavigate();
   const archive = async (g, archived) => {
     if (archived && !(await confirmAction(`Archive ${g.name}? It becomes read-only and leaves Discover. Admins can restore it.`))) return;
     return run(g.id, () => communityApi.archive(g.id, archived), { ok: archived ? 'Community archived' : 'Community restored' });
   };
-  const remove = async (g) => {
-    const typed = prompt(`This permanently deletes ${g.name} and everything in it. It can’t be undone.\n\nType the community name to confirm:`);
-    if (typed == null) return;
-    if (typed.trim() !== g.name) { toast('The name didn’t match, so nothing was deleted.', 'error'); return; }
-    const res = await run(null, () => communityApi.remove(g.id), { ok: 'Community deleted' });
-    if (!res) return;
-    for (const c of state.channels.filter((c) => c.groupId === g.id)) dispatch({ type: 'remove', col: 'channels', id: c.id, silent: true });
-    dispatch({ type: 'communities/merge', groups: [], drop: [g.id], silent: true });
-    nav('/groups');
-  };
+  // Deleting a community has one path (v2 E12): the Stage 7 deletion review in Platform Admin,
+  // with its impact summary and typed-name confirmation. This only opens it.
+  const remove = (g) => nav(`/admin/communities?open=${encodeURIComponent(g.id)}`);
   return { archive, remove };
 }

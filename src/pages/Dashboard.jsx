@@ -258,7 +258,7 @@ function ComingUp({ d }) {
               <DateTile at={start} />
               <span className="min-w-0 flex-1">
                 <Link to={`/events/${e.id}`} className="block truncate font-semibold hover:underline">{e.title}</Link>
-                <span className="t-small block">{[e.location && (isUrl(e.location) ? 'Online' : e.location), e.community?.name, whenText(e, start, start + (e.end - e.start))].filter(Boolean).join(' · ')}</span>
+                <span className="t-small block">{[e.location && (isUrl(e.location) ? 'Map link' : e.location), e.community?.name, whenText(e, start, start + (e.end - e.start))].filter(Boolean).join(' · ')}</span>
               </span>
               {e.myRsvp ? <Badge tone="ok">{RSVP[e.myRsvp] ?? 'Answered'}</Badge> : <Link to={`/events/${e.id}`} className="btn btn-secondary btn-sm">Are you going?</Link>}
             </li>

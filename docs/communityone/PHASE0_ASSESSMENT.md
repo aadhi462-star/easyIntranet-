@@ -1207,3 +1207,45 @@ The boards were approved as drawn (D1–D12: the user said "Start D" on the unch
   - Show more under New in your communities: the server returns 5.
   - Per-community unread counts.
   - Shared event components (`EventCard`, `RsvpButtons`, `EventForm`, …) still use the older palette.
+
+### v2 — Workstream E: community pages and branding (12 Nov 2026)
+
+The boards were approved as drawn (E1–E13: the user said "start" on the unchanged boards). I built the page frame, Overview, the header actions and the phone top bar. Four agents took the rest, each owning its own files.
+
+- **Page frame** (`pages/Community.jsx`):
+  - **Header:** the uploaded cover (or a flat accent band) and logo (or the lettered tile), name, facts, your role badge, and one primary action, for non-members only (E12).
+  - **Actions menu:** Copy link; for admins, Add members, Community settings, Branding and Archive; then Leave. An Owner is told to transfer ownership first.
+  - **Delete community** (staff only) opens the Stage 7 review at `/admin/communities?open=<id>`. The `prompt()` in `useCommunity.js` is gone, and the old Edit community dialog is retired.
+  - **Tabs** follow the switched-on sections (E1), and a switched-off section's address goes to Overview. Visitors to a Private or Closed community see no tabs (VIS-01).
+  - **Phones:** the community has its own top bar (Back, name, Search, Actions), and the app's bar is hidden inside a community.
+- **Overview (E7):**
+  - The next event is the featured item, with RSVP.
+  - Then Announcements (an unacknowledged Mandatory Read first; the acknowledged count only when the server sends it), Featured discussions (pinned, up to 3), Recent activity (the newest 8 from posts, events, resources and courses, merged by time), Learning, People and About.
+  - Empty sections are left out. Each section loads on its own, and one failing shows Try again without blanking the page.
+  - RolePanel is restyled, and the Owner checklist gains "Add a logo and cover".
+  - Event and course responses now carry `createdAt` and `publishedAt` for Recent activity.
+- **E3 (tiles):** in light mode every community tile is the accent's deep shade with white initials. This replaces D's pale tiles, as E3 said.
+- **Server rules, Branding and Sections (agent 1):**
+  - `e2-sections` turns stored app lists into `settings.sections`, once, logged and undoable. It runs on every server start (`server/index.js`) as well as from the seed.
+  - E4 image rules come from the bytes (`server/lib/images.js`: PNG, JPEG and WebP headers). A logo must be square, at least 256 px and up to 2 MB; a cover 4:1 (±2%), at least 1600×400 and up to 5 MB. Replacing an image soft-deletes the old one. Error codes: IMAGE_TYPE, IMAGE_TOO_LARGE, IMAGE_TOO_SMALL and IMAGE_SHAPE.
+  - E8 limits pins to 3 (409 PIN_LIMIT), on create as well.
+  - A Manage → Branding section with a live preview, and section switches in Manage → Settings.
+  - Tests: `server/test/e-sections.test.js` (14) and `branding.test.js` (27).
+- **Discussions (agent 2):** filters, search, sort, topics as chips on phones, reactions drawn as icons (E9), a remove dialog with a required reason (E10, `feed/RemoveDialog.jsx`), a Moderation heading in the post menu, and Follow removed. The composer is open on desktop and folds into "Write a post" on phones.
+- **Events and Resources (agent 3):** a List and Month switch on the Events tab (E13). Event cards, RSVP, the calendar grid and the event form use the tokens. Resources has search, sort, categories, one Add menu on phones, and edit and delete only where the API allows (`canEdit`, `canAdd`).
+- **Members and Learning (agent 4):**
+  - Members is a directory (E11): search, role chips, Owners and staff first, join requests for Admins, then Manage or Report. Role changes stay in Manage.
+  - The Learning catalogue and course page are restyled.
+- **Fixed along the way:** the shared Modal now opens through a portal, because it was drawn under the sidebar. "Map link" is used for link locations everywhere. The Feed "Following" view no longer points to a Follow menu item that's gone.
+- **Checked:**
+  - Full `npm run test:server`: 393 of 393 in one run.
+  - `npm run test:e2e`: 19 passed, 1 skipped. The composer journey now opens "Write a post" on phones.
+  - `vite build` passes.
+  - Browser, as Sara: Overview and header (desktop), the Private-visitor view and the community top bar (375 px), Discussions, Branding, and the Settings section switches.
+- **Not done:**
+  - Pressing the browser's Back button with unsaved branding changes isn't caught (HashRouter can't block it).
+  - No upload progress, and JPEG EXIF rotation is ignored when reading sizes.
+  - A file that was uploaded and then refused stays in the store.
+  - A removed post vanishes from a moderator's list until reload.
+  - The Manage link next to a member doesn't jump to that person.
+  - Older classes remain in Report.jsx, the general Feed page, Settings outside the Sections panel, and the parked Town Hall and Live parts.

@@ -164,7 +164,7 @@ export async function presentEvents(db, req, rows, accessById, now = Date.now())
       start: new Date(e.start_at).toISOString(), end: new Date(e.end_at).toISOString(), allDay: e.all_day, timezone: e.timezone,
       location: e.location, recurrence: e.recurrence, inviteOnly: e.invite_only, rsvpEnabled: e.rsvp_enabled,
       capacity: e.capacity, rsvpDeadline: e.rsvp_deadline ? new Date(e.rsvp_deadline).toISOString() : null, reminders: e.reminders,
-      status: e.status, cancelReason: e.cancel_reason, version: e.version,
+      status: e.status, cancelReason: e.cancel_reason, version: e.version, createdAt: e.created_at ? new Date(e.created_at).toISOString() : null,
       hostId: e.host_id, host: host?.status === 'deleted' ? { id: e.host_id, name: 'Deleted member', deleted: true } : { id: e.host_id, name: host?.name },
       assistants, invitees: (I[e.id] || []).map((x) => x.user_id),
       rsvps: rs, counts, myRsvp: rs[uid] ?? null, waitlistPosition, commentCount: C[e.id] ?? 0,

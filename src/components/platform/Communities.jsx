@@ -18,7 +18,8 @@ const bytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 102
 export default function Communities() {
   const [show, setShow] = useState('all');
   const [s, setS] = useState({ state: 'loading' });
-  const [open, setOpen] = useState(null);
+  // /admin/communities?open=<id> opens that community's panel (Delete community on a community page, E12).
+  const [open, setOpen] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('open'));
   const load = useCallback(() => {
     setS((p) => ({ ...p, state: p.d ? 'ready' : 'loading' }));
     api(`/admin/communities?show=${show}`).then((d) => setS({ state: 'ready', d })).catch((e) => setS({ state: 'error', message: errorText(e) }));

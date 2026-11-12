@@ -12,6 +12,7 @@ import { managePath } from '../../lib/manage.js';
 import { approvePost, removePost, useServerFeed } from '../../lib/feed.js';
 import { timeAgo } from '../../lib/store.jsx';
 import { useCommunityWrite } from './useCommunity.js';
+import { Icon } from '../icons.jsx';
 
 const count = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -33,8 +34,8 @@ function useHealth(g) {
 /** Owner: three live numbers and what's left to set up. The checklist disappears when done. */
 function OwnerHealth({ g }) {
   const h = useHealth(g);
-  if (h.status === 'loading') return <div aria-busy="true" aria-label="Loading community health" className="band h-28 animate-pulse" />;
-  if (h.status === 'error') return <p role="alert" className="band p-4 text-sm text-rose-300">{h.message}</p>;
+  if (h.status === 'loading') return <div aria-busy="true" aria-label="Loading community health" className="skeleton h-28 !rounded-2xl" />;
+  if (h.status === 'error') return <p role="alert" className="notice notice-bad">{h.message}</p>;
   const d = h.data;
   const steps = [
     ['Write a description', !!g.description, managePath(g, 'settings')],
@@ -42,30 +43,32 @@ function OwnerHealth({ g }) {
     ['Invite your first members', g.memberCount > 1, communityPath(g, 'members')],
     ['Create your first event', d.events > 0, communityPath(g, 'events')],
     ['Pin a welcome post', d.pinned > 0, communityPath(g, 'discussions')],
+    // v2 E7: the checklist is the one setup guide; branding is part of it.
+    ['Add a logo and cover', !!(g.logoUrl && g.coverUrl), managePath(g, 'branding')],
   ];
   const done = steps.filter(([, ok]) => ok).length;
   return (
-    <section aria-labelledby="own-h" className="band flex flex-col gap-5 p-5 sm:p-6">
+    <section aria-labelledby="own-h" className="panel flex flex-col gap-5 p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="own-h" className="t-h2 text-white">Your community</h2>
+        <h2 id="own-h" className="t-h2">Your community</h2>
         <span className="t-label">You’re the owner</span>
       </div>
       <dl className="grid grid-cols-3 gap-4">
         {[['Members', g.memberCount], ['Joined in 30 days', d.joined30], ['Posts in 30 days', d.posts30]].map(([k, v]) => (
-          <div key={k}><dt className="t-small">{k}</dt><dd className="text-[26px] font-bold leading-8 text-white tabular-nums">{v}</dd></div>
+          <div key={k}><dt className="t-small">{k}</dt><dd className="text-[26px] font-bold leading-8 tabular-nums">{v}</dd></div>
         ))}
       </dl>
       {done < steps.length && (
         <div>
           <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-            <span className="font-semibold text-white">Finish setting up</span>
-            <span className="text-3">{done} of {steps.length} done</span>
+            <span className="font-semibold">Finish setting up</span>
+            <span className="t-small">{done} of {steps.length} done</span>
           </div>
-          <div aria-hidden="true" className="mb-3 h-1.5 overflow-hidden rounded-full bg-[var(--az-sunken)]"><div className="h-full bg-brand-400" style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+          <div aria-hidden="true" className="mb-3 h-1.5 overflow-hidden rounded-full bg-[var(--az-sunken)]"><div className="h-full bg-[var(--az-ok)]" style={{ width: `${(done / steps.length) * 100}%` }} /></div>
           <ul className="flex flex-wrap gap-2">
             {steps.map(([label, ok, to]) => (ok
-              ? <li key={label} className="text-3 inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm line-through">✓ {label}</li>
-              : <li key={label}><Link to={to} className="inline-flex min-h-10 items-center rounded-full border border-[var(--az-hairline)] px-3 text-sm text-white hover:border-[var(--color-ink-700)]">{label}</Link></li>))}
+              ? <li key={label} className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm text-[var(--az-text-2)]"><Icon name="check" size={16} className="text-[var(--az-ok)]" />{label}<span className="sr-only">, done</span></li>
+              : <li key={label}><Link to={to} className="inline-flex min-h-10 items-center rounded-full border border-[var(--az-control)] px-3 text-sm hover:bg-[var(--az-sunken)]">{label}</Link></li>))}
           </ul>
         </div>
       )}
@@ -93,15 +96,15 @@ function DecisionQueue({ g, hideWhenEmpty = false }) {
   };
   const tabs = [['requests', 'Join requests', nReq], ['posts', 'Posts to approve', posts.length]];
   return (
-    <section aria-labelledby="queue-h" className="glass flex flex-col">
+    <section aria-labelledby="queue-h" className="panel flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
-        <h2 id="queue-h" className="t-h2 text-white">Waiting for a decision</h2>
+        <h2 id="queue-h" className="t-h2">Waiting for a decision</h2>
       </div>
       <div role="tablist" aria-label="Kinds of decision" className="no-scrollbar mt-2 flex overflow-x-auto border-b border-[var(--az-divider)] px-3">
         {tabs.map(([id, label, n]) => (
           <button key={id} role="tab" type="button" aria-selected={tab === id} onClick={() => setTab(id)}
-            className={`shrink-0 border-b-2 px-3 py-3 text-sm ${tab === id ? 'border-[var(--cm)] font-semibold text-white' : 'text-2 border-transparent font-medium hover:text-white'}`}>
-            {label} <span className="text-3 tabular-nums">· {n}</span>
+            className={`shrink-0 border-b-2 px-3 py-3 text-sm ${tab === id ? 'border-[var(--cm-ink)] font-semibold' : 'border-transparent font-medium text-[var(--az-text-2)] hover:text-[var(--az-text)]'}`}>
+            {label} <span className="tabular-nums text-[var(--az-text-2)]">· {n}</span>
           </button>
         ))}
       </div>
@@ -128,17 +131,17 @@ export function ReviewQueue({ g, feed, framed = false }) {
     setBusy(true); setError('');
     try { await fn(); } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
-  const body = f.status === 'loading' && !posts.length ? <p className="text-3 py-3 text-sm">Loading…</p>
-    : f.status === 'error' ? <p className="py-3 text-sm text-rose-300">{f.error} <button className="underline" onClick={f.reload}>Try again</button></p>
-      : !current ? <p className="text-3 py-3 text-sm">Nothing to review. Posts held for approval show here; reports are in Manage → Queue.</p>
+  const body = f.status === 'loading' && !posts.length ? <p className="t-small py-3">Loading…</p>
+    : f.status === 'error' ? <p className="notice notice-bad my-3">{f.error} <button type="button" className="link" onClick={f.reload}>Try again</button></p>
+      : !current ? <p className="t-small py-3">Nothing to review. Posts held for approval show here; reports are in Manage → Queue.</p>
         : (
           <div className="grid gap-4 py-2 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             <ul aria-label="Held posts" className="list-rows">
               {posts.map((p) => (
                 <li key={p.id}>
                   <button type="button" onClick={() => setSel(p.id)} aria-current={p.id === current.id ? 'true' : undefined}
-                    className={`block w-full rounded-lg px-3 py-2.5 text-left ${p.id === current.id ? 'bg-[var(--az-sunken)] shadow-[inset_3px_0_0_var(--cm)]' : 'hover:bg-white/[.03]'}`}>
-                    <span className="block text-sm font-semibold text-white">{p.author?.name ?? 'Member'}</span>
+                    className={`block w-full rounded-lg px-3 py-2.5 text-left ${p.id === current.id ? 'bg-[var(--az-sunken)] shadow-[inset_3px_0_0_var(--az-ok)]' : 'hover:bg-[var(--az-sunken)]'}`}>
+                    <span className="block text-sm font-semibold">{p.author?.name ?? 'Member'}</span>
                     <span className="t-small">Held for approval · {timeAgo(typeof p.createdAt === 'string' ? Date.parse(p.createdAt) : p.createdAt ?? Date.now())}</span>
                   </button>
                 </li>
@@ -146,24 +149,24 @@ export function ReviewQueue({ g, feed, framed = false }) {
             </ul>
             <article aria-label="Selected post" className="sunken flex flex-col gap-3 p-4">
               <span className="t-label">Held for approval</span>
-              <p className="t-body whitespace-pre-line text-white">{current.body}</p>
-              <label className="text-2 text-sm">Reason if you remove it <span className="text-3">(the author sees this)</span>
+              <p className="t-body whitespace-pre-line">{current.body}</p>
+              <label className="text-sm font-semibold">Reason if you remove it <span className="font-normal text-[var(--az-text-2)]">(the author sees this)</span>
                 <textarea className="input mt-1 min-h-20" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
               </label>
-              {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+              {error && <p role="alert" className="field-error">{error}</p>}
               <div className="flex flex-wrap justify-end gap-2">
-                <button className="btn btn-ghost text-rose-200" disabled={busy || !reason.trim()} onClick={() => act(() => removePost(current.id, reason.trim()))}
+                <button type="button" className="btn btn-danger" disabled={busy || !reason.trim()} onClick={() => act(() => removePost(current.id, reason.trim()))}
                   title={reason.trim() ? undefined : 'Give the author a reason first'}>Remove</button>
-                <button className="btn btn-primary" disabled={busy} onClick={() => act(() => approvePost(current.id))}>Approve and publish</button>
+                <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act(() => approvePost(current.id))}>Approve and publish</button>
               </div>
             </article>
           </div>
         );
   if (!framed) return body;
   return (
-    <section aria-labelledby="rev-h" className="glass flex flex-col px-5 py-4">
+    <section aria-labelledby="rev-h" className="panel flex flex-col px-5 py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="rev-h" className="t-h2 text-white">Review queue</h2>
+        <h2 id="rev-h" className="t-h2">Review queue</h2>
         <span className="t-label">You’re a moderator · {count(posts.length, 'item')}</span>
       </div>
       {body}
@@ -172,19 +175,19 @@ export function ReviewQueue({ g, feed, framed = false }) {
 }
 
 function JoinRequests({ reqs, busy, decide }) {
-  if (!reqs.length) return <p className="text-3 py-3 text-sm">Nothing waiting. New requests show here and in your notifications.</p>;
+  if (!reqs.length) return <p className="t-small py-3">Nothing waiting. New requests show here and in your notifications.</p>;
   return (
     <ul className="list-rows">
       {reqs.map((r) => (
         <li key={r.id} className="flex flex-wrap items-center gap-3 py-3">
           <span className="min-w-0 flex-[1_1_220px]">
-            <Link to={`/people/${r.id}`} className="font-semibold text-white hover:underline">{r.name}</Link>
+            <Link to={`/people/${r.id}`} className="font-semibold hover:underline">{r.name}</Link>
             <span className="t-small"> · asked {timeAgo(Date.parse(r.updated_at))}</span>
-            {r.message && <span className="text-2 mt-0.5 block text-sm">“{r.message}”</span>}
+            {r.message && <span className="mt-0.5 block text-sm text-[var(--az-text-2)]">“{r.message}”</span>}
           </span>
           <span className="flex gap-2">
-            <button className="btn btn-ghost" disabled={busy === r.id} onClick={() => decide(r, false)} aria-label={`Decline ${r.name}`}>Decline</button>
-            <button className="btn btn-ghost !border-[var(--color-brand-400)] text-white" disabled={busy === r.id} onClick={() => decide(r, true)} aria-label={`Approve ${r.name}`}>Approve</button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy === r.id} onClick={() => decide(r, false)} aria-label={`Decline ${r.name}`}>Decline</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy === r.id} onClick={() => decide(r, true)} aria-label={`Approve ${r.name}`}>Approve</button>
           </span>
         </li>
       ))}
@@ -204,6 +207,6 @@ export function RequestQueue({ g }) {
     try { if (await run(g.id, () => communityApi.decide(g.id, r.id, approve), { ok: approve ? `${r.name} can now take part` : 'Request declined' })) await load(); }
     finally { setBusy(null); }
   };
-  if (reqs === null) return <div aria-busy="true" aria-label="Loading requests" className="glass h-32 animate-pulse" />;
-  return <section aria-label="Join requests" className="glass px-5 py-2"><JoinRequests reqs={reqs} busy={busy} decide={decide} /></section>;
+  if (reqs === null) return <div aria-busy="true" aria-label="Loading requests" className="skeleton h-32 !rounded-2xl" />;
+  return <section aria-label="Join requests" className="panel px-5 py-2"><JoinRequests reqs={reqs} busy={busy} decide={decide} /></section>;
 }

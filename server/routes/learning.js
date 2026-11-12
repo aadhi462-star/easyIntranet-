@@ -89,6 +89,7 @@ export default async function learningRoutes(app, { ctx }) {
     const out = {
       id: c.id, communityId: c.community_id, title: c.title, description: c.description, objectives: c.objectives, requirements: c.requirements,
       category: c.category, status: c.status, visibility: c.visibility, capacity: c.capacity, version: c.version,
+      publishedAt: c.published_at ?? null, createdAt: c.created_at ?? null,
       instructors: instructors.rows, lessonCount: lessons.length, durationMin: lessons.reduce((n, l) => n + (l.durationMin || 0), 0),
       enrolledCount: s.active, waitlistCount: s.waiting, seatsLeft: c.capacity == null ? null : Math.max(0, c.capacity - s.active),
       enrollment: enrollment ? { status: enrollment.status, completedAt: enrollment.completed_at, enrolledAt: enrollment.enrolled_at } : null,

@@ -1,7 +1,7 @@
 // A community's Manage tab (redesign Stage 6, boards S6Manage and S6Mobile): Overview · Queue ·
-// Members · Analytics · Settings, for its Owners, Admins and Moderators. Each role opens on its
+// Members · Analytics · Settings · Branding (v2 E6), for its Owners, Admins and Moderators. Each role opens on its
 // first job (D5): Owners on Overview, Admins and Moderators on the Queue. Moderators get the Queue
-// and a read-only Members list; Analytics and Settings are for Owners and Admins; only Owners see
+// and a read-only Members list; Analytics, Settings and Branding are for Owners and Admins; only Owners see
 // the Danger Zone. The server checks every one of these again.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -18,6 +18,7 @@ import Settings from '../groups/Settings.jsx';
 import Cases, { Appeals } from './Cases.jsx';
 import ManageMembers from './ManageMembers.jsx';
 import Analytics from './Analytics.jsx';
+import Branding from './Branding.jsx';
 import { confirmAction } from '../ui/Confirm.jsx';
 
 const SECTIONS = [
@@ -26,6 +27,8 @@ const SECTIONS = [
   { id: 'members', label: 'Members' },
   { id: 'analytics', label: 'Analytics', admins: true },
   { id: 'settings', label: 'Settings', admins: true },
+  // v2 E6: logo, cover and accent, beside Settings; Owners and Admins only (managePath(g, 'branding')).
+  { id: 'branding', label: 'Branding', admins: true },
 ];
 
 /** What's waiting: reports, held posts, join requests and appeals, for this person's role. */
@@ -70,6 +73,7 @@ export default function Manage({ g, perms, section }) {
         {current === 'queue' && <Queue g={g} perms={perms} counts={counts} />}
         {current === 'members' && <ManageMembers g={g} perms={perms} />}
         {current === 'analytics' && <Analytics g={g} />}
+        {current === 'branding' && <Branding key={g.id} g={g} />}
         {current === 'settings' && (
           <div className="flex flex-col gap-8">
             <Settings key={g.id} group={g} />

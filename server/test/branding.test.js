@@ -3,14 +3,17 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { client, makeUser, setup, signIn } from './helpers.js';
+import { png } from './image-fixtures.js';
 
 let env; const c = {};
 const q = (s, p) => env.db.query(s, p);
-const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a5ff0000000049454e44ae426082', 'hex');
+// Pictures that pass the E4 rules: a square logo and a 4:1 cover (test/image-fixtures.js).
+const PNG = png(256, 256);
+const COVER = png(1600, 400);
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 const upload = async (who, cid, name, buf) => c[who].post(`/api/communities/${cid}/files`, buf,
   { 'content-type': 'application/octet-stream', 'x-file-name': encodeURIComponent(name) });
-const image = async (who, cid, name = 'logo.png') => (await upload(who, cid, name, PNG)).body.file.id;
+const image = async (who, cid, name = 'logo.png') => (await upload(who, cid, name, /cover/.test(name) ? COVER : PNG)).body.file.id;
 const brand = (who, cid, body) => c[who].patch(`/api/communities/${cid}/branding`, body);
 const apps = async (cid, list) => q(`update communities set settings = settings || jsonb_build_object('apps', $2::jsonb) where id = $1`, [cid, JSON.stringify(list)]);
 const sections = async (cid, list) => q(`update communities set settings = settings || jsonb_build_object('sections', $2::jsonb) where id = $1`, [cid, JSON.stringify(list)]);
@@ -67,7 +70,7 @@ describe('logo and cover', () => {
     const pdf = (await upload('own', 'pub', 'logo.pdf', PDF)).body.file.id;
     const res = await brand('own', 'pub', { logoFileId: pdf });
     assert.equal(res.status, 400);
-    assert.equal(res.body.error.code, 'NOT_AN_IMAGE');
+    assert.equal(res.body.error.code, 'IMAGE_TYPE');
     assert.equal((await c.own.get('/api/communities/pub')).body.community.logoUrl, before);
   });
 

@@ -5,13 +5,14 @@ import { bookmarksOf, useStore } from '../lib/store.jsx';
 import { Avatar, Empty, UserLink } from '../components/ui.jsx';
 import Composer from '../components/feed/Composer.jsx';
 import PostCard from '../components/feed/PostCard.jsx';
+import { FeedEmpty, FeedError, FeedSkeleton } from '../components/feed/States.jsx';
 import { CelebrateClassmates, CommunityMood, CompletenessCard, MandatoryPending, TrendingTags } from '../components/feed/Widgets.jsx';
 import { followingIds, tagsOf, VIEWS } from '../components/feed/utils.js';
 import { errorText, fetchMyCommunities, fetchPost, isCommunityModerator, onFeedEvent, useLivePost, useServerFeed } from '../lib/feed.js';
 
 const COMPOSER_VIEWS = ['my', 'wall', 'questions', 'announcements'];
 const EMPTY = {
-  following: 'Follow members from a post’s ⋯ menu to see their updates here.',
+  following: 'Following people isn’t available. Their posts appear in the communities you share.',
   bookmarks: 'Bookmark posts from the ⋯ menu to read them later.',
   drafts: 'Posts you save as drafts appear here.',
   scheduled: 'Use the clock button in the composer to schedule a post.',
@@ -46,18 +47,8 @@ export default function Feed() {
   return id ? <PostDetail key={id} id={id} /> : <FeedView key={view} view={view} />;
 }
 
-function Loading() {
-  return <div className="space-y-4" aria-busy="true" aria-label="Loading posts">{[0, 1].map((i) => <div key={i} className="glass h-40 animate-pulse" />)}</div>;
-}
-
-function LoadError({ message, onRetry }) {
-  return (
-    <div role="alert" className="glass p-6 text-center text-sm">
-      <p className="text-rose-300">{message}</p>
-      <button className="btn btn-ghost mt-3" onClick={onRetry}>Try again</button>
-    </div>
-  );
-}
+const Loading = () => <FeedSkeleton />;
+const LoadError = ({ message, onRetry }) => <FeedError message={message} onRetry={onRetry} />;
 
 function PostDetail({ id }) {
   const [state, setState] = useState({ status: 'loading' });
@@ -69,11 +60,11 @@ function PostDetail({ id }) {
   const post = useLivePost(state.post);
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/feed" className="mb-4 inline-block text-sm text-brand-400 hover:underline">← Back to feed</Link>
+      <Link to="/feed" className="link mb-4 inline-flex min-h-9 items-center text-sm">Back to feed</Link>
       {state.status === 'loading' ? <Loading />
         : state.status === 'error' ? <LoadError message={state.error} onRetry={load} />
           : post ? <PostCard post={post} expanded />
-            : <Empty icon="search" title="Post not found">It may have been deleted or you don’t have access.</Empty>}
+            : <FeedEmpty icon="search" title="Post not found">It may have been deleted or you don’t have access.</FeedEmpty>}
     </div>
   );
 }

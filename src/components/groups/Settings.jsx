@@ -2,24 +2,38 @@ import { Glyph } from '../icons.jsx';
 import { useEffect, useState } from 'react';
 import { useStore } from '../../lib/store.jsx';
 import { Field } from '../ui.jsx';
-import { ACCESS, APPS, RULE_FIELDS, matchesRule } from './helpers.js';
+import { ACCESS, RULE_FIELDS, matchesRule } from './helpers.js';
 import { errorText, visibilityOf } from '../../lib/communities.js';
 import { useCommunityLifecycle, useCommunityWrite } from './useCommunity.js';
+import { isOn, useFeatures } from '../../lib/features.js';
+import Switch from '../manage/Switch.jsx';
 
-// A community with no stored module list has every module on, as its tabs show.
+// The sections an Owner or Admin can switch off (v2 E1, board V2EModules "Sections settings").
+// Overview, Members and About always show. The server decides from settings.sections, which is
+// all this screen writes; older lists (settings.apps) were converted once (E2) and are mapped at
+// read time until then, so `group.sections` (from the server) is the starting point.
+const SECTIONS = [
+  ['discussions', 'Discussions', 'Posts, comments, polls, questions and announcements.'],
+  ['events', 'Events', 'Events, RSVPs and the month view.'],
+  ['resources', 'Resources', 'Files and links members can save and download.'],
+  ['learning', 'Learning', 'Courses, enrolments and certificates.'],
+];
+const sectionsOn = (group) => SECTIONS.map(([id]) => id).filter((id) => group.sections?.[id] ?? true);
+
 export default function Settings({ group }) {
   const { state, me } = useStore();
   const { patch } = useCommunityWrite();
   const lifecycle = useCommunityLifecycle();
+  const learningOn = isOn(useFeatures(), 'learning');
   const archived = group.status === 'archived';
-  const fromGroup = () => ({ name: group.name, description: group.description, guidelines: group.guidelines || '', accessType: group.accessType, apps: group.apps ?? APPS.map((x) => x.id), announceOnly: !!group.announceOnly });
+  const fromGroup = () => ({ name: group.name, description: group.description, guidelines: group.guidelines || '', accessType: group.accessType, sections: sectionsOn(group), announceOnly: !!group.announceOnly });
   const [v, setV] = useState(fromGroup);
   const [rule, setRule] = useState(group.dynamicRule ?? { field: 'batch', op: 'eq', value: '' });
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Re-sync when the group changes elsewhere (e.g. the Edit group modal) so a later save doesn't revert it.
-  const sig = JSON.stringify([group.name, group.description, group.guidelines, group.accessType, group.apps, group.announceOnly, group.dynamicRule]);
+  const sig = JSON.stringify([group.name, group.description, group.guidelines, group.accessType, group.sections, group.announceOnly, group.dynamicRule]);
   useEffect(() => {
     setV(fromGroup());
     setRule(group.dynamicRule ?? { field: 'batch', op: 'eq', value: '' });
@@ -45,7 +59,7 @@ export default function Settings({ group }) {
       await patch(group, {
         name: v.name.trim() || group.name, description: v.description || null, visibility: visibilityOf(v.accessType),
         settings: {
-          guidelines: v.guidelines, apps: v.apps.includes('members') ? v.apps : [...v.apps, 'members'],
+          guidelines: v.guidelines, sections: v.sections,
           announceOnly: v.announceOnly, whoCanPost: v.announceOnly ? 'admins' : 'members',
           dynamicRule: ruleValue ? { ...rule, value: ruleValue } : null,
         },
@@ -62,7 +76,7 @@ export default function Settings({ group }) {
     <form onSubmit={save} className="space-y-5">
       {/* The brief's sections (Stage 6, board S6Settings); each jumps to its part of the form. */}
       <nav aria-label="Settings sections" className="no-scrollbar flex gap-2 overflow-x-auto">
-        {[['set-general', 'General'], ['set-privacy', 'Privacy and visibility'], ['set-content', 'Discussions and content'], ['set-modules', 'Modules'], ['set-membership', 'Membership'], ['set-safety', 'Moderation and safety'], ['danger', 'Danger Zone']].map(([id, label]) => (
+        {[['set-general', 'General'], ['set-privacy', 'Privacy and visibility'], ['set-content', 'Discussions and content'], ['set-modules', 'Sections'], ['set-membership', 'Membership'], ['set-safety', 'Moderation and safety'], ['danger', 'Danger Zone']].map(([id, label]) => (
           <a key={id} href={`#${id}`} onClick={(e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
             className={`inline-flex min-h-10 shrink-0 items-center rounded-full border border-[var(--az-hairline)] px-3.5 text-sm ${id === 'danger' ? 'text-rose-300' : 'text-2 hover:text-white'}`}>{label}</a>
         ))}
@@ -94,18 +108,23 @@ export default function Settings({ group }) {
         </div>
       </section>
 
-      <section id="set-modules" className="glass p-5">
-        <h3 className="mb-3 font-bold">Modules</h3>
-        <div className="flex flex-wrap gap-2">
-          {APPS.map((a) => (
-            <label key={a.id} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm ${v.apps.includes(a.id) ? 'border-brand-500 bg-brand-500/15' : 'border-white/10'}`}>
-              <input type="checkbox" className="accent-brand-500" disabled={a.id === 'members'} checked={v.apps.includes(a.id)}
-                onChange={() => setV({ ...v, apps: v.apps.includes(a.id) ? v.apps.filter((x) => x !== a.id) : [...v.apps, a.id] })} />
-              <span className="inline-flex items-center gap-2"><Glyph value={a.icon} size={22} />{a.label}</span>
-            </label>
-          ))}
+      <fieldset id="set-modules" className="panel p-5" aria-describedby="set-sections-hint">
+        <legend className="sr-only">Sections</legend>
+        <h3 className="t-h3" aria-hidden="true">Sections</h3>
+        <p id="set-sections-hint" className="t-small mt-1">Overview, Members and About are always on. Switching a section off hides its tab and its address; nothing in it is deleted, and it all comes back when you switch it on again.</p>
+        <div className="mt-2 divide-y divide-[var(--az-divider)]">
+          {SECTIONS.map(([id, label, hint]) => {
+            const parked = id === 'learning' && !learningOn;
+            return (
+              <Switch key={id} id={`set-section-${id}`} label={label}
+                hint={parked ? 'Learning is switched off for the whole platform. Ask a Platform Admin to turn it on.' : hint}
+                checked={!parked && v.sections.includes(id)} disabled={parked}
+                onChange={(on) => { setSaved(false); setError(''); setV({ ...v, sections: SECTIONS.map(([x]) => x).filter((x) => (x === id ? on : v.sections.includes(x))) }); }} />
+            );
+          })}
         </div>
-      </section>
+        {!learningOn && <p className="t-small mt-2">The community’s own choice for Learning is kept: if it had Learning on, the tab returns when the platform switch does.</p>}
+      </fieldset>
 
       <section id="set-membership" className="glass space-y-3 p-5">
         <h3 className="font-bold">Membership</h3>

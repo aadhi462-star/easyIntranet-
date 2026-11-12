@@ -9,6 +9,7 @@
 import { audit } from './audit.js';
 import { CATEGORIES, categoryOf } from './categories.js';
 import { badRequest, conflict } from './errors.js';
+import { SECTIONS, sectionOn } from './community.js';
 
 export const P1 = 'p1-alumnizone-ordinary';
 
@@ -61,6 +62,11 @@ export async function undoDataMigration(db, name) {
         // Only if they haven't changed it themselves since (rejoined, been removed…).
         res = await t.query(`update memberships set state = $3, updated_at = now() where community_id = $1 and user_id = $2 and state = $4 returning user_id`,
           [cid, uid, r.before.state, r.after.state]);
+      } else if (r.table_name === 'communities' && name === E2) {
+        // E2: only if nobody has switched sections since (the list is still the one E2 wrote).
+        res = await t.query(`update communities set settings = (settings - 'sections') || jsonb_build_object('apps', $2::jsonb), version = version + 1
+            where id = $1 and settings->'sections' = $3::jsonb and not (settings ? 'apps') returning id`,
+          [r.row_key.id, JSON.stringify(r.before.apps), JSON.stringify(r.after.sections)]);
       } else if (r.table_name === 'communities') {
         // D6: only if the Owner hasn't picked another category since.
         res = await t.query(`update communities set category = $2, version = version + 1 where id = $1 and category is not distinct from $3 returning id`,
@@ -143,5 +149,37 @@ export async function applyCategoryReview(db, { rows: input, actor, ip = null })
       context: { name: D6, communities, changed, changedByStaff, staffChanges: rows.filter((r) => r.confirmed !== r.proposed).map((r) => ({ id: r.id, proposed: r.proposed, confirmed: r.confirmed })) } });
     const { rows: [done] } = await t.query(`select applied_at from data_migrations where name = $1`, [D6]);
     return { applied: { at: done.applied_at, by: summary.byName }, rows };
+  });
+}
+
+// ---- E2 (v2 workstream E, approved 12 Nov 2026): old module lists become section switches -----
+// The older settings screens stored settings.apps with the prototype's app names. Each such list
+// is replaced, once, by settings.sections holding exactly the sections it shows today
+// (lib/community.js sectionOn): feed and forums give Discussions, files and manuals Resources,
+// events Events, learning Learning; dashboard and members are dropped (Overview and Members
+// always show) and so are the parked apps. Learning follows the read-time rule, so a list from
+// the screens that never offered Learning keeps it on, and nobody loses a section they see now.
+// A community with no stored list (or one that already has settings.sections, which decides)
+// is left alone. Every changed row is logged with its old list, so the undo script puts it back.
+export const E2 = 'e2-sections';
+
+/** Runs E2 once. Returns its summary, or null if it already ran (undone counts as ran). */
+export async function convertSectionLists(db) {
+  const { rows: [done] } = await db.query(`select 1 from data_migrations where name = $1`, [E2]);
+  if (done) return null;
+  return db.tx(async (t) => {
+    const { rows } = await t.query(`select id, settings from communities
+      where jsonb_typeof(settings->'apps') = 'array' and not (settings ? 'sections') order by id for update`);
+    const changed = rows.map((r) => ({ id: r.id, apps: r.settings.apps, sections: SECTIONS.filter((s) => sectionOn({ settings: { apps: r.settings.apps } }, s)) }));
+    const summary = { communities: changed.length, sectionsOff: changed.filter((r) => r.sections.length < SECTIONS.length).length };
+    await t.query(`insert into data_migrations (name, summary) values ($1, $2)`, [E2, JSON.stringify(summary)]);
+    for (const r of changed) {
+      await t.query(`update communities set settings = (settings - 'apps') || jsonb_build_object('sections', $2::jsonb), version = version + 1 where id = $1`,
+        [r.id, JSON.stringify(r.sections)]);
+      await t.query(`insert into migration_log (migration, table_name, row_key, before, after) values ($1, 'communities', $2, $3, $4)`,
+        [E2, JSON.stringify({ id: r.id }), JSON.stringify({ apps: r.apps }), JSON.stringify({ sections: r.sections })]);
+    }
+    await audit(t, { action: 'data_migration.apply', targetType: 'data_migration', targetId: E2, context: { name: E2, ...summary } });
+    return summary;
   });
 }

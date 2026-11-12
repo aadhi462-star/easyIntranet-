@@ -37,7 +37,7 @@ export default function Grading({ g }) {
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-0 flex-1">
-          <Link to={coursePath(g)} className="text-sm text-brand-300 hover:underline">← All courses</Link>
+          <Link to={coursePath(g)} className="link inline-flex items-center gap-1.5 text-sm"><Icon name="back" size={16} />All courses</Link>
           <h2 className="t-h1 mt-1 text-white">Work to grade</h2>
           <p className="t-small">{s.state === 'ready' ? `${s.submissions.length} ${status === 'to_grade' ? 'to grade' : 'shown'} · oldest first` : ' '}</p>
         </div>

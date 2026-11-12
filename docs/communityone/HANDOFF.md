@@ -1,4 +1,4 @@
-# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream D)
+# CommunityOne — Session handoff (12 Nov 2026, after v2 workstream E)
 
 Read this first in a new session, then **`docs/communityone/MASTER_BRIEF_V2.md` (the user's newest brief, 12 Nov 2026: it reverses AlumniZone-as-default and the lime theme; a proposal + ETA is owed before any work on it)**, then **`docs/communityone/MASTER_PROMPT.md` (the user's governing brief — the goal of all of this)** and **`docs/communityone/REDESIGN_BRIEF.md` (the UI/UX redesign brief: experience, brand, screen structure; approval before each stage)**, then `docs/communityone/PHASE0_ASSESSMENT.md` (§10 decisions, §11 plan, §14 progress log) and `docs/communityone/EDGE_CASE_REGISTER.md`.
 
@@ -167,7 +167,11 @@ The landing page, About, the public header and footer, Sign in, Create account, 
 The shell, Home (and first-run Home), Explore, My Communities, Profile, search with suggestions, the category review (D6), and the restyled Notifications, Saved, Events and My Learning. Details are in the progress log ("v2 — Workstream D").
 - Rules to keep: navigation lists only real destinations and memberships. The Create menu and quick actions come from the server's `canPostIn` and `canCreateEventsIn`. A profile never reveals a Private or Closed membership (VIS-16). Old addresses redirect rather than break.
 
-**Next:** workstream E (community pages and branding), once its board is approved; then F and G, as in `PROPOSAL_V2.md` §12–13. An AppSail bundle was built after D (see Hosting). The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
+### v2 workstream E: built (12 Nov 2026)
+The community header with logo and cover, section tabs that follow the switches, the new Overview, Discussions, Events with Month, Resources, the Members directory, the Learning restyle, Manage → Branding and the Sections switches. Details are in the progress log ("v2 — Workstream E").
+- Rules to keep: a community's accent is identity only (cover band, tiles, tab underline, date tiles); controls stay the platform colour (E3). Data changes go through `lib/data-migrations.js`; `e2-sections` runs at every start. Deleting a community has one path, the Stage 7 review.
+
+**Next:** workstream F (creation wizard, templates and invitation screens), once its board is approved; then G, as in `PROPOSAL_V2.md` §12–13. The AppSail bundle on record is from after D; build a new one only when the user asks. The open server decisions from the parallel round are in that round's report (category required or not, an older template version, resend and the invitee list, announcements while Discussions is off, version.json in the bundle).
 
 **Earlier note:** the user sent a new master brief (`MASTER_BRIEF_V2.md`) on 12 Nov. Its order: finish Stage 7 (done), then inspect + audit + present the proposal with an itemised ETA, and **wait for approval** before any of it. Stage 8 (polish) and Smart Assist are folded into that proposal. The final AppSail zip is still built once, at the end.
 

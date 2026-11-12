@@ -1,128 +1,115 @@
+// A community's Members tab (v2 E11, board V2EModules): a directory with search by name, job,
+// company or city and a role filter, Owners and staff first. Admins see join requests at the top.
+// Changing a role and transferring ownership live in Manage, Members; here staff get a Manage link
+// beside people below their own role, and everyone else can Report. The server decides who may
+// see the list (VIS-11) and the directory shows only what each person allows.
 import { useState } from 'react';
-import { fmtDate, useStore } from '../../lib/store.jsx';
-import { Avatar, UserLink } from '../ui.jsx';
-import { RANK, roleOf } from './helpers.js';
-import { communityApi } from '../../lib/communities.js';
-import { managePath } from '../../lib/manage.js';
 import { Link } from 'react-router-dom';
+import { useStore } from '../../lib/store.jsx';
+import { managePath } from '../../lib/manage.js';
 import ReportDialog from '../manage/Report.jsx';
-import { useChannelSync, useCommunityWrite } from './useCommunity.js';
-import { confirmAction } from '../ui/Confirm.jsx';
+import { Icon } from '../icons.jsx';
+import { Button, IconButton, Skeleton } from '../ui/Controls.jsx';
+import { RANK, roleOf } from './helpers.js';
+import JoinRequests from '../members/JoinRequests.jsx';
+import MemberCard, { personOf } from '../members/MemberCard.jsx';
+import { useMembers } from '../members/useMembers.js';
 
-const ROLE_CHIP = { owner: '!bg-amber-500/20 !text-amber-200', admin: '!bg-leaf-500/20 !text-leaf-200', moderator: '!bg-brand-500/15 !text-brand-200', member: '' };
+const ROLES = [['', 'Everyone'], ['owner', 'Owner'], ['admin', 'Admins'], ['moderator', 'Moderators'], ['member', 'Members']];
 
-/** Members, join requests and (for the owner) ownership transfer. All changes go to the server. */
 export default function Members({ group, perms }) {
-  const { dispatch, user, me } = useStore();
-  const { run } = useCommunityWrite();
-  const channels = useChannelSync();
-  const [roleFilter, setRoleFilter] = useState('');
+  const { user, me } = useStore();
+  const list = useMembers(group.id, { enabled: !!perms.canView });
   const [q, setQ] = useState('');
-  const [busy, setBusy] = useState(null);
-  const [heir, setHeir] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
   const [reporting, setReporting] = useState(null);
-  const myRole = roleOf(group, me.id);
+
+  if (!perms.canView) {
+    return (
+      <section className="panel flex flex-col items-start gap-2 p-6">
+        <h3 className="t-h3">Members only</h3>
+        <p className="text-2 text-sm">Only members of {group.name} can see who’s in it.</p>
+      </section>
+    );
+  }
+
+  const myRole = list.members.find((m) => m.id === me.id)?.role ?? roleOf(group, me.id);
   const isOwner = myRole === 'owner';
   const archived = group.status === 'archived';
   // Same rule as the server: you manage only people below your own role (the owner: everyone else).
-  const canManage = (id) => perms.canModerate && id !== me.id && roleOf(group, id) !== 'owner'
-    && (isOwner || (RANK[roleOf(group, id)] ?? 0) < (RANK[myRole] ?? 0));
+  const canManage = (row) => perms.canModerate && !archived && row.id !== me.id && row.role !== 'owner'
+    && (isOwner || (RANK[row.role] ?? 0) < (RANK[myRole] ?? 0));
 
-  const act = async (key, fn, opts) => {
-    setBusy(key);
-    try { return await run(group.id, fn, opts); } finally { setBusy(null); }
-  };
-  const setRole = (id, role) => act(`role-${id}`, () => communityApi.setMember(group.id, id, { role }), { ok: `${user(id)?.name ?? 'Member'} is now ${role === 'admin' ? 'an admin' : `a ${role}`}` });
-  const decide = async (id, approve) => {
-    if (!await act(`req-${id}`, () => communityApi.decide(group.id, id, approve), { ok: approve ? 'Request approved' : 'Request declined' })) return;
-    if (approve) channels.add(group.id, [id]);
-    dispatch({ type: 'notify', silent: true, notification: { userId: id, kind: 'group', link: `/groups/${group.id}`,
-      text: approve ? `Your request to join ${group.name} was approved` : `Your request to join ${group.name} was declined` } });
-  };
-  const transfer = async () => {
-    if (!heir || !(await confirmAction(`Make ${user(heir)?.name} the owner of ${group.name}? You’ll stay on as an admin.`))) return;
-    if (await act('transfer', () => communityApi.transfer(group.id, heir), { ok: `${user(heir)?.name} now owns ${group.name}` })) setHeir('');
-  };
-
-  // Search by name, job, company or city; filter by role (Stage 4, board S4Members).
   const needle = q.trim().toLowerCase();
-  const members = group.members.map(user).filter((u) => u
-    && (!needle || [u.name, u.role, u.company, u.city].filter(Boolean).join(' ').toLowerCase().includes(needle))
-    && (!roleFilter || roleOf(group, u.id) === roleFilter));
-  const requests = (group.joinRequests || []).map(user).filter(Boolean);
-  const order = { owner: 0, admin: 1, moderator: 2, member: 3 };
-  members.sort((a, b) => order[roleOf(group, a.id)] - order[roleOf(group, b.id)] || a.name.localeCompare(b.name));
-  const heirs = group.members.filter((id) => id !== me.id).map(user).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+  const rows = list.members.map((row) => ({ row, person: personOf(row, user(row.id)) }));
+  const shown = rows.filter(({ row, person }) => (!roleFilter || row.role === roleFilter)
+    && (!needle || [person.name, person.role, person.company, person.city].filter(Boolean).join(' ').toLowerCase().includes(needle)));
+  const total = list.status === 'ready' ? list.members.length : (group.memberCount ?? list.members.length);
+  const filtered = !!(needle || roleFilter);
+  const clear = () => { setQ(''); setRoleFilter(''); };
+
+  const actionFor = (row, person) => {
+    if (row.id === me.id) return <span className="t-small">You</span>;
+    if (canManage(row)) return <Link to={managePath(group, 'members')} className="btn btn-secondary btn-sm" aria-label={`Manage ${person.name}`}>Manage</Link>;
+    return <IconButton icon="flag" size="sm" label={`Report ${person.name}`} onClick={() => setReporting(row.id)} />;
+  };
 
   return (
-    <div className="space-y-5">
-      {perms.canAdmin && requests.length > 0 && (
-        <section className="glass p-5" aria-label="Join requests">
-          <h3 className="mb-3 font-bold">Join requests <span className="chip ml-1">{requests.length}</span></h3>
-          <ul className="space-y-2">
-            {requests.map((u) => (
-              <li key={u.id} className="flex flex-wrap items-center gap-3">
-                <Avatar user={u} size={36} />
-                <div className="flex-1 text-sm"><UserLink id={u.id} /><div className="text-xs text-slate-400">{[u.batch, u.dept, u.city].filter(Boolean).join(' · ')}</div>
-                  {group.requestNotes?.[u.id] && <p className="mt-1 text-xs text-slate-300">“{group.requestNotes[u.id]}”</p>}</div>
-                <button className="btn btn-primary" disabled={!!busy} onClick={() => decide(u.id, true)}>Approve</button>
-                <button className="btn btn-ghost" disabled={!!busy} onClick={() => decide(u.id, false)}>Decline</button>
+    <div className="flex min-w-0 flex-col gap-5">
+      {perms.canAdmin && <JoinRequests group={group} />}
+
+      <section aria-labelledby="mem-h" className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 id="mem-h" className="t-h3">
+            {total} {total === 1 ? 'member' : 'members'}
+            {filtered && list.status === 'ready' && <span className="text-3 font-normal"> · {shown.length} shown</span>}
+          </h3>
+          {perms.canModerate && <Link to={managePath(group, 'members')} className="link text-sm">Manage members</Link>}
+        </div>
+        <label className="relative block min-w-0">
+          <span className="sr-only">Search members</span>
+          <span aria-hidden="true" className="text-3 pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"><Icon name="search" size={16} /></span>
+          <input className="input pl-9" type="search" placeholder="Search by name, job, company or city" value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <div role="group" aria-label="Role" className="flex flex-wrap gap-2">
+          {ROLES.map(([id, label]) => (
+            <button key={id || 'all'} type="button" className="filter-chip" aria-pressed={roleFilter === id} onClick={() => setRoleFilter(id)}>{label}</button>
+          ))}
+        </div>
+
+        {list.status === 'loading' && (
+          <ul aria-busy="true" aria-label="Loading members" className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className="panel flex items-center gap-3 px-4 py-3.5">
+                <span className="skeleton h-11 w-11 shrink-0 rounded-full" />
+                <Skeleton lines={2} label="Loading" className="flex-1" />
               </li>
             ))}
           </ul>
-        </section>
-      )}
-      {isOwner && heirs.length > 0 && (
-        <section className="glass flex flex-wrap items-end gap-3 p-5" aria-label="Transfer ownership">
-          <label className="min-w-0 flex-1">
-            <span className="mb-1.5 block text-xs font-semibold text-slate-300">Transfer ownership</span>
-            <select className="input" value={heir} onChange={(e) => setHeir(e.target.value)}>
-              <option value="">Choose a member</option>
-              {heirs.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-            <span className="mt-1 block text-xs text-slate-500">The owner can’t leave. Hand the community to another member first; you’ll stay an admin.</span>
-          </label>
-          <button className="btn btn-ghost" disabled={!heir || !!busy} onClick={transfer}>Transfer</button>
-        </section>
-      )}
-      <section className="glass p-5" aria-label="Members">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="t-h3 text-white">{group.memberCount ?? group.members.length} members{(needle || roleFilter) ? <span className="text-3 font-normal"> · {members.length} shown</span> : null}</h3>
-          <div className="flex flex-wrap gap-2">
-            <input className="input !w-64" type="search" placeholder="Search by name, company or city" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search members" />
-            <select className="input !w-36" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} aria-label="Role">
-              <option value="">Everyone</option><option value="owner">Owner</option><option value="admin">Admins</option><option value="moderator">Moderators</option><option value="member">Members</option>
-            </select>
+        )}
+        {list.status === 'error' && (
+          <div role="alert" className="notice notice-bad flex flex-wrap items-center justify-between gap-3">
+            <span><strong>Couldn’t load the members.</strong> {list.message}</span>
+            <Button size="sm" onClick={list.reload}>Try again</Button>
           </div>
-        </div>
-        <ul className="divide-y divide-white/5">
-          {members.map((u) => {
-            const role = roleOf(group, u.id);
-            const manage = canManage(u.id) && !archived;
-            return (
-              <li key={u.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                <Avatar user={u} size={36} />
-                <div className="min-w-0 flex-1 text-sm"><UserLink id={u.id} /><div className="text-3 truncate text-xs">{u.role}{u.company ? ` · ${u.company}` : ''}</div></div>
-                {group.joinedAt?.[u.id] && <span className="text-3 hidden text-xs sm:inline">Joined {fmtDate(Date.parse(group.joinedAt[u.id]), { month: 'short', year: 'numeric' })}</span>}
-                <span className={`chip capitalize ${ROLE_CHIP[role] ?? ''}`}>{role}</span>
-                {manage && (
-                  <>
-                    {perms.canAdmin && (
-                      <select className="input !w-36 !py-1.5 text-xs" value={role} onChange={(e) => setRole(u.id, e.target.value)} aria-label={`Role for ${u.name}`} disabled={!!busy}>
-                        {/* Only the owner can make admins (nobody grants a role equal to their own). */}
-                        {(isOwner || role === 'admin') && <option value="admin">Admin</option>}
-                        <option value="moderator">Moderator</option><option value="member">Member</option>
-                      </select>
-                    )}
-                    <Link to={managePath(group, 'members')} className="btn btn-ghost h-9 !px-3 text-xs">Manage</Link>
-                  </>
-                )}
-                {!manage && u.id !== me.id && perms.canView && <button className="btn btn-ghost h-9 !px-3 text-xs" onClick={() => setReporting(u.id)} aria-label={`Report ${u.name}`}>Report</button>}
-              </li>
-            );
-          })}
-        </ul>
+        )}
+        {(list.status === 'ready' || list.status === 'refreshing') && (shown.length === 0 ? (
+          <div className="sunken flex flex-col items-start gap-2 p-5">
+            <p className="font-semibold">{filtered ? 'Nobody matches' : 'No members yet'}</p>
+            <p className="text-2 text-sm">{filtered ? 'Try another name, job, company or city, or another role.' : `When people join ${group.name}, they’re listed here.`}</p>
+            {filtered && <Button size="sm" onClick={clear}>Clear filters</Button>}
+          </div>
+        ) : (
+          <ul aria-busy={list.status === 'refreshing' || undefined} className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-3">
+            {shown.map(({ row, person }) => (
+              <MemberCard key={row.id} row={row} person={person} action={actionFor(row, person)}
+                note={perms.canModerate && row.state === 'restricted' ? 'Restricted' : null} />
+            ))}
+          </ul>
+        ))}
+        <p className="t-small">Each person shows only what their profile settings allow.</p>
       </section>
+
       {reporting && <ReportDialog targetType="member" targetId={reporting} communityId={group.id} communityName={group.name} onClose={() => setReporting(null)} />}
     </div>
   );

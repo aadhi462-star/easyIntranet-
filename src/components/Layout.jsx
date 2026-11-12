@@ -239,7 +239,8 @@ export default function Layout() {
       </aside>
 
       <div className={`relative z-10 lg:pb-0 lg:pl-[248px] ${focus ? '' : 'pb-20'}`}>
-        <header className="sticky top-0 z-20 border-b border-[var(--az-hairline)] bg-[var(--az-surface)]">
+        {/* Inside a community a phone uses the community's own top bar (Back, name, Search, Actions). */}
+        <header className={`sticky top-0 z-20 border-b border-[var(--az-hairline)] bg-[var(--az-surface)] ${path.startsWith('/c/') ? 'max-lg:hidden' : ''}`}>
           <div className="flex h-14 items-center gap-1 px-2 sm:px-4 lg:h-[60px] lg:gap-2 lg:px-6">
             <button ref={sheetButtonRef} type="button" className="btn btn-ghost btn-icon lg:hidden" aria-label="Menu" aria-haspopup="dialog" aria-expanded={sheet} onClick={() => setSheet(true)}>
               <Icon name="menu" size={22} />
@@ -288,7 +289,7 @@ export default function Layout() {
             const active = p.match(path);
             return (
               <Link key={id} to={p.to} aria-current={active ? 'page' : undefined}
-                className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-[3px] text-xs ${active ? 'font-semibold text-[var(--az-link)]' : 'font-medium text-[var(--az-text-2)]'}`}>
+                className={`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-[3px] text-[11px] min-[390px]:text-xs ${active ? 'font-semibold text-[var(--az-link)]' : 'font-medium text-[var(--az-text-2)]'}`}>
                 <Icon name={p.icon} size={22} />
                 <span className="max-w-full truncate px-0.5 tracking-[-0.02em]">{p.short || p.label}</span>
                 {id === 'notifications' && unread > 0 && (
