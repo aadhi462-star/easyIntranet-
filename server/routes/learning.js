@@ -7,7 +7,7 @@
 //   - see the catalogue: anyone who can view the community. Enrol: active members (D3).
 //   - open a lesson: an active enrolment while still a member, or a manager (LMS-08, D4).
 import { audit } from '../lib/audit.js';
-import { access } from '../lib/community.js';
+import { access, brandingUrls, requireSection, sectionOn } from '../lib/community.js';
 import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { idempotent } from '../lib/session.js';
@@ -50,6 +50,10 @@ export default async function learningRoutes(app, { ctx }) {
     const learner = enrollment?.status === 'active' && (a.member || a.adminMode);
     const visible = manage || learner || (a.canView && c.status === 'published');
     if (!visible) throw notFound('That course doesn’t exist.');
+    // The community's Learning section switched off: only staff still see its courses, checked
+    // after visibility so outsiders can't tell. Every change (enrolling, progress, quizzes,
+    // editing) waits until it's back on; deleting a course is a removal and goes through.
+    requireSection(a, 'learning', { write: !['GET', 'DELETE'].includes(req.method) });
     return { c, a, manage, instructor, learner, enrollment };
   }
 
@@ -108,6 +112,7 @@ export default async function learningRoutes(app, { ctx }) {
     const uid = signedIn(req);
     const a = await access(db, req, req.params.id);
     if (!a.canView) throw forbidden('Courses are for members.');
+    requireSection(a, 'learning');
     const { rows } = await db.query(
       `select c.* from courses c
         where c.community_id = $1
@@ -124,7 +129,7 @@ export default async function learningRoutes(app, { ctx }) {
       if (r?.manage) managed.push(c.id);
     }
     const { rows: [{ n: toGrade }] } = await db.query(`select count(*)::int as n from submissions where course_id = any($1) and status = 'submitted'`, [managed]);
-    return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active', canGrade: managed.length > 0, toGrade };
+    return { courses: out, canCreate: !!a.canAdmin && a.community.status === 'active' && sectionOn(a.community, 'learning'), canGrade: managed.length > 0, toGrade };
   });
 
   const COURSE_FIELDS = { title: { type: 'string' }, description: { type: ['string', 'null'] }, objectives: { type: 'array', items: { type: 'string' }, maxItems: 12 },
@@ -143,6 +148,7 @@ export default async function learningRoutes(app, { ctx }) {
     const uid = signedIn(req);
     const a = await access(db, req, req.params.id);
     if (!a.canAdmin) throw forbidden('Only community Owners and Admins create courses.');
+    requireSection(a, 'learning', { write: true });
     return idempotent(db, req, reply, async () => {
       const v = courseValues(req.body);
       const id = newId('crs');
@@ -408,7 +414,7 @@ export default async function learningRoutes(app, { ctx }) {
     const i = order.indexOf(l.id);
     const { rows: files } = l.file_ids.length
       ? await db.query(`select id, name, mime, kind, size from files where id = any($1) and deleted_at is null`, [l.file_ids]) : { rows: [] };
-    const { rows: [co] } = await db.query(`select id, slug, name, accent from communities where id = $1`, [r.c.community_id]);
+    const { rows: [co] } = await db.query(`select id, slug, name, accent, status, logo_file_id, cover_file_id from communities where id = $1`, [r.c.community_id]);
     const kept = l.file_ids.map((id) => files.find((f) => f.id === id)).filter(Boolean);
     return {
       lesson: { id: l.id, moduleId: l.module_id, title: l.title, kind: l.kind, body: l.body, url: l.url, durationMin: l.duration_min, required: l.required,
@@ -416,7 +422,7 @@ export default async function learningRoutes(app, { ctx }) {
         done: course.modules.some((m) => m.lessons.some((x) => x.id === l.id && x.done)),
         prevId: order[i - 1] ?? null, nextId: order[i + 1] ?? null },
       course,
-      community: co,
+      community: { id: co.id, slug: co.slug, name: co.name, accent: co.accent, ...brandingUrls(co) },
       ...(await assess.lessonExtras(req, l, r)),
     };
   });
@@ -447,8 +453,8 @@ export default async function learningRoutes(app, { ctx }) {
       const r = await loadCourse(req, id).catch(() => null);
       if (!r) continue;
       const course = await present(req, r.c, r);
-      const { rows: [co] } = await db.query(`select id, slug, name, accent from communities where id = $1`, [r.c.community_id]);
-      out.push({ ...course, community: co, access: r.learner || r.enrollment?.status === 'waitlist' });
+      const { rows: [co] } = await db.query(`select id, slug, name, accent, status, logo_file_id, cover_file_id from communities where id = $1`, [r.c.community_id]);
+      out.push({ ...course, community: { id: co.id, slug: co.slug, name: co.name, accent: co.accent, ...brandingUrls(co) }, access: r.learner || r.enrollment?.status === 'waitlist' });
     }
     return { courses: out };
   });

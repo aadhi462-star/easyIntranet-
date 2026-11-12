@@ -1,7 +1,7 @@
 // Posts, comments, reactions, polls and Mandatory Read inside communities, plus the home feed.
 // Every route re-checks community access on the server (VIS-02, CNT-*).
 import { audit } from '../lib/audit.js';
-import { access, requireView } from '../lib/community.js';
+import { access, brandingUrls, requireSection, requireView, sectionOn } from '../lib/community.js';
 import { newId } from '../lib/crypto.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { idempotent } from '../lib/session.js';
@@ -20,14 +20,18 @@ export default async function postRoutes(app, { ctx }) {
   const signedIn = (req) => { if (!req.user) throw unauthorized(); return req.user.id; };
 
   // Loads a post and the caller's access to its community. Deleted posts and posts the caller
-  // may not see are "not found" (no hint that they exist).
-  async function loadPost(req, id, { forWrite = false } = {}) {
+  // may not see are "not found" (no hint that they exist). `change` marks a staff change
+  // (approving, pinning) that waits while Discussions is off. `removing` names the author of
+  // what's being deleted ('post' for the post itself), so authors can still delete their own.
+  async function loadPost(req, id, { forWrite = false, change = false, removing = null } = {}) {
     signedIn(req);
     const { rows: [p] } = await db.query(`select * from posts where id = $1 and deleted_at is null`, [id]);
     if (!p) throw notFound('That post doesn’t exist or was deleted.');
     const a = await access(db, req, p.community_id);
     requireView(a);
     const own = p.author_id === req.user.id;
+    // Discussions switched off: gone for members; staff can still read, remove and delete (v2 E).
+    if ((removing === 'post' ? p.author_id : removing) !== req.user.id) requireSection(a, 'discussions', { write: forWrite || change });
     const visible = p.status === 'published' || own || (p.status === 'pending' && a.canModerate) || (p.status === 'removed' && a.canModerate);
     if (!visible) throw notFound('That post doesn’t exist or was deleted.');
     if (forWrite && !a.canComment) throw forbidden('You can’t take part in this community right now.', 'READ_ONLY');
@@ -46,7 +50,7 @@ export default async function postRoutes(app, { ctx }) {
       db.query(`select post_id, option_id from poll_votes where post_id = any($1) and user_id = $2`, [ids, uid]),
       db.query(`select post_id, count(*)::int as n, bool_or(user_id = $2) as mine from post_acks where post_id = any($1) group by post_id`, [ids, uid]),
       db.query(`select post_id, count(*)::int as n from comments where post_id = any($1) and deleted_at is null group by post_id`, [ids]),
-      db.query(`select id, slug, name, emoji, accent, visibility from communities where id = any($1)`, [[...new Set(posts.map((p) => p.community_id))]]),
+      db.query(`select id, slug, name, emoji, accent, visibility, status, logo_file_id, cover_file_id from communities where id = any($1)`, [[...new Set(posts.map((p) => p.community_id))]]),
       db.query(`select id, name from topics where id = any($1)`, [[...new Set(posts.map((p) => p.topic_id).filter(Boolean))]]),
       db.query(`select a.post_id, f.id, f.name, f.mime, f.kind, f.size from post_attachments a join files f on f.id = a.file_id
          where a.post_id = any($1) and f.deleted_at is null order by a.post_id, a.position`, [ids]),
@@ -68,7 +72,7 @@ export default async function postRoutes(app, { ctx }) {
         if (r.kind === 'like') { reactions.like = r.n; reactions.liked = r.mine; } else { reactions.moods[r.kind] = r.n; if (r.mine) reactions.myMood = r.kind; }
       }
       return {
-        id: p.id, communityId: p.community_id, community: community[p.community_id] ? { id: p.community_id, slug: community[p.community_id].slug, name: community[p.community_id].name, emoji: community[p.community_id].emoji, accent: community[p.community_id].accent } : null,
+        id: p.id, communityId: p.community_id, community: community[p.community_id] ? { id: p.community_id, slug: community[p.community_id].slug, name: community[p.community_id].name, emoji: community[p.community_id].emoji, accent: community[p.community_id].accent, ...brandingUrls(community[p.community_id]) } : null,
         author: au?.status === 'deleted' ? { id: p.author_id, name: 'Deleted member', deleted: true } : { id: p.author_id, name: au?.name },
         type: p.type, body: p.body, status: p.status, pinned: p.pinned, mentions: p.mentions,
         createdAt: p.published_at ?? p.created_at, publishAt: p.publish_at, editedAt: p.edited_at, version: p.version,
@@ -109,7 +113,8 @@ export default async function postRoutes(app, { ctx }) {
     if (!list.length) return [];
     if (list.length > 4) throw badRequest('TOO_MANY_ATTACHMENTS', 'A post can have up to 4 attachments.', { field: 'attachments' });
     const { rows } = await db.query(`select id, kind from files f where f.id = any($1) and f.community_id = $2 and f.uploaded_by = $3 and f.deleted_at is null
-        and not exists (select 1 from post_attachments pa where pa.file_id = f.id) and not exists (select 1 from resources r where r.file_id = f.id)`, [list, communityId, userId]);
+        and not exists (select 1 from post_attachments pa where pa.file_id = f.id) and not exists (select 1 from resources r where r.file_id = f.id)
+        and not exists (select 1 from communities co where co.logo_file_id = f.id or co.cover_file_id = f.id)`, [list, communityId, userId]);
     if (rows.length !== list.length) throw badRequest('INVALID_FILE', 'One of the attachments isn’t available. Upload it again.', { field: 'attachments' });
     if (rows.some((f) => !['image', 'pdf'].includes(f.kind))) throw badRequest('ATTACHMENT_TYPE', 'Posts can carry images and PDFs. Share other files in Resources.', { field: 'attachments' });
     return list;
@@ -129,13 +134,14 @@ export default async function postRoutes(app, { ctx }) {
     const active = !!req.query.community && req.query.sort === 'active';
     let communityIds; const accessById = {};
     if (req.query.community) {
-      const a = requireView(await access(db, req, String(req.query.community)));
+      const a = requireSection(requireView(await access(db, req, String(req.query.community))), 'discussions');
       communityIds = [a.community.id]; accessById[a.community.id] = a;
     } else {
       const { rows } = await db.query(`select community_id from memberships m join communities c on c.id = m.community_id
         where m.user_id = $1 and m.state in ('active', 'restricted') and c.status not in ('suspended', 'deleted') and c.merged_into is null`, [uid]);
-      communityIds = rows.map((r) => r.community_id);
-      for (const id of communityIds) accessById[id] = await access(db, req, id, { audited: false });
+      for (const { community_id: id } of rows) accessById[id] = await access(db, req, id, { audited: false });
+      // Home leaves out communities whose Discussions are switched off.
+      communityIds = rows.map((r) => r.community_id).filter((id) => sectionOn(accessById[id].community, 'discussions'));
     }
     const moderated = communityIds.filter((id) => accessById[id]?.canModerate);
     const { rows } = await db.query(
@@ -191,6 +197,7 @@ export default async function postRoutes(app, { ctx }) {
   }, async (req, reply) => idempotent(db, req, reply, async () => {
     const a = await access(db, req, req.params.id);
     if (!a.canParticipate) throw forbidden(a.state === 'restricted' ? 'You’ve been restricted from posting here.' : 'Join this community to post in it.', 'CANNOT_POST');
+    requireSection(a, 'discussions', { write: true });
     const b = req.body;
     const type = b.type ?? 'post';
     if ((type === 'announcement' || b.pinned || b.mandatory) && !a.canAdmin) throw forbidden('Only community admins can post announcements, pin posts or ask for a Mandatory Read.');
@@ -266,7 +273,7 @@ export default async function postRoutes(app, { ctx }) {
 
   // ---- Moderation -----------------------------------------------------------------------------
   app.post('/posts/:id/approve', async (req) => {
-    const { p, a } = await loadPost(req, req.params.id);
+    const { p, a } = await loadPost(req, req.params.id, { change: true });
     if (!a.canModerate) throw forbidden();
     const { rows } = await db.query(`update posts set status = 'published', published_at = now(), version = version + 1 where id = $1 and status = 'pending' returning *`, [p.id]);
     if (!rows.length) throw conflict('NOT_PENDING', 'This post isn’t waiting for review any more.');
@@ -288,7 +295,7 @@ export default async function postRoutes(app, { ctx }) {
   });
 
   app.post('/posts/:id/pin', { schema: { body: { type: 'object', required: ['pinned'], properties: { pinned: { type: 'boolean' } } } } }, async (req) => {
-    const { p, a } = await loadPost(req, req.params.id);
+    const { p, a } = await loadPost(req, req.params.id, { change: true });
     if (!a.canAdmin) throw forbidden('Only community admins can pin posts.'); // CNT-14
     if (p.status !== 'published') throw conflict('NOT_PUBLISHED', 'Only published posts can be pinned.');
     await db.query(`update posts set pinned = $2 where id = $1`, [p.id, req.body.pinned]);
@@ -299,7 +306,7 @@ export default async function postRoutes(app, { ctx }) {
   // Author or moderator. Soft delete keeps comments for the record (CNT-05); the post simply
   // disappears for everyone.
   app.delete('/posts/:id', async (req) => {
-    const { p, a, own } = await loadPost(req, req.params.id);
+    const { p, a, own } = await loadPost(req, req.params.id, { removing: 'post' });
     if (!own && !a.canModerate) throw forbidden('You can only delete your own posts.'); // CNT-09
     await db.query(`update posts set deleted_at = now(), pinned = false where id = $1 and deleted_at is null`, [p.id]);
     await audit(db, { actorId: req.user.id, action: 'post.delete', targetType: 'post', targetId: p.id, context: { byModerator: !own, adminMode: a.adminMode }, ip: req.ip });
@@ -380,7 +387,7 @@ export default async function postRoutes(app, { ctx }) {
     signedIn(req);
     const { rows: [c] } = await db.query(`select * from comments where id = $1 and deleted_at is null`, [req.params.id]);
     if (!c) throw notFound('That comment doesn’t exist.');
-    const { a } = await loadPost(req, c.post_id);
+    const { a } = await loadPost(req, c.post_id, { removing: c.author_id });
     if (c.author_id !== req.user.id && !a.canModerate) throw forbidden('You can only delete your own comments.');
     await db.query(`update comments set deleted_at = now() where id = $1`, [c.id]);
     await audit(db, { actorId: req.user.id, action: 'comment.delete', targetType: 'comment', targetId: c.id, context: { postId: c.post_id, byModerator: c.author_id !== req.user.id }, ip: req.ip });

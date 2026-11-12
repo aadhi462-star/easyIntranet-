@@ -326,7 +326,8 @@ export function suggestConfig(template, answers) {
     category: template.category,
     visibility: m.visibility ?? 'public',
     settings: {
-      apps: bp.learning ? [...sections, 'learning'] : sections,
+      // The section switches' list (lib/community.js sectionOn); Members always shows.
+      sections: (bp.learning ? [...sections, 'learning'] : sections).filter((s) => s !== 'members'),
       guidelines: fill(bp.guidelines, answers).slice(0, 5000),
       requireApproval: m.requireApproval ?? false,
       whoCanPost: m.whoCanPost ?? 'members',

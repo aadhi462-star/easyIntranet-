@@ -1,7 +1,7 @@
 // Communities and memberships (Phase 1 community foundation). MEM-*, VIS-*, PER-* cases are
 // referenced where handled.
 import { audit } from '../lib/audit.js';
-import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId } from '../lib/community.js';
+import { access, atLeast, pickAccent, publicCommunity, requireView, resolveCommunityId, SECTIONS, sectionsOf } from '../lib/community.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { can } from '../lib/permissions.js';
@@ -12,8 +12,9 @@ import { checkCategory } from '../lib/categories.js';
 import { assertCanCreate, checkSettings, CONFIG_SETTING_KEYS, prepareCommunity, recordCreation } from '../lib/templates.js';
 
 // Settings a community stores for its own screens (tabs, dashboard, guidelines, membership rule).
-// Validated as a plain object of limited size; nothing here grants permissions.
-const SETTING_KEYS = new Set(['apps', 'dashboard', 'guidelines', 'dynamicRule', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue', 'whoCanCreateEvents', 'membersAddResources']);
+// Validated as a plain object of limited size; nothing here grants permissions. `sections` is the
+// list of sections switched on (v2 E, lib/community.js sectionOn) and decides over `apps`.
+const SETTING_KEYS = new Set(['apps', 'sections', 'dashboard', 'guidelines', 'dynamicRule', 'requireApproval', 'whoCanPost', 'announceOnly', 'allHands', 'coverHue', 'whoCanCreateEvents', 'membersAddResources']);
 // v2 templates: resource categories, event defaults and roles in use (lib/templates.js).
 for (const k of CONFIG_SETTING_KEYS) SETTING_KEYS.add(k);
 function cleanSettings(input) {
@@ -27,6 +28,10 @@ function cleanSettings(input) {
   if (out.whoCanPost && !['members', 'admins'].includes(out.whoCanPost)) throw badRequest('INVALID_INPUT', 'Choose who can post: members or admins.');
   if (out.whoCanCreateEvents && !['members', 'admins'].includes(out.whoCanCreateEvents)) throw badRequest('INVALID_INPUT', 'Choose who can create events: members or admins.');
   checkSettings(out);
+  if ('sections' in out) {
+    if (!Array.isArray(out.sections) || out.sections.some((x) => !SECTIONS.includes(x))) throw badRequest('INVALID_INPUT', `Sections are a list of: ${SECTIONS.join(', ')}.`, { field: 'sections' });
+    out.sections = [...new Set(out.sections)];
+  }
   if (JSON.stringify(out).length > 20000) throw badRequest('TOO_LONG', 'These settings are too large.');
   return out;
 }
@@ -70,6 +75,8 @@ export default async function communityRoutes(app, { ctx }) {
       where m.community_id = $1 and m.state in ('active', 'restricted') and u.status = 'active'`, [a.community.id])).rows[0].n;
     return {
       community: publicCommunity(a.community, { memberCount: n, version: a.community.version, settings: a.canView ? a.community.settings : undefined }),
+      // Which sections are switched on (settings.apps, lib/community.js sectionOn).
+      sections: sectionsOf(a.community),
       membership: a.state ? { state: a.state, role: a.role, joinedAt: a.joinedAt } : null,
       permissions: { canView: a.canView, canParticipate: a.canParticipate, canComment: a.canComment, canModerate: a.canModerate, canAdmin: a.canAdmin },
       adminMode: a.adminMode,

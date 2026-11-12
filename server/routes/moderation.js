@@ -8,7 +8,7 @@
 // PGlite has one connection: inside db.tx only `t` is used; access checks and notifications run
 // outside the transaction.
 import { audit } from '../lib/audit.js';
-import { access, atLeast } from '../lib/community.js';
+import { access, atLeast, brandingUrls } from '../lib/community.js';
 import { badRequest, conflict, forbidden, HttpError, notFound, unauthorized } from '../lib/errors.js';
 import { newId } from '../lib/crypto.js';
 import { notify } from '../lib/notify.js';
@@ -159,9 +159,9 @@ export default async function moderationRoutes(app, { ctx }) {
 
   async function caseDetail(c, a, uid, reviewer) {
     const t = await target(c.target_type, c.target_type === 'member' ? c.target_id.split(':')[1] : c.target_id, c.community_id);
-    const { rows: [co] } = await db.query(`select id, slug, name, accent from communities where id = $1`, [c.community_id]);
+    const { rows: [co] } = await db.query(`select id, slug, name, accent, status, logo_file_id, cover_file_id from communities where id = $1`, [c.community_id]);
     const { rows: [appeal] } = await db.query(`select id, status, body, created_at, decided_at, decision_note from appeals where case_id = $1`, [c.id]);
-    const base = { ...caseRow(c, uid), community: co, decisionReason: c.decision_reason, restoredAt: c.restored_at,
+    const base = { ...caseRow(c, uid), community: co && { id: co.id, slug: co.slug, name: co.name, accent: co.accent, ...brandingUrls(co) }, decisionReason: c.decision_reason, restoredAt: c.restored_at,
       now: t ? { title: t.title, body: t.body, gone: t.gone, removed: t.removed, link: t.link } : { gone: true },
       appeal: appeal ? { id: appeal.id, status: appeal.status, body: appeal.body, createdAt: appeal.created_at, decidedAt: appeal.decided_at, note: appeal.decision_note } : null };
     if (!reviewer) {

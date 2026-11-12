@@ -1,7 +1,7 @@
 // Notifications and Saved (redesign Stage 4). Both live on the account, so they're the same on
 // every device. Every read re-checks access: a notification or saved item never shows a post,
 // event or resource its owner can no longer open (NTF-10). The item stays, marked unavailable.
-import { access } from '../lib/community.js';
+import { access, brandingUrls, sectionOn } from '../lib/community.js';
 import { badRequest, unauthorized } from '../lib/errors.js';
 import { CATEGORIES, PLATFORM_NOTICES, TYPES } from '../lib/notify.js';
 
@@ -18,37 +18,42 @@ export default async function notificationRoutes(app, { ctx }) {
     return cache[id];
   };
 
+  const ref = (a) => ({ id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent, ...brandingUrls(a.community) });
+  // A switched-off section hides its posts, events, resources and lessons from members here as
+  // everywhere else (lib/community.js requireSection); staff still see them.
+  const hidden = (a, section) => !sectionOn(a.community, section) && !a.canModerate;
+
   /** What a post, event or resource looks like to this viewer now, or null if they can't open it. */
   async function resolve(req, type, id, cache) {
     const uid = req.user.id;
     if (type === 'post') {
       const { rows: [p] } = await db.query(`select id, community_id, author_id, body, status, deleted_at from posts where id = $1`, [id]);
       const a = p && !p.deleted_at && await accessOf(req, p.community_id, cache);
-      if (!a?.canView) return null;
+      if (!a?.canView || hidden(a, 'discussions')) return null;
       if (!(p.status === 'published' || p.author_id === uid || (p.status === 'pending' && a.canModerate))) return null;
-      return { title: excerpt(p.body), href: `/post/${p.id}`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
+      return { title: excerpt(p.body), href: `/post/${p.id}`, community: ref(a) };
     }
     if (type === 'event') {
       const { rows: [e] } = await db.query(`select e.id, e.title, e.community_id, e.start_at, e.invite_only, e.host_id,
           exists (select 1 from event_staff s where s.event_id = e.id and s.user_id = $2) or exists (select 1 from event_invitees i where i.event_id = e.id and i.user_id = $2) as invited
         from events e where e.id = $1 and e.deleted_at is null`, [id, uid]);
       const a = e && await accessOf(req, e.community_id, cache);
-      if (!a?.canView || (e.invite_only && e.host_id !== uid && !e.invited && !a.canAdmin)) return null;
-      return { title: e.title, start: e.start_at, href: `/events/${e.id}`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
+      if (!a?.canView || hidden(a, 'events') || (e.invite_only && e.host_id !== uid && !e.invited && !a.canAdmin)) return null;
+      return { title: e.title, start: e.start_at, href: `/events/${e.id}`, community: ref(a) };
     }
     if (type === 'resource') {
       const { rows: [r] } = await db.query(`select id, community_id, title from resources where id = $1 and deleted_at is null`, [id]);
       const a = r && await accessOf(req, r.community_id, cache);
-      if (!a?.canView) return null;
-      return { title: r.title, href: `/c/${a.community.slug || a.community.id}/resources`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
+      if (!a?.canView || hidden(a, 'resources')) return null;
+      return { title: r.title, href: `/c/${a.community.slug || a.community.id}/resources`, community: ref(a) };
     }
     // Stage 5b: graded work points at its lesson (the lesson page checks enrolment), and a
     // certificate at its verification page, for its owner only.
     if (type === 'lesson') {
       const { rows: [l] } = await db.query(`select l.id, l.title, c.community_id from lessons l join courses c on c.id = l.course_id where l.id = $1`, [id]);
       const a = l && await accessOf(req, l.community_id, cache);
-      if (!a?.canView) return null;
-      return { title: l.title, href: `/lessons/${l.id}`, community: { id: a.community.id, slug: a.community.slug, name: a.community.name, accent: a.community.accent } };
+      if (!a?.canView || hidden(a, 'learning')) return null;
+      return { title: l.title, href: `/lessons/${l.id}`, community: ref(a) };
     }
     // Stage 6: a case links reviewers to the queue and the person it's about to their notice.
     if (type === 'case') {

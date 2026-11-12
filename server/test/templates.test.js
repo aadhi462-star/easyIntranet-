@@ -84,7 +84,7 @@ describe('questionnaires and suggestions', () => {
     assert.equal(config.category, 'Alumni');
     assert.equal(config.visibility, 'private');
     assert.deepEqual(config.topics, ['Introductions', 'Announcements', 'Civil Engineering', 'Physics', 'Careers', 'Mentoring', 'Jobs and referrals']);
-    assert.ok(config.settings.apps.includes('learning'));
+    assert.ok(config.settings.sections.includes('learning'));
     assert.deepEqual(config.settings.roles, ['moderator', 'instructor']);
     assert.ok(config.settings.resourceCategories.includes('Job leads'));
     assert.match(config.settings.guidelines, /alumni of Riverside College\./);
@@ -93,7 +93,7 @@ describe('questionnaires and suggestions', () => {
     // Without the rule's answers, the defaults stay.
     const plain = await configFor('alumni', { institution: 'Hill School', who_can_join: 'Anyone who studied there', goals: ['Networking'], grad_years: '1990 to 2000' });
     assert.equal(plain.visibility, 'public');
-    assert.ok(!plain.settings.apps.includes('learning'));
+    assert.ok(!plain.settings.sections.includes('learning'));
     assert.match(plain.description, /of Hill School \(1990 to 2000\)\./);
   });
 
