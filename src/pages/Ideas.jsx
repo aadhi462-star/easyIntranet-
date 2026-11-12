@@ -4,6 +4,7 @@ import { useStore, timeAgo, uid } from '../lib/store.jsx';
 import { Avatar, PageHeader, UserLink } from '../components/ui.jsx';
 import IdeaList, { IDEA_STATUSES, IdeaForm, IdeaStatus, VoteBox, statusOf } from '../components/collab/IdeaList.jsx';
 import { Menu, ScopeBadge, canSeeGroupItem } from '../components/collab/common.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function Ideas() {
   const { id } = useParams();
@@ -58,7 +59,7 @@ function IdeaDetail({ idea }) {
             <div className="ml-auto">
               <Menu items={[
                 { label: 'Edit', onClick: () => setEdit(true), hidden: !mine && !moderator },
-                { label: 'Delete', danger: true, hidden: !mine && !moderator, onClick: () => { if (confirm('Delete this idea?')) { dispatch({ type: 'remove', col: 'ideas', id: idea.id }); nav('/ideas'); } } },
+                { label: 'Delete', danger: true, hidden: !mine && !moderator, onClick: async () => { if (await confirmAction('Delete this idea?')) { dispatch({ type: 'remove', col: 'ideas', id: idea.id }); nav('/ideas'); } } },
               ]} />
             </div>
           </div>

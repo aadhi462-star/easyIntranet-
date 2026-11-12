@@ -1,7 +1,8 @@
-import { Glyph } from '../components/icons.jsx';
+import { Glyph, Icon } from '../components/icons.jsx';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore, uid } from '../lib/store.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 import { Avatar, AvatarStack, Empty, Field, Modal, PageHeader, Tabs, UserLink } from '../components/ui.jsx';
 import PeoplePicker from '../components/events/PeoplePicker.jsx';
 import { useMedia, useRecorder } from '../components/events/useMedia.js';
@@ -182,8 +183,8 @@ function Studio({ bc, setBc, viewers }) {
       if (userId !== me.id) dispatch({ type: 'notify', silent: true, notification: { userId, kind: 'event', text: `${me.name} is live: ${bc.title}`, link: `/live/${bc.id}` } });
     }
   };
-  const end = () => {
-    if (!confirm('End the broadcast for everyone?')) return;
+  const end = async () => {
+    if (!(await confirmAction('End the broadcast for everyone?'))) return;
     recorder.stop();
     media.stopAll();
     setBc({ status: 'ended', endedAt: Date.now(), peakViewers: Math.max(bc.peakViewers || 0, viewers) });
@@ -212,10 +213,10 @@ function Studio({ bc, setBc, viewers }) {
       {!ended && (
         <div className="glass flex flex-wrap items-center justify-center gap-3 p-3">
           {!media.stream ? <button className="btn btn-primary" onClick={media.start} disabled={media.starting}>{media.starting ? 'Starting…' : 'Start camera & mic'}</button> : <>
-            <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute microphone' : 'Unmute microphone'} icon="🎙️" offIcon="micoff" />
-            <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Turn camera off' : 'Turn camera on'} icon="📷" offIcon="ban" />
+            <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute microphone' : 'Unmute microphone'} icon="mic" offIcon="micoff" />
+            <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Turn camera off' : 'Turn camera on'} icon="camera" offIcon="cameraoff" />
           </>}
-          <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing screen' : 'Share screen'} icon="🖥️" offIcon="⏹" />
+          <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing screen' : 'Share screen'} icon="screen" offIcon="screenoff" />
           <select className="input !w-auto" value={layout} onChange={(e) => setLayout(e.target.value)} aria-label="Stage layout">
             <option value="auto">Layout: Screen + camera</option><option value="side">Layout: Side by side</option><option value="screen">Layout: Screen only</option><option value="camera">Layout: Camera only</option>
           </select>
@@ -336,7 +337,7 @@ function MeetingRoom({ mt }) {
                 : t.local && media.stream && media.cam ? <Video stream={media.stream} mirror />
                   : <div className="grid h-full place-items-center"><Avatar user={t.user} size={72} /></div>}
               <span className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-0.5 text-xs">
-                {t.screen ? 'Your screen' : t.local ? `${me.name} (you)${media.mic ? '' : ' · 🔇'}` : `${t.user.name} · simulated`}
+                {t.screen ? 'Your screen' : t.local ? <>{me.name} (you){!media.mic && <> · <Icon name="micoff" size={12} label="Muted" className="inline align-[-2px]" /></>}</> : `${t.user.name} · simulated`}
               </span>
             </div>
           ))}
@@ -348,7 +349,8 @@ function MeetingRoom({ mt }) {
               {[me, ...others].map((u) => (
                 <li key={u.id} className="flex items-center gap-2 text-sm">
                   <Avatar user={u} size={30} /><span className="flex-1">{u.name}{u.id === me.id && ' (you)'}{u.id === mt.hostId && <span className="ml-1 text-xs text-brand-400">Host</span>}</span>
-                  <span aria-label={speaking === u.id ? 'Speaking' : ''}>{u.id === me.id ? (media.mic ? '🎙️' : 'micoff') : speaking === u.id ? '🔊' : '🎙️'}</span>
+                  {u.id === me.id && !media.mic ? <Icon name="micoff" size={16} label="Muted" />
+                    : speaking === u.id ? <Icon name="speaker" size={16} label="Speaking" /> : <Icon name="mic" size={16} className="text-slate-500" />}
                 </li>
               ))}
             </ul>
@@ -357,11 +359,11 @@ function MeetingRoom({ mt }) {
       </div>
       <div className="glass sticky bottom-3 flex flex-wrap items-center justify-center gap-3 p-3">
         {media.stream ? <>
-          <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute' : 'Unmute'} icon="🎙️" offIcon="micoff" />
-          <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Stop video' : 'Start video'} icon="📷" offIcon="ban" />
+          <ControlButton on={media.mic} onClick={media.toggleMic} label={media.mic ? 'Mute' : 'Unmute'} icon="mic" offIcon="micoff" />
+          <ControlButton on={media.cam} onClick={media.toggleCam} label={media.cam ? 'Stop video' : 'Start video'} icon="camera" offIcon="cameraoff" />
         </> : <button className="btn btn-ghost" onClick={media.start}><Glyph value="video" tile={false} size={16} /> Enable camera & mic</button>}
-        <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing' : 'Share screen'} icon="🖥️" offIcon="⏹" />
-        <ControlButton danger onClick={leave} label="Leave meeting" icon="📞" />
+        <ControlButton on={!media.screen} onClick={media.shareScreen} label={media.screen ? 'Stop sharing' : 'Share screen'} icon="screen" offIcon="screenoff" />
+        <ControlButton danger onClick={leave} label="Leave meeting" icon="hangup" />
       </div>
       <p className="text-xs text-slate-500">{SIMULATED_NOTE}</p>
     </div>

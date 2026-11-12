@@ -874,3 +874,31 @@ The board was approved with B1–B5 (canvas page "v2 — Design system").
   - Restyling each screen onto the components (workstreams C–G).
   - The 1,617 hardcoded colour classes.
   - Emoji in the parked modules.
+
+### v2 — Emoji and confirm() cleanup in parked modules (built in parallel, 12 Nov 2026)
+
+Finishes B5 and the `confirmAction()` switch in the modules that are still switched off.
+
+- **Emoji:** the last 35 in parked modules are gone. The only emoji left in source is the `EMOJI_ICON` table in `icons.jsx`, which turns emoji stored in old data into icons.
+  - New icon names in `icons.jsx`: camera, cameraoff, screen, screenoff, hangup, speaker, slides, music, laugh, thanks, reply, external and ticket. Old reaction emoji (laugh, thanks, eyes) now map to icons.
+  - Live: the call buttons draw Lucide icons. Muted and speaking show as labelled icons.
+  - Channels: reactions are stored by icon name and shown as icon buttons with names ("React: Laugh", "Like: 2"). Older emoji reactions show their mapped icon. Start call, Add reaction and Reply in thread are icon buttons.
+  - Leaderboard: badges, praise badges and challenges are drawn with `<Icon>`. The top three ranks show a medal icon with the number. The "badge unlocked" notification no longer ends with the icon name.
+  - Files: file icons are icon names drawn with `<Icon>`, in the list and the viewer.
+  - Surveys: rating stars are icons with an accessible "3 stars" name.
+  - Ideas, Web tabs and Forums: the comment count, "Open in new tab" and category icons are now icons.
+- **Bugs fixed while doing this.** Several places printed an icon name as text, left over from workstream B's emoji-to-name change:
+  - `ControlButton` showed "micoff" on the call bar.
+  - The participant list showed "micoff".
+  - Reaction chips showed "like".
+  - Leaderboard badges showed "pen".
+  - Files showed "drafts".
+- **confirm():** all 22 browser `confirm()` calls in parked modules now use `await confirmAction(...)`, with the same wording. The channel "last member" question has no leading verb, so it names its button "Leave and delete" and is marked as dangerous.
+- **New test:** `server/test/source-rules.test.js` reads the source. It fails if any emoji appears outside the `EMOJI_ICON` table (in `src`, the seed, the server scripts, lib and routes) or if `src` calls the browser's `confirm()`. Both checks failed on `main` and pass here.
+- **Checked:**
+  - Build passes.
+  - The emoji scan shows emoji only in `src/components/icons.jsx`, and grep finds no browser `confirm(`.
+- **Not done here:**
+  - Not opened in the browser. The modules stay off, so the new icons, reaction buttons and dialogs are checked only by the build.
+  - Edge-case rows UX-02 and UX-07 cover every screen, so they stay "Not run".
+  - Characters outside the emoji range (arrows such as "←" and "↑", "✕", "■", "●", "☆", "＋") are still text in these modules.

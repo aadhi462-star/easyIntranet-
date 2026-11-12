@@ -1,11 +1,18 @@
-import { Glyph } from '../components/icons.jsx';
+import { Glyph, Icon } from '../components/icons.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useStore, uid, timeAgo, fmtDate } from '../lib/store.jsx';
 import { Avatar, AvatarStack, Empty, Field, Modal } from '../components/ui.jsx';
 import { PeoplePicker, useBlocks } from '../components/people/shared.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
-const REACTIONS = ['like', 'heart', '😂', 'party', '🙏', '👀'];
+// Reactions are stored by icon name; older messages may still carry an emoji key, which <Glyph>
+// maps to an icon (or a neutral shape) and the label falls back to "Reaction".
+const REACTIONS = [
+  { id: 'like', label: 'Like' }, { id: 'heart', label: 'Love' }, { id: 'laugh', label: 'Laugh' },
+  { id: 'party', label: 'Celebrate' }, { id: 'thanks', label: 'Thanks' }, { id: 'eye', label: 'Looking' },
+];
+const reactionLabel = (key) => REACTIONS.find((r) => r.id === key)?.label ?? 'Reaction';
 const MAX_BYTES = 30 * 1024 * 1024;
 
 export default function Channels() {
@@ -131,7 +138,7 @@ function Conversation({ kind, convo, title, onBack }) {
         <AvatarStack ids={convo.members} max={3} />
         <input className="input !w-40 !py-2" type="search" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search messages" />
         <button className={`btn min-h-11 ${showPins ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowPins(!showPins)} aria-pressed={showPins} aria-label="Pinned messages"><Glyph value="pinned" tile={false} size={16} /> {pinned.length}</button>
-        <Link to={`/live/meet-${convo.id}`} className="btn btn-ghost min-h-11" aria-label="Start call">📹</Link>
+        <Link to={`/live/meet-${convo.id}`} className="btn btn-ghost min-h-11" aria-label="Start call"><Icon name="video" size={18} /></Link>
         {kind === 'channel' && <button className="btn btn-ghost min-h-11" onClick={() => setSettings(true)} aria-label="Channel settings"><Glyph value="admin" tile={false} size={16} /></button>}
       </header>
 
@@ -144,7 +151,7 @@ function Conversation({ kind, convo, title, onBack }) {
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <ol className="flex-1 space-y-1 overflow-y-auto p-3 scroll-thin" aria-live="polite">
-            {!visible.length && <li className="p-8 text-center text-sm text-slate-500">{search ? 'No messages match your search.' : 'No messages yet. Say hello 👋'}</li>}
+            {!visible.length && <li className="p-8 text-center text-sm text-slate-500">{search ? 'No messages match your search.' : 'No messages yet. Say hello.'}</li>}
             {visible.map((m) => <Message key={m.id} m={m} replies={replies(m.id).length} onReact={react} onPin={() => patchMsg(m.id, (x) => ({ ...x, pinned: !x.pinned }))} onThread={() => setThreadId(m.id)} />)}
             <li ref={endRef} />
           </ol>
@@ -173,20 +180,20 @@ function Message({ m, replies, onReact, onPin, onThread, compact }) {
         {m.attachment && <span className="chip mt-1 !rounded-lg !py-1"><Glyph value="paperclip" tile={false} size={16} /> {m.attachment.name} <span className="opacity-60">{(m.attachment.size / 1024).toFixed(0)} KB</span></span>}
         <div className="mt-1 flex flex-wrap gap-1">
           {Object.entries(m.reactions || {}).map(([e, who]) => (
-            <button key={e} onClick={() => onReact(m.id, e)} aria-pressed={who.includes(me.id)} aria-label={`${e} ${who.length}`}
-              className={`rounded-full border px-2 py-0.5 text-xs ${who.includes(me.id) ? 'border-brand-500 bg-brand-500/20' : 'border-white/10'}`}>{e} {who.length}</button>
+            <button key={e} onClick={() => onReact(m.id, e)} aria-pressed={who.includes(me.id)} aria-label={`${reactionLabel(e)}: ${who.length}`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${who.includes(me.id) ? 'border-brand-500 bg-brand-500/20' : 'border-white/10'}`}><Glyph value={e} tile={false} size={14} /> {who.length}</button>
           ))}
           {!compact && replies > 0 && <button onClick={onThread} className="text-xs font-semibold text-brand-400 hover:underline">{replies} repl{replies > 1 ? 'ies' : 'y'}</button>}
         </div>
       </div>
       <div className="absolute right-2 top-1 hidden gap-1 rounded-lg bg-ink-800 p-1 shadow group-focus-within:flex group-hover:flex">
-        <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Add reaction" onClick={() => setPicker(!picker)}>😊</button>
-        {!compact && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Reply in thread" onClick={onThread}>↩</button>}
+        <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Add reaction" aria-expanded={picker} onClick={() => setPicker(!picker)}><Icon name="happy" size={16} className="mx-auto" /></button>
+        {!compact && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label="Reply in thread" onClick={onThread}><Icon name="reply" size={16} className="mx-auto" /></button>}
         {onPin && <button className="h-8 w-8 rounded hover:bg-white/10" aria-label={m.pinned ? 'Unpin' : 'Pin'} onClick={onPin}><Glyph value="pinned" tile={false} size={16} /></button>}
       </div>
       {picker && (
         <div className="absolute right-2 top-10 z-10 flex gap-1 rounded-xl bg-ink-800 p-1 shadow-lg ring-1 ring-white/10">
-          {REACTIONS.map((e) => <button key={e} className="h-9 w-9 rounded hover:bg-white/10" onClick={() => { onReact(m.id, e); setPicker(false); }} aria-label={`React ${e}`}>{e}</button>)}
+          {REACTIONS.map((r) => <button key={r.id} className="grid h-9 w-9 place-items-center rounded hover:bg-white/10" onClick={() => { onReact(m.id, r.id); setPicker(false); }} aria-label={`React: ${r.label}`} title={r.label}><Icon name={r.id} size={18} /></button>)}
         </div>
       )}
     </li>
@@ -306,11 +313,11 @@ function ChannelSettings({ channel, isAdmin, onClose, onGone }) {
   const [add, setAdd] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [leaveError, setLeaveError] = useState('');
-  const leave = () => {
+  const leave = async () => {
     const others = channel.members.filter((m) => m !== me.id);
     const otherAdmins = channel.admins.filter((a) => a !== me.id && others.includes(a));
     if (!others.length) {
-      if (!confirm(`You’re the last member. Leaving will delete #${channel.name} and its messages. Continue?`)) return;
+      if (!(await confirmAction({ title: `You’re the last member. Leaving will delete #${channel.name} and its messages. Continue?`, confirm: 'Leave and delete', danger: true }))) return;
     } else if (channel.admins.includes(me.id) && !otherAdmins.length) {
       setLeaveError('You’re the only admin. Make someone else an admin first.');
       return;

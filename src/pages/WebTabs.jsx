@@ -4,6 +4,7 @@ import { useStore } from '../lib/store.jsx';
 import { PageHeader } from '../components/ui.jsx';
 import WebTabList, { WebTabForm, WebTabFrame, visibleTab } from '../components/collab/WebTabList.jsx';
 import { Menu, ScopeBadge } from '../components/collab/common.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function WebTabs() {
   const { id } = useParams();
@@ -27,7 +28,7 @@ export default function WebTabs() {
       <PageHeader title={tab.name} subtitle={<ScopeBadge scope={tab.scope} groupId={tab.groupId} />}
         actions={mine && <Menu label="Web tab actions" items={[
           { label: 'Edit', onClick: () => setEdit(true) },
-          { label: 'Delete', danger: true, onClick: () => { if (confirm('Delete this web tab?')) { dispatch({ type: 'remove', col: 'webTabs', id: tab.id }); nav('/webtabs'); } } },
+          { label: 'Delete', danger: true, onClick: async () => { if (await confirmAction('Delete this web tab?')) { dispatch({ type: 'remove', col: 'webTabs', id: tab.id }); nav('/webtabs'); } } },
         ]} />} />
       <WebTabFrame tab={tab} />
       {edit && <WebTabForm tab={tab} onClose={() => setEdit(false)} />}

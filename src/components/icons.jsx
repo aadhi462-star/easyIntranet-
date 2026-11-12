@@ -5,13 +5,14 @@
 // No emoji is ever rendered: interface emoji left in older data (module icons, a community's old
 // emoji logo, reactions) map to an icon, and anything unmapped shows a neutral shape instead.
 import {
-  Ban, Bell, BellOff, BookOpen, Bookmark, Building2, Cake, Calendar, CalendarDays, ChartColumn, ChartLine, Check,
-  ChevronDown, ChevronUp, CircleDot, CircleHelp, ClipboardList, Clock, Code, Compass, Download, Ellipsis, Eye, EyeOff,
-  FileCheck, FilePen, FileText, Flag, Folder, Footprints, Frown, Gift, Globe, GraduationCap, Heart, House, IdCard, Image,
-  Inbox, Info, Lightbulb, Link, List, ListChecks, Lock, MapPin, Medal, Megaphone, Meh, Menu, MessageSquare, MessagesSquare,
-  Mic, MicOff, Monitor, Moon, Network, Newspaper, Palette, PartyPopper, Paperclip, Pencil, Pin, Plus, Puzzle, Radio, Repeat,
-  Search, Settings, Shapes, Share2, Shield, Smile, Sparkles, SquarePlus, Sprout, Star, Sun, Tag, ThumbsUp, TriangleAlert,
-  Trophy, User, Users, Video, Vote, X, Zap,
+  Ban, Bell, BellOff, BookOpen, Bookmark, Building2, Cake, Calendar, CalendarDays, Camera, CameraOff, ChartColumn, ChartLine,
+  Check, ChevronDown, ChevronUp, CircleDot, CircleHelp, ClipboardList, Clock, Code, Compass, Download, Ellipsis, ExternalLink,
+  Eye, EyeOff, FileCheck, FilePen, FileText, Flag, Folder, Footprints, Frown, Gift, Globe, GraduationCap, HandHeart, Heart,
+  House, IdCard, Image, Inbox, Info, Laugh, Lightbulb, Link, List, ListChecks, Lock, MapPin, Medal, Megaphone, Meh, Menu,
+  MessageSquare, MessagesSquare, Mic, MicOff, Monitor, Moon, Music, Network, Newspaper, Palette, PartyPopper, Paperclip,
+  Pencil, PhoneOff, Pin, Plus, Presentation, Puzzle, Radio, Repeat, Reply, ScreenShare, ScreenShareOff, Search, Settings,
+  Shapes, Share2, Shield, Smile, Sparkles, SquarePlus, Sprout, Star, Sun, Tag, ThumbsUp, Ticket, TriangleAlert, Trophy, User,
+  Users, Video, Volume2, Vote, X, Zap,
 } from 'lucide-react';
 
 const ICONS = {
@@ -29,6 +30,9 @@ const ICONS = {
   // v2 additions
   info: Info, heart: Heart, like: ThumbsUp, happy: Smile, neutral: Meh, sad: Frown, cake: Cake, party: PartyPopper,
   video: Video, place: MapPin, image: Image, gift: Gift, repeat: Repeat, vote: Vote, shape: Shapes,
+  // parked modules (calls, files, reactions, arcade)
+  camera: Camera, cameraoff: CameraOff, screen: ScreenShare, screenoff: ScreenShareOff, hangup: PhoneOff, speaker: Volume2,
+  slides: Presentation, music: Music, laugh: Laugh, thanks: HandHeart, reply: Reply, external: ExternalLink, ticket: Ticket,
 };
 
 /** Interface emoji still found in older data → icon name. */
@@ -45,6 +49,7 @@ const EMOJI_ICON = {
   '🎓': 'cap', '⏳': 'clock', '✎': 'pen', '⭐': 'star', '📍': 'place', '🗳️': 'vote', '📈': 'chart', '🔥': 'sparkle', '🧭': 'explore',
   '🤍': 'heart', '❤️': 'heart', '👍': 'like', '😊': 'happy', '😐': 'neutral', '😞': 'sad', '🎂': 'cake', '🏢': 'wall', '🚫': 'ban',
   '🔁': 'repeat', '🖼️': 'image', '🎁': 'gift', 'ℹ️': 'info', '🗒️': 'drafts', '📚': 'manuals', '🧑‍💼': 'user', '🌟': 'star',
+  '😂': 'laugh', '🙏': 'thanks', '🙌': 'thanks', '👀': 'eye',
 };
 
 export const ICON_NAMES = Object.keys(ICONS);

@@ -6,6 +6,7 @@ import { PageHeader } from '../components/ui.jsx';
 import ForumList from '../components/collab/ForumList.jsx';
 import { CategoryModal, ForumPostView } from '../components/collab/forum.jsx';
 import { canSeeGroupItem } from '../components/collab/common.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 export default function Forums() {
   const { id } = useParams();
@@ -67,8 +68,8 @@ export default function Forums() {
                   </button>
                   {can('forum.category') && <button className="btn btn-ghost" onClick={() => setCatModal(category)}>Edit</button>}
                   {can('forum.category') && (
-                    <button className="btn btn-ghost text-rose-300" onClick={() => {
-                      if (!confirm(`Delete the “${category.name}” category? Posts stay but lose this category.`)) return;
+                    <button className="btn btn-ghost text-rose-300" onClick={async () => {
+                      if (!(await confirmAction(`Delete the “${category.name}” category? Posts stay but lose this category.`))) return;
                       dispatch({ type: 'remove', col: 'forumCategories', id: category.id });
                       nav('/forums');
                     }}>Delete</button>

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useStore, fmtDate, timeAgo, uid } from '../../lib/store.jsx';
 import { Avatar, Field, Modal, Tabs, UserLink } from '../ui.jsx';
 import { Menu, OptionsInput, Select, UserPicker, fromDateInput, myGroups, toDateInput } from './common.jsx';
+import { confirmAction } from '../ui/Confirm.jsx';
 
 const PRIORITIES = [['none', 'No priority'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['urgent', 'Urgent']];
 const PRIO_CLS = { low: 'text-leaf-300', medium: 'text-amber-300', high: 'text-orange-300', urgent: 'text-rose-300' };
@@ -77,9 +78,9 @@ export function BoardForm({ board, groupId, onClose, onCreated }) {
                 <label className="flex shrink-0 items-center gap-1 text-xs"><input type="checkbox" checked={!!s.done} onChange={(e) => setSection(i, { done: e.target.checked })} /> Done</label>
                 <button type="button" className="btn btn-ghost h-10 w-10 !p-0" aria-label="Move up" disabled={!i} onClick={() => { const a = [...f.sections]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; set('sections', a); }}>↑</button>
                 <button type="button" className="btn btn-ghost h-10 w-10 !p-0 text-rose-300" aria-label="Remove section" disabled={f.sections.length < 2}
-                  onClick={() => {
+                  onClick={async () => {
                     const n = boardTasks.filter((t) => t.status === s.id).length;
-                    if (n && !confirm(`Remove “${s.name}”? Its ${n} task${n === 1 ? '' : 's'} will move to the first section when you save.`)) return;
+                    if (n && !(await confirmAction(`Remove “${s.name}”? Its ${n} task${n === 1 ? '' : 's'} will move to the first section when you save.`))) return;
                     set('sections', f.sections.filter((_, j) => j !== i));
                   }}>✕</button>
               </div>
@@ -256,7 +257,7 @@ export function TaskModal({ board, task, defaultSection, onClose, canEdit = true
         </fieldset>
         {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
         {canEdit && <div className="flex justify-between gap-2">
-          {task ? <button type="button" className="btn btn-ghost text-rose-300" onClick={() => { if (confirm('Delete this task?')) { dispatch({ type: 'remove', col: 'tasks', id: task.id }); onClose(); } }}>Delete</button> : <span />}
+          {task ? <button type="button" className="btn btn-ghost text-rose-300" onClick={async () => { if (await confirmAction('Delete this task?')) { dispatch({ type: 'remove', col: 'tasks', id: task.id }); onClose(); } }}>Delete</button> : <span />}
           <button className="btn btn-primary">{task ? 'Save task' : 'Create task'}</button>
         </div>}
       </form>
@@ -335,8 +336,8 @@ export function BoardView({ board }) {
           {canEdit && <button className="btn btn-primary" onClick={() => setOpen({ new: board.sections[0].id })}>＋ Task</button>}
           {canEdit && <Menu label="Board actions" items={[
             { label: 'Board settings', onClick: () => setSettings(true) },
-            { label: 'Delete board', danger: true, hidden: board.ownerId !== me.id && !me.admin, onClick: () => {
-              if (!confirm(`Delete “${board.name}” and its ${tasks.length} tasks?`)) return;
+            { label: 'Delete board', danger: true, hidden: board.ownerId !== me.id && !me.admin, onClick: async () => {
+              if (!(await confirmAction(`Delete “${board.name}” and its ${tasks.length} tasks?`))) return;
               tasks.forEach((t) => dispatch({ type: 'remove', col: 'tasks', id: t.id, silent: true }));
               dispatch({ type: 'remove', col: 'boards', id: board.id });
             } },

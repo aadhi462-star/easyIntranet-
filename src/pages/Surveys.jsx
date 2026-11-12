@@ -1,9 +1,10 @@
-import { Glyph } from '../components/icons.jsx';
+import { Glyph, Icon } from '../components/icons.jsx';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore, uid, fmtDate, timeAgo } from '../lib/store.jsx';
 import { Empty, Field, Modal, PageHeader, Tabs } from '../components/ui.jsx';
 import { downloadCsv } from '../components/people/shared.jsx';
+import { confirmAction } from '../components/ui/Confirm.jsx';
 
 const TYPES = [
   ['single', 'Single choice'], ['multi', 'Multiple choice'], ['rating', 'Rating (1–5)'],
@@ -181,10 +182,10 @@ function SurveyDetail({ id }) {
       <PageHeader title={s.title} subtitle={`${s.description ? `${s.description} · ` : ''}by ${user(s.authorId)?.name ?? 'Unknown'} · ${responses.length} responses`}
         actions={isOwner && <>
           {s.status === 'draft' && <button className="btn btn-primary min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'active' } })}>Publish</button>}
-          {open && <button className="btn btn-ghost min-h-11" onClick={() => { if (confirm('Close this survey to new responses?')) dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'closed' } }); }}>Close survey</button>}
+          {open && <button className="btn btn-ghost min-h-11" onClick={async () => { if (await confirmAction('Close this survey to new responses?')) dispatch({ type: 'update', col: 'surveys', id, patch: { status: 'closed' } }); }}>Close survey</button>}
           {!open && s.status !== 'draft' && <button className="btn btn-ghost min-h-11" onClick={() => dispatch({ type: 'update', col: 'surveys', id, patch: (x) => ({ ...x, status: 'active', deadline: x.deadline && x.deadline > Date.now() ? x.deadline : Date.now() + 7 * 86400e3 }) })}>Reopen</button>}
           <button className="btn btn-ghost min-h-11" onClick={exportCsv} disabled={!responses.length}>Export CSV</button>
-          <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={() => { if (confirm('Delete this survey and its responses?')) { responses.forEach((r) => dispatch({ type: 'remove', col: 'surveyResponses', id: r.id, silent: true })); dispatch({ type: 'remove', col: 'surveys', id }); nav('/surveys'); } }}>Delete</button>
+          <button className="btn min-h-11 bg-rose-500/20 text-rose-200" onClick={async () => { if (await confirmAction('Delete this survey and its responses?')) { responses.forEach((r) => dispatch({ type: 'remove', col: 'surveyResponses', id: r.id, silent: true })); dispatch({ type: 'remove', col: 'surveys', id }); nav('/surveys'); } }}>Delete</button>
         </>} />
       <div className="mb-4 flex flex-wrap gap-1.5 text-xs">
         <span className="chip">{s.status === 'draft' ? 'Draft' : open ? 'Active' : 'Closed'}</span>
@@ -230,8 +231,9 @@ function Respond({ survey, onDone }) {
               <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={q.text}>
                 {(q.type === 'rating' ? [1, 2, 3, 4, 5] : [...Array(11).keys()]).map((n) => (
                   <button type="button" key={n} role="radio" aria-checked={answers[q.id] === n} onClick={() => set(q.id, n)}
-                    className={`h-11 min-w-11 rounded-xl border text-sm font-semibold ${answers[q.id] === n ? 'border-brand-500 bg-brand-500 text-white' : 'border-white/10 hover:bg-white/5'}`}>
-                    {q.type === 'rating' ? '★'.repeat(n) : n}
+                    aria-label={q.type === 'rating' ? `${n} star${n > 1 ? 's' : ''}` : undefined}
+                    className={`inline-flex h-11 min-w-11 items-center justify-center gap-0.5 rounded-xl border px-2 text-sm font-semibold ${answers[q.id] === n ? 'border-brand-500 bg-brand-500 text-white' : 'border-white/10 hover:bg-white/5'}`}>
+                    {q.type === 'rating' ? [...Array(n)].map((_, i) => <Icon key={i} name="star" size={14} />) : n}
                   </button>
                 ))}
                 {q.type === 'nps' && <div className="mt-1 flex w-full justify-between text-xs text-slate-500"><span>Not likely</span><span>Very likely</span></div>}
@@ -273,7 +275,7 @@ function Results({ survey, responses }) {
               {hasOptions(q.type) && q.options.map((o) => <Bar key={o} label={o} n={vals.filter((v) => (Array.isArray(v) ? v.includes(o) : v === o)).length} total={vals.length} />)}
               {q.type === 'rating' && <>
                 <p className="text-2xl font-extrabold">{(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)} <span className="text-base font-normal text-amber-300">average</span></p>
-                {[5, 4, 3, 2, 1].map((n) => <Bar key={n} label={`${n} ★`} n={vals.filter((v) => v === n).length} total={vals.length} />)}
+                {[5, 4, 3, 2, 1].map((n) => <Bar key={n} label={`${n} star${n > 1 ? 's' : ''}`} n={vals.filter((v) => v === n).length} total={vals.length} />)}
               </>}
               {q.type === 'nps' && <Nps vals={vals} />}
               {(q.type === 'short' || q.type === 'long') && (
