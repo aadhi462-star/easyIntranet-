@@ -874,3 +874,34 @@ The board was approved with B1–B5 (canvas page "v2 — Design system").
   - Restyling each screen onto the components (workstreams C–G).
   - The 1,617 hardcoded colour classes.
   - Emoji in the parked modules.
+
+### v2 — Community branding and enabled sections (server) (built in parallel, 12 Nov 2026)
+
+Server only, on branch `v2-e-branding` (PROPOSAL_V2 §3.2 and §9; MASTER_BRIEF_V2 Part 2.2 and 10).
+
+- **Logo and cover.**
+  - `017_branding.sql` adds `logo_file_id` and `cover_file_id` to communities. Both reference `files` and are set to null if the file row is removed.
+  - Owners and Admins upload with the existing store (`POST /communities/:id/files`), then choose the picture with `PATCH /communities/:id/branding` `{ logoFileId, coverFileId, accent }` (`server/routes/branding.js`). Only images in that community's own store are accepted, and not a file already used by a resource or a post (so deleting those can't take the logo with it). `null` clears a picture. Each change is audited (`community.branding`, with from/to) and bumps the community's `version`.
+  - `GET /communities/:id/logo` and `/cover` serve the picture with the visibility of the community's card. Signed-out visitors get them for active Public and Private communities. Signed-in people go through `access()`: Closed ones only for members, suspended ones only for their own staff, deleted ones for nobody. Headers: `private, max-age=60`, `nosniff`, a sandbox CSP.
+  - `logoUrl` / `coverUrl` (`brandingUrls()` in `lib/community.js`) are in `publicCommunity()` and in every list that returns communities: `/communities`, `/public/communities`, search, Home (`/dashboard` communities and suggestions), and Platform Admin (overview, user detail, communities list). The file id is in the address, so a new picture never shows a cached old one.
+- **Accent.** Owners and Admins choose one of the six community accents (`ACCENTS`). Anything else is `400 INVALID_ACCENT`.
+- **Enabled sections.** `settings.apps` is now enforced on the server (`sectionOn`, `sectionsOf`, `requireSection` in `lib/community.js`).
+  - The sections are Discussions, Events, Resources and Learning. Overview, Members and About always show.
+  - A community with no stored list has every section on, which is how AlumniZone and every seeded community behave (none of them stores a list).
+  - Lists saved by the older settings screens use the prototype's names: `feed`/`forums` mean Discussions, `files`/`manuals` mean Resources. Those screens never offered Learning, so a list in only the older names leaves Learning on.
+  - When a section is off, members get `404 SECTION_OFF` from its list and its items. Moderators, Admins and Owners (and admin mode) can still read them. Nobody can add to the section or change it (`409 SECTION_OFF` for staff) until it's switched back on. Moderators can still remove posts and admins can still delete resources. Nothing is deleted.
+  - Enforced on: posts (create, the community's discussion list, open, reply, react, vote, acknowledge, edit), events (list, open, create, edit, cancel, RSVP, comment), resources (list, add, edit), and learning (catalogue, courses, lessons, enrolment, progress, quizzes and assignments, all through `loadCourse`).
+  - Home's feed, Home's post cards, the calendar and Home's events, search's posts, and the public cards' upcoming events leave out a community whose section is off.
+  - `GET /communities/:id` now returns `sections: { discussions, events, resources, learning }` for the client. Staff still get `settings` (and the stored list) for Manage.
+- **Checked:**
+  - New `server/test/branding.test.js`: 17 tests pass. They cover: upload and set the logo and cover; clear; a refused upload or a non-image keeps the previous logo (COM-04); another community's file refused; a resource's file refused; members and moderators can't change branding; a Closed logo hidden from signed-in outsiders and visitors (VIS-04); signed-out visitors see a Public logo from public discovery; suspended and deleted communities; a removed file clears the logo; accent validation and audit; the version bump; each section off (Events, Discussions, Resources, Learning) refusing writes and lists for members while staff still read; no stored list means everything is on; the older names; switching through `PATCH /communities/:id`.
+  - Also run, one file at a time, all passing: communities 37, stage4 26, events 21, learning 13, core 19, public 6, assessment 20, moderation 20, platform 24, admin 12. With branding that's 215 tests.
+  - `public.test.js` VIS-01/11 checks exactly which keys a public card has, so `logoUrl` and `coverUrl` were added to its list on purpose. It failed until then.
+  - `assessment.test.js` stalled once (the known idle-child stall; killed after 400 s) and passed 20/20 when run again.
+  - Emoji scan: no new emoji. Everything it lists was already in parked modules and `icons.jsx`.
+- **Not done here:**
+  - The client: the upload and crop screen, the header with cover and logo, the accent picker, and section switches in Manage. Manage → Settings still uses the old app list (`components/groups/helpers.js` `APPS`), which the server maps as described above. The community page doesn't yet hide tabs for sections that are off.
+  - Replacing or clearing a logo leaves the old file in the store (it isn't deleted), so it can be chosen again.
+  - Background jobs still run for a switched-off section: event reminders and scheduled posts. Notifications already sent still link to the content.
+  - Members is not a switchable section on the server. The older form always keeps it on.
+  - **Your decision:** with Discussions off, admins can't post announcements either (announcements are posts). Should announcements stay available when Discussions is off?

@@ -45,7 +45,8 @@ describe('public discovery', () => {
   test('VIS-01/11 cards carry public metadata and a count, never members or content', async () => {
     const body = await list();
     const pri = body.communities.find((c) => c.id === 'pri');
-    assert.deepEqual(Object.keys(pri).sort(), ['accent', 'category', 'description', 'id', 'memberCount', 'name', 'slug', 'upcomingEvents', 'visibility']);
+    // logoUrl/coverUrl: a Private card shows its logo and cover (v2 workstream E).
+    assert.deepEqual(Object.keys(pri).sort(), ['accent', 'category', 'coverUrl', 'description', 'id', 'logoUrl', 'memberCount', 'name', 'slug', 'upcomingEvents', 'visibility']);
     assert.deepEqual(pri.upcomingEvents, [], 'a Private community’s events stay private');
     assert.ok(!JSON.stringify(body).includes('@'), 'no email addresses');
     assert.equal(body.communities.find((c) => c.id === 'pub').memberCount, 2, 'suspended accounts aren’t counted');
